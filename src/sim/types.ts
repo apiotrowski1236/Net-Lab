@@ -3,6 +3,8 @@ import type { DnsResolver } from './dns';
 import type { Burst } from './burst';
 import type { SwitchSec } from './switchsec';
 import type { WifiAp, WifiClient } from './wifi';
+import type { FirewallState, FwDir, FwVerdict } from './firewall';
+import type { Conn, Scan, Service } from './services';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -14,8 +16,9 @@ import type { WifiAp, WifiClient } from './wifi';
  *  - router: forwards IP packets between networks; may speak BGP.
  *  - switch: learns which MAC lives on which port and forwards only there.
  *  - hub:    repeats every frame out every port (also models open Wi-Fi: radio reaches everyone).
+ *  - firewall: a standalone two-port firewall. Passes frames between its ports like a cable, but checks each IP packet against its rules (see firewall.ts).
  */
-export type DeviceKind = 'host' | 'router' | 'switch' | 'hub';
+export type DeviceKind = 'host' | 'router' | 'switch' | 'hub' | 'firewall';
 
 export type DeviceIcon =
   | 'laptop'
@@ -165,6 +168,14 @@ export interface Device {
   wifi?: WifiAp;
   /** Wi-Fi client settings, when this device joins wireless networks (see src/sim/wifi.ts). */
   wifiClient?: WifiClient;
+  /** Programs answering on ports (see services.ts). A web site and a DNS zone answer without being listed. */
+  services?: Service[];
+  /** Connections this device started with Sim.connectService (newest last). */
+  conns?: Conn[];
+  /** Port scans this device ran with Sim.scan (newest last). */
+  scans?: Scan[];
+  /** Firewall rules and state, on a router or a 'firewall' device (see firewall.ts). */
+  firewall?: FirewallState;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +221,13 @@ export type AppData =
       certName: string | null;
     }
   | { kind: 'dns-query'; name: string; qid: number }
-  | { kind: 'dns-answer'; name: string; ip: Ip | null; qid: number };
+  | { kind: 'dns-answer'; name: string; ip: Ip | null; qid: number }
+  /**
+   * A connection to a service on a port (see services.ts). `app` is the program
+   * really speaking. A reply says whether a service answered ('open') or nothing
+   * listens there ('closed'). `conn` is 0 on a packet that belongs to no real connection.
+   */
+  | { kind: 'svc'; conn: number; app: string; reply: boolean; status?: 'open' | 'closed'; text?: string };
 
 export interface IpPacket {
   src: Ip;
@@ -292,7 +309,9 @@ export type DropReason =
   /** The switch port is shut down (by an admin, or by port security). */
   | 'port-shutdown'
   /** Port security refused the frame's source MAC. */
-  | 'port-security';
+  | 'port-security'
+  /** A firewall's rules denied the packet (the 'firewall' event just before says which rule). */
+  | 'firewall';
 
 export type SimEvent = (
   | { t: number; type: 'captured'; device: string; no: number; frame: Frame }
@@ -334,7 +353,15 @@ export type SimEvent = (
       detail?: string;
     }
   /** A device wrote a log line (see Sim.log). */
-  | { t: number; type: 'log'; device: string; entry: LogEntry }) & {
+  | { t: number; type: 'log'; device: string; entry: LogEntry }
+  /** A firewall checked a packet (see firewall.ts). */
+  | { t: number; type: 'firewall'; device: string; dir: FwDir; verdict: FwVerdict; pkt: IpPacket }
+  /** A connection started with Sim.connectService ended (it's also in the client's Device.conns). */
+  | { t: number; type: 'conn-result'; device: string; conn: Conn }
+  /** A port scan finished: every probe answered or timed out. */
+  | { t: number; type: 'scan-done'; device: string; scan: Scan }
+  /** A reply nobody asked for reached `device` (a forged reply, for example). The device ignores it. */
+  | { t: number; type: 'stray-reply'; device: string; pkt: IpPacket }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */
   quiet?: boolean;
 };

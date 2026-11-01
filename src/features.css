@@ -1392,4 +1392,115 @@
 }
 .triangulate-spots .btn.on {
   outline: 2px solid var(--good);
+
+/* ---------------------------------------------------------------------------
+   Firewall Rulebook (firewall): port scanner, firewall placement, rule editor
+   --------------------------------------------------------------------------- */
+.scan-result {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.scan-result > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.scan-table {
+  margin-top: 6px;
+}
+.scan-table td {
+  vertical-align: middle;
+}
+.port-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.port-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 12.5px;
+}
+.scan-note {
+  margin: 6px 0 2px;
+}
+.conn-log {
+  margin-top: 8px;
+}
+.place-row {
+  padding: 6px 0;
+  border-top: 1px solid var(--line-2);
+}
+.place-row:first-of-type {
+  border-top: 0;
+}
+.place-row .sentence {
+  margin-bottom: 4px;
+}
+.place-row .callout {
+  margin: 4px 0 0;
+}
+.fw-dir-note {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+.fw-mode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.fw-mode > .muted {
+  flex-basis: 100%;
+}
+.fw-table-wrap {
+  overflow-x: auto;
+}
+.fw-table td {
+  vertical-align: top;
+}
+.fw-table .fw-note {
+  margin-top: 2px;
+  max-width: 16rem;
+}
+.fw-table tr.editing td {
+  background: var(--brand-soft);
+}
+.fw-table tr.fw-implicit td {
+  color: var(--muted);
+  border-top: 2px dashed var(--line-strong);
+}
+.fw-actions {
+  white-space: nowrap;
+}
+.fw-actions .btn + .btn {
+  margin-left: 2px;
+}
+.fw-add {
+  margin-top: 8px;
+}
+.fw-form {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--brand-line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.fw-form-title {
+  font-weight: 700;
+  font-size: 13.5px;
+  margin-bottom: 8px;
+}
+.fw-form .sentence {
+  margin-bottom: 8px;
+}
+.fw-conns {
+  margin-top: 14px;
 }

@@ -31,6 +31,7 @@ const KIND_TEXT: Record<Device['kind'], string> = {
   router: 'Router',
   switch: 'Switch',
   hub: 'Hub',
+  firewall: 'Firewall',
 };
 
 function nextHopText(sim: Sim, dev: Device, r: Route, ports: boolean): string {

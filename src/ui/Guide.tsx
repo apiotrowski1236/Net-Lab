@@ -26,6 +26,9 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'wifi-scan': 'Wi-Fi scanner',
   'wifi-crack': 'Wi-Fi cracker',
   triangulate: 'Signal triangulation',
+  'port-scan': 'Port scanner',
+  'firewall-place': 'Place firewalls',
+  'firewall-rules': 'Firewall rules (in the inspector)',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {

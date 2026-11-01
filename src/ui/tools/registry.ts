@@ -9,6 +9,9 @@ import { PortSecurityCard } from './PortSecurityCard';
 import { WifiScanner } from './WifiScanner';
 import { WifiCracker } from './WifiCracker';
 import { Triangulate } from './Triangulate';
+import { FirewallPlaceTool } from './FirewallPlace';
+import { FirewallRulesTool } from './FirewallRules';
+import { PortScanTool } from './PortScan';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -34,4 +37,8 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   'wifi-scan': WifiScanner,
   'wifi-crack': WifiCracker,
   triangulate: Triangulate,
+  // firewall
+  'port-scan': PortScanTool,
+  'firewall-place': FirewallPlaceTool,
+  'firewall-rules': FirewallRulesTool,
 };

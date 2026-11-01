@@ -3,6 +3,8 @@ import { newResolver } from './dns';
 import { hashMac, Sim, type SimOptions } from './sim';
 import type { Device, DeviceIcon, DeviceKind, Iface, WebSite } from './types';
 import type { WifiAp, WifiClient } from './wifi';
+import { newFirewall, type FwMode, type FwRuleInput } from './firewall';
+import type { Service } from './services';
 
 /**
  * Friendly builder for lab scenarios.
@@ -38,6 +40,13 @@ export interface HostOpts extends Placed {
   resolver?: { upstream: Ip; ttl?: number };
   /** Makes this computer a Wi-Fi client (wireless lab): it joins a network by name. */
   wifiClient?: WifiClient;
+  /** Programs answering on ports (SSH on 22, file sharing on 445, ...). See services.ts. */
+  services?: Service[];
+}
+
+export interface FirewallOpts extends Placed {
+  mode?: FwMode;
+  rules?: FwRuleInput[];
 }
 
 export interface RouterOpts extends Placed {
@@ -111,6 +120,7 @@ export class NetBuilder {
     d.dnsZone = o.dnsZone;
     if (o.resolver) d.resolver = newResolver(o.resolver.upstream, o.resolver.ttl ?? 60_000);
     d.wifiClient = o.wifiClient;
+    if (o.services) d.services = o.services.map((x) => ({ ...x }));
     if (o.gateway) (this.staticRoutes[id] ??= []).push({ prefix: '0.0.0.0/0', via: o.gateway, iface: 'eth0' });
     this.sim.devices[id] = d;
     return this;
@@ -143,6 +153,19 @@ export class NetBuilder {
   hub(id: string, o: L2Opts): this {
     const d = this.ports(blank(id, 'hub', o, 'hub'), o.ports);
     d.wifi = o.wifi;
+    this.sim.devices[id] = d;
+    return this;
+  }
+
+  /**
+   * A standalone firewall with two ports, 'outside' and 'inside', and no IP
+   * addresses. Link it into place, or leave it unplugged and let the lab put it
+   * into a cable with sim.placeFirewall. See firewall.ts.
+   */
+  firewall(id: string, o: FirewallOpts): this {
+    const d = blank(id, 'firewall', o, 'firewall');
+    for (const p of ['outside', 'inside']) d.ifaces.push({ id: p, mac: hashMac(`${id}/${p}`) });
+    d.firewall = newFirewall('outside', o.mode, o.rules);
     this.sim.devices[id] = d;
     return this;
   }
@@ -192,7 +215,7 @@ export class NetBuilder {
   build(): Sim {
     const sim = this.sim;
     for (const dev of Object.values(sim.devices)) {
-      if (dev.kind === 'hub' || dev.kind === 'switch') continue;
+      if (dev.kind === 'hub' || dev.kind === 'switch' || dev.kind === 'firewall') continue;
       dev.routes = [...sim.connectedRoutes(dev), ...(this.staticRoutes[dev.id] ?? []).map((r) => ({ ...r, source: 'static' as const }))];
     }
     // BGP neighbors: directly linked routers that both have an ASN.

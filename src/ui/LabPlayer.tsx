@@ -8,7 +8,7 @@ import { getProgress } from '../store/progress';
 import { buildReport } from '../store/report';
 import { flushSaves } from '../store/storage';
 import { CaptureView, Inspector, Toolkit } from './Dock';
-import { FORGED_COLOR, PROTO_BLURB, PROTO_COLOR, type Proto } from './describe';
+import { extraProtos, FORGED_COLOR, PROTO_BLURB, PROTO_COLOR, type Proto } from './describe';
 import { Icon } from './icons';
 import { LessonPanel } from './Lesson';
 import { logDevices, LogsView } from './LogsView';
@@ -109,7 +109,7 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
   // Focus rings point at what to work on: they go once the step's goals are done.
   const goalsLeft = (session.step.goals ?? []).some((g) => !session.goalDone(session.step.id, g.id));
   const canReplay = session.canReplay();
-  const protos: Proto[] = ['ARP', 'HTTP', 'HTTPS', 'DNS', 'ROUTE', 'PING', 'ETH'];
+  const protos: Proto[] = ['ARP', 'HTTP', 'HTTPS', 'DNS', 'ROUTE', 'PING', 'ETH', ...extraProtos(session.sim)];
   return (
     <div class={`stage ${replay ? 'replaying' : ''}`}>
       <div class="stage-bar">

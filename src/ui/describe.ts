@@ -1,7 +1,12 @@
 import type { Sim } from '../sim/sim';
 import type { Frame, SimEvent } from '../sim/types';
+import { appName, portLabel } from '../sim/services';
+import { fwDenyText } from './firewallText';
 
-export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'ETH';
+export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH';
+
+/** Pill for a connection to a service (services.ts), by the program really inside. */
+const SVC_PROTO: Record<string, Proto> = { https: 'HTTPS', http: 'HTTP', ssh: 'SSH', smb: 'SMB', dns: 'DNS' };
 
 export function protoOf(f: Frame): Proto {
   if (f.arp) return 'ARP';
@@ -11,6 +16,7 @@ export function protoOf(f: Frame): Proto {
   const ip = f.ip;
   if (ip.app.kind === 'ping') return 'PING';
   if (ip.app.kind === 'dns-query' || ip.app.kind === 'dns-answer') return 'DNS';
+  if (ip.app.kind === 'svc') return SVC_PROTO[ip.app.app] ?? 'TCP';
   return ip.encrypted ? 'HTTPS' : 'HTTP';
 }
 
@@ -26,6 +32,9 @@ export const PROTO_COLOR: Record<Proto, string> = {
   PING: '#64748b',
   ROUTE: '#be185d',
   ETH: '#0e7490',
+  SSH: '#155e75',
+  SMB: '#4d7c0f',
+  TCP: '#7c2d12',
 };
 
 /** Fill for forged ("FAKE") packets. White text, 4.8:1. */
@@ -56,7 +65,15 @@ export const PROTO_BLURB: Record<Proto, string> = {
   PING: 'Ping: "Are you there?" / "Yes!"',
   ROUTE: 'Route announcement: one network telling its neighbor which addresses it can reach.',
   ETH: 'Ethernet frame with nothing inside. A stack marked "×20" stands for 20 frames.',
+  SSH: 'SSH: an administrator logging in to a computer from far away (encrypted).',
+  SMB: 'SMB: Windows file sharing, for opening shared folders.',
+  TCP: 'Other TCP traffic: a program talking to a service on some port.',
 };
+
+/** Packet colors the legend adds for labs whose hosts run services (services.ts). */
+export function extraProtos(sim: Sim): Proto[] {
+  return Object.values(sim.devices).some((d) => d.services?.length) ? ['SSH', 'SMB', 'TCP'] : [];
+}
 
 /** Fake ciphertext so encrypted packets look like gibberish (deterministic per frame). */
 export function gibberish(seed: number, len = 48): string {
@@ -112,6 +129,11 @@ function infoOfOne(f: Frame): string {
       return `Query: ${ip.app.name}`;
     case 'dns-answer':
       return `Answer: ${ip.app.name} = ${ip.app.ip ?? 'not found'}`;
+    case 'svc': {
+      const port = portLabel((ip.app.reply ? ip.srcPort : ip.dstPort) ?? 0, ip.proto === 'udp' ? 'udp' : 'tcp');
+      if (!ip.app.reply) return `Connect to port ${port}${ip.app.text ? `: ${ip.app.text}` : ''}`;
+      return ip.app.status === 'closed' ? `Port ${port} closed` : `Port ${port} open${ip.app.text ? `: ${ip.app.text}` : ''}`;
+    }
   }
 }
 
@@ -247,6 +269,18 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
     case 'dns-answer':
       layers.push({ title: 'DNS answer', color: LAYER_COLOR.DNS, rows: [['Name', app.name], ['IP address', app.ip ?? 'not found']] });
       break;
+    case 'svc':
+      layers.push({
+        title: `${appName(app.app)} ${app.reply ? 'reply' : 'request'}`,
+        color: LAYER_COLOR.transport,
+        rows: [
+          ['Program', appName(app.app)],
+          ...(app.reply ? ([['Answer', app.status === 'closed' ? 'Nothing listens on this port' : 'Service answered']] as [string, string][]) : []),
+          ...(ip.encrypted ? ([['Data', 'encrypted']] as [string, string][]) : app.text ? ([['Data', app.text]] as [string, string][]) : []),
+        ],
+        note: app.reply && !app.conn ? 'A reply that answers nothing anyone asked for.' : undefined,
+      });
+      break;
   }
   return layers;
 }
@@ -290,6 +324,8 @@ export function pingFailText(sim: Sim, e: Extract<SimEvent, { type: 'ping-fail' 
       return `${at} has the port this computer is plugged into shut down, so it dropped the packet.`;
     case 'port-security':
       return `${at}'s port security does not allow this computer's MAC address on that port, so it dropped the packet.`;
+    case 'firewall':
+      return fwDenyText(sim, e.at, e.t);
     default:
       return `Dropped at ${at}.`;
   }

@@ -2,6 +2,7 @@ import type { SimAction } from '../runtime/actions';
 import { checkAddress, checkCable, checkForge, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, checkWifiPassphrase, type Checked } from '../runtime/toolInput';
 import { checkNewMac, checkPortSecurity } from '../runtime/switchInput';
 import type { LabSession } from '../runtime/session';
+import { checkRule, checkScanTarget, ruleDraft } from '../runtime/firewallInput';
 import type { Frame, LogEntry } from '../sim/types';
 import { isEncrypted, isPlainLogin } from './helpers';
 import type { ChoiceQuestion } from './types';
@@ -102,6 +103,15 @@ function assertTypable(s: LabSession, a: SimAction): void {
       break;
     case 'wifi-passphrase':
       r = checkWifiPassphrase(sim, a.device, a.passphrase);
+      break;
+    case 'fw-add-rule':
+      r = checkRule(sim, a.device, ruleDraft(a.rule));
+      break;
+    case 'fw-edit-rule':
+      r = checkRule(sim, a.device, ruleDraft(a.rule), a.id);
+      break;
+    case 'scan':
+      r = checkScanTarget(sim, a.device, a.target);
       break;
     default:
       r = { ok: true };

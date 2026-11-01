@@ -7,6 +7,8 @@ import { DnsCache } from './DnsCache';
 import { DnsZone } from './DnsZone';
 import { SwitchPorts } from './SwitchPorts';
 import { wifiSettingsSection } from './WifiSettings';
+import { FirewallRulesSection } from './FirewallRules';
+import { ServicesSection } from './Services';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -39,4 +41,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'switch-ports', slot: 'settings', Section: SwitchPorts },
   // wireless
   wifiSettingsSection,
+  // firewall
+  { id: 'services', slot: 'settings', Section: ServicesSection },
+  { id: 'firewall-rules', slot: 'settings', Section: FirewallRulesSection },
 ];
