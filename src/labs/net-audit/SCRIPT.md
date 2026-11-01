@@ -24,6 +24,8 @@ The plan is followed, with these changes (PLAN.md updated to match):
    logging in with the default credentials confirms the Telnet finding (plaintext
    password) and the default-password finding at the same time.
 
+**Orchestrator edit:** the scanner's severities use the course's words (high, moderate, low) instead of Critical and Medium, so students see one vocabulary for risk.
+
 ## CED coverage by step
 
 - Authorization and legality: step 1.
@@ -99,11 +101,11 @@ examples must land high, moderate, and low.
 |---|---|---|---|---|---|
 | `telnet` | `[[router]]` has Telnet (port 23) open. Logins cross the network in plaintext. | High | Port 23 answered; the step 3 capture shows the password in the clear. | Disable Telnet. Use SSH for management. | `router.hardening.telnet === false` and `router.hardening.ssh === true` |
 | `default-admin` | `[[router]]` has a local `admin` account with the factory password. | High | The scanner logged in with `admin` / `foodbank`. | Remove local accounts. Require logins through the authentication server. | `router.hardening.localAccounts === false` and `router.hardening.authServer === true` |
-| `edge-icmp` | The edge firewall answers pings from the internet. **(CED moderate, 3.1.C.5)** | Medium | An ICMP echo from the internet to `198.51.100.2` got a reply. | Configure the firewall to drop inbound ICMP from the internet. | an inbound-deny ICMP rule exists on `router` (via the firewall engine); modeled by `router.hardening.blockInboundIcmp === true` |
-| `switch-open` | `[[sw]]` has no port security, and port 7 is a live wall jack in the lobby. | Medium | Port 7 is up with no device; the switch accepts any MAC on any port. | Turn on port security. Shut unused ports. | `sw` port security on for access ports and port 7 shut (via mac-flood's port-security API) |
-| `wifi-weak` | `[[wap]]` uses WEP on the office network, which also holds the donor records server. **(CED high, 3.1.C.4)** | Critical | The beacon advertises WEP; the donor web app is reachable from the Wi-Fi subnet. | Use strong encryption (WPA2 or WPA3). Segment the donor server off the flat network. | `wap.wifi.security` is `wpa2` or `wpa3` |
+| `edge-icmp` | The edge firewall answers pings from the internet. **(CED moderate, 3.1.C.5)** | Moderate | An ICMP echo from the internet to `198.51.100.2` got a reply. | Configure the firewall to drop inbound ICMP from the internet. | an inbound-deny ICMP rule exists on `router` (via the firewall engine); modeled by `router.hardening.blockInboundIcmp === true` |
+| `switch-open` | `[[sw]]` has no port security, and port 7 is a live wall jack in the lobby. | Moderate | Port 7 is up with no device; the switch accepts any MAC on any port. | Turn on port security. Shut unused ports. | `sw` port security on for access ports and port 7 shut (via mac-flood's port-security API) |
+| `wifi-weak` | `[[wap]]` uses WEP on the office network, which also holds the donor records server. **(CED high, 3.1.C.4)** | High | The beacon advertises WEP; the donor web app is reachable from the Wi-Fi subnet. | Use strong encryption (WPA2 or WPA3). Segment the donor server off the flat network. | `wap.wifi.security` is `wpa2` or `wpa3` |
 | `wifi-beacon` | `[[wap]]` broadcasts a beacon frame with its SSID and encryption type. **(CED low, 3.1.C.6)** | Low | The scanner read the beacon from the parking lot. | Optional: disable beacon broadcast. Low risk; often accepted. | `wap.wifi.beacon === false` (the lab does **not** require this; it is the accepted low risk) |
-| `vpn-split` | The bookkeeper's VPN allows split tunneling, and the VPN uses a password only. | Medium | The VPN config shows split tunneling on; a home device can reach the office through her laptop. | Prohibit split tunneling. Require keys or MFA. | `router.vpn.splitTunneling === false` and `router.vpn.auth` is `'key'` or `'mfa'` |
+| `vpn-split` | The bookkeeper's VPN allows split tunneling, and the VPN uses a password only. | Moderate | The VPN config shows split tunneling on; a home device can reach the office through her laptop. | Prohibit split tunneling. Require keys or MFA. | `router.vpn.splitTunneling === false` and `router.vpn.auth` is `'key'` or `'mfa'` |
 
 **Risk matrix** (the register computes the rating from likelihood and impact):
 
