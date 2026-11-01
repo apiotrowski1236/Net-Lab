@@ -1,0 +1,33 @@
+# Runs the end-to-end check in Chromium, WebKit (Safari's engine), and Firefox.
+# Separate from the deploy workflow, so a browser hiccup never blocks publishing.
+name: Browser check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit, firefox]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright-core install --with-deps ${{ matrix.browser }}
+      - run: npm run e2e
+        env:
+          BROWSER: ${{ matrix.browser }}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.browser }}
+          path: screenshots/

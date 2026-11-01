@@ -1,0 +1,83 @@
+import type { SimAction } from '../runtime/actions';
+import { checkPrefix, checkSpoofClaim, checkStaticArp } from '../runtime/toolInput';
+import type { LabSession } from '../runtime/session';
+import type { Frame } from '../sim/types';
+import { isEncrypted, isPlainLogin } from './helpers';
+import type { ChoiceQuestion } from './types';
+
+/**
+ * Answer keys. Each lab has a solution that the walkthrough test plays from
+ * the first step to the last, so a broken step fails the build. The app never
+ * imports these files, so they are not shipped to students.
+ */
+
+export type Move =
+  /** Click a device on the map. */
+  | { inspect: string }
+  /** Press a button in the lesson. */
+  | { press: string }
+  /** Use a control in the Toolkit. */
+  | { tool: SimAction }
+  /** Click a captured frame in the Capture tab. */
+  | { openFrame: string; match: 'login' | 'encrypted' };
+
+export interface StepSolution {
+  /** What to do, in order. The network runs until it is quiet after each move. */
+  moves?: Move[];
+  /** Answers for text questions. For teacher-graded questions these are sample answers. */
+  text?: Record<string, string>;
+}
+
+export type LabSolution = Record<string, StepSolution>;
+
+const MATCH: Record<'login' | 'encrypted', (f: Frame) => boolean> = { login: isPlainLogin, encrypted: isEncrypted };
+
+export function playMove(s: LabSession, m: Move): void {
+  if ('inspect' in m) s.ui({ type: 'ui:inspect', device: m.inspect });
+  else if ('press' in m) s.runStepAction(m.press);
+  else if ('tool' in m) {
+    assertTypable(s, m.tool);
+    s.dispatch(m.tool);
+  }
+  else {
+    const hit = s.sim.dev(m.openFrame).capture.find((c) => MATCH[m.match](c.frame));
+    if (!hit) throw new Error(`No ${m.match} frame captured on ${m.openFrame}`);
+    s.ui({ type: 'ui:open-frame', device: m.openFrame, frame: hit.frame });
+  }
+  s.sim.runUntilIdle();
+}
+
+/** The answer key's tool inputs must pass the same checks a student's typing does. */
+function assertTypable(s: LabSession, a: SimAction): void {
+  const r =
+    a.type === 'arp-spoof'
+      ? checkSpoofClaim(s.sim, a.device, a.victim, a.claimIp)
+      : a.type === 'static-arp'
+        ? checkStaticArp(s.sim, a.device, a.ip, a.mac)
+        : a.type === 'announce'
+          ? checkPrefix(s.sim, a.device, a.prefix)
+          : { ok: true as const };
+  if (!r.ok) throw new Error(`Tool input rejected for ${JSON.stringify(a)}: ${r.msg}`);
+}
+
+export const correctChoice = (q: ChoiceQuestion) =>
+  q.options
+    .filter((o) => o.correct)
+    .map((o) => o.id)
+    .join(',');
+
+/** Play one step: moves first, then every question. */
+export function playStep(s: LabSession, sol: StepSolution | undefined): void {
+  for (const m of sol?.moves ?? []) playMove(s, m);
+  for (const q of s.step.questions ?? []) {
+    if (q.kind === 'choice') {
+      s.setDraft(s.step.id, q, correctChoice(q));
+      s.check(s.step.id, q);
+    } else {
+      const v = sol?.text?.[q.id];
+      if (v === undefined) throw new Error(`Solution has no answer for ${s.step.id}/${q.id}`);
+      s.setDraft(s.step.id, q, v);
+      if (q.expect) s.check(s.step.id, q);
+    }
+  }
+}
