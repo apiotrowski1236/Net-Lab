@@ -4,7 +4,8 @@
 // Plays the start of the on-path lab through the real UI, reloads to prove the
 // work was saved, goes offline to prove the service worker serves the app,
 // then checks replay, the lab guide, typed tool inputs, the teacher override,
-// and the summary page with its download. Saves screenshots to ./screenshots.
+// the summary page with its download, and restoring work from that download
+// (plus refusing another student's file or an edited one). Saves screenshots to ./screenshots.
 //
 // Needs a Chromium for Playwright: `npx playwright-core install chromium`,
 // or set CHROME_PATH to any Chrome or Chromium binary.
@@ -99,7 +100,7 @@ const TEACHER_HASH = createHash('sha256').update('netlab-teacher-override:v1:' +
  * A fresh browser (no service worker) with a student already signed in and
  * partway through the on-path lab, and an override password in config.json.
  */
-async function seeded(progress) {
+async function seeded(progress, who = {}) {
   const ctx = await browser.newContext({ ...VIEW, serviceWorkers: 'block', acceptDownloads: true });
   await setTheme(ctx);
   await ctx.route('**/config.json', async (route) => {
@@ -122,12 +123,16 @@ async function seeded(progress) {
     log: [],
     ...progress,
   };
-  await ctx.addInitScript((p) => {
-    if (sessionStorage.getItem('seeded')) return;
-    sessionStorage.setItem('seeded', '1');
-    localStorage.setItem('netlab:v1:profile', JSON.stringify({ id: 'e2e', name: 'Riley Seeded', period: 'Period 2', createdAt: 0 }));
-    localStorage.setItem('netlab:v1:lab:e2e:on-path', JSON.stringify(p));
-  }, full);
+  const profile = { id: 'e2e', name: 'Riley Seeded', period: 'Period 2', createdAt: 0, ...who };
+  await ctx.addInitScript(
+    ({ p, profile }) => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem('netlab:v1:profile', JSON.stringify(profile));
+      if (p) localStorage.setItem(`netlab:v1:lab:${profile.id}:on-path`, JSON.stringify(p));
+    },
+    { p: progress ? full : null, profile },
+  );
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => errors.push(String(e)));
   pg.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -287,7 +292,8 @@ try {
     await page.waitForSelector('text=Marked as submitted');
     const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download report' }).click()]);
     const name = dl.suggestedFilename();
-    if (!/^Riley Seeded - .+\.html$/.test(name)) throw new Error(`Unexpected download name "${name}"`);
+    // Playwright's WebKit on Linux turns spaces into underscores; browsers on Macs and PCs keep them.
+    if (!/^Riley[ _]Seeded[ _]-[ _].+\.html$/.test(name)) throw new Error(`Unexpected download name "${name}"`);
     const html = readFileSync(await dl.path(), 'utf8');
     for (const must of ['Teacher override', 'Packets never arrived', 'Wrong teacher override passwords typed']) {
       if (!html.includes(must)) throw new Error(`Downloaded report is missing "${must}"`);
@@ -295,6 +301,44 @@ try {
     await page.setContent(html);
     await shot('downloaded-report');
     await ctx.close();
+    page = p;
+
+    step('restore from the report: same student on a wiped browser, then another student, then an edited file');
+    const file = (text) => ({ name, mimeType: 'text/html', buffer: Buffer.from(text) });
+    const workId = /Work ID (\w+)/.exec(html)?.[1];
+    if (!workId) throw new Error('Report has no Work ID');
+    {
+      const { ctx, pg } = await seeded(null, { id: 'e2e-wiped', name: 'riley seeded' });
+      page = pg;
+      await page.goto(url);
+      await page.waitForSelector('.restore-row');
+      await page.setInputFiles('.restore-row input[type=file]', file(html));
+      await page.waitForSelector('text=Open saved work?');
+      await shot('restore-confirm');
+      await page.getByRole('button', { name: 'Open it' }).click();
+      await page.waitForSelector('.summary-hero');
+      if (!(await page.locator('text=Marked as submitted').count())) throw new Error('Restored work lost its submission');
+      const [dl2] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download report' }).click()]);
+      const html2 = readFileSync(await dl2.path(), 'utf8');
+      if (!html2.includes(`Work ID ${workId}`)) throw new Error('Restored work has a different Work ID');
+      if (!html2.includes('Restored from a saved report')) throw new Error('Report does not show the restore');
+      if (html2.includes('That is not the name on this report')) throw new Error('Same student was flagged as a different name');
+      await ctx.close();
+    }
+    {
+      const { ctx, pg } = await seeded(null, { id: 'e2e-sam', name: 'Sam Copier' });
+      page = pg;
+      await page.goto(url);
+      await page.waitForSelector('.restore-row');
+      await page.setInputFiles('.restore-row input[type=file]', file(html));
+      await page.waitForSelector('text=belongs to a different student');
+      await shot('restore-refused');
+      await page.getByRole('button', { name: 'OK' }).click();
+      await page.setInputFiles('.restore-row input[type=file]', file(html.split('Riley Seeded').join('Sam Copier')));
+      await page.waitForSelector('text=was changed after it was saved');
+      if (await page.locator('.lab-card .pill', { hasText: 'In progress' }).count()) throw new Error('A refused file still created progress');
+      await ctx.close();
+    }
     page = p;
   }
 

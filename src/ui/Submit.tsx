@@ -1,5 +1,6 @@
 import type { LabDef } from '../labs/types';
 import type { LabSession } from '../runtime/session';
+import { backupScript, makeBackup, type BackupBlock } from '../store/backup';
 import { enqueue, hasEndpoint, outbox, synced } from '../store/outbox';
 import { config, online, profile } from '../store/profile';
 import { buildReport, type Report } from '../store/report';
@@ -19,8 +20,11 @@ export function gradeText(q: Report['questions'][number]): string {
   return q.attempts && q.attempts > 1 ? `Correct after ${q.attempts} tries` : 'Correct on the first try';
 }
 
-/** A self-contained HTML copy of the report, grouped by step (for Schoology upload or email). */
-export function reportHtml(lab: LabDef, r: Report): string {
+/**
+ * A self-contained HTML copy of the report, grouped by step (for Schoology upload or email).
+ * With a backup block, the file can also be opened on NetLab's home page to restore the work.
+ */
+export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string {
   let qn = 0;
   const steps = lab.steps
     .map((s, i) => {
@@ -52,6 +56,14 @@ export function reportHtml(lab: LabDef, r: Report): string {
         .join(', ')}.</div>`
     : '';
   const failures = r.overrideFailures ? `<div class="ovr top">Wrong teacher override passwords typed: <b>${r.overrideFailures}</b>.</div>` : '';
+  const restores = r.restores
+    .map(
+      (x) =>
+        `<div class="ovr top${x.otherName ? ' alert' : ''}">Restored from a saved report on ${esc(when(x.at))}. The file was saved ${esc(when(x.savedAt))} by <b>${esc(
+          x.fromName || '(no name)',
+        )}</b>${x.fromPeriod ? ` (${esc(x.fromPeriod)})` : ''}.${x.otherName ? ' <b>That is not the name on this report.</b>' : ''}</div>`,
+    )
+    .join('');
   const goalsDone = r.goals.filter((g) => g.done).length;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(r.student.name)} - ${esc(r.lab.title)}</title>
@@ -68,12 +80,13 @@ ul{padding-left:0;list-style:none;margin:6px 0}li{margin:3px 0}li.todo{color:#b9
 .a{margin-top:6px;padding:8px;background:#f1f5f9;border-radius:6px;white-space:pre-wrap}
 .m{font-size:12px;margin-top:4px;color:#475569}.m.ok{color:#047857}.m.no{color:#b91c1c}
 .ovr{background:#fef3c7;border:1px solid #f59e0b;color:#78350f;border-radius:8px;padding:8px 12px;margin:6px 0 10px}
+.ovr.alert{background:#fee2e2;border-color:#ef4444;color:#7f1d1d}
 .tag{font-size:11px;font-weight:600;background:#fde68a;color:#78350f;border-radius:999px;padding:2px 8px;vertical-align:middle}
 .foot{font-size:12px;color:#64748b;margin-top:24px}
 </style></head><body>
 <h1>${esc(r.lab.title)}</h1>
 <div class="meta">${esc(r.student.name || '(no name)')} &middot; ${esc(r.student.period || '(no period)')}<br>
-Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(when(r.submittedAt))}` : `Last saved ${esc(when(r.updatedAt))} (not submitted)`}</div>
+Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(when(r.submittedAt))}` : `Last saved ${esc(when(r.updatedAt))} (not submitted)`} &middot; Work ID ${esc(r.workId)}</div>
 <div class="stats">
 <div class="stat"><b>${r.score.auto} / ${r.score.autoMax}</b>auto-checked points</div>
 <div class="stat"><b>${goalsDone} / ${r.goals.length}</b>goals</div>
@@ -81,15 +94,18 @@ Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(wh
 <div class="stat"><b>${r.activeMinutes}</b>active minutes</div>
 <div class="stat"><b>${r.score.teacherMax}</b>written-answer pts for the teacher</div>
 </div>
-${overrideSummary}${failures}
+${overrideSummary}${failures}${restores}
 ${steps}
-<p class="foot">NetLab report &middot; ${esc(r.key)} &middot; made ${esc(new Date().toLocaleString())}</p>
+<p class="foot">NetLab report &middot; ${esc(r.key)} &middot; made ${esc(new Date().toLocaleString())}${
+    backup ? '<br>Lost your work? Open this file on the NetLab home page with <b>Open saved work</b>.' : ''
+  }</p>
+${backup ? backupScript(backup) : ''}
 </body></html>`;
 }
 
 /** Save the report as an .html file. Works in Chrome, Edge, Firefox, and Safari 14+. */
-export function downloadReport(lab: LabDef, r: Report): void {
-  const blob = new Blob([reportHtml(lab, r)], { type: 'text/html;charset=utf-8' });
+export function downloadReport(lab: LabDef, r: Report, backup?: BackupBlock): void {
+  const blob = new Blob([reportHtml(lab, r, backup)], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const who = (r.student.name || 'student').replace(/[^\w -]+/g, '').trim() || 'student';
   const a = document.createElement('a');
@@ -135,7 +151,7 @@ export function SubmitBox({ session }: { session: LabSession }) {
         <button class="btn primary big" disabled={!who.name.trim()} onClick={submit}>
           <Icon name="send" /> {p.submittedAt ? 'Submit again with my latest work' : endpoint ? 'Submit to my teacher' : 'Mark as submitted'}
         </button>
-        <button class="btn big" onClick={() => downloadReport(lab, current())}>
+        <button class="btn big" onClick={() => downloadReport(lab, current(), makeBackup(session.progress, profile.value))}>
           <Icon name="download" /> Download report
         </button>
       </div>
@@ -164,7 +180,8 @@ export function SubmitBox({ session }: { session: LabSession }) {
           <p class="muted small">
             {endpoint
               ? 'Submitting sends your goals and answers straight to your teacher. If you change anything later, submit again.'
-              : 'Your teacher collects this lab as a file. Mark it submitted, then download the report and hand it in.'}
+              : 'Your teacher collects this lab as a file. Mark it submitted, then download the report and hand it in.'}{' '}
+            The report doubles as a backup: if your work ever goes missing, open it on the home page.
           </p>
         )}
       </div>

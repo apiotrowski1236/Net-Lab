@@ -18,6 +18,12 @@
  *
  * "Teacher overrides" lists steps unlocked with the teacher override password,
  * and is highlighted when it isn't empty. So is "Wrong override passwords".
+ *
+ * "Work ID" identifies one student's attempt at a lab, and stays the same when
+ * a student restores their work from a downloaded report. It turns red when
+ * another row with a different name has the same Work ID: one of them opened
+ * the other's report file. "Restored from file" lists restores, and turns red
+ * when the file was saved under a different name than the row's.
  */
 
 var TEACHER_COLUMNS = ['Teacher score', 'Teacher notes'];
@@ -88,6 +94,15 @@ function upsert(r) {
       })
       .join('; '),
     'Wrong override passwords': r.overrideFailures || 0,
+    'Work ID': r.workId || '',
+    'Restored from file': (r.restores || [])
+      .map(function (x) {
+        return (
+          fmtDate(x.at) + ' from a file saved ' + fmtDate(x.savedAt) + ' by ' + (x.fromName || '(no name)') +
+          (x.fromPeriod ? ' (' + x.fromPeriod + ')' : '') + (x.otherName ? ' [DIFFERENT NAME]' : '')
+        );
+      })
+      .join('; '),
     Started: r.startedAt ? new Date(r.startedAt) : '',
     'Last update': r.updatedAt ? new Date(r.updatedAt) : '',
     Submitted: r.submittedAt ? new Date(r.submittedAt) : '',
@@ -138,4 +153,32 @@ function upsert(r) {
   };
   flag('Teacher overrides', cells['Teacher overrides'] !== '');
   flag('Wrong override passwords', cells['Wrong override passwords'] > 0);
+  var copied = (r.restores || []).some(function (x) { return x.otherName; });
+  flag('Restored from file', cells['Restored from file'] !== '');
+  if (copied) sh.getRange(row, headers.indexOf('Restored from file') + 1).setBackground('#fca5a5');
+  flagSharedWork(sh, headers, row, r);
+}
+
+/** Same Work ID on rows with different names: one student opened another's report file. Mark them all. */
+function flagSharedWork(sh, headers, row, r) {
+  var idCol = headers.indexOf('Work ID') + 1;
+  var nameCol = headers.indexOf('Name') + 1;
+  if (!idCol || !nameCol || !r.workId || sh.getLastRow() < 2) return;
+  var mine = normName(r.student.name);
+  var hits = sh.getRange(2, idCol, sh.getLastRow() - 1, 1).createTextFinder(r.workId).matchEntireCell(true).findAll();
+  var others = hits.filter(function (h) {
+    return h.getRow() !== row && normName(sh.getRange(h.getRow(), nameCol).getValue()) !== mine;
+  });
+  if (!others.length) return;
+  others.concat([sh.getRange(row, idCol)]).forEach(function (c) {
+    c.setBackground('#fca5a5');
+  });
+}
+
+function normName(s) {
+  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function fmtDate(iso) {
+  return iso ? Utilities.formatDate(new Date(iso), Session.getScriptTimeZone(), 'MMM d h:mm a') : '?';
 }

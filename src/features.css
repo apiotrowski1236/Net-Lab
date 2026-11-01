@@ -31,10 +31,44 @@
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
-.lab-card-guide {
+.lab-card-sent {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: -4px;
+}
+.lab-card-links {
   position: relative;
   z-index: 1;
   margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
+/* ---------- home: restore from a report file ---------- */
+
+.restore-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 14px;
+}
+.restore-facts {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: var(--ink-2);
+}
+.restore-facts li {
+  margin: 2px 0;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* ---------- toolkit inputs ---------- */

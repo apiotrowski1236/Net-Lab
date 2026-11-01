@@ -667,19 +667,22 @@ h4 {
 .step-pill:hover {
   background: var(--brand-soft-2);
 }
+/* One line whatever the font: dots narrow a little rather than wrap. */
 .step-dots {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 1 auto;
+  min-width: 0;
   align-items: center;
   gap: 4px;
 }
 .sdot {
-  width: 8px;
+  flex: 0 1 8px;
+  min-width: 4px;
   height: 8px;
   border-radius: 999px;
   background: var(--line-strong);
   transition:
-    width 0.2s,
+    flex-basis 0.2s,
     background 0.2s;
 }
 .sdot.open {
@@ -689,7 +692,7 @@ h4 {
   background: var(--brand);
 }
 .sdot.cur {
-  width: 20px;
+  flex: 0 0 20px;
   background: var(--brand);
 }
 
@@ -1912,6 +1915,7 @@ a.lab-card:hover,
 .lab-card-top,
 .lab-card-foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 8px;

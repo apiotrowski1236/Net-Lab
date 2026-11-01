@@ -1,8 +1,12 @@
 import { LABS, STUBS } from '../labs';
+import { makeBackup } from '../store/backup';
 import { synced } from '../store/outbox';
 import { config, profile } from '../store/profile';
 import { peekProgress } from '../store/progress';
+import { buildReport } from '../store/report';
 import { Icon } from './icons';
+import { OpenSavedWork } from './Restore';
+import { downloadReport } from './Submit';
 import { SaveStatus, StudentChip, ThemeToggle } from './TopBar';
 
 export function Home() {
@@ -28,6 +32,7 @@ export function Home() {
             Hands-on labs where you watch packets move, then play attacker and defender on a simulated network. Nothing here
             touches a real network. Everything you do is saved on this computer as you go, even offline.
           </p>
+          <OpenSavedWork />
         </section>
         <div class="lab-grid">
           {LABS.map((lab) => {
@@ -60,14 +65,29 @@ export function Home() {
                 <div class="lab-card-progress">
                   <div style={{ width: `${pct}%` }} />
                 </div>
+                {sent && (
+                  <div class="muted small lab-card-sent">
+                    <Icon name="check" size={12} /> Teacher copy saved
+                  </div>
+                )}
                 <div class="lab-card-foot">
                   <span class="btn primary small">
                     {p ? 'Continue' : 'Start'} <Icon name="chevronRight" size={14} />
                   </span>
-                  {sent && <span class="muted small">teacher copy saved</span>}
-                  <a class="btn ghost small lab-card-guide" href={`#/guide/${lab.id}`} target="_blank" rel="noopener" title="Every step on one page, for notes or printing">
-                    <Icon name="book" size={14} /> Lab guide
-                  </a>
+                  <span class="lab-card-links">
+                    {p && (
+                      <button
+                        class="btn ghost small"
+                        title="Download your work so far. If it ever goes missing, open the file with Open saved work."
+                        onClick={() => downloadReport(lab, buildReport(lab, p, who, p.submittedAt ? 'submitted' : 'in-progress'), makeBackup(p, who))}
+                      >
+                        <Icon name="download" size={14} /> Save backup
+                      </button>
+                    )}
+                    <a class="btn ghost small lab-card-guide" href={`#/guide/${lab.id}`} target="_blank" rel="noopener" title="Every step on one page, for notes or printing">
+                      <Icon name="book" size={14} /> Lab guide
+                    </a>
+                  </span>
                 </div>
               </div>
             );

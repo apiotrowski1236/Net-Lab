@@ -75,6 +75,19 @@ Multiple-choice answers are marked `correct: true` in each lab's `index.ts`. The
 - Work lives in that browser on that computer. A different computer or a different Chrome profile starts fresh. On shared computers, students use **I'm a different student** in the name menu, which keeps each student's work separate.
 - If storage is blocked (some locked-down profiles), the app warns the student before they start.
 
+### Restoring from a report file
+
+Every downloaded report also carries the student's full progress. If a browser loses its saved work (Safari does this after a week away, see [Browser support](#browser-support)), the student opens the report with **Open saved work** on the home page and picks up where they left off. **Save backup** on a started lab's card downloads the same file mid-lab.
+
+To keep students from handing in a classmate's file as their own:
+
+- A report only opens for a student signed in with the same name (capitals and extra spaces don't matter).
+- The saved work in the file is signed. Editing the file, for example to change the name in it, makes NetLab refuse it.
+- Every restore shows on the report and in the Google Sheet with the name the file was saved under, flagged when that differs from the name handing it in.
+- Each attempt at a lab has a **Work ID**, shown on the report and in the Sheet, and it stays the same through a restore. Two students with the same Work ID means one opened the other's file. The Sheet turns those cells red.
+
+This all runs in the browser, so a student who reads NetLab's source code could get around it. It stops casual copying and makes copying visible.
+
 ## Getting student work
 
 There are two ways. You can use both.
@@ -90,15 +103,15 @@ Reports land in a Google Sheet, one tab per lab and one row per student. Rows up
 5. Paste it into `public/config.json` as `submitEndpoint` and rebuild (or edit `config.json` directly on the server; no rebuild needed).
 6. Open the URL in a browser. It should say `NetLab receiver is running.`
 
-Each row has the student's name and period, status (`in-progress` or `submitted`), auto-checked score, goals done, step reached, active minutes, timestamps, and one column per question with the student's answer. Auto-checked answers are tagged `[correct]` or `[not yet]`. **Teacher overrides** lists any steps unlocked with the override password, and **Wrong override passwords** counts failed tries; both cells turn yellow when they aren't empty, and answers in an overridden step are tagged `[step overridden]`. Grade in the **Teacher score** and **Teacher notes** columns. NetLab never overwrites those two.
+Each row has the student's name and period, status (`in-progress` or `submitted`), auto-checked score, goals done, step reached, active minutes, timestamps, and one column per question with the student's answer. Auto-checked answers are tagged `[correct]` or `[not yet]`. **Teacher overrides** lists any steps unlocked with the override password, and **Wrong override passwords** counts failed tries; both cells turn yellow when they aren't empty, and answers in an overridden step are tagged `[step overridden]`. **Work ID** and **Restored from file** come from [restoring from a report file](#restoring-from-a-report-file); they turn red when work looks copied. Grade in the **Teacher score** and **Teacher notes** columns. NetLab never overwrites those two.
 
-If you set up the sheet before the override existed, paste the new `Code.gs` over the old one and choose **Deploy > Manage deployments > Edit > Version: New version**. The URL stays the same.
+If you set up the sheet before these columns existed, paste the new `Code.gs` over the old one and choose **Deploy > Manage deployments > Edit > Version: New version**. The URL stays the same.
 
 "Anyone" access means anyone with the URL can add rows. The URL is not secret (it's in `config.json`), so treat the sheet as a convenience, not a gradebook of record.
 
 ### Option 2: Report file
 
-With no `submitEndpoint` set, **Mark as submitted** marks the lab finished and students hand in a report themselves with **Download report**: one HTML file they can upload to Schoology. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, and any teacher overrides.
+With no `submitEndpoint` set, **Mark as submitted** marks the lab finished and students hand in a report themselves with **Download report**: one HTML file they can upload to Schoology. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, the Work ID, any teacher overrides, and any restores. The same file restores the student's work if their browser loses it.
 
 ## Settings
 
@@ -136,7 +149,7 @@ npm run e2e       # build, then drive the real app in Chromium and save screensh
 
 `npm test` plays every lab from the first step to the last using its solution file and fails if any step can't be finished. It also checks that a reload rebuilds the same network, that **Reset network** keeps answers, and that a student can't skip ahead.
 
-`npm run e2e` builds the site, opens it in headless Chromium at 13-inch MacBook Air size (1440×800; `SIZE=small` for 1366×768, `THEME=light` for the light theme), plays the first steps of a lab through the real interface, changes an answer, replays a step, reloads to confirm the work was saved, goes offline to confirm the app still loads, opens the guide (screen and print), types a wrong and a right address into the ARP spoofer, uses the teacher override, and submits and downloads from the summary page. It writes screenshots to `screenshots/`. It needs a Chromium for Playwright. If it can't find one, run `npx playwright-core install chromium` or set `CHROME_PATH` to a Chrome binary.
+`npm run e2e` builds the site, opens it in headless Chromium at 13-inch MacBook Air size (1440×800; `SIZE=small` for 1366×768, `THEME=light` for the light theme), plays the first steps of a lab through the real interface, changes an answer, replays a step, reloads to confirm the work was saved, goes offline to confirm the app still loads, opens the guide (screen and print), types a wrong and a right address into the ARP spoofer, uses the teacher override, submits and downloads from the summary page, and restores the work from that download on a fresh browser (and refuses it for a different student or after the file is edited). It writes screenshots to `screenshots/`. It needs a Chromium for Playwright. If it can't find one, run `npx playwright-core install chromium` or set `CHROME_PATH` to a Chrome binary.
 
 To check offline by hand: `npm run build && npm run preview`, open the preview address, do part of a lab, then turn on **Offline** in Chrome DevTools (Network tab) and reload.
 
@@ -145,7 +158,7 @@ To check offline by hand: `npm run build && npm run preview`, open the preview a
 NetLab runs on Chrome and Edge 87+, Firefox 78+, and Safari 14.1+ (macOS, iPad, and iPhone). The build is compiled for those versions, and it avoids newer browser features (or falls back when they're missing).
 
 - **Downloads** use a standard file download, which works in all of the above. Safari may ask where to save, or put the file in Downloads without asking, depending on its settings.
-- **Safari clears storage** for a site that hasn't been opened in 7 days (unless it's added to the home screen). A student who leaves a lab unfinished in Safari for more than a week may lose it. Have students submit or download before a long break. Submissions to the Google Sheet are safe. Most students use Safari on MacBooks, so this one matters.
+- **Safari clears storage** for a site that hasn't been used in 7 days of Safari use. A student who leaves a lab unfinished in Safari for more than a week may lose it. Most students use Safari on MacBooks, so this one matters: have them **Save backup** (or download their report) before a long break, and use **Open saved work** if their progress is gone. Submissions to the Google Sheet are safe.
 - **Private or guest windows** lose saved work when the window closes.
 - NetLab asks the browser to keep its storage when space runs low (`navigator.storage.persist()`).
 
@@ -201,7 +214,7 @@ src/
     route-hijack/            Advertise a Bad Route (scenario, lesson, solution)
     walkthrough.test.ts      plays every lab start to finish
   runtime/                   one student's session: goals, answers, step replay, tool input checks
-  store/                     local saving, profile, reports, submission outbox, teacher override
+  store/                     local saving, profile, reports, submission outbox, teacher override, restore from a report file
   ui/                        Preact components (lab player, summary, guide, teacher page)
   styles.css                 themes and core layout
   features.css               replay, summary, guide, override, and tool-input styles

@@ -2,9 +2,12 @@ import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LabSession } from '../runtime/session';
 import { checkPrefix, checkSpoofClaim, checkStaticArp } from '../runtime/toolInput';
+import { applyBackup, makeBackup, readBackup } from '../store/backup';
 import { hashOverridePassword, OVERRIDE_SALT, sha256Hex } from '../store/override';
-import type { LabProgress } from '../store/progress';
+import type { Profile } from '../store/profile';
+import { peekProgress, type LabProgress } from '../store/progress';
 import { buildReport } from '../store/report';
+import { reportHtml } from '../ui/Submit';
 import { LABS } from '.';
 import { onPathSolution } from './on-path/solution';
 import { IP, MAC } from './on-path/scenario';
@@ -366,5 +369,90 @@ describe('replay', () => {
     const s = playThrough(lab, 0);
     expect(s.canReplay(0)).toBe(false);
     expect(s.startReplay(0)).toBe(false);
+  });
+});
+
+describe('restore from a report file', () => {
+  const lab = LABS.find((l) => l.id === 'on-path')!;
+  const ids = LABS.map((l) => l.id);
+  const riley: Profile = { id: 'riley-laptop', name: 'Riley Seeded', period: 'Period 2', createdAt: 0 };
+  /** A report Riley downloaded partway through the lab. */
+  function rileysReport() {
+    const s = playThrough(lab, 3);
+    const p = s.progress;
+    const html = reportHtml(lab, buildReport(lab, p, riley, 'in-progress'), makeBackup(p, riley));
+    return { s, p, html };
+  }
+
+  it('restores the work for the same student after the browser lost it', () => {
+    const { s, p, html } = rileysReport();
+    const workId = buildReport(lab, p, riley, 'in-progress').workId;
+    // Safari wiped the data: new profile id, same name typed a little differently.
+    const again: Profile = { id: 'riley-new', name: '  riley   seeded ', period: 'Period 2', createdAt: 1 };
+    const r = readBackup(html, again, ids);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const restored = applyBackup(r, again);
+    expect(restored.studentId).toBe('riley-new');
+    expect(peekProgress('riley-new', lab.id)).toBe(restored);
+    expect(restored.answers).toEqual(p.answers);
+    expect(restored.goals).toEqual(p.goals);
+    const back = new LabSession(lab, restored);
+    expect(back.progress.step).toBe(s.progress.step);
+    expect(back.missing()).toEqual([]);
+    const report = buildReport(lab, restored, again, 'in-progress');
+    expect(report.workId).toBe(workId);
+    expect(report.restores).toHaveLength(1);
+    expect(report.restores[0]).toMatchObject({ fromName: 'Riley Seeded', fromPeriod: 'Period 2', otherName: false });
+    expect(report.timeline.some((t) => t.kind === 'restore')).toBe(true);
+  });
+
+  it('refuses another student’s file', () => {
+    const { html } = rileysReport();
+    const sam: Profile = { id: 'sam-laptop', name: 'Sam Copier', period: 'Period 2', createdAt: 0 };
+    const r = readBackup(html, sam, ids);
+    expect(r).toMatchObject({ ok: false, reason: 'not-yours' });
+  });
+
+  it('refuses a file that was edited, for example to change the name in it', () => {
+    const { html } = rileysReport();
+    const edited = html.split('Riley Seeded').join('Sam Copier');
+    const sam: Profile = { id: 'sam-laptop', name: 'Sam Copier', period: 'Period 2', createdAt: 0 };
+    expect(readBackup(edited, sam, ids)).toMatchObject({ ok: false, reason: 'changed' });
+  });
+
+  it('flags work restored under one name and handed in under another', () => {
+    const { html } = rileysReport();
+    // Sam signs in as Riley to get past the name check, restores, then switches back.
+    const fake: Profile = { id: 'sam-laptop', name: 'Riley Seeded', period: 'Period 2', createdAt: 0 };
+    const r = readBackup(html, fake, ids);
+    if (!r.ok) throw new Error('expected the file to open');
+    const p = applyBackup(r, fake);
+    const report = buildReport(lab, p, { ...fake, name: 'Sam Copier' }, 'submitted');
+    expect(report.restores[0].otherName).toBe(true);
+    expect(reportHtml(lab, report)).toContain('That is not the name on this report.');
+  });
+
+  it('keeps the Work ID of the original attempt', () => {
+    const { p, html } = rileysReport();
+    const original = buildReport(lab, p, riley, 'in-progress').workId;
+    const r = readBackup(html, { ...riley, id: 'other-id' }, ids);
+    if (!r.ok) throw new Error('expected the file to open');
+    expect(buildReport(lab, applyBackup(r, { ...riley, id: 'other-id' }), riley, 'in-progress').workId).toBe(original);
+  });
+
+  it('survives student text that looks like HTML', () => {
+    const s = playThrough(lab, 0);
+    s.progress.answers['x/y'] = { value: '</script><b>hi</b> & "quotes"', updatedAt: 0, attempts: 1 };
+    const html = reportHtml(lab, buildReport(lab, s.progress, riley, 'in-progress'), makeBackup(s.progress, riley));
+    expect(html.match(/<\/script>/g)).toHaveLength(1);
+    const r = readBackup(html, riley, ids);
+    expect(r.ok && r.data.progress.answers['x/y'].value).toBe('</script><b>hi</b> & "quotes"');
+  });
+
+  it('explains files that have no saved work or are for another site', () => {
+    expect(readBackup('<html><body>hello</body></html>', riley, ids)).toMatchObject({ ok: false, reason: 'none' });
+    const { html } = rileysReport();
+    expect(readBackup(html, riley, ['route-hijack'])).toMatchObject({ ok: false, reason: 'unknown-lab' });
   });
 });

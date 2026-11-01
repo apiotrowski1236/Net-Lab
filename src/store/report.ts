@@ -1,4 +1,5 @@
 import { answerKey, defaultPoints, goalKey, type LabDef } from '../labs/types';
+import { sameName, workIdOf } from './backup';
 import type { Profile } from './profile';
 import type { LabProgress } from './progress';
 
@@ -38,6 +39,10 @@ export interface Report {
   overrides: { step: string; number: number; title: string; at: string; note?: string }[];
   /** Wrong override passwords typed during this lab. */
   overrideFailures: number;
+  /** This attempt's id. The same id on two students' reports means one copied the other's file. */
+  workId: string;
+  /** Times this work was restored from a report file. `otherName`: saved under a different name than this report's. */
+  restores: { at: string; savedAt: string; fromName: string; fromPeriod: string; file: string; otherName: boolean }[];
   score: { auto: number; autoMax: number; teacherMax: number };
   timeline: { at: string; kind: string; id: string }[];
 }
@@ -132,6 +137,15 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
     score: { auto, autoMax, teacherMax },
     overrides,
     overrideFailures: p.overrideFailures ?? 0,
+    workId: workIdOf(p),
+    restores: (p.restores ?? []).map((x) => ({
+      at: iso(x.at)!,
+      savedAt: iso(x.savedAt)!,
+      fromName: x.fromName,
+      fromPeriod: x.fromPeriod,
+      file: x.file,
+      otherName: !sameName(x.fromName, who.name),
+    })),
     timeline: p.log.map((l) => ({ at: iso(l.at)!, kind: l.kind, id: l.id })),
   };
 }

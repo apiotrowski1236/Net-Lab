@@ -1,4 +1,5 @@
 import type { SimAction } from '../runtime/actions';
+import type { RestoreRecord } from './backup';
 import { load, saveSoon } from './storage';
 
 export interface Answer {
@@ -10,7 +11,7 @@ export interface Answer {
 
 export interface LogEntry {
   at: number;
-  kind: 'start' | 'step' | 'goal' | 'answer' | 'submit' | 'reset' | 'resume' | 'override' | 'override-failed';
+  kind: 'start' | 'step' | 'goal' | 'answer' | 'submit' | 'reset' | 'resume' | 'override' | 'override-failed' | 'restore';
   id: string;
 }
 
@@ -39,6 +40,10 @@ export interface LabProgress {
   overrideFailures?: number;
   /** Too many wrong passwords in a row locks the override until this time. */
   overrideLockedUntil?: number;
+  /** Short id for this attempt at this lab. Survives a restore from a report file (see store/backup.ts). */
+  workId?: string;
+  /** Each time this work was restored from a report file. */
+  restores?: RestoreRecord[];
 }
 
 const MAX_LOG = 400;
