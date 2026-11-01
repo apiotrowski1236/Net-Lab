@@ -53,7 +53,7 @@ export function FirewallPlaceTool({ session, spec, onSelect }: ToolCardProps<'fi
       </div>
       <p class="tool-desc">
         Pick a cable for each firewall. It goes into the middle of that cable, so every packet on the cable has to pass its rules. Its{' '}
-        <strong>outside</strong> port faces the internet.
+        <strong>outside</strong> faces the internet.
       </p>
       {spec.devices.map((id) => (
         <PlaceRow key={id} session={session} fwId={id} cables={cables} label={label} feedback={spec.feedback} internet={spec.internet} onSelect={onSelect} />

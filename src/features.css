@@ -1413,6 +1413,9 @@
 .scan-table td {
   vertical-align: middle;
 }
+.scan-ping {
+  white-space: nowrap;
+}
 .port-list {
   display: inline-flex;
   flex-wrap: wrap;

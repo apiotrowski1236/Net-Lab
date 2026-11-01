@@ -31,12 +31,12 @@ function sourceText(r: FwRule): string {
   return r.sport !== undefined && r.sport !== 'any' ? `${r.src}, from port ${portText(r.sport, r.proto)}` : r.src;
 }
 
-/** Where the outside port leads, in words. */
+/** Which way the outside faces, in words. Not "port": in a firewall lab that means a program's number. */
 function outsideText(sim: Sim, dev: Device): string {
   const fw = dev.firewall!;
   const peer = sim.peer(dev.id, fw.outside);
   const to = peer ? sim.devices[peer.device]?.label : undefined;
-  return to ? `Its outside port (${fw.outside}) leads to ${to}.` : `Its outside port is ${fw.outside}.`;
+  return to ? `Its outside faces ${to}.` : `Its outside is ${fw.outside}.`;
 }
 
 /**
@@ -44,11 +44,19 @@ function outsideText(sim: Sim, dev: Device): string {
  * firewall type, and the connection table. With the 'firewall-rules' tool the
  * student adds, changes, deletes, and reorders rules here.
  */
-export function FirewallRulesSection({ session, sim, dev, replaying }: InspectorSectionProps) {
+export function FirewallRulesSection(props: InspectorSectionProps) {
+  // A fresh form for each firewall and each step, so a half-written rule or an
+  // old "Added as rule 2" never shows up on another firewall or in a later step.
+  return <Rulebook key={`${props.dev.id} ${props.session.progress.step}`} {...props} />;
+}
+
+function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
   const fw = dev.firewall;
   const [form, setForm] = useState<{ draft: RuleDraft; editing?: string } | null>(null);
-  const [msg, setMsg] = useState<Msg>(null);
+  const [said, setMsg] = useState<{ msg: Msg; at?: number }>({ msg: null });
   if (!fw) return null;
+  // "Added as rule 3" is true only until the rulebook changes again (a Reset, or a step's setup).
+  const msg = said.msg?.tone === 'bad' || said.at === fw.changedAt ? said.msg : null;
   const { edit: canEdit, modes } = powers(session.tools, dev.id);
   const edit = canEdit && !replaying;
   const notPlaced = dev.kind === 'firewall' && !dev.ifaces.some((i) => i.linkId);
@@ -62,17 +70,21 @@ export function FirewallRulesSection({ session, sim, dev, replaying }: Inspector
     if (!r.ok) {
       const field = r.field as keyof RuleDraft | undefined;
       setMsg({
-        tone: 'bad',
-        text: r.msg,
-        field: r.field,
-        suggest: r.suggest,
-        onSuggest: r.suggest && field ? () => (setForm({ ...form, draft: { ...form.draft, [field]: r.suggest! } }), setMsg(null)) : undefined,
+        msg: {
+          tone: 'bad',
+          text: r.msg,
+          field: r.field,
+          suggest: r.suggest,
+          onSuggest: r.suggest && field ? () => (setForm({ ...form, draft: { ...form.draft, [field]: r.suggest! } }), setMsg({ msg: null })) : undefined,
+        },
       });
       return;
     }
+    const n = rules.length + 1; // before the add: dispatch changes the rulebook in place
     if (form.editing) session.dispatch({ type: 'fw-edit-rule', device: dev.id, id: form.editing, rule: r.rule });
     else session.dispatch({ type: 'fw-add-rule', device: dev.id, rule: r.rule });
-    setMsg({ tone: 'good', text: form.editing ? 'Rule changed.' : `Added as rule ${rules.length + 1}, right above the implicit deny. Use the arrows to move it.` });
+    const text = form.editing ? 'Rule changed.' : `Added as rule ${n}, right above the implicit deny. Use the arrows to move it.`;
+    setMsg({ msg: { tone: 'good', text }, at: session.sim.devices[dev.id]?.firewall?.changedAt });
     setForm(null);
   };
   return (
@@ -86,7 +98,7 @@ export function FirewallRulesSection({ session, sim, dev, replaying }: Inspector
         </div>
       )}
       <p class="small fw-dir-note">
-        {outsideText(sim, dev)} Packets that arrive there are going <strong>in</strong>. Packets from the other side are going <strong>out</strong>.
+        {outsideText(sim, dev)} Packets arriving from that side are going <strong>in</strong>. Packets from the other side are going <strong>out</strong>.
       </p>
       <div class="fw-mode">
         <span class="small">Type:</span>
@@ -138,10 +150,10 @@ export function FirewallRulesSection({ session, sim, dev, replaying }: Inspector
                     <button class="btn tiny ghost" disabled={i === rules.length - 1} onClick={() => move(r, i + 1)} aria-label={`Move rule ${i + 1} down`} title="Move down">
                       ↓
                     </button>
-                    <button class="btn tiny ghost" onClick={() => (setForm({ draft: ruleDraft(r), editing: r.id }), setMsg(null))}>
+                    <button class="btn tiny ghost" onClick={() => (setForm({ draft: ruleDraft(r), editing: r.id }), setMsg({ msg: null }))}>
                       Edit
                     </button>
-                    <button class="btn tiny ghost" onClick={() => (session.dispatch({ type: 'fw-delete-rule', device: dev.id, id: r.id }), setMsg(null), form?.editing === r.id && setForm(null))}>
+                    <button class="btn tiny ghost" onClick={() => (session.dispatch({ type: 'fw-delete-rule', device: dev.id, id: r.id }), setMsg({ msg: null }), form?.editing === r.id && setForm(null))}>
                       Delete
                     </button>
                   </td>
@@ -165,7 +177,7 @@ export function FirewallRulesSection({ session, sim, dev, replaying }: Inspector
         </table>
       </div>
       {edit && !form && (
-        <button class="btn small fw-add" onClick={() => (setForm({ draft: ruleDraft() }), setMsg(null))}>
+        <button class="btn small fw-add" onClick={() => (setForm({ draft: ruleDraft() }), setMsg({ msg: null }))}>
           Add a rule
         </button>
       )}
@@ -174,9 +186,9 @@ export function FirewallRulesSection({ session, sim, dev, replaying }: Inspector
           title={form.editing ? `Change rule ${rules.findIndex((r) => r.id === form.editing) + 1}` : 'New rule'}
           draft={form.draft}
           bad={msg?.tone === 'bad' ? msg.field : undefined}
-          onChange={(draft) => (setForm({ ...form, draft }), msg?.tone === 'bad' && setMsg(null))}
+          onChange={(draft) => (setForm({ ...form, draft }), msg?.tone === 'bad' && setMsg({ msg: null }))}
           onSave={save}
-          onCancel={() => (setForm(null), setMsg(null))}
+          onCancel={() => (setForm(null), setMsg({ msg: null }))}
           saveLabel={form.editing ? 'Save' : 'Add rule'}
         />
       )}
