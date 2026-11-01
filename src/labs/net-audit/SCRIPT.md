@@ -3,6 +3,58 @@
 The full lesson as students see it. An implementer turns this into `index.ts`,
 `scenario.ts`, `solution.ts`, and the sim and UI features listed at the end.
 
+## Changes made while building
+
+The lesson text, goals, and questions are as scripted below, except where the
+simulation forced a change:
+
+1. **Step 1 drops the `scope` goal**, as the script allows. The three inspects stay.
+2. **Scanner state and action names.** The action is `audit-scan` (`scan` is
+   taken by the port-scan primitive). State is `Device.audit` (`src/sim/audit.ts`):
+   the last few `reports` (each with `findings` that are present, the `hosts` map,
+   and times) plus the `register`. A finding is either in a report or not, so
+   there is no `present` flag. `scan-complete` also carries the report number.
+3. **Telnet and SSH are services, not a new `login` app.** They are entries in
+   `Device.services`, so the port scan finds them and the login is a
+   `connectService` request carrying the user and password. No new `AppData`.
+4. **SSH starts on**, not off, so step 3's **Log in over SSH** gets an answer.
+   The step 6 goal still requires it on.
+5. **One `authServer` setting** replaces `localAccounts` and `authServer`:
+   turning on the authentication server removes the local account. The
+   toggle is a two-way choice, "Local account" or "Authentication server".
+6. **No `blockInboundIcmp` flag.** "Drop pings from the internet" adds or
+   removes a real inbound deny rule on the router's firewall, and the step 6
+   goal checks the firewall itself. Step 6 also lists the `firewall-rules`
+   card for the router, so students can see the rule the switch wrote.
+7. **The outside probe reuses the port-scan primitive:** `internet` runs a
+   ping-only scan (no ports) of `198.51.100.2`. The router firewall gained
+   `guardSelf` so its inbound rules also cover traffic to the router itself.
+8. **Home network:** a **Home switch** (`homesw`) joins the bookkeeper laptop,
+   the shared home laptop, and the home router, since a router port takes one
+   cable. The bookkeeper's laptop is labeled "Bookkeeper laptop" and the shared
+   one "Shared home laptop".
+9. **The VPN tunnel is a `Link` with `tunnel: true`**, drawn dashed and labeled
+   "VPN tunnel". It is how packets reach the router; it is not a cable.
+10. **`wap` has no management IP.** It is a switch-kind device in the
+    `wireless` lab's model, so the scanner judges it by its settings
+    (`wifi-weak`, `wifi-beacon`), not by a port scan.
+11. **Wi-Fi reuses the `wireless` lab:** its `wifi-security` action (field
+    `security`, not `mode`) and its `wifi-config` card. No `wifi-settings` kind.
+12. **Switch policy as bulk toggles.** The switch's Security settings set port
+    security (one MAC, shut on violation) on every desk port, MAC filtering
+    (each port's current MAC), and "Shut ports nobody uses". The `switch-ports`
+    inspector from `mac-flood` stays read-only here.
+13. **Two empty ports, p7 (lobby wall jack) and p8 (spare)**, both shut by the
+    policy. The scenario has eight ports and only six cables.
+14. **VPN settings unlock in step 9.** Step 6 unlocks the router's Security
+    settings, but the VPN part stays read-only until step 9 re-lists the tool
+    with `vpn: true`. Otherwise a student could turn split tunneling off early
+    and never see the risk in step 9.
+15. **`pingTimeoutMs: 20000`.** The home probe takes about 12 seconds through the
+    tunnel at 1x, longer than the default timeout.
+16. **Own frames in the capture.** The audit laptop sets `captureOwn`, so its own
+    Telnet and SSH logins show in its capture, as Wireshark shows them.
+
 ## What changed from PLAN.md
 
 The plan is followed, with these changes (PLAN.md updated to match):

@@ -571,6 +571,8 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 // ---------------------------------------------------------------------------
 
 export function CaptureView({ session, deviceId }: { session: LabSession; deviceId: string }) {
+  // New frames arrive while the tab is open: re-render whenever the network changes.
+  void session.simRev.value;
   const sim = session.sim;
   const dev = sim.devices[deviceId];
   const [selected, setSelected] = useState<number | null>(null);

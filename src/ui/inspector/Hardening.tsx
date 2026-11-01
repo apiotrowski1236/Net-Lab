@@ -41,7 +41,9 @@ export function switchPorts(sim: Sim, sw: Device): { desk: string[]; empty: stri
  */
 export function HardeningSection({ session, sim, dev, replaying }: InspectorSectionProps) {
   if (!dev.hardening && !dev.vpn?.server) return null;
-  const edit = !replaying && session.tools.some((t) => t.kind === 'hardening' && t.device === dev.id);
+  const tool = replaying ? undefined : session.tools.find((t) => t.kind === 'hardening' && t.device === dev.id);
+  const edit = !!tool;
+  const editVpn = tool?.kind === 'hardening' && !!tool.vpn;
   const flash = (what: string) => (recentlyChanged(sim, (e) => e.device === dev.id && e.type === 'config' && e.what.startsWith(what)) ? 'flash' : '');
   return (
     <section class="hardening">
@@ -49,9 +51,10 @@ export function HardeningSection({ session, sim, dev, replaying }: InspectorSect
         Security settings <span class="muted">the security policy, applied to this device</span>
       </h4>
       {!edit && !replaying && <p class="small muted">You can look now. The lesson unlocks these settings when it is time to change them.</p>}
+      {edit && dev.vpn?.server && !editVpn && dev.hardening && <p class="small muted">The VPN settings unlock later in the lesson.</p>}
       {dev.hardening && dev.kind === 'router' && <RouterSettings session={session} dev={dev} edit={edit} flash={flash} />}
       {dev.hardening && dev.kind === 'switch' && <SwitchSettings session={session} sim={sim} dev={dev} edit={edit} flash={flash} />}
-      {dev.vpn?.server && <VpnSettings session={session} dev={dev} edit={edit} flash={flash} />}
+      {dev.vpn?.server && <VpnSettings session={session} dev={dev} edit={editVpn} flash={flash} />}
     </section>
   );
 }

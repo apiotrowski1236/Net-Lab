@@ -1268,6 +1268,45 @@
   background: var(--surface-2);
 }
 .port-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.port-edit-head strong {
+  flex: 1;
+}
+.port-edit-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 10px;
+}
+.port-edit-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+.port-edit-fields label > span {
+  font-weight: 650;
+}
+.port-edit-fields label.wide {
+  flex-basis: 100%;
+}
+.port-edit-fields input,
+.port-edit-fields select {
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: inherit;
+  font-size: 13.5px;
+}
+.port-edit-fields input.invalid {
+  border-color: var(--bad);
+}
 /* ---------------------------------------------------------------------------
    Wi-Fi settings and tools (wireless lab)
    --------------------------------------------------------------------------- */
@@ -1339,40 +1378,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 8px;
-}
-.port-edit-head strong {
-  flex: 1;
-}
-.port-edit-fields {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin-bottom: 10px;
-}
-.port-edit-fields label {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 13px;
-}
-.port-edit-fields label > span {
-  font-weight: 650;
-}
-.port-edit-fields label.wide {
-  flex-basis: 100%;
-}
-.port-edit-fields input,
-.port-edit-fields select {
-  padding: 5px 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: var(--input-bg);
-  color: inherit;
-  font-size: 13.5px;
-}
-.port-edit-fields input.invalid {
-  border-color: var(--bad);
   padding: 6px 0;
   border-top: 1px solid var(--line);
 }
@@ -1392,6 +1397,7 @@
 }
 .triangulate-spots .btn.on {
   outline: 2px solid var(--good);
+}
 
 /* ---------------------------------------------------------------------------
    Firewall Rulebook (firewall): port scanner, firewall placement, rule editor
@@ -1636,20 +1642,47 @@
   cursor: pointer;
   font-weight: 600;
 }
-.risk-table-wrap {
-  overflow-x: auto;
+.risk-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.risk-table td {
-  vertical-align: middle;
+.risk-row {
+  padding: 8px 0;
+  border-top: 1px solid var(--line-2);
 }
-.risk-table select {
+.risk-row:first-child {
+  border-top: 0;
+}
+.risk-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.risk-row.fixed .risk-name {
+  color: var(--muted);
+}
+.risk-selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 6px;
+}
+.risk-selects label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
 }
-.risk-table select.unset {
+.risk-selects select {
+  font-size: 13px;
+}
+.risk-selects select.unset {
   border-color: var(--brand-line);
   color: var(--muted);
 }
-.risk-table tr.fixed .risk-name {
+.risk-name {
   color: var(--muted);
 }
 .risk-name {
@@ -1657,7 +1690,11 @@
 }
 .risk-matrix table th,
 .risk-matrix table td {
+  padding: 4px;
   text-align: center;
+}
+.risk-matrix .risk-pill {
+  min-width: 0;
 }
 .hardening .harden-group {
   margin: 12px 0 2px;

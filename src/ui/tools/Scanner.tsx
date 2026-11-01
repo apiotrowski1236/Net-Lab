@@ -93,7 +93,6 @@ function Report({ session, device, report, prev, onSelect }: { session: LabSessi
               <button class="audit-finding-row" aria-expanded={isOpen} onClick={() => toggle(f)}>
                 <RiskPill level={f.severity} />
                 <span class="audit-finding-name">{findingName(f.id)}</span>
-                <span class="muted small">{dev?.label ?? f.device}</span>
                 <span class="audit-caret" aria-hidden="true">
                   {isOpen ? '▾' : '▸'}
                 </span>

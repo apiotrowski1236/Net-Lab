@@ -454,6 +454,7 @@ export const netAuditLab: LabDef = {
         This simulation keeps the VPN simple: with split tunneling on, devices on the bookkeeper's home network can ride the laptop into the office. With it off, only the laptop's own office traffic uses the tunnel.
       `,
       focus: ['homedev', 'bookkeeper', 'router'],
+      tools: [{ kind: 'hardening', device: 'router', vpn: true }],
       actions: [probe],
       goals: [
         {

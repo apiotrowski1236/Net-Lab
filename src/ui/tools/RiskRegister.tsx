@@ -34,43 +34,36 @@ export function RiskRegisterTool({ session, spec }: ToolCardProps<'risk-register
           <p class="small muted">
             {rated} of {rows.length} rated
           </p>
-          <div class="risk-table-wrap">
-            <table class="table risk-table">
-              <thead>
-                <tr>
-                  <th>Finding</th>
-                  <th>Likelihood</th>
-                  <th>Impact</th>
-                  <th>Rating</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((f) => {
-                  const e = audit.register[f.id] ?? {};
-                  const rating = entryRating(e);
-                  const fixed = latest && !latest.findings.some((g) => g.id === f.id);
-                  return (
-                    <tr key={f.id} class={fixed ? 'fixed' : ''}>
-                      <td>
-                        <div class="risk-name">{findingName(f.id)}</div>
-                        <div class="small muted">
-                          {session.sim.devices[f.device]?.label ?? f.device}, scanner says {RISK_LABEL[f.severity].toLowerCase()}
-                          {fixed && <span class="pill good tiny">Fixed</span>}
-                        </div>
-                      </td>
-                      <td>
-                        <LevelSelect value={e.likelihood} label={`Likelihood: ${f.id}`} onChange={(v) => set(f.id, 'likelihood', v)} />
-                      </td>
-                      <td>
-                        <LevelSelect value={e.impact} label={`Impact: ${f.id}`} onChange={(v) => set(f.id, 'impact', v)} />
-                      </td>
-                      <td>{rating ? <RiskPill level={rating} /> : <span class="muted small">not yet</span>}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ul class="risk-rows">
+            {rows.map((f) => {
+              const e = audit.register[f.id] ?? {};
+              const rating = entryRating(e);
+              const fixed = latest && !latest.findings.some((g) => g.id === f.id);
+              const name = findingName(f.id);
+              return (
+                <li key={f.id} class={`risk-row ${fixed ? 'fixed' : ''} ${rating ? '' : 'unrated'}`}>
+                  <div class="risk-row-head">
+                    <span class="risk-name">{name}</span>
+                    {rating ? <RiskPill level={rating} /> : <span class="pill muted">not rated</span>}
+                  </div>
+                  <div class="small muted">
+                    {session.sim.devices[f.device]?.label ?? f.device}. Scanner says {RISK_LABEL[f.severity].toLowerCase()}.
+                    {fixed && <span class="pill good tiny">Fixed</span>}
+                  </div>
+                  <div class="risk-selects">
+                    <label>
+                      <span>Likelihood</span>
+                      <LevelSelect value={e.likelihood} label={`Likelihood: ${name}`} onChange={(v) => set(f.id, 'likelihood', v)} />
+                    </label>
+                    <label>
+                      <span>Impact</span>
+                      <LevelSelect value={e.impact} label={`Impact: ${name}`} onChange={(v) => set(f.id, 'impact', v)} />
+                    </label>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
           <details class="risk-matrix">
             <summary>How the rating is worked out</summary>
             <table class="table">
