@@ -41,7 +41,7 @@ export function Triangulate({ session, spec, onSelect }: ToolCardProps<'triangul
         <option value="">Choose a network...</option>
         {heard.map((r) => (
           <option key={r.bssid} value={r.bssid}>
-            {(r.ssid || '(hidden)') + ' — ' + r.bssid}
+            {`${r.ssid || '(hidden)'} (${r.bssid})`}
           </option>
         ))}
       </select>

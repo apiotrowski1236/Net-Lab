@@ -34,6 +34,15 @@ const KIND_TEXT: Record<Device['kind'], string> = {
   firewall: 'Firewall',
 };
 
+/** What the inspector calls a device, under its name. */
+function deviceKindText(dev: Device): string {
+  if (dev.wifi) return 'Wi-Fi access point';
+  if (dev.ids?.sensor) return 'Network sensor (IDS)';
+  if (dev.ids?.siem) return 'SIEM server';
+  if (dev.web && dev.kind === 'host') return 'Server';
+  return KIND_TEXT[dev.kind];
+}
+
 function nextHopText(sim: Sim, dev: Device, r: Route, ports: boolean): string {
   if (r.source === 'bgp' && !r.via) return 'Nowhere: we claim it ourselves';
   if (!r.via) return ports && dev.ifaces.length > 1 ? `Deliver directly (on this network, out ${portName(r.iface)})` : 'Deliver directly (on this network)';
@@ -396,7 +405,7 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
         <div>
           <div class="insp-title">{dev.label}</div>
           <div class="insp-sub">
-            {dev.wifi ? 'Wi-Fi access point' : dev.web && dev.kind === 'host' ? 'Server' : KIND_TEXT[dev.kind]}
+            {deviceKindText(dev)}
             {dev.kind === 'router' && dev.firewall ? ' with a firewall' : ''}
             {dev.bgp ? ` · Autonomous System ${dev.bgp.asn}` : ''}
             {dev.attacker ? ' · attacker' : ''}
