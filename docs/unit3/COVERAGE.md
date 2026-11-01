@@ -11,7 +11,7 @@ Source: [AP Cybersecurity CED](https://apcentral.collegeboard.org/media/pdf/ap-c
 | From Cable to Web Page | `build-network` | done | Prerequisite networking: cables, IP, MAC, ARP, switches, gateways, routes |
 | Traffic in the Wrong Hands | `on-path` | done | 3.1 ARP poisoning, on-path, sniffing, 3.2 WPA2, 3.5 ARP detection |
 | Flood the Switch | `mac-flood` | planned, wave 1 | 3.1 MAC flooding and spoofing, 3.2 switch policy, 3.3 port security, 3.5 detection |
-| Wrong Directions | `dns-spoof` | planned, wave 1 | 3.1 DNS poisoning and credential harvesting, 3.5 detection |
+| Wrong Directions | `dns-spoof` | built (af47361) | 3.1 DNS poisoning and credential harvesting, 3.5 detection |
 | Echo Storm | `smurf` | planned, wave 2 | 3.1 smurf, DoS, DDoS, 3.5 ICMP spike detection |
 | Advertise a Bad Route | `route-hijack` | done | 3.1 traffic redirection (BGP hijacking, beyond the CED) |
 | The Network Audit | `net-audit` | planned, wave 2 | 3.1.C risk assessment and scanners, 3.2.A router, switch, and VPN policies |
