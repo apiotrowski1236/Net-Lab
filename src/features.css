@@ -1345,7 +1345,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
 }
 .port-edit-head strong {
   flex: 1;
@@ -1379,8 +1380,6 @@
 }
 .port-edit-fields input.invalid {
   border-color: var(--bad);
-  padding: 6px 0;
-  border-top: 1px solid var(--line);
 }
 .crack-row:first-of-type {
   border-top: none;
