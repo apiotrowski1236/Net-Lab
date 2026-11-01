@@ -55,5 +55,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // The walkthrough test finds every lab's answer key with import.meta.glob.
+    // Vitest's on-disk module cache doesn't notice new files matching a glob,
+    // so a newly added lab would be skipped. The suite is fast without it.
+    fsModuleCache: false,
   },
 } as any);
