@@ -17,6 +17,8 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   gateway: 'Default gateway (in the inspector)',
   'static-route': 'Static routes (in the inspector)',
   logs: 'Logs (its own tab)',
+  'dns-forge': 'DNS forger',
+  'resolver-defense': 'Resolver defenses',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {

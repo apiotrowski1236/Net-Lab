@@ -1,5 +1,5 @@
 import type { SimAction } from '../runtime/actions';
-import { checkAddress, checkCable, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, type Checked } from '../runtime/toolInput';
+import { checkAddress, checkCable, checkForge, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, type Checked } from '../runtime/toolInput';
 import type { LabSession } from '../runtime/session';
 import type { Frame, LogEntry } from '../sim/types';
 import { isEncrypted, isPlainLogin } from './helpers';
@@ -83,6 +83,9 @@ function assertTypable(s: LabSession, a: SimAction): void {
       break;
     case 'ping':
       r = checkPing(sim, a.device, a.ip);
+      break;
+    case 'dns-forge':
+      r = checkForge(sim, a.device, a.resolver, a.name, a.ip);
       break;
     default:
       r = { ok: true };

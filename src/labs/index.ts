@@ -1,10 +1,11 @@
 import { buildNetworkLab } from './build-network';
+import { dnsSpoofLab } from './dns-spoof';
 import { onPathLab } from './on-path';
 import { routeHijackLab } from './route-hijack';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab, dnsSpoofLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the
@@ -18,14 +19,6 @@ export const STUBS: LabStub[] = [
     tagline: "Overflow a switch's memory so it repeats everyone's traffic to you, then lock its ports.",
     unit: 3,
     codehs: [],
-    comingSoon: true,
-  },
-  {
-    id: 'dns-spoof',
-    title: 'Wrong Directions',
-    tagline: "Poison a DNS server's memory and send a whole school to a fake sign-in page.",
-    unit: 3,
-    codehs: ['3.3 Misdirected and Overwhelmed'],
     comingSoon: true,
   },
   {

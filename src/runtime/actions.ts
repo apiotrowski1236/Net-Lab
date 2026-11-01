@@ -25,7 +25,13 @@ export type SimAction =
   | { type: 'set-ip'; device: string; iface: string; cidr: string | null }
   | { type: 'gateway'; device: string; ip: string | null }
   | { type: 'add-route'; device: string; prefix: string; via: string }
-  | { type: 'remove-route'; device: string; prefix: string };
+  | { type: 'remove-route'; device: string; prefix: string }
+  /** DNS cache poisoning: `device` (the attacker) forges answers for `name` pointing at `ip`, aimed at `resolver`. */
+  | { type: 'dns-forge'; device: string; resolver: string; name: string; ip: string }
+  /** Turn a resolver's defense (random query IDs and source ports) on or off. */
+  | { type: 'resolver-harden'; device: string; on: boolean }
+  /** Empty a resolver's cache. */
+  | { type: 'dns-flush'; device: string };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -86,6 +92,15 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'remove-route':
       sim.removeRoute(a.device, a.prefix);
+      return;
+    case 'dns-forge':
+      sim.forgeDnsAnswer(a.device, a.resolver, a.name, a.ip);
+      return;
+    case 'resolver-harden':
+      sim.setResolverHardened(a.device, a.on);
+      return;
+    case 'dns-flush':
+      sim.flushResolverCache(a.device);
       return;
   }
 }

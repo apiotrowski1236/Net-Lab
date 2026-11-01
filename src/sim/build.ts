@@ -1,4 +1,5 @@
 import type { Ip, Mac } from './addr';
+import { newResolver } from './dns';
 import { hashMac, Sim, type SimOptions } from './sim';
 import type { Device, DeviceIcon, DeviceKind, Iface, WebSite } from './types';
 
@@ -32,6 +33,8 @@ export interface HostOpts extends Placed {
   attacker?: boolean;
   web?: WebSite;
   dnsZone?: Record<string, Ip>;
+  /** Make this host a recursive resolver: it forwards cache misses to `upstream` and caches for `ttl` ms (default 60000). */
+  resolver?: { upstream: Ip; ttl?: number };
 }
 
 export interface RouterOpts extends Placed {
@@ -101,6 +104,7 @@ export class NetBuilder {
     d.attacker = o.attacker;
     d.web = o.web;
     d.dnsZone = o.dnsZone;
+    if (o.resolver) d.resolver = newResolver(o.resolver.upstream, o.resolver.ttl ?? 60_000);
     if (o.gateway) (this.staticRoutes[id] ??= []).push({ prefix: '0.0.0.0/0', via: o.gateway, iface: 'eth0' });
     this.sim.devices[id] = d;
     return this;

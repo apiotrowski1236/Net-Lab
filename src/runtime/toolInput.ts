@@ -350,6 +350,29 @@ export function checkRoute(sim: Sim, deviceId: string, rawPrefix: string, rawVia
   return { ok: true, prefix, via, replaces: cur?.via };
 }
 
+/** DNS forger: the name to poison and the address to plant in the resolver's cache. */
+export function checkForge(sim: Sim, attackerId: string, resolverId: string, rawName: string, rawIp: string): Checked<{ name: string; ip: Ip }> {
+  const name = rawName.trim().toLowerCase();
+  const att = sim.dev(attackerId);
+  const r = sim.dev(resolverId).resolver;
+  const nsDev = r ? sim.deviceByIp(r.upstream) : undefined;
+  const zone = nsDev?.dnsZone ?? {};
+  if (!name) return { ok: false, field: 'name', msg: 'Type the name you want to poison, like grades.example.' };
+  if (!/^[a-z0-9.-]+$/.test(name) || !name.includes('.')) return { ok: false, field: 'name', msg: 'Type a domain name, like grades.example.' };
+  if (!(name in zone)) {
+    return { ok: false, field: 'name', msg: `The name server has no record for ${name}, so the resolver never looks it up. Poison a name people open, like grades.example.` };
+  }
+  const ip = rawIp.trim();
+  if (!ip) return { ok: false, field: 'ip', msg: 'Type the address you want the resolver to hand out instead.' };
+  if (!isIp(ip)) return { ok: false, field: 'ip', msg: IP_FORMAT };
+  if (ip === zone[name]) return { ok: false, field: 'ip', msg: `That is the real gradebook's address (${ip}). Planting it changes nothing. Use your own server's address.` };
+  const owner = sim.deviceByIp(ip);
+  if (owner && owner.id !== attackerId && !owner.attacker) {
+    return { ok: false, field: 'ip', msg: `${ip} is ${owner.label}'s address, not your server's. Open ${att.label} on the map to find your lookalike server's address.` };
+  }
+  return { ok: true, name, ip };
+}
+
 /** Ping tool: the address to ping. */
 export function checkPing(sim: Sim, deviceId: string, raw: string): Checked<{ ip: Ip }> {
   const ip = raw.trim();

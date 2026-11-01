@@ -23,6 +23,7 @@ import type {
   Route,
   SimEvent,
 } from './types';
+import { forgedGuesses, freshEntry, nextQueryParams, type Waiter } from './dns';
 
 /**
  * A deliberately simplified network simulator.
@@ -500,7 +501,7 @@ export class Sim {
   }
 
   /** Pick the route, find the next hop's MAC, and send. `frame` is set when forwarding someone else's packet. */
-  routeAndSend(dev: Device, pkt: IpPacket, frame?: Frame): void {
+  routeAndSend(dev: Device, pkt: IpPacket, frame?: Frame, forged = frame?.forged ?? false): void {
     const mine = !frame && dev.kind === 'host';
     const { route: r, iface } = this.egress(dev, pkt.dst);
     if (!r) {
@@ -515,10 +516,10 @@ export class Sim {
       this.drop(dev, mine ? 'gateway-off-net' : 'no-route', pkt, frame, r.via);
       return;
     }
-    this.sendIp(dev, pkt, r.via ?? pkt.dst, iface);
+    this.sendIp(dev, pkt, r.via ?? pkt.dst, iface, forged);
   }
 
-  private sendIp(dev: Device, pkt: IpPacket, nextHop: Ip, ifaceId: string): void {
+  private sendIp(dev: Device, pkt: IpPacket, nextHop: Ip, ifaceId: string, forged = false): void {
     const iface = dev.ifaces.find((i) => i.id === ifaceId);
     if (!iface) return;
     if (!iface.ip) {
@@ -536,7 +537,7 @@ export class Sim {
       if (mac) entry = dev.arp[nextHop] = { mac, at: this.t, via: 'auto' };
     }
     if (entry) {
-      this.transmit(dev.id, iface.id, this.frame(dev.id, iface.mac, entry.mac, { ip: pkt }));
+      this.transmit(dev.id, iface.id, this.frame(dev.id, iface.mac, entry.mac, { ip: pkt, forged: forged || undefined }));
       return;
     }
     const alreadyAsking = dev.pending.some((p) => p.nextHop === nextHop);
@@ -554,13 +555,13 @@ export class Sim {
     });
   }
 
-  private originate(dev: Device, pkt: IpPacket): void {
+  private originate(dev: Device, pkt: IpPacket, forged = false): void {
     // A computer with no cable can't send anything, wherever it's going.
     if (dev.kind === 'host' && !dev.ifaces.some((i) => i.linkId)) {
       this.drop(dev, 'no-link', pkt);
       return;
     }
-    this.routeAndSend(dev, pkt);
+    this.routeAndSend(dev, pkt, undefined, forged);
   }
 
   private reply(dev: Device, req: IpPacket, app: AppData): void {
@@ -597,11 +598,11 @@ export class Sim {
         this.onHttpResponse(dev, pkt);
         return;
       case 'dns-query':
-        if (dev.dnsZone) {
-          this.reply(dev, pkt, { kind: 'dns-answer', name: app.name, ip: dev.dnsZone[app.name] ?? null, qid: app.qid });
-        }
+        if (dev.resolver) this.resolverHandleQuery(dev, pkt);
+        else if (dev.dnsZone) this.reply(dev, pkt, { kind: 'dns-answer', name: app.name, ip: dev.dnsZone[app.name] ?? null, qid: app.qid });
         return;
       case 'dns-answer':
+        if (dev.resolver && this.resolverHandleAnswer(dev, pkt)) return;
         this.onDnsAnswer(dev, pkt);
         return;
     }
@@ -618,6 +619,14 @@ export class Sim {
     const fake = !!site.fake || !!impostor;
     this.emit({ t: this.t, type: 'http-request', device: dev.id, frame, fake });
 
+    // Web servers keep an access log: one line per request. The logs lab reuses it.
+    this.log(dev.id, {
+      source: 'web',
+      level: 'info',
+      msg: `${req.method} ${req.path} from ${pkt.src}`,
+      fields: { src: pkt.src, method: req.method, path: req.path, host: req.host },
+    });
+
     // An impostor can't complete an HTTPS handshake for a name it has no certificate for,
     // so the browser stops before anything secret is sent.
     if (fake && pkt.encrypted) {
@@ -631,7 +640,7 @@ export class Sim {
       const creds = parseForm(req.body ?? '');
       const user = creds.user ?? creds.username ?? 'friend';
       title = `${site.title} · My account`;
-      body = `Welcome back, ${user}! Checking balance: $1,284.16`;
+      body = `Welcome back, ${user}! ${site.dashboard ?? 'Checking balance: $1,284.16'}`;
       if (fake && creds.pass) {
         dev.stolen.push({ t: this.t, user, pass: creds.pass, victimIp: pkt.src });
         this.emit({ t: this.t, type: 'credentials-stolen', device: dev.id, user, pass: creds.pass });
@@ -678,7 +687,10 @@ export class Sim {
       if (b && b.reqId === pending.reqId) this.failBrowser(dev, `Can't find a server named ${ans.name}.`);
       return;
     }
-    dev.dnsCache[ans.name] = ans.ip;
+    // A host that uses a resolver re-asks every time, so the resolver's cache
+    // (not the host's) is the one that matters. Hosts with no resolver keep
+    // their own small cache.
+    if (!dev.dnsServer) dev.dnsCache[ans.name] = ans.ip;
     if (b && b.reqId === pending.reqId && b.status === 'resolving') this.sendHttp(dev, ans.ip);
   }
 
@@ -1190,6 +1202,146 @@ export class Sim {
     return dev.ifaces
       .filter((i) => i.ip && i.prefix !== undefined)
       .map((i) => ({ prefix: networkOf(i.ip!, i.prefix!), iface: i.id, source: 'connected' as const }));
+  }
+
+  // -------------------------------------------------------------------------
+  // --- DNS resolver (dns-spoof) ---
+  //
+  // A recursive resolver answers clients from its cache, and on a miss forwards
+  // the question to the authoritative name server, caching the answer for its
+  // TTL. It accepts the first answer whose query ID, name, and port match the
+  // question it asked. It cannot tell a forged source address from a real one,
+  // so an attacker who guesses the ID and port and claims to be the name server
+  // can poison the cache. See src/sim/dns.ts for the state and the ID rules.
+  // -------------------------------------------------------------------------
+
+  /** A client asked this resolver to look up a name. */
+  private resolverHandleQuery(dev: Device, pkt: IpPacket): void {
+    const q = pkt.app as Extract<AppData, { kind: 'dns-query' }>;
+    const r = dev.resolver!;
+    const hit = freshEntry(r, q.name, this.t);
+    if (hit) {
+      this.log(dev.id, { source: 'dns', level: 'info', msg: `cache hit ${q.name} -> ${hit.ip}`, fields: { name: q.name, ip: hit.ip } });
+      this.reply(dev, pkt, { kind: 'dns-answer', name: q.name, ip: hit.ip, qid: q.qid });
+      return;
+    }
+    const waiter: Waiter = { ip: pkt.src, port: pkt.srcPort ?? 0, qid: q.qid };
+    const existing = Object.values(r.pending).find((p) => p.name === q.name);
+    if (existing) {
+      existing.waiters.push(waiter);
+      return;
+    }
+    this.resolverAsk(dev, q.name, [waiter]);
+  }
+
+  /** The resolver sends its own question to the authoritative name server. */
+  private resolverAsk(dev: Device, name: string, waiters: Waiter[]): void {
+    const r = dev.resolver!;
+    const { qid, port } = nextQueryParams(r, (n) => this.randInt(n));
+    r.pending[qid] = { name, qid, srcPort: port, since: this.t, waiters };
+    this.log(dev.id, { source: 'dns', level: 'info', msg: `query ${name} to ${r.upstream} (id ${qid})`, fields: { name, id: qid, dport: 53 } });
+    this.originate(dev, {
+      src: this.srcFor(dev, r.upstream) ?? '0.0.0.0',
+      dst: r.upstream,
+      ttl: 64,
+      proto: 'udp',
+      srcPort: port,
+      dstPort: 53,
+      app: { kind: 'dns-query', name, qid },
+    });
+  }
+
+  /** An answer reached the resolver. Returns true when it matched a question we asked. */
+  private resolverHandleAnswer(dev: Device, pkt: IpPacket): boolean {
+    const r = dev.resolver!;
+    const ans = pkt.app as Extract<AppData, { kind: 'dns-answer' }>;
+    const pending = r.pending[ans.qid];
+    if (!pending || pending.name !== ans.name || pkt.dstPort !== pending.srcPort) return false;
+    delete r.pending[ans.qid];
+    this.emit({ t: this.t, type: 'dns-answer', device: dev.id, name: ans.name, ip: ans.ip });
+    if (ans.ip == null) {
+      for (const w of pending.waiters) this.resolverReply(dev, w, ans.name, null);
+      return true;
+    }
+    const prev = r.cache[ans.name];
+    r.cache[ans.name] = { ip: ans.ip, at: this.t, ttl: r.defaultTtl, from: pkt.src };
+    const changed = !!prev && prev.ip !== ans.ip;
+    this.log(dev.id, {
+      source: 'dns',
+      level: changed ? 'notice' : 'info',
+      msg: changed ? `cached ${ans.name} -> ${ans.ip} (was ${prev!.ip})` : `cached ${ans.name} -> ${ans.ip} (ttl ${Math.round(r.defaultTtl / 1000)}s)`,
+      fields: { name: ans.name, ip: ans.ip, from: pkt.src, ttl: Math.round(r.defaultTtl / 1000) },
+    });
+    for (const w of pending.waiters) this.resolverReply(dev, w, ans.name, ans.ip);
+    return true;
+  }
+
+  private resolverReply(dev: Device, w: Waiter, name: string, ip: Ip | null): void {
+    this.originate(dev, {
+      src: this.srcFor(dev, w.ip) ?? dev.ifaces.find((i) => i.ip)?.ip ?? '0.0.0.0',
+      dst: w.ip,
+      ttl: 64,
+      proto: 'udp',
+      srcPort: 53,
+      dstPort: w.port,
+      app: { kind: 'dns-answer', name, ip, qid: w.qid },
+    });
+  }
+
+  /**
+   * Cache poisoning. `attacker` floods `resolver` with forged answers that
+   * claim to come from the name server, each saying `name` is at `ip`. First it
+   * makes sure a question for `name` is in flight, then it sends one forged
+   * answer for every query ID and port it guesses. If the resolver is not
+   * hardened, one guess matches and the forgery is cached before the real
+   * answer, which has farther to travel, gets back.
+   */
+  forgeDnsAnswer(attackerId: string, resolverId: string, name: string, ip: Ip): void {
+    const att = this.dev(attackerId);
+    const resolver = this.dev(resolverId);
+    const r = resolver.resolver;
+    if (!r) throw new Error(`${resolverId} is not a resolver`);
+    if (!Object.values(r.pending).some((p) => p.name === name)) this.resolverAsk(resolver, name, []);
+    const resolverIp = this.ipOf(resolverId);
+    for (const g of forgedGuesses()) {
+      this.originate(
+        att,
+        {
+          src: r.upstream, // spoofed: the forgery claims to be the name server
+          dst: resolverIp,
+          ttl: 64,
+          proto: 'udp',
+          srcPort: 53,
+          dstPort: g.port,
+          app: { kind: 'dns-answer', name, ip, qid: g.qid },
+        },
+        true,
+      );
+    }
+    this.emit({ t: this.t, type: 'config', device: attackerId, what: 'dns-forge', detail: `forged ${name} = ${ip}` });
+  }
+
+  /** Turn the resolver's defense on or off: unpredictable query IDs and source ports. */
+  setResolverHardened(resolverId: string, on: boolean): void {
+    const r = this.dev(resolverId).resolver;
+    if (!r) return;
+    r.hardened = on;
+    this.log(resolverId, {
+      source: 'dns',
+      level: 'notice',
+      msg: on ? 'hardening on: random query IDs and source ports' : 'hardening off',
+    });
+    this.emit({ t: this.t, type: 'config', device: resolverId, what: 'resolver-hardened', on });
+  }
+
+  /** Empty the resolver's cache, so the next lookup asks the name server again. */
+  flushResolverCache(resolverId: string): void {
+    const r = this.dev(resolverId).resolver;
+    if (!r) return;
+    r.cache = {};
+    r.pending = {};
+    this.log(resolverId, { source: 'dns', level: 'notice', msg: 'cache flushed' });
+    this.emit({ t: this.t, type: 'config', device: resolverId, what: 'resolver-flush' });
   }
 }
 

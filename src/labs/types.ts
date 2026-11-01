@@ -99,7 +99,11 @@ export type ToolSpec =
   /** Add and remove routers' static routes in the inspector. */
   | { kind: 'static-route' }
   /** Unlock the Logs tab, showing these devices' logs. Not a Toolkit card. */
-  | { kind: 'logs'; devices: string[] };
+  | { kind: 'logs'; devices: string[] }
+  /** DNS forger: send forged answers from `device` to `resolver`. The student types the name and the address to plant. */
+  | { kind: 'dns-forge'; device: string; resolver: string }
+  /** Resolver defenses on `device`: flush the cache and turn on unpredictable query IDs. */
+  | { kind: 'resolver-defense'; device: string };
 
 /** Tools that change device settings in the inspector instead of having their own card. */
 export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route'] as const;

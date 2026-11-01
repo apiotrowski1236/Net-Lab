@@ -1,4 +1,5 @@
 import type { Ip, Mac } from './addr';
+import type { DnsResolver } from './dns';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -61,6 +62,8 @@ export interface WebSite {
   fake?: boolean;
   /** Text of the page a plain visit (GET) shows. Defaults to a sign-in prompt. */
   page?: string;
+  /** Line shown after a successful sign-in (POST), after "Welcome back, NAME!". Defaults to a bank balance. */
+  dashboard?: string;
 }
 
 export interface BrowserState {
@@ -138,6 +141,8 @@ export interface Device {
   dnsZone?: Record<string, Ip>;
   dnsCache: Record<string, Ip>;
   dnsPending: Record<number, { name: string; reqId: number }>;
+  /** A recursive resolver's cache, pending lookups, and defenses (see src/sim/dns.ts). */
+  resolver?: DnsResolver;
   sniffing: boolean;
   forwarding: boolean;
   capture: Captured[];
