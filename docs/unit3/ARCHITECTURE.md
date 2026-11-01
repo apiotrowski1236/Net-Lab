@@ -77,7 +77,7 @@ Map coordinates are a 1000 x 600 canvas. Keep device centers at least about 130 
 
 ## Checks before you finish
 
-1. `npm run typecheck`, `npm test`, and `npm run build` pass. `npm run e2e` still passes (needs Chromium; see below).
+1. `npm run typecheck`, `npm test`, and `npm run build` pass. `npm run e2e` still passes (needs Chromium; see below). `LAB=<id> npm run playthrough` passes: it plays your solution.ts, loads the result into the built app, and checks every step shows its goals done with Continue ready, no sideways scroll, and no page errors.
 2. Play the whole lab in a real browser as a first-time student would: `npx vite preview --port <a free port, 4200 or above> --strictPort`, then drive it with Playwright (`node_modules/playwright-core`, Chromium at `~/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, or set `CHROME_PATH`). Seed a profile with `localStorage['netlab:v1:profile'] = '{"id":"s1","name":"Test Student","period":"1"}'`. Use a 1366x768 window. Read every screen: is the next action obvious, does each message make sense, does anything overlap? Fix what confuses. No page errors in the console. Keep screenshots in `/tmp/netlab-<id>/`.
 3. The lab guide (`#/guide/<id>`) reads well.
 

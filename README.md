@@ -146,11 +146,14 @@ The app re-reads `config.json` each time it opens (and remembers the last copy w
 npm test          # simulator and lab walkthrough tests (a few seconds)
 npm run typecheck # TypeScript
 npm run e2e       # build, then drive the real app in Chromium and save screenshots
+npm run playthrough  # build, then page through every lab's answer key in Chromium
 ```
 
 `npm test` plays every lab from the first step to the last using its solution file and fails if any step can't be finished. It also checks that a reload rebuilds the same network, that **Reset network** keeps answers, and that a student can't skip ahead.
 
-`npm run e2e` builds the site, opens it in headless Chromium at 13-inch MacBook Air size (1440×800; `SIZE=small` for 1366×768, `THEME=light` for the light theme), plays the first steps of a lab through the real interface, changes an answer, replays a step, reloads to confirm the work was saved, goes offline to confirm the app still loads, opens the guide (screen and print), types a wrong and a right address into the ARP spoofer, uses the teacher override, submits and downloads from the summary page, and restores the work from that download on a fresh browser (and refuses it for a different student or after the file is edited). It writes screenshots to `screenshots/`. It needs a Chromium for Playwright. If it can't find one, run `npx playwright-core install chromium` or set `CHROME_PATH` to a Chrome binary.
+`npm run e2e` builds the site, opens it in headless Chromium at 13-inch MacBook Air size (1440×800; `SIZE=small` for 1366×768, `THEME=light` for the light theme), plays the first steps of a lab through the real interface, changes an answer, replays a step, reloads to confirm the work was saved, goes offline to confirm the app still loads, opens the guide (screen and print), types a wrong and a right address into the ARP spoofer, uses the teacher override, submits and downloads from the summary page, and restores the work from that download on a fresh browser (and refuses it for a different student or after the file is edited). It also opens every lab and its guide. It writes screenshots to `screenshots/`. It needs a Chromium for Playwright. If it can't find one, run `npx playwright-core install chromium` or set `CHROME_PATH` to a Chrome binary.
+
+`npm run playthrough` plays each lab's solution file in Node, loads the finished work into the built app, and pages through every step with **Continue**. Each step must show its goals done, with no sideways scrolling and no page errors. That also proves the saved actions replay to the same network in the browser. `LAB=<id>` checks one lab. Screenshots go to `screenshots/playthrough/`.
 
 To check offline by hand: `npm run build && npm run preview`, open the preview address, do part of a lab, then turn on **Offline** in Chrome DevTools (Network tab) and reload.
 
@@ -198,6 +201,7 @@ After you deploy an update, a student's browser picks it up the second time they
 public/config.json           teacher settings
 receivers/google-apps-script Google Sheets receiver
 scripts/e2e.mjs              browser check + screenshots
+scripts/playthrough.mjs      every lab's answer key, step by step, in the browser
 scripts/set-password.mjs     sets the teacher override password
 .github/workflows/deploy.yml GitHub Pages build and deploy
 sw/sw-template.js            offline service worker (filled in at build time)
