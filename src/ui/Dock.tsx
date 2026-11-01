@@ -1172,7 +1172,7 @@ export function Toolkit({ session, tools, onSelect }: { session: LabSession; too
     return (
       <div class="dock-empty">
         <Icon name="bolt" size={28} />
-        <p>No tools yet. The lesson will hand you tools as you need them.</p>
+        <p>No tools in this step. Each step hands you the tools it needs.</p>
       </div>
     );
   }

@@ -274,7 +274,7 @@ Threshold is a slider, 0.00 to 1.00 in 0.05 steps, showing live counts of real a
 
 ## Steps
 
-Tools unlock cumulatively. Step 1 unlocks the Logs tab for every logging device; it stays unlocked. The Detection controls on `nids` reveal one group at a time: signatures (step 3), anomaly plus tolerance (step 5), prevention (step 6). The SIEM incident view unlocks in step 7, the AI threshold in step 8.
+Each step offers only its own tools (nothing carries over), except the Logs tab: step 1 unlocks it for every logging device, and it stays unlocked. The Detection controls on `nids` reveal one group at a time: signatures (step 3), anomaly plus tolerance (step 5), prevention (step 6). The SIEM incident view unlocks in step 7, the AI threshold in step 8.
 
 Logs tool device list (step 1):
 `{ kind: 'logs', devices: ['fw', 'sw', 'files', 'backup', 'pc1', 'pc2', 'control', 'plant', 'nids', 'siem'] }`

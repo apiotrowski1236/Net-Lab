@@ -427,6 +427,8 @@ export const segmentationLab: LabDef = {
           ],
         },
         { kind: 'gateway' },
+        { kind: 'vlan', device: 'sw', vlans: ZONES.map((z) => ({ id: VLAN[z], name: ZONE_NAME[z] })) },
+        { kind: 'ping' },
       ],
       actions: [
         { id: 'movies', label: 'Crew laptop 1 opens the movie list', run: (sim) => sim.browse('crew1', `http://${sim.ipOf('media')}/`) },
@@ -593,7 +595,7 @@ export const segmentationLab: LabDef = {
         2. When the map goes quiet, open the **Logs** tab. Click a line in [[fw]]'s log that shows a blocked probe.
       `,
       focus: ['crew1', 'fw'],
-      tools: [{ kind: 'logs', devices: ['fw'] }],
+      tools: [{ kind: 'logs', devices: ['fw'] }, { kind: 'zone-policy', device: 'fw' }],
       actions: [install('Crew laptop 1 installs the game')],
       goals: [
         {

@@ -239,6 +239,7 @@ export const logsLab: LabDef = {
       `,
       setup: signaturesOn,
       focus: ['pc2', 'fw', 'nids'],
+      tools: [{ kind: 'ids', device: 'nids', controls: ['signatures'] }],
       actions: [replayUploadAction],
       goals: [
         {

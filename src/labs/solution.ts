@@ -7,7 +7,7 @@ import type { Frame, LogEntry } from '../sim/types';
 import { isEncrypted, isPlainLogin, isTelnetLogin } from './helpers';
 import { RISK_LEVELS } from '../sim/audit';
 import { HARDEN_SETTINGS } from '../sim/hardening';
-import type { ChoiceQuestion } from './types';
+import type { ChoiceQuestion, ToolSpec } from './types';
 
 /**
  * Answer keys. Each lab has a solution that the walkthrough test plays from
@@ -44,6 +44,7 @@ export function playMove(s: LabSession, m: Move): void {
   if ('inspect' in m) s.ui({ type: 'ui:inspect', device: m.inspect });
   else if ('press' in m) s.runStepAction(m.press);
   else if ('tool' in m) {
+    assertInReach(s, m.tool);
     assertTypable(s, m.tool);
     s.dispatch(m.tool);
   }
@@ -63,6 +64,91 @@ export function playMove(s: LabSession, m: Move): void {
     s.ui({ type: 'ui:open-frame', device: m.openFrame, frame: hit.frame });
   }
   s.sim.runUntilIdle();
+}
+
+/** Whether `t` works on device `d`: its device, one of its devices, or any device for a tool that names none. */
+function on(t: ToolSpec, d: string): boolean {
+  if ('device' in t) return t.device === d;
+  if ('devices' in t) return t.devices.includes(d);
+  if ('attacker' in t) return t.attacker === d;
+  if ('scanner' in t) return t.scanner === d;
+  return true;
+}
+
+/** Which tool lets a student take each action, the way the interface wires them. */
+const TOOL_FOR: Partial<Record<SimAction['type'], (t: ToolSpec, a: SimAction) => boolean>> = {
+  sniff: (t, a) => t.kind === 'sniffer' && on(t, dev(a)),
+  forward: (t, a) => t.kind === 'forwarding' && on(t, dev(a)),
+  'arp-spoof': (t, a) => t.kind === 'arp-spoof' && on(t, dev(a)),
+  'static-arp': (t, a) => t.kind === 'static-arp' && on(t, dev(a)),
+  announce: (t, a) => t.kind === 'bgp-announce' && on(t, dev(a)),
+  withdraw: (t, a) => t.kind === 'bgp-announce' && on(t, dev(a)),
+  validate: (t, a) => t.kind === 'bgp-validate' && on(t, dev(a)),
+  ping: (t) => t.kind === 'ping',
+  echo: (t, a) => t.kind === 'echo-tool' && on(t, dev(a)),
+  'directed-broadcast': (t, a) => t.kind === 'directed-broadcast' && on(t, dev(a)),
+  cable: (t) => t.kind === 'cable',
+  unplug: (t) => t.kind === 'cable',
+  'set-ip': (t) => t.kind === 'ip-config',
+  gateway: (t) => t.kind === 'gateway',
+  'add-route': (t) => t.kind === 'static-route',
+  'remove-route': (t) => t.kind === 'static-route',
+  'dns-forge': (t, a) => t.kind === 'dns-forge' && on(t, dev(a)),
+  'resolver-harden': (t, a) => t.kind === 'resolver-defense' && on(t, dev(a)),
+  'dns-flush': (t, a) => t.kind === 'resolver-defense' && on(t, dev(a)),
+  'mac-flood': (t, a) => t.kind === 'mac-flood' && on(t, dev(a)),
+  'set-mac': (t, a) => t.kind === 'mac-change' && on(t, dev(a)),
+  // The switch's port settings, or the hardening section's "shut unused ports".
+  'port-security': (t, a) => (t.kind === 'port-security' || t.kind === 'hardening') && on(t, dev(a)),
+  'port-shutdown': (t, a) => (t.kind === 'port-security' || t.kind === 'hardening') && on(t, dev(a)),
+  'wifi-security': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-passphrase': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-power': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-beacon': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-wps': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-auth': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-macfilter': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-crack': (t, a) => t.kind === 'wifi-crack' && on(t, dev(a)),
+  'wifi-scan': (t, a) => t.kind === 'wifi-scan' && on(t, dev(a)),
+  'wifi-measure': (t, a) => t.kind === 'triangulate' && on(t, dev(a)),
+  scan: (t, a) => t.kind === 'port-scan' && on(t, dev(a)),
+  connect: (t, a) => t.kind === 'port-scan' && on(t, dev(a)),
+  'fw-place': (t, a) => t.kind === 'firewall-place' && on(t, dev(a)),
+  'fw-unplace': (t, a) => t.kind === 'firewall-place' && on(t, dev(a)),
+  // The rule editor, or the hardening section's guard on the router itself.
+  'fw-add-rule': (t, a) => (t.kind === 'firewall-rules' || t.kind === 'hardening') && on(t, dev(a)),
+  'fw-delete-rule': (t, a) => (t.kind === 'firewall-rules' || t.kind === 'hardening') && on(t, dev(a)),
+  'fw-edit-rule': (t, a) => t.kind === 'firewall-rules' && on(t, dev(a)),
+  'fw-move-rule': (t, a) => t.kind === 'firewall-rules' && on(t, dev(a)),
+  'fw-mode': (t, a) => t.kind === 'firewall-rules' && on(t, dev(a)),
+  'set-vlan': (t, a) => t.kind === 'vlan' && on(t, dev(a)),
+  'set-zone': (t, a) => t.kind === 'zone-plan' && on(t, dev(a)),
+  'set-zone-level': (t) => t.kind === 'zone-plan',
+  'set-zone-policy': (t, a) => t.kind === 'zone-policy' && on(t, dev(a)),
+  'audit-scan': (t, a) => t.kind === 'scanner' && on(t, dev(a)),
+  'rate-risk': (t, a) => t.kind === 'risk-register' && on(t, dev(a)),
+  harden: (t, a) => t.kind === 'hardening' && on(t, dev(a)),
+  'vpn-config': (t, a) => t.kind === 'hardening' && on(t, dev(a)),
+  'ids-signatures': (t, a) => t.kind === 'ids' && on(t, dev(a)) && t.controls.includes('signatures'),
+  'ids-anomaly': (t, a) => t.kind === 'ids' && on(t, dev(a)) && t.controls.includes('anomaly'),
+  'ids-prevention': (t, a) => t.kind === 'ids' && on(t, dev(a)) && t.controls.includes('prevention'),
+  'siem-triage': (t, a) => t.kind === 'siem' && on(t, dev(a)),
+  'ai-threshold': (t, a) => t.kind === 'ai-threshold' && on(t, dev(a)),
+};
+
+const dev = (a: SimAction): string => ('device' in a ? a.device : '');
+
+/** Why none of `tools` can take action `a`, or null if one can. */
+export function missingTool(tools: ToolSpec[], a: SimAction): string | null {
+  const ok = TOOL_FOR[a.type];
+  if (!ok) return `No tool takes a "${a.type}" action. Use a step button ({ press }) instead.`;
+  return tools.some((t) => ok(t, a)) ? null : `no tool for ${a.type}${dev(a) ? ` on ${dev(a)}` : ''}`;
+}
+
+/** A tool move needs a tool the current step offers: tools don't carry over from earlier steps. */
+function assertInReach(s: LabSession, a: SimAction): void {
+  const why = missingTool(s.tools, a);
+  if (why) throw new Error(`Step "${s.step.id}" offers ${why}. List the tool in this step's tools.`);
 }
 
 /** The answer key's tool inputs must pass the same checks a student's typing does. */

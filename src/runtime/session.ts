@@ -4,6 +4,8 @@ import type { SimEvent } from '../sim/types';
 import {
   answerKey,
   goalKey,
+  TAB_TOOLS,
+  toolKey,
   type AnyEvent,
   type LabDef,
   type QuestionDef,
@@ -182,16 +184,27 @@ export class LabSession {
   }
 
   /**
-   * Tools unlock cumulatively up to the furthest step reached. A later step can
-   * re-list a tool (same kind and device) to change its options; the latest wins.
+   * The tools the step on screen offers. Nothing carries over: a step lists
+   * every tool it needs, including ones an earlier step introduced, so a tool
+   * is only in reach while it's the point. Tabs (TAB_TOOLS, the Logs tab) are
+   * the exception: they only show evidence, so once a step opens one it stays.
    */
   get tools(): ToolSpec[] {
+    const own = this.lab.steps[this.progress.step].tools ?? [];
+    const keys = new Set(own.map(toolKey));
+    const tabs = this.introduced().filter((t) => (TAB_TOOLS as readonly string[]).includes(t.kind) && !keys.has(toolKey(t)));
+    return [...own, ...tabs];
+  }
+
+  /**
+   * Every tool the lesson has handed out up to the furthest step reached (the
+   * latest listing of a tool wins). For showing a setting read-only once the
+   * lesson has introduced it, after the step that let the student change it.
+   */
+  introduced(): ToolSpec[] {
     const byKey = new Map<string, ToolSpec>();
     for (let i = 0; i <= this.progress.maxStep; i++) {
-      for (const t of this.lab.steps[i].tools ?? []) {
-        const who = 'device' in t ? t.device : 'devices' in t ? t.devices.join(',') : '';
-        byKey.set(`${t.kind}@${who}`, t);
-      }
+      for (const t of this.lab.steps[i].tools ?? []) byKey.set(toolKey(t), t);
     }
     return [...byKey.values()];
   }

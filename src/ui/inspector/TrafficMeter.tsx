@@ -75,7 +75,7 @@ export function RouterPanel({ session, sim, dev, replaying, has }: InspectorSect
             Directed broadcasts <span class="muted">forward pings to the whole LAN at once</span>
           </h4>
           <p class="small muted">
-            When on, a ping sent to this network's broadcast address is copied to every computer, and each one replies — the amplifier a smurf attack needs.
+            When on, a ping sent to this network's broadcast address is copied to every computer, and each one replies. That's the amplifier a smurf attack needs.
           </p>
           {canToggle ? (
             <Toggle

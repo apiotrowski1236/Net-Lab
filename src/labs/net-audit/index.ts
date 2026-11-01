@@ -209,6 +209,7 @@ export const netAuditLab: LabDef = {
 
         Sort this office's findings by how hard they are to exploit. The scanner's report is still in the **Toolkit** if you want to look again.
       `,
+      tools: [{ kind: 'scanner', device: 'auditor' }],
       questions: [
         {
           id: 'easy',
@@ -306,6 +307,7 @@ export const netAuditLab: LabDef = {
       tools: [
         { kind: 'hardening', device: 'router' },
         { kind: 'firewall-rules', devices: ['router'] },
+        { kind: 'scanner', device: 'auditor' },
       ],
       goals: [
         {
@@ -363,7 +365,7 @@ export const netAuditLab: LabDef = {
       `,
       focus: ['sw'],
       open: { inspect: 'sw' },
-      tools: [{ kind: 'hardening', device: 'sw' }],
+      tools: [{ kind: 'hardening', device: 'sw' }, { kind: 'scanner', device: 'auditor' }],
       goals: [
         {
           id: 'apply',
@@ -417,7 +419,7 @@ export const netAuditLab: LabDef = {
       `,
       focus: ['wap'],
       open: { inspect: 'wap' },
-      tools: [{ kind: 'wifi-config', device: 'wap' }],
+      tools: [{ kind: 'wifi-config', device: 'wap' }, { kind: 'scanner', device: 'auditor' }],
       goals: [
         { id: 'wpa3', label: 'Set [[wap]] to WPA2 or WPA3', hint: 'Open [[wap]] and change the security mode. WEP is broken; pick WPA3.', check: ({ sim }) => wifiStrong(sim) },
         { id: 'rescan', label: 'Re-scan and clear the high finding', hint: 'Change the setting first, then press **Run scan again**.', check: without('wifi-weak') },
@@ -506,6 +508,7 @@ export const netAuditLab: LabDef = {
       `,
       focus: ['auditor'],
       open: 'tools',
+      tools: [{ kind: 'scanner', device: 'auditor' }],
       goals: [
         {
           id: 'clean',

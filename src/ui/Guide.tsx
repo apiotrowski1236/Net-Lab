@@ -112,16 +112,16 @@ export function Guide({ lab }: { lab: LabDef }) {
           </h2>
           <Md src={s.body} labels={labels} />
 
-          {!!(s.actions?.length || newTools(steps, i).length) && (
+          {!!(s.actions?.length || stepTools(s).length) && (
             <div class="guide-extras">
               {s.actions?.length ? (
                 <div>
                   <b>Buttons in this step:</b> {s.actions.map((a) => a.label).join(', ')}
                 </div>
               ) : null}
-              {newTools(steps, i).length ? (
+              {stepTools(s).length ? (
                 <div>
-                  <b>New in the Toolkit:</b> {newTools(steps, i).join(', ')}
+                  <b>Tools in this step:</b> {stepTools(s).join(', ')}
                 </div>
               ) : null}
             </div>
@@ -175,8 +175,7 @@ export function Guide({ lab }: { lab: LabDef }) {
   );
 }
 
-/** Tools that step `i` grants for the first time. A later step that adds a device or mode to a tool doesn't name it again. */
-function newTools(steps: StepDef[], i: number): string[] {
-  const earlier = new Set(steps.slice(0, i).flatMap((p) => p.tools?.map((t) => t.kind) ?? []));
-  return [...new Set((steps[i].tools ?? []).filter((t) => !earlier.has(t.kind)).map((t) => TOOL_NAME[t.kind]))];
+/** The tools a step offers, by name (each kind once). */
+function stepTools(s: StepDef): string[] {
+  return [...new Set((s.tools ?? []).map((t) => TOOL_NAME[t.kind]))];
 }

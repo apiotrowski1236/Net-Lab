@@ -160,6 +160,7 @@ Mallory. It goes to whatever address the ping claimed to be from.
 Forged packets are drawn in red so you can follow them. Real networks don't color them.`,
       focus: ['mallory', 'pc1', 'web'],
       open: 'tools',
+      tools: [{ kind: 'echo-tool', device: 'mallory' }],
       goals: [
         {
           id: 'forge',

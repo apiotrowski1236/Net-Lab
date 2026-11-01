@@ -286,6 +286,7 @@ export const macFloodLab: LabDef = {
         Then open the **Capture** tab and click the attendance frame (**GET /attendance**) to read it.
       `,
       focus: ['ortiz', 'sw', 'mallory'],
+      tools: [{ kind: 'sniffer', device: 'mallory' }, { kind: 'mac-flood', device: 'mallory' }],
       actions: [ortizSends],
       goals: [
         {
@@ -456,7 +457,7 @@ export const macFloodLab: LabDef = {
         4. Press **Mallory takes the printer's cable**, then **Mallory pings the records server**.
       `,
       focus: ['printer', 'sw', 'mallory'],
-      tools: [{ kind: 'mac-change', device: 'mallory' }],
+      tools: [{ kind: 'mac-change', device: 'mallory' }, { kind: 'port-security', device: 'sw' }],
       actions: [takeCable, malloryPings],
       goals: [
         {
@@ -515,6 +516,7 @@ export const macFloodLab: LabDef = {
       `,
       focus: ['sw', 'printer'],
       open: 'logs',
+      tools: [{ kind: 'port-security', device: 'sw' }],
       goals: [
         {
           id: 'log',

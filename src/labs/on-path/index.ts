@@ -228,6 +228,7 @@ export const onPathLab: LabDef = {
         ensureSniffing(sim);
       },
       focus: ['wifi', 'mallory'],
+      tools: [{ kind: 'sniffer', device: 'mallory' }],
       actions: [login],
       goals: [
         {
@@ -373,7 +374,7 @@ export const onPathLab: LabDef = {
       setup: ensurePoisoned,
       focus: ['alice', 'mallory', 'router'],
       open: 'tools',
-      tools: [{ kind: 'forwarding', device: 'mallory' }],
+      tools: [{ kind: 'forwarding', device: 'mallory' }, { kind: 'sniffer', device: 'mallory' }],
       actions: [login],
       goals: [
         { id: 'fwd', label: 'Turn on IP forwarding for [[mallory]]', check: ({ sim }) => sim.dev('mallory').forwarding },
@@ -410,6 +411,7 @@ export const onPathLab: LabDef = {
       `,
       setup: ensureInTheMiddle,
       focus: ['alice', 'mallory'],
+      tools: [{ kind: 'sniffer', device: 'mallory' }],
       actions: [loginHttps],
       goals: [
         {
@@ -458,7 +460,7 @@ export const onPathLab: LabDef = {
       `,
       setup: ensureInTheMiddle,
       focus: ['router', 'alice'],
-      tools: [{ kind: 'static-arp', device: 'alice' }],
+      tools: [{ kind: 'static-arp', device: 'alice' }, { kind: 'arp-spoof', device: 'mallory', victims: ['alice', 'router'] }],
       goals: [
         { id: 'spot', label: 'Open [[router]] and find the repeated MAC address', check: inspected('router') },
         {

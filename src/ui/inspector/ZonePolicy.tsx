@@ -24,11 +24,12 @@ const the = (label: string) => `the ${label.charAt(0).toLowerCase()}${label.slic
  * A firewall's zone policy (segmentation): which zone may start connections to
  * which, as a table with one row per "from" zone. Each change rewrites the
  * firewall's rules (see src/sim/zonePolicy.ts), which the rules section below
- * lists. Shown once the student has the zone-policy tool for this device.
+ * lists. Shown once a step has handed out the zone-policy tool for this device.
  */
 export function ZonePolicySection(props: InspectorSectionProps) {
   const { session, dev } = props;
-  if (!dev.zonePolicy || !session.tools.some((t) => t.kind === 'zone-policy' && t.device === dev.id)) return null;
+  // Read-only after the step that sets it, so later steps can still show it.
+  if (!dev.zonePolicy || !session.introduced().some((t) => t.kind === 'zone-policy' && t.device === dev.id)) return null;
   return <ZonePolicyInner {...props} zp={dev.zonePolicy} />;
 }
 

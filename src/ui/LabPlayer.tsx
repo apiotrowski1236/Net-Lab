@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { TAB_TOOLS, type LabDef } from '../labs/types';
+import { TAB_TOOLS, toolKey, type LabDef } from '../labs/types';
 import { LabSession } from '../runtime/session';
 import { checkCable } from '../runtime/toolInput';
 import { beacon, enqueue, hasEndpoint } from '../store/outbox';
@@ -252,9 +252,12 @@ function Dock({
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   });
-  const seenTools = useRef(tools.length);
-  const newTools = tools.length > seenTools.current && tab !== 'tools';
-  if (tab === 'tools') seenTools.current = tools.length;
+  // "New tool" until the student opens the Toolkit and sees what this step brought.
+  const keys = tools.map(toolKey);
+  const seenTools = useRef<Set<string> | null>(null);
+  seenTools.current ??= new Set(keys);
+  const newTools = tab !== 'tools' && keys.some((k) => !seenTools.current!.has(k));
+  if (tab === 'tools') for (const k of keys) seenTools.current.add(k);
   return (
     <div class="dock">
       <div class="dock-tabs" role="tablist">

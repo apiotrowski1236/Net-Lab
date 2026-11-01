@@ -206,6 +206,7 @@ export const wirelessLab: LabDef = {
       `,
       focus: ['wap'],
       open: { inspect: 'wap' },
+      tools: [{ kind: 'wifi-config', device: 'wap' }, { kind: 'wifi-scan', devices: ['desk', 'mallory'] }],
       goals: [{ id: 'hidden', label: 'Turn off beacon broadcasting on [[wap]]', check: ({ sim }) => sim.dev('wap').wifi?.beacon === false }],
       questions: [
         {

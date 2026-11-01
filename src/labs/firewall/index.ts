@@ -379,6 +379,7 @@ export const firewallLab: LabDef = {
       },
       focus: ['fwA', 'clinic'],
       open: { inspect: 'fwA' },
+      tools: [{ kind: 'firewall-rules', devices: ['fwA'] }],
       actions: [clinicSsh, attackerSsh, patientBooks],
       goals: [
         {
@@ -542,6 +543,7 @@ export const firewallLab: LabDef = {
       },
       focus: ['fwA', 'attacker'],
       open: { inspect: 'fwA' },
+      tools: [{ kind: 'firewall-rules', devices: ['fwA'], modes: ['stateless', 'stateful'] }],
       actions: [fakeReplies, sneakySsh, nursePortal],
       goals: [
         {
@@ -649,7 +651,7 @@ export const firewallLab: LabDef = {
       setup: (sim) => placeBoth(sim),
       focus: ['attacker', 'fwA'],
       open: 'logs',
-      tools: [{ kind: 'logs', devices: ['fwA', 'fwB'] }],
+      tools: [{ kind: 'logs', devices: ['fwA', 'fwB'] }, { kind: 'port-scan', device: 'attacker' }],
       goals: [
         {
           id: 'rescan',

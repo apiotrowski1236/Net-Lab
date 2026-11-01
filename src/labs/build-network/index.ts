@@ -290,6 +290,7 @@ export const buildNetworkLab: LabDef = {
       `,
       setup: officeLan,
       focus: ['office', 'sw'],
+      tools: [{ kind: 'cable' }, { kind: 'ip-config', fixed: [WEB_PIN] }, { kind: 'ping' }],
       goals: [
         { id: 'cable', label: 'Plug [[office]] into [[sw]]', check: plugged('office', 'sw') },
         {
@@ -381,6 +382,7 @@ export const buildNetworkLab: LabDef = {
       `,
       setup: gateways,
       focus: ['dc', 'web'],
+      tools: [{ kind: 'cable' }, { kind: 'ip-config', fixed: [WEB_PIN] }, { kind: 'gateway' }, { kind: 'ping' }],
       goals: [
         { id: 'cable', label: 'Plug [[web]] into [[dc]]', check: plugged('web', 'dc') },
         {
@@ -432,6 +434,7 @@ export const buildNetworkLab: LabDef = {
       `,
       setup: dataCenter,
       focus: ['office', 'dc'],
+      tools: [{ kind: 'cable' }, { kind: 'ip-config', fixed: [WEB_PIN] }, { kind: 'ping' }],
       goals: [
         { id: 'cable', label: 'Plug [[office]] into [[dc]]', check: plugged('office', 'dc') },
         {
@@ -527,6 +530,7 @@ export const buildNetworkLab: LabDef = {
       setup: forwardRoute,
       focus: ['dc', 'office'],
       open: { inspect: 'dc' },
+      tools: [{ kind: 'static-route' }],
       actions: [aliceOpens, benOpens],
       goals: [
         {
@@ -566,6 +570,7 @@ export const buildNetworkLab: LabDef = {
         breakBen(sim);
       },
       focus: ['ben'],
+      tools: [{ kind: 'cable' }, { kind: 'ip-config', fixed: [WEB_PIN] }, { kind: 'gateway' }, { kind: 'ping' }],
       actions: [benOpens],
       // The goals count fixes without naming them: finding the faults is the point.
       goals: [

@@ -184,8 +184,14 @@ export interface PlacementFeedback {
 /** Tools that change device settings in the inspector instead of having their own card. */
 export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route', 'wifi-config'] as const;
 
-/** Tools that unlock a dock tab instead of a Toolkit card. */
+/** Tools that unlock a dock tab instead of a Toolkit card. Unlike other tools, a tab stays once a step opens it. */
 export const TAB_TOOLS = ['logs'] as const;
+
+/** Identifies a tool across steps: its kind and the device (or devices) it works on. */
+export function toolKey(t: ToolSpec): string {
+  const who = 'device' in t ? t.device : 'devices' in t ? t.devices.join(',') : 'attacker' in t ? t.attacker : 'scanner' in t ? t.scanner : '';
+  return `${t.kind}@${who}`;
+}
 
 /** A button in the lesson that makes something happen on the network ("Alice signs in"). */
 export interface ActionDef {
@@ -202,7 +208,11 @@ export interface StepDef {
   /** Puts the network in the state this step needs. Runs once, the first time a student arrives. Make it idempotent. */
   setup?: (sim: Sim) => void;
   actions?: ActionDef[];
-  /** Tools unlock cumulatively: once a step shows a tool, later steps keep it. */
+  /**
+   * The tools this step offers, and only this step. List every tool the step
+   * needs, including ones an earlier step introduced; nothing carries over
+   * except the Logs tab (TAB_TOOLS). Leave out tools the step isn't about.
+   */
   tools?: ToolSpec[];
   goals?: GoalDef[];
   questions?: QuestionDef[];
