@@ -125,32 +125,46 @@ export function connOutcomeLines(sim: Sim, since: number): OutcomeLine[] {
     const e = sim.events[i];
     if (e.type === 'ping-sent' && e.t === since) seqs.add(e.seq);
   }
+  // Traffic to or from an attacker: getting through is the bad outcome, being blocked the good one.
+  const hostile = new Set(Object.values(sim.devices).flatMap((d) => (d.attacker ? d.ifaces.flatMap((i) => (i.ip ? [i.ip] : [])) : [])));
+  const tone = (ok: boolean, pkt: { src: string; dst: string }): OutcomeLine['tone'] =>
+    ok !== (hostile.has(pkt.src) || hostile.has(pkt.dst)) ? 'good' : 'bad';
+  /** Connections that ended with a firewall's deny: their own line already says why. */
+  const explained = new Set<number>();
   for (const d of Object.values(sim.devices)) {
     if (d.browser && d.browser.startedAt === since) reqs.add(d.browser.reqId);
     for (const c of d.conns ?? []) {
       if (c.t !== since) continue;
       conns.add(c.id);
-      lines.push({ tone: c.status === 'pending' ? 'wait' : c.status === 'open' ? 'good' : 'bad', text: `${connTitle(sim, d.id, c)}: ${connResultText(sim, c)}` });
+      if (c.reason === 'firewall') explained.add(c.id);
+      const ends = { src: d.ifaces.find((i) => i.ip)?.ip ?? '', dst: c.to };
+      lines.push({ tone: c.status === 'pending' ? 'wait' : tone(c.status === 'open', ends), text: `${connTitle(sim, d.id, c)}: ${connResultText(sim, c)}` });
     }
   }
   const seen = new Set<string>();
+  // A forged packet (conn 0) belongs to no connection, so the only clue that this
+  // button sent it is time: it arrives after the press, never at the same moment.
+  const forged = (pkt: IpPacket) => pkt.app.kind === 'svc' && pkt.app.conn === 0;
   for (const e of sim.events) {
     if (e.t < since) continue;
-    if (e.type === 'stray-reply' && e.pkt.app.kind === 'svc' && e.pkt.app.conn === 0) {
+    if ((e.type === 'stray-reply' || e.type === 'firewall') && forged(e.pkt) && e.t === since) continue;
+    if (e.type === 'stray-reply' && forged(e.pkt)) {
       const k = `stray ${e.device}`;
       if (!seen.has(k)) {
         seen.add(k);
-        lines.push({ tone: 'bad', text: `The fake reply reached ${sim.devices[e.device]?.label ?? e.device}.` });
+        lines.push({ tone: 'bad', text: `The fake reply got through to ${sim.devices[e.device]?.label ?? e.device}.` });
       }
       continue;
     }
     if (e.type !== 'firewall' || !startedBy(e.pkt, seqs, reqs, conns)) continue;
     // A ping's or a browser's own line already says which firewall blocked it.
-    if ((e.pkt.app.kind === 'ping' || e.pkt.app.kind === 'http-req' || e.pkt.app.kind === 'http-res') && e.verdict.action === 'deny') continue;
+    const kind = e.pkt.app.kind;
+    if (e.verdict.action === 'deny' && (kind === 'ping' || kind === 'http-req' || kind === 'http-res')) continue;
+    if (e.verdict.action === 'deny' && kind === 'svc' && explained.has(e.pkt.app.conn)) continue;
     const k = `${e.device} ${e.dir} ${isReply(e.pkt)} ${e.verdict.by} ${e.verdict.ruleNo ?? ''} ${e.verdict.action}`;
     if (seen.has(k)) continue;
     seen.add(k);
-    lines.push({ tone: e.verdict.action === 'allow' ? 'good' : 'bad', text: fwEventText(sim, e) });
+    lines.push({ tone: tone(e.verdict.action === 'allow', e.pkt), text: fwEventText(sim, e) });
   }
   return lines;
 }

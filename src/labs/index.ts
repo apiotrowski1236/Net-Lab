@@ -1,10 +1,11 @@
 import { buildNetworkLab } from './build-network';
+import { firewallLab } from './firewall';
 import { onPathLab } from './on-path';
 import { routeHijackLab } from './route-hijack';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab, firewallLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the
@@ -58,14 +59,6 @@ export const STUBS: LabStub[] = [
     tagline: "Split a submarine's flat network into zones and watch malware hit a wall.",
     unit: 3,
     codehs: ['3.8 Network Segmentation'],
-    comingSoon: true,
-  },
-  {
-    id: 'firewall',
-    title: 'Firewall Rulebook',
-    tagline: 'Place two firewalls in a hospital network and write the rules that let patients in and keep attackers out.',
-    unit: 3,
-    codehs: ['3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
     comingSoon: true,
   },
   {

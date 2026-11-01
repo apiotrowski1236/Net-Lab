@@ -11,7 +11,9 @@ import type { IpPacket, LogEntry, LogLevel } from './types';
  *     ports like a cable (a "transparent" firewall: it has no IP addresses and
  *     changes no routes) but checks every IP packet first. Build one with
  *     `NetBuilder.firewall`, and put it into an existing cable with
- *     `sim.placeFirewall` (take it out with `sim.unplaceFirewall`).
+ *     `sim.placeFirewall` (take it out with `sim.unplaceFirewall`). Like any
+ *     bridge, it drops a switch's flooded copy of a frame meant for a device
+ *     on the side it came from, without judging it.
  *   - kind 'router': firewall software inside a router. It checks packets the
  *     router forwards. (Packets addressed to the router itself aren't checked.)
  *
@@ -59,6 +61,8 @@ import type { IpPacket, LogEntry, LogLevel } from './types';
  *   logLine(pkt, dir, verdict)             the log line a firewall writes
  *   Sim: placeFirewall, unplaceFirewall, fwAddRule, fwEditRule, fwDeleteRule,
  *        fwMoveRule, fwSetMode, fwClearConns, sendPacket
+ *   FirewallState.changedAt                sim time rules, type, or placement last
+ *                                          changed ("test after your change" goals)
  */
 
 export type FwDir = 'in' | 'out';
@@ -288,7 +292,7 @@ export function portText(p: number | 'any' | undefined, proto: FwProto = 'tcp'):
 export function ruleText(r: FwRule | FwRuleInput): string {
   const from = r.sport !== undefined && r.sport !== 'any' ? `${r.src} port ${portText(r.sport, r.proto)}` : r.src;
   const to = r.proto === 'icmp' || r.dport === 'any' ? r.dst : `${r.dst} port ${portText(r.dport, r.proto)}`;
-  return `${r.action.toUpperCase()} ${r.dir} ${protoText(r.proto)} from ${from} to ${to}`;
+  return `${r.action.toUpperCase()} ${r.dir} ${r.proto === 'any' ? 'any protocol' : protoText(r.proto)} from ${from} to ${to}`;
 }
 
 /** Why a packet was allowed or denied, for students. Pass the rulebook to quote the rule. */

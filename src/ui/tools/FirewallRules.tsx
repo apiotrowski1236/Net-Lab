@@ -6,6 +6,10 @@ import type { ToolCardProps } from './registry';
 export function FirewallRulesTool({ session, spec, onSelect }: ToolCardProps<'firewall-rules'>) {
   void session.simRev.value;
   const sim = session.sim;
+  // A lab can hand out each firewall in a different step. One card lists them all.
+  const specs = session.tools.flatMap((t) => (t.kind === 'firewall-rules' ? [t] : []));
+  if (specs[0] && specs[0].devices.join() !== spec.devices.join()) return null;
+  const ids = [...new Set(specs.flatMap((t) => t.devices))];
   return (
     <div class="tool-card defend">
       <div class="tool-title">
@@ -15,7 +19,7 @@ export function FirewallRulesTool({ session, spec, onSelect }: ToolCardProps<'fi
         Each firewall checks its rules from the top. The first rule that matches a packet decides. If none match, the <strong>implicit deny</strong> at
         the bottom blocks it.
       </p>
-      {spec.devices.map((id) => {
+      {ids.map((id) => {
         const d = sim.devices[id];
         const fw = d?.firewall;
         if (!fw) return null;

@@ -1452,8 +1452,33 @@ export class Sim {
   private fwBridge(dev: Device, ingress: string, frame: Frame): void {
     const out = dev.ifaces.find((i) => i.id !== ingress && i.linkId);
     if (!out) return;
+    // A switch floods a frame when it doesn't yet know where the destination is.
+    // A flooded copy for a device on the side it came from goes no further, as
+    // on any bridge, and the firewall doesn't judge it: it was never going through.
+    if (frame.dst !== BROADCAST_MAC && !this.macBeyond(dev.id, out.id, frame.dst)) return;
     if (frame.ip && dev.firewall && !this.fwPass(dev, ingress, frame)) return;
     this.transmit(dev.id, out.id, frame, this.opts.l2Ms);
+  }
+
+  /** Does a device with this MAC sit beyond port `ifaceId` of device `fromId` (without coming back through it)? */
+  private macBeyond(fromId: string, ifaceId: string, mac: string): boolean {
+    const first = this.peer(fromId, ifaceId);
+    if (!first) return false;
+    const seen = new Set([fromId, first.device]);
+    const queue = [first.device];
+    while (queue.length) {
+      const d = this.devices[queue.shift()!];
+      if (!d) continue;
+      if (d.ifaces.some((i) => i.mac === mac)) return true;
+      for (const i of d.ifaces) {
+        const p = i.linkId ? this.peer(d.id, i.id) : undefined;
+        if (p && !seen.has(p.device)) {
+          seen.add(p.device);
+          queue.push(p.device);
+        }
+      }
+    }
+    return false;
   }
 
   /** A service request arrived, or a reply to one of this device's connections. */

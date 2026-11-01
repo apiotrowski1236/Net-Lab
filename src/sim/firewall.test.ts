@@ -246,3 +246,29 @@ describe('services and scans', () => {
     expect(guarded.dev('fw').logs.filter((l) => l.fields?.action === 'deny').length).toBeGreaterThan(5);
   });
 });
+
+describe('a firewall on a switch port', () => {
+  it("ignores flooded copies of frames that aren't going through it", () => {
+    // inet -- sw -- web, and sw -- [fw] -- lab. The switch hasn't learned the
+    // web server's MAC yet, so it floods the attacker's first packet, a copy
+    // toward the firewall too. That copy is for the web server, on the near side.
+    const sim = new NetBuilder({ autoArp: true, linkMs: 100, procMs: 10, l2Ms: 5, pingTimeoutMs: 5000 })
+      .host('attacker', { label: 'Attacker', x: 0, y: 0, ip: `${ATTACKER}/24`, gateway: '203.0.113.1' })
+      .router('inet', { label: 'Internet', x: 0, y: 0, ifaces: [{ id: 'a', ip: '203.0.113.1/24' }, { id: 'h', ip: '10.0.1.1/24' }] })
+      .switch('sw', { label: 'Switch', x: 0, y: 0 })
+      .host('web', { label: 'Web', x: 0, y: 0, ip: `${WEB}/24`, gateway: '10.0.1.1', services: [{ port: 22, proto: 'tcp', app: 'ssh' }] })
+      .host('lab', { label: 'Lab', x: 0, y: 0, ip: '10.0.1.20/24', gateway: '10.0.1.1', services: [{ port: 22, proto: 'tcp', app: 'ssh' }] })
+      .firewall('fw', { label: 'Firewall', x: 0, y: 0 })
+      .link('attacker', ['inet', 'a'])
+      .link(['inet', 'h'], 'sw')
+      .link('sw', 'web')
+      .link('sw', 'lab')
+      .build();
+    sim.placeFirewall('fw', 'sw', 'lab', 'sw');
+    expect(conn(sim, 'attacker', WEB, 22).status).toBe('open');
+    expect(sim.events.some((e) => e.type === 'firewall')).toBe(false);
+    expect(sim.dev('fw').logs).toHaveLength(0);
+    // Traffic that does cross it is still checked.
+    expect(conn(sim, 'attacker', '10.0.1.20', 22)).toMatchObject({ status: 'no-answer', reason: 'firewall', at: 'fw' });
+  });
+});

@@ -72,7 +72,7 @@ export function FirewallRulesSection({ session, sim, dev, replaying }: Inspector
     }
     if (form.editing) session.dispatch({ type: 'fw-edit-rule', device: dev.id, id: form.editing, rule: r.rule });
     else session.dispatch({ type: 'fw-add-rule', device: dev.id, rule: r.rule });
-    setMsg({ tone: 'good', text: form.editing ? 'Rule changed.' : `Added as rule ${rules.length + 1}, just above the implicit deny. Use the arrows to move it.` });
+    setMsg({ tone: 'good', text: form.editing ? 'Rule changed.' : `Added as rule ${rules.length + 1}, right above the implicit deny. Use the arrows to move it.` });
     setForm(null);
   };
   return (
