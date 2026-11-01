@@ -26,6 +26,10 @@ export type SimAction =
   | { type: 'validate'; device: string; on: boolean }
   | { type: 'browse'; device: string; url: string; body?: string }
   | { type: 'ping'; device: string; ip: string }
+  /** Echo (smurf): send a ping, optionally with a forged `source` so the reply lands there. */
+  | { type: 'echo'; device: string; target: string; source?: string }
+  /** Turn a router's directed-broadcast forwarding on or off (the smurf fix at the amplifier). */
+  | { type: 'directed-broadcast'; device: string; on: boolean }
   /** Plug a cable in. A missing port means the device's first free port. */
   | { type: 'cable'; a: string; aPort?: string; b: string; bPort?: string }
   | { type: 'unplug'; device: string; iface: string }
@@ -144,6 +148,12 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'ping':
       sim.ping(a.device, a.ip);
+      return;
+    case 'echo':
+      sim.echo(a.device, a.target, { source: a.source });
+      return;
+    case 'directed-broadcast':
+      sim.setDirectedBroadcast(a.device, a.on);
       return;
     case 'cable':
       sim.connect({ device: a.a, iface: a.aPort }, { device: a.b, iface: a.bPort });

@@ -1,5 +1,5 @@
 import type { SimAction } from '../runtime/actions';
-import { checkAddress, checkCable, checkForge, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, checkWifiPassphrase, type Checked } from '../runtime/toolInput';
+import { checkAddress, checkCable, checkEcho, checkForge, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, checkWifiPassphrase, type Checked } from '../runtime/toolInput';
 import { checkNewMac, checkPortSecurity } from '../runtime/switchInput';
 import type { LabSession } from '../runtime/session';
 import { checkRule, checkScanTarget, ruleDraft } from '../runtime/firewallInput';
@@ -95,6 +95,9 @@ function assertTypable(s: LabSession, a: SimAction): void {
       break;
     case 'ping':
       r = checkPing(sim, a.device, a.ip);
+      break;
+    case 'echo':
+      r = checkEcho(sim, a.device, a.target, a.source ?? '');
       break;
     case 'dns-forge':
       r = checkForge(sim, a.device, a.resolver, a.name, a.ip);

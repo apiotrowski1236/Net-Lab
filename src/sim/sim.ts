@@ -1,6 +1,9 @@
 import {
   BROADCAST_MAC,
+  intToIp,
+  ipToInt,
   isIp,
+  maskBits,
   networkOf,
   normalizePrefix,
   prefixContains,
@@ -24,7 +27,9 @@ import type {
   SimEvent,
 } from './types';
 import { forgedGuesses, freshEntry, nextQueryParams, type Waiter } from './dns';
-import { burstMac, type Burst } from './burst';
+import { burstIp, burstMac, burstSize, type Burst } from './burst';
+import { directedBroadcastIface } from './broadcast';
+import { clearAllFloods, clearFlood, linkLoad, newCongestion, setFlood, type CongestionState, type FloodKind } from './congestion';
 import {
   applyPortSecurity,
   applyPortShutdown,
@@ -151,6 +156,7 @@ const CANT_SEND: Partial<Record<DropReason, (ip: Ip, dev: Device) => string>> = 
     return `This computer’s IP address${mine} and its default gateway (${ip}) aren’t on the same network, so it can’t reach other networks.`;
   },
   'arp-timeout': (ip) => `Nobody answered at ${ip}, so the request never left this network.`,
+  congestion: () => 'This site can’t be reached. The link to it is full right now.',
 };
 const MAX_CAPTURE = 400;
 /** Lines each device keeps in its log. */
@@ -177,6 +183,8 @@ export class Sim {
   jam: { on: boolean; channel: number; source?: string } = { on: false, channel: 0 };
   /** Signal readings taken for triangulation (see Sim.wifiMeasure). */
   wifiReadings: WifiReading[] = [];
+  /** Floods loading links (see src/sim/congestion.ts). A flood fills a link so ordinary packets are dropped. */
+  congestion: CongestionState = newCongestion();
 
   private jobs: Job[] = [];
   private seq = 0;
@@ -381,6 +389,8 @@ export class Sim {
     if (!peer) return;
     const iface = this.dev(devId).ifaces.find((i) => i.id === ifaceId)!;
     const link = this.links[iface.linkId!];
+    // A flood fills the link; an ordinary packet finds no room and is dropped here (see congestion.ts).
+    if (link && this.congestionDrop(devId, link, frame)) return;
     const copy = cloneFrame(frame);
     // A frame on a cable that gets unplugged before it arrives is lost.
     const stillLinked = () => this.links[link.id] === link;
@@ -536,6 +546,8 @@ export class Sim {
     }
     // Firewall software in a router checks what it forwards.
     if (dev.firewall && iface && !this.fwPass(dev, iface.id, frame)) return;
+    // A packet aimed at one of this router's LANs' broadcast addresses is a directed broadcast.
+    if (this.handleDirectedBroadcast(dev, frame, iface)) return;
     pkt.ttl -= 1;
     if (pkt.ttl <= 0) {
       this.drop(dev, 'ttl', pkt, frame);
@@ -557,6 +569,13 @@ export class Sim {
     if (pkt?.app.kind === 'http-req' && b?.reqId === pkt.app.reqId && (b.status === 'loading' || b.status === 'resolving')) {
       const why = CANT_SEND[reason];
       if (why) this.failBrowser(dev, why(nextHop ?? pkt.dst, dev));
+    } else if (reason === 'congestion' && pkt?.app.kind === 'http-req') {
+      // A flood on a link upstream of the sender drops the request far from home; tell the browser that started it.
+      const owner = this.deviceByIp(pkt.src);
+      const ob = owner?.browser;
+      if (owner && ob && ob.reqId === pkt.app.reqId && (ob.status === 'loading' || ob.status === 'resolving')) {
+        this.failBrowser(owner, CANT_SEND.congestion!(pkt.dst, owner));
+      }
     }
     if (pkt?.app.kind !== 'ping') return;
     const seq = pkt.app.seq;
@@ -591,8 +610,12 @@ export class Sim {
     return dev.ifaces.find((i) => i.id === out && i.ip)?.ip ?? dev.ifaces.find((i) => i.ip)?.ip;
   }
 
-  /** Pick the route, find the next hop's MAC, and send. `frame` is set when forwarding someone else's packet. */
-  routeAndSend(dev: Device, pkt: IpPacket, frame?: Frame, forged = frame?.forged ?? false): void {
+  /**
+   * Pick the route, find the next hop's MAC, and send. `frame` is set when
+   * forwarding someone else's packet. `burst` carries a flood's aggregate count
+   * along: a forwarded burst keeps its size, and an amplified reply sends one.
+   */
+  routeAndSend(dev: Device, pkt: IpPacket, frame?: Frame, forged = frame?.forged ?? false, burst = frame?.burst): void {
     const mine = !frame && dev.kind === 'host';
     const { route: r, iface } = this.egress(dev, pkt.dst);
     if (!r) {
@@ -607,10 +630,10 @@ export class Sim {
       this.drop(dev, mine ? 'gateway-off-net' : 'no-route', pkt, frame, r.via);
       return;
     }
-    this.sendIp(dev, pkt, r.via ?? pkt.dst, iface, forged);
+    this.sendIp(dev, pkt, r.via ?? pkt.dst, iface, forged, burst);
   }
 
-  private sendIp(dev: Device, pkt: IpPacket, nextHop: Ip, ifaceId: string, forged = false): void {
+  private sendIp(dev: Device, pkt: IpPacket, nextHop: Ip, ifaceId: string, forged = false, burst?: Burst): void {
     const iface = dev.ifaces.find((i) => i.id === ifaceId);
     if (!iface) return;
     if (!iface.ip) {
@@ -628,7 +651,7 @@ export class Sim {
       if (mac) entry = dev.arp[nextHop] = { mac, at: this.t, via: 'auto' };
     }
     if (entry) {
-      this.transmit(dev.id, iface.id, this.frame(dev.id, iface.mac, entry.mac, { ip: pkt, forged: forged || undefined }));
+      this.transmit(dev.id, iface.id, this.frame(dev.id, iface.mac, entry.mac, { ip: pkt, forged: forged || undefined, burst }));
       return;
     }
     const alreadyAsking = dev.pending.some((p) => p.nextHop === nextHop);
@@ -646,13 +669,13 @@ export class Sim {
     });
   }
 
-  private originate(dev: Device, pkt: IpPacket, forged = false): void {
+  private originate(dev: Device, pkt: IpPacket, forged = false, burst?: Burst): void {
     // A computer with no cable can't send anything, wherever it's going.
     if (dev.kind === 'host' && !dev.ifaces.some((i) => i.linkId)) {
       this.drop(dev, 'no-link', pkt);
       return;
     }
-    this.routeAndSend(dev, pkt, undefined, forged);
+    this.routeAndSend(dev, pkt, undefined, forged, burst);
   }
 
   private reply(dev: Device, req: IpPacket, app: AppData): void {
@@ -680,7 +703,8 @@ export class Sim {
         else if (this.scanPingAnswered(dev, app.seq)) return;
         else {
           this.pings.delete(app.seq);
-          this.emit({ t: this.t, type: 'ping-reply', device: dev.id, from: pkt.src, seq: app.seq });
+          const count = burstSize(frame);
+          this.emit({ t: this.t, type: 'ping-reply', device: dev.id, from: pkt.src, seq: app.seq, count: count > 1 ? count : undefined });
         }
         return;
       case 'http-req':
@@ -1525,6 +1549,141 @@ export class Sim {
   /** Shut a switch port down, or turn it back on (which also clears a port that port security shut). Needs configureSwitch first. */
   setPortShutdown(devId: string, port: string, shut: boolean): void {
     applyPortShutdown(this, this.dev(devId), port, shut);
+  }
+
+  // --- directed broadcast + congestion (smurf) ---
+  // A directed broadcast forwards a ping to a whole LAN at once, drawing one
+  // reply per host (amplification). A flood loads a link so ordinary packets
+  // find no room. State lives in broadcast.ts and congestion.ts. See
+  // src/sim/broadcast.ts and src/sim/congestion.ts.
+
+  /**
+   * Send an ICMP echo request (a ping) from `device` to `target`. With
+   * `source` set, that address is written as the packet's source, so the reply
+   * goes there, not back to the sender — a forged source, drawn red. With
+   * `burst`, one frame stands for a wave of requests. Returns the sequence
+   * number. Unlike `ping`, a forged or bursted echo isn't tracked for a reply
+   * (the sender isn't the one expecting it), so it never reports a timeout.
+   */
+  echo(devId: string, target: Ip, opts: { source?: Ip; burst?: { count: number; vary?: Burst['vary'] } } = {}): number {
+    const dev = this.dev(devId);
+    const seq = this.nextPing++;
+    const ownIp = this.srcFor(dev, target) ?? dev.ifaces.find((i) => i.ip)?.ip;
+    const count = opts.burst ? Math.max(1, Math.floor(opts.burst.count)) : 1;
+    const burst: Burst | undefined = count > 1 ? { count, vary: opts.burst?.vary ?? 'none', seed: this.randInt(2 ** 31) } : undefined;
+    const spoofedBurst = burst?.vary === 'src-ip';
+    let src = opts.source ?? ownIp ?? '0.0.0.0';
+    if (spoofedBurst) src = burstIp(burst!.seed, 0);
+    const forged = (opts.source !== undefined && opts.source !== ownIp) || spoofedBurst;
+    const tracked = !forged && !burst;
+    if (tracked) this.pings.set(seq, { device: devId, to: target });
+    this.emit({ t: this.t, type: 'ping-sent', device: devId, to: target, seq, from: src, forged: forged || undefined, count: count > 1 ? count : undefined });
+    const pkt: IpPacket = { src, dst: target, ttl: 64, proto: 'icmp', app: { kind: 'ping', seq, reply: false } };
+    if (!ownIp) {
+      this.drop(dev, 'no-ip', pkt);
+      return seq;
+    }
+    this.originate(dev, pkt, forged, burst);
+    if (tracked) {
+      this.schedule(this.opts.pingTimeoutMs, () => {
+        if (!this.pings.delete(seq)) return;
+        this.emit({ t: this.t, type: 'ping-fail', device: devId, to: target, seq, reason: 'timeout' });
+      });
+    }
+    return seq;
+  }
+
+  /**
+   * A directed broadcast: a packet the router is forwarding is aimed at one of
+   * its own LANs' broadcast addresses. On (the default), an echo request is
+   * amplified into one reply per host, all aimed at the request's source; off,
+   * the router drops it at the door (the fix). Returns true if it consumed the
+   * packet. See src/sim/broadcast.ts.
+   */
+  private handleDirectedBroadcast(dev: Device, frame: Frame, ingress?: Iface): boolean {
+    const pkt = frame.ip!;
+    const lan = directedBroadcastIface(dev, pkt.dst);
+    if (!lan) return false;
+    // A broadcast that came in on the LAN itself isn't directed from outside; don't re-amplify.
+    if (ingress && ingress.id === lan.id) {
+      this.drop(dev, 'no-broadcast', pkt, frame);
+      return true;
+    }
+    const echoRequest = pkt.app.kind === 'ping' && !pkt.app.reply;
+    if (dev.directedBroadcast !== true || !echoRequest) {
+      this.drop(dev, 'no-broadcast', pkt, frame);
+      return true;
+    }
+    const hosts = lan.lanHosts!;
+    // The smurf fingerprint: echo requests to a broadcast address, from outside. Step 6 reads this line.
+    this.log(dev.id, {
+      source: 'router',
+      level: 'warn',
+      msg: `ICMP echo request to ${pkt.dst} (directed broadcast) relayed to ${hosts} hosts`,
+      fields: { src: pkt.src, dst: pkt.dst, proto: 'icmp', count: hosts },
+    });
+    const seq = (pkt.app as Extract<AppData, { kind: 'ping' }>).seq;
+    const reply: IpPacket = { src: this.lanRepresentative(lan), dst: pkt.src, ttl: 64, proto: 'icmp', app: { kind: 'ping', seq, reply: true } };
+    // One aggregated reply burst stands for every host answering: hosts × the size of the request wave.
+    const count = hosts * burstSize(frame);
+    this.routeAndSend(dev, reply, undefined, false, { count, vary: 'none', seed: this.randInt(2 ** 31) });
+    return true;
+  }
+
+  /** The address the replies to a directed broadcast appear to come from: the lowest host on the LAN. */
+  private lanRepresentative(lan: Iface): Ip {
+    let best: Ip | undefined;
+    for (const d of Object.values(this.devices)) {
+      if (d.kind !== 'host') continue;
+      for (const i of d.ifaces) {
+        if (i.ip && lan.prefix !== undefined && sameSubnet(i.ip, lan.ip!, lan.prefix) && (best === undefined || ipToInt(i.ip) < ipToInt(best))) best = i.ip;
+      }
+    }
+    return best ?? intToIp((((ipToInt(lan.ip!) & maskBits(lan.prefix!)) >>> 0) + 11) >>> 0);
+  }
+
+  /** Would admitting this ordinary packet overflow the link a flood is already filling? If so, drop it (congestion). */
+  private congestionDrop(devId: string, link: Link, frame: Frame): boolean {
+    const cap = link.capacityPps;
+    if (cap === undefined || !frame.ip) return false;
+    // A burst stands for the flood itself: it still crosses so students see it and a firewall can judge it.
+    if (burstSize(frame) > 1) return false;
+    if (linkLoad(this.congestion, link.id) + 1 <= cap) return false;
+    this.drop(this.dev(devId), 'congestion', frame.ip, frame);
+    return true;
+  }
+
+  /** Turn a router's directed-broadcast forwarding on or off. Off ends any smurf flood it was feeding. */
+  setDirectedBroadcast(devId: string, on: boolean): void {
+    const dev = this.dev(devId);
+    dev.directedBroadcast = on;
+    if (!on) clearFlood(this.congestion, 'smurf');
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'directed-broadcast', on });
+  }
+
+  /** Switch a flood on (or change its rate): a steady load of `rate` packets/second on `linkId`. */
+  setLinkFlood(linkId: string, kind: FloodKind, rate: number): void {
+    setFlood(this.congestion, linkId, kind, rate);
+  }
+
+  /** Switch off every flood of `kind`. */
+  clearLinkFlood(kind: FloodKind): void {
+    clearFlood(this.congestion, kind);
+  }
+
+  /** Switch off every flood, whatever its kind (used by step setups to start clean). */
+  clearFloods(): void {
+    clearAllFloods(this.congestion);
+  }
+
+  /** The current load on a link, in packets per second (the traffic meter reads this). */
+  linkPps(linkId: string): number {
+    return linkLoad(this.congestion, linkId);
+  }
+
+  /** A link's capacity in packets per second, or undefined for an effectively unlimited link. */
+  linkCapacity(linkId: string): number | undefined {
+    return this.links[linkId]?.capacityPps;
   }
 
   // --- Wi-Fi (wireless) ---

@@ -15,6 +15,7 @@ import { ZonePolicySection } from './ZonePolicy';
 import { HardeningSection } from './Hardening';
 import { Detection } from './Detection';
 import { SiemConsole } from './SiemConsole';
+import { routerPanelSection } from './TrafficMeter';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -60,4 +61,6 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   // logs
   { id: 'ids-detection', slot: 'settings', Section: Detection },
   { id: 'siem-console', slot: 'settings', Section: SiemConsole },
+  // smurf
+  routerPanelSection,
 ];

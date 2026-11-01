@@ -19,6 +19,7 @@ import { ScannerTool } from './Scanner';
 import { RiskRegisterTool } from './RiskRegister';
 import { HardeningCard } from './HardeningCard';
 import { AiThresholdCard, IdsCard, SiemCard } from './DetectionCards';
+import { EchoTool } from './EchoTool';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -60,4 +61,6 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   ids: IdsCard,
   siem: SiemCard,
   'ai-threshold': AiThresholdCard,
+  // smurf
+  'echo-tool': EchoTool,
 };

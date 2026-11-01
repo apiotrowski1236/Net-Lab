@@ -49,6 +49,12 @@ export interface Iface {
   linkId?: string;
   /** The MAC built into the card, kept while `mac` is changed (MAC spoofing, see Sim.setMac). */
   factoryMac?: Mac;
+  /**
+   * How many computers sit on this LAN, when a router stands in for a whole
+   * network of hosts (smurf). A directed broadcast to this network's broadcast
+   * address draws this many echo replies. See src/sim/broadcast.ts.
+   */
+  lanHosts?: number;
 }
 
 export interface ArpEntry {
@@ -198,6 +204,13 @@ export interface Device {
   vpn?: VpnState;
   /** A network sensor (IDS/IPS) or a SIEM, or both (see src/sim/ids.ts and Sim.configureIds / configureSiem). */
   ids?: IdsState;
+  /**
+   * A router that forwards IP packets addressed to one of its LANs' broadcast
+   * addresses onto that LAN (a "directed broadcast"). On by default on routers
+   * that have it set; turning it off is the fix for a smurf attack at the
+   * amplifier. See src/sim/broadcast.ts.
+   */
+  directedBroadcast?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +316,12 @@ export interface Link {
   wireless?: boolean;
   /** A VPN tunnel: an encrypted path across the internet, drawn dashed and labeled (see vpn.ts). Not a real cable. */
   tunnel?: boolean;
+  /**
+   * How many packets per second this link carries. A flood that loads the link
+   * past this drops ordinary packets with reason 'congestion'. Missing means
+   * effectively unlimited. See src/sim/congestion.ts.
+   */
+  capacityPps?: number;
 }
 
 export interface InFlight {
@@ -341,7 +360,11 @@ export type DropReason =
   /** A firewall's rules denied the packet (the 'firewall' event just before says which rule). */
   | 'firewall'
   /** A VPN client with split tunneling off refused to carry a home-network device's packet into the tunnel (see vpn.ts). */
-  | 'vpn-split-off';
+  | 'vpn-split-off'
+  /** A flood filled the link, so there was no room for this packet (see congestion.ts). */
+  | 'congestion'
+  /** A router refused to forward a packet aimed at a network's broadcast address (directed broadcast off; see broadcast.ts). */
+  | 'no-broadcast';
 
 export type SimEvent = (
   | { t: number; type: 'captured'; device: string; no: number; frame: Frame }
@@ -362,8 +385,10 @@ export type SimEvent = (
   | { t: number; type: 'credentials-stolen'; device: string; user: string; pass: string }
   | { t: number; type: 'page'; device: string; browser: BrowserState }
   | { t: number; type: 'dns-answer'; device: string; name: string; ip: Ip | null }
-  | { t: number; type: 'ping-reply'; device: string; from: Ip; seq?: number }
-  | { t: number; type: 'ping-sent'; device: string; to: Ip; seq: number }
+  /** `count` is how many replies arrived at once (an amplified broadcast reply burst; see broadcast.ts). */
+  | { t: number; type: 'ping-reply'; device: string; from: Ip; seq?: number; count?: number }
+  /** `from` is the source address written on the request (forged when `forged`); `count` is the size of a burst. */
+  | { t: number; type: 'ping-sent'; device: string; to: Ip; seq: number; from?: Ip; forged?: boolean; count?: number }
   /** A ping from `device` got no reply: dropped at `at` (with the reason), or timed out. */
   | { t: number; type: 'ping-fail'; device: string; to: Ip; seq: number; reason: DropReason | 'timeout'; at?: string; ip?: Ip }
   | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string }

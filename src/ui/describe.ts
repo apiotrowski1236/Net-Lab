@@ -344,6 +344,10 @@ export function pingFailText(sim: Sim, e: Extract<SimEvent, { type: 'ping-fail' 
       return fwDenyText(sim, e.at, e.t);
     case 'vpn-split-off':
       return `${at}'s VPN has split tunneling off, so it won't carry traffic from other devices on its home network into the office.`;
+    case 'congestion':
+      return `The link out of ${at} is full, so the ping was dropped. A flood is using up the link.`;
+    case 'no-broadcast':
+      return `${at} would not forward a ping to a whole network's broadcast address, so it dropped the request.`;
     default:
       return `Dropped at ${at}.`;
   }

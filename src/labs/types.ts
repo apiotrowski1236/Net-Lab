@@ -164,7 +164,11 @@ export type ToolSpec =
   /** The SIEM `device`'s incident list and triage, in the inspector and the Logs tab. */
   | { kind: 'siem'; device: string }
   /** The AI model's alert threshold on the SIEM `device`, with live counts, in the inspector. */
-  | { kind: 'ai-threshold'; device: string };
+  | { kind: 'ai-threshold'; device: string }
+  /** Echo tool (smurf): ping from `device`, with an optional forged source address. Its own Toolkit card. */
+  | { kind: 'echo-tool'; device: string }
+  /** Turn `device`'s directed-broadcast forwarding on or off, in the inspector (smurf). Not a Toolkit card. */
+  | { kind: 'directed-broadcast'; device: string };
 
 export type IdsControl = 'signatures' | 'anomaly' | 'prevention';
 

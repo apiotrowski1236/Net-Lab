@@ -1925,3 +1925,63 @@
   cursor: pointer;
   color: var(--muted);
 }
+
+/* smurf */
+.meter-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.meter-row {
+  font-size: 13px;
+}
+.meter-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.meter-row.over .meter-head {
+  color: var(--bad-ink);
+  font-weight: 600;
+}
+.meter-track {
+  height: 9px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--line);
+  overflow: hidden;
+}
+.meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand);
+  transition: width 0.3s ease;
+}
+.meter-row.over .meter-fill {
+  background: var(--bad-solid);
+}
+/* A link a flood has filled: a thick red dashed line on the map, pulsing. */
+.link.congested {
+  stroke: var(--bad-solid);
+  stroke-width: 4;
+  stroke-dasharray: 7 5;
+  animation: congestion-pulse 0.9s ease-in-out infinite;
+}
+@keyframes congestion-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+.zzdebug {
+  color: red;
+}

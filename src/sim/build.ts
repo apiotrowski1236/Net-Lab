@@ -182,12 +182,12 @@ export class NetBuilder {
     return dev;
   }
 
-  /** `tunnel` marks a VPN tunnel (drawn dashed and labeled; see vpn.ts) instead of a cable. */
-  link(a: End, b: End, opts: { wireless?: boolean; tunnel?: boolean } = {}): this {
+  /** `tunnel` marks a VPN tunnel (drawn dashed and labeled; see vpn.ts) instead of a cable. `capacity` is the link's packets per second (see congestion.ts). */
+  link(a: End, b: End, opts: { wireless?: boolean; tunnel?: boolean; capacity?: number } = {}): this {
     const id = `L${this.linkSeq++}`;
     const ea = this.endpoint(a, id);
     const eb = this.endpoint(b, id);
-    this.sim.links[id] = { id, a: ea, b: eb, wireless: opts.wireless };
+    this.sim.links[id] = { id, a: ea, b: eb, wireless: opts.wireless, capacityPps: opts.capacity };
     if (opts.tunnel) this.sim.links[id].tunnel = true;
     return this;
   }
