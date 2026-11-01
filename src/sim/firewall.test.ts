@@ -191,6 +191,28 @@ describe('firewall in the network', () => {
     expect(conn(sim, 'clinic', WEB, 22).status).toBe('open');
   });
 
+  it('NetBuilder gives a router a firewall', () => {
+    const sim = new NetBuilder({ autoArp: true, linkMs: 100, procMs: 10, l2Ms: 5, pingTimeoutMs: 5000 })
+      .host('out', { label: 'Out', x: 0, y: 0, ip: '203.0.113.9/24', gateway: '203.0.113.1' })
+      .router('edge', {
+        label: 'Edge',
+        x: 0,
+        y: 0,
+        ifaces: [{ id: 'wan', ip: '203.0.113.1/24' }, { id: 'lan', ip: '10.0.0.1/24' }],
+        firewall: { outside: 'wan', rules: [{ dir: 'in', proto: 'icmp', src: 'any', dst: 'any', dport: 'any', action: 'deny' }, { dir: 'in', proto: 'any', src: 'any', dst: 'any', dport: 'any', action: 'allow' }, outAny] },
+      })
+      .host('in', { label: 'In', x: 0, y: 0, ip: '10.0.0.5/24', gateway: '10.0.0.1' })
+      .link('out', ['edge', 'wan'])
+      .link('in', ['edge', 'lan'])
+      .build();
+    expect(sim.dev('edge').firewall).toMatchObject({ outside: 'wan', mode: 'stateful' });
+    const events: SimEvent[] = [];
+    sim.on((e) => events.push(e));
+    sim.ping('out', '10.0.0.5');
+    sim.runUntilIdle();
+    expect(events.some((e) => e.type === 'drop' && e.reason === 'firewall')).toBe(true);
+  });
+
   it('can be taken out again, leaving the original cable', () => {
     const sim = net({});
     sim.unplaceFirewall('fw');

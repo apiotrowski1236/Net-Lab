@@ -58,6 +58,8 @@ export interface RouterOpts extends Placed {
   origins?: string[];
   attacker?: boolean;
   impersonate?: WebSite;
+  /** Firewall software inside the router: it checks the packets the router forwards. `outside` is the port facing the less trusted side. See firewall.ts. */
+  firewall?: { outside: string; mode?: FwMode; rules?: FwRuleInput[] };
 }
 
 export interface L2Opts extends Placed {
@@ -135,6 +137,7 @@ export class NetBuilder {
     d.forwarding = true;
     d.attacker = o.attacker;
     d.impersonate = o.impersonate;
+    if (o.firewall) d.firewall = newFirewall(o.firewall.outside, o.firewall.mode, o.firewall.rules);
     if (o.routes) (this.staticRoutes[id] ??= []).push(...o.routes);
     if (o.asn !== undefined) {
       d.bgp = { asn: o.asn, origins: o.origins ?? [], neighbors: [], adjIn: {}, best: {}, sentTo: {}, validate: false };
