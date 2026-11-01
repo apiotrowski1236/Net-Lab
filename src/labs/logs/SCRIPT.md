@@ -2,6 +2,8 @@
 
 The full lesson, as students see it, ready to translate into `index.ts`, `scenario.ts`, and `solution.ts`. Voice follows `docs/unit3/ARCHITECTURE.md`: short sentences, imperatives, bold on first use, no em dashes, no emoji.
 
+**Orchestrator edit:** step 8's body no longer gives the good threshold range. Students find it with the counters; the goal hint still names it if they get stuck.
+
 ## Changes from the plan
 
 The plan's 12 steps, CodeHS lesson, and CED LOs are unchanged. This script fills in the specifics and makes three design decisions the plan left open. None of them change the plan's direction, so `PLAN.md` is not edited.
@@ -526,7 +528,7 @@ Logs tool device list (step 1):
 >
 > Press **Score this morning's events**. Then move the threshold slider. Watch the two counters: real attacks caught, and false alerts raised.
 >
-> Find a threshold that catches all three real attacks (the ARP poisoning, the 3 a.m. upload, and the overnight scan) without burying you in false alerts. Somewhere around **0.70 to 0.75** works.
+> Find a threshold that catches all three real attacks (the ARP poisoning, the 3 a.m. upload, and the overnight scan) without burying you in false alerts.
 
 **Open:** `{ inspect: 'siem' }`. **Focus:** `['siem']`.
 
