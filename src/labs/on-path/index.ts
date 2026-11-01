@@ -43,7 +43,7 @@ export const onPathLab: LabDef = {
   tagline: 'Sniff a password on café Wi-Fi, then become the man in the middle. Then stop yourself.',
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves', '3.2 Traffic in the Wrong Hands', '3.7 Locking Down the Airwaves'],
-  ced: ['3.1.A', '3.1.B', '3.2.B'],
+  ced: ['3.1.A', '3.1.B', '3.2.B', '3.5.E'],
   minutes: 45,
   objectives: [
     'Explain the difference between an IP address and a MAC address.',
