@@ -24,10 +24,11 @@ To try it from a student laptop on the same Wi-Fi, run `npm run dev -- --host` a
 |---|---|---|---|
 | **From Cable to Web Page**: build a network from loose parts. Plug in cables, give each device an IP address, set default gateways, and add static routes until Alice's browser loads a page from a server two routers away. Then troubleshoot a broken computer one layer at a time | 3.1 | 13 | ~45 min |
 | **Traffic in the Wrong Hands**: sniff a password on open Wi-Fi, see WPA2 stop it, ARP-poison your way into the middle, watch HTTPS defeat you, then lock ARP entries | 3.1, 3.2, 3.7 | 13 | ~45 min |
+| **Flood the Switch**: plug into an open lobby jack, flood the office switch's MAC table until it repeats everyone's traffic, find the flood in the switch's log, stop it with port security, beat MAC filtering by spoofing a printer, then shut unused ports | none | 11 | ~45 min |
 | **Wrong Directions**: poison a school district's DNS resolver with forged answers, send students to a fake gradebook, see HTTPS warn, find the attack in the logs, then make query IDs unpredictable | 3.3 | 11 | ~45 min |
 | **Advertise a Bad Route**: hijack a bank's prefix with BGP, black-hole it, out-compete the real route with a more specific prefix, impersonate the bank, then deploy route origin validation | 3.1, 3.3 | 10 | ~40 min |
 
-The home page also lists the planned labs as "coming soon": MAC flooding, smurf attacks, a network audit, wireless security, segmentation, firewalls, and log analysis. Together with the labs above they cover every topic in the CED's Unit 3. [docs/unit3/COVERAGE.md](docs/unit3/COVERAGE.md) maps each learning objective to a lab, each lab's plan is in `src/labs/<id>/PLAN.md`, and [docs/unit3/ARCHITECTURE.md](docs/unit3/ARCHITECTURE.md) is the guide for building one.
+The home page also lists the planned labs as "coming soon": smurf attacks, a network audit, wireless security, segmentation, firewalls, and log analysis. Together with the labs above they cover every topic in the CED's Unit 3. [docs/unit3/COVERAGE.md](docs/unit3/COVERAGE.md) maps each learning objective to a lab, each lab's plan is in `src/labs/<id>/PLAN.md`, and [docs/unit3/ARCHITECTURE.md](docs/unit3/ARCHITECTURE.md) is the guide for building one.
 
 ### How a lab works
 

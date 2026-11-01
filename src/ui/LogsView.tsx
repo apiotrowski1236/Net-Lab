@@ -120,7 +120,7 @@ export function LogsView({ session }: { session: LabSession }) {
                     <td class="mono">{clockTime(e.t, session.lab.clock)}</td>
                     {ids.length > 1 && <td>{sim.devices[e.device]?.label}</td>}
                     <td>{e.source}</td>
-                    <td class="mono info">
+                    <td class="mono info" title={e.msg}>
                       {e.level !== 'info' && <span class={`pill tiny lvl ${e.level}`}>{LEVEL_TEXT[e.level]}</span>} {e.msg}
                     </td>
                   </tr>

@@ -112,6 +112,8 @@ Later labs reuse these, so design them as shared, documented APIs, not one-offs.
 Where to read each merged feature before you use it. Reuse these; extend them additively if they fall short.
 
 - **DNS resolver** (`dns-spoof`): `src/sim/dns.ts` (resolver state, TTL cache, query IDs and ports); the resolver section of `src/sim/sim.ts` (`forgeDnsAnswer`, `setResolverHardened`, `flushResolverCache`); `NetBuilder` host option `resolver: { upstream, ttl }`. Log lines: `source: 'dns'` on the resolver (query, cache hit, hardening, flush; `cached` with `fields: { name, ip, from, ttl }`, level `notice` when a record changed), `source: 'web'` on every web server (`fields: { src, method, path, host }`). Frames with `forged: true` stay marked across hops.
+- **Switch security** (`mac-flood`): `src/sim/switchsec.ts` (header explains it; opt in per switch with `sim.configureSwitch(id, { tableSize })`). Sim methods `setPortSecurity`, `setPortShutdown`, `setMac`; read helpers `portUp`, `macTableUse`, `macsOnPort`, `portLabel`. Actions `port-security`, `port-shutdown`, `set-mac`, `mac-flood`; typed checks in `src/runtime/switchInput.ts`. Inspector section `switch-ports`. Log sources on the switch: `link` (`%LINK-3-UPDOWN`, `%LINK-5-CHANGED`), `mac-table` (`%SW_MATM-4-TABLE_FULL`), `port-security` (`PSECURE_VIOLATION`, `ERR_DISABLE`). Drop reasons `port-shutdown`, `port-security`.
+- **Bursts** (`mac-flood`): `src/sim/burst.ts`. `Frame.burst { count, vary: 'src-mac' | 'src-ip' | 'none', seed }` makes one frame stand for many; the map draws a "×N" stack. Send one with `sim.sendBurst(dev, body, burst, delay)`; pass `ip` for a ping flood. Use it for any flood instead of thousands of frames.
 
 ## Your final report
 
