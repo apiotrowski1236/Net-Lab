@@ -244,6 +244,10 @@ function Dock({
     if (m !== more) setMore(m);
   };
   useLayoutEffect(measure);
+  // A different tab or device starts at the top, not where the last one was scrolled to.
+  useLayoutEffect(() => {
+    if (body.current) body.current.scrollTop = 0;
+  }, [tab, selected]);
   useEffect(() => {
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);

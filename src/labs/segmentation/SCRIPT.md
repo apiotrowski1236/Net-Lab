@@ -18,6 +18,22 @@ Outline: [PLAN.md](PLAN.md). Conventions: [docs/unit3/ARCHITECTURE.md](../../../
 
 PLAN.md is updated for items 1 and 4.
 
+## Changes made while building
+
+1. **VLAN state is `SwitchPort.vlan`**, beside mac-flood's per-port state (`switchSec`), not `Iface.vlan`. A switch needs `sim.configureSwitch` before `sim.setVlan`. The `switch-ports` inspector is unchanged; the VLANs section sits above it.
+2. **`vlan` and `zone-policy` are not in `SETTING_TOOLS`.** Each gets a Toolkit pointer card (like mac-flood's port security card) that opens the device, so `Dock.tsx` needs no change.
+3. **Lab data rides on the tool specs**, so the shared card and sections stay lab-agnostic: `vlan` carries the VLAN names, `zone-plan` carries the zones, each device's zone and job, and the level notes. The Crew row's Allow all warning is the crew zone's `allowWarning`.
+4. **Step 1 says "Open ports"**, the inspector heading the firewall lab built, instead of "Services".
+5. **Rule order.** The zone policy writes rules row by row (Weapons, Operations, Crew), then the shore rules. Same rules as S9; only the numbers of rules 1 to 6 differ. Crew to Weapons is still rule 7.
+6. **Drawn zones.** A host is drawn in the zone whose VLAN its switch port is in, or else in its planned zone. So the Personal laptop shows up in Weapons in step 8. Nothing is drawn until the student starts the plan.
+7. **No VLAN column in the MAC address table** (S2 allowed skipping it). The VLANs table shows each port's VLAN.
+8. **Log lines** read `DENY TCP 10.0.30.31:49165 -> 10.0.10.11:445 zone Crew -> Weapons (rule 7)`, with `fields.rule` = `Crew to Weapons` and `fields.ruleNo`.
+9. **Drop text** keeps the firewall lab's colon: `Core firewall blocked it: its zone policy denies Crew to Weapons.` An Only cell reads `its zone policy allows only port 5001 (target data) from Operations to Weapons`.
+10. **Parallel cables** show `×3` in the map's port-tag style (`port-tag link-count`): `.pill` is an HTML style and doesn't draw in SVG.
+11. **Malware section.** Patient zero's sentence comes from `sim.infect(id, how)`. The source address is the one it had when the copy came (`Infection.fromIp`). The time reads `Arrived at 12.34s on the network clock.`
+12. **Outbreak result line** says `The malware is running on Crew laptop 1.`, then `It is spreading…`, then `The malware stopped. Infected: 3 of 8 computers.` (The line under the button doesn't know about the game.)
+13. **Zone plan card** also says `Cleared. {Label} isn't in a zone.` when a select goes back to its prompt.
+
 ## Lab definition
 
 | Field | Value |

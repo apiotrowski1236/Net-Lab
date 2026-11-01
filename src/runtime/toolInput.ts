@@ -2,6 +2,7 @@ import { intToIp, ipToInt, isIp, isPrefix, maskBits, networkOf, normalizePrefix,
 import type { Sim } from '../sim/sim';
 import type { Device, Iface } from '../sim/types';
 import { passphraseStrength, STRONG_PASSPHRASE_LEN } from '../sim/wifi';
+import { sameVlan, vlanOf } from '../sim/vlan';
 
 // Checks for what students type into the Toolkit. Each returns either the
 // cleaned-up value or a short message that says what's wrong and where to look.
@@ -135,9 +136,11 @@ export function segmentIfaces(sim: Sim, deviceId: string, ifaceId: string): { de
     if (!peer) return;
     const next = sim.dev(peer.device);
     if (next.kind === 'switch' || next.kind === 'hub') {
-      if (seen.has(next.id)) return;
-      seen.add(next.id);
-      for (const p of next.ifaces) if (p.id !== peer.iface && p.linkId) visit(next.id, p.id);
+      // A switch's VLANs are separate local networks: go on only through ports in the VLAN the cable came in on.
+      const key = `${next.id}#${vlanOf(next, peer.iface)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      for (const p of next.ifaces) if (p.id !== peer.iface && p.linkId && sameVlan(next, peer.iface, p.id)) visit(next.id, p.id);
       return;
     }
     const iface = next.ifaces.find((i) => i.id === peer.iface);
@@ -188,7 +191,7 @@ export function checkAddress(
   deviceId: string,
   ifaceId: string,
   raw: string,
-  fixed?: { device: string; cidr: string; why: string }[],
+  fixed?: { device: string; iface?: string; cidr: string; why: string }[],
 ): Checked<{ cidr: string | null; note?: string }> {
   const dev = sim.dev(deviceId);
   const iface = dev.ifaces.find((i) => i.id === ifaceId);
@@ -206,7 +209,7 @@ export function checkAddress(
   const [ip, l] = text.split('/');
   const len = Number(l);
   if (len < 8 || len > 30) return { ok: false, msg: 'Use a prefix length from /8 to /30, like /24.' };
-  const pin = fixed?.find((f) => f.device === deviceId);
+  const pin = fixed?.find((f) => f.device === deviceId && (!f.iface || f.iface === ifaceId));
   if (pin && text !== pin.cidr) return { ok: false, msg: pin.why, suggest: pin.cidr };
   if (iface.ip === ip && iface.prefix === len) return { ok: false, msg: `${where} already has ${text}.` };
   const net = networkOf(ip, len);

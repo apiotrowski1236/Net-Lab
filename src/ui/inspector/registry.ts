@@ -9,6 +9,9 @@ import { SwitchPorts } from './SwitchPorts';
 import { wifiSettingsSection } from './WifiSettings';
 import { FirewallRulesSection } from './FirewallRules';
 import { ServicesSection } from './Services';
+import { MalwareSection } from './Malware';
+import { VlansSection } from './Vlans';
+import { ZonePolicySection } from './ZonePolicy';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -37,11 +40,16 @@ export interface InspectorSection {
 export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'dns-cache', slot: 'settings', Section: DnsCache },
   { id: 'dns-zone', slot: 'end', Section: DnsZone },
+  // segmentation (before mac-flood's ports table, so a switch shows its VLANs first)
+  { id: 'vlans', slot: 'settings', Section: VlansSection },
   // mac-flood
   { id: 'switch-ports', slot: 'settings', Section: SwitchPorts },
   // wireless
   wifiSettingsSection,
   // firewall
   { id: 'services', slot: 'settings', Section: ServicesSection },
+  // segmentation (the zone policy before the rules it writes)
+  { id: 'malware', slot: 'settings', Section: MalwareSection },
+  { id: 'zone-policy', slot: 'settings', Section: ZonePolicySection },
   { id: 'firewall-rules', slot: 'settings', Section: FirewallRulesSection },
 ];

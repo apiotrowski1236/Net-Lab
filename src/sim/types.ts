@@ -5,6 +5,8 @@ import type { SwitchSec } from './switchsec';
 import type { WifiAp, WifiClient } from './wifi';
 import type { FirewallState, FwDir, FwVerdict } from './firewall';
 import type { Conn, Scan, Service } from './services';
+import type { Infection } from './malware';
+import type { ZonePolicy } from './zonePolicy';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -176,6 +178,12 @@ export interface Device {
   scans?: Scan[];
   /** Firewall rules and state, on a router or a 'firewall' device (see firewall.ts). */
   firewall?: FirewallState;
+  /** Segmentation: the zone this device is in on the zone plan (see zones.ts). */
+  zone?: string;
+  /** Segmentation: the simulated infection on this device (see malware.ts). */
+  malware?: Infection;
+  /** Segmentation: a firewall's zone policy, which writes its rules (see zonePolicy.ts). */
+  zonePolicy?: ZonePolicy;
 }
 
 // ---------------------------------------------------------------------------
@@ -268,6 +276,8 @@ export interface Frame {
   forged?: boolean;
   /** This one frame stands for many (a flood). See burst.ts. */
   burst?: Burst;
+  /** Part of the simulated outbreak's spread (see malware.ts). Drawn in red, like forged frames. */
+  malware?: true;
 }
 
 export interface Link {
@@ -361,7 +371,11 @@ export type SimEvent = (
   /** A port scan finished: every probe answered or timed out. */
   | { t: number; type: 'scan-done'; device: string; scan: Scan }
   /** A reply nobody asked for reached `device` (a forged reply, for example). The device ignores it. */
-  | { t: number; type: 'stray-reply'; device: string; pkt: IpPacket }) & {
+  | { t: number; type: 'stray-reply'; device: string; pkt: IpPacket }
+  /** The simulated outbreak reached `device` (see malware.ts). `from` is the device it came from. */
+  | { t: number; type: 'malware-infected'; device: string; from?: string; via: Infection['via'] }
+  /** The outbreak that started on `device` has nowhere left to go. `infected` lists every infected device. */
+  | { t: number; type: 'malware-done'; device: string; infected: string[] }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */
   quiet?: boolean;
 };

@@ -12,6 +12,9 @@ import { Triangulate } from './Triangulate';
 import { FirewallPlaceTool } from './FirewallPlace';
 import { FirewallRulesTool } from './FirewallRules';
 import { PortScanTool } from './PortScan';
+import { VlanCard } from './VlanCard';
+import { ZonePlan } from './ZonePlan';
+import { ZonePolicyCard } from './ZonePolicyCard';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -41,4 +44,8 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   'port-scan': PortScanTool,
   'firewall-place': FirewallPlaceTool,
   'firewall-rules': FirewallRulesTool,
+  // segmentation
+  vlan: VlanCard,
+  'zone-plan': ZonePlan,
+  'zone-policy': ZonePolicyCard,
 };

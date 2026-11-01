@@ -1513,3 +1513,92 @@
 .fw-conns {
   margin-top: 14px;
 }
+
+/* --- segmentation: infected devices, VLANs, zone plan, zone policy --- */
+.device.infected {
+  color: var(--attacker-ink);
+}
+.device.infected .device-card {
+  fill: var(--attacker-bg);
+  stroke: var(--attacker-line);
+  stroke-width: 2;
+}
+.vlans select,
+.zone-plan select,
+.zone-policy select {
+  width: 100%;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: inherit;
+  font-size: 13px;
+}
+.vlans td,
+.zone-plan td {
+  vertical-align: middle;
+}
+.zone-plan .table {
+  margin: 6px 0 10px;
+}
+.zone-plan .table th {
+  position: static;
+  background: transparent;
+}
+.zone-grid {
+  table-layout: fixed;
+}
+.zone-grid th.corner {
+  width: 88px;
+}
+.zone-grid th[scope='row'] {
+  color: var(--ink-2);
+  font-weight: 600;
+  white-space: normal;
+  vertical-align: middle;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line-2);
+}
+.zone-grid td {
+  vertical-align: middle;
+}
+.zone-grid td.flash {
+  animation: flash 2s ease;
+}
+.zone-grid td.same-zone {
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: 12px;
+  text-align: center;
+  cursor: help;
+}
+.zone-grid td.cell-deny select {
+  border-color: var(--bad-line);
+}
+.zone-grid td.cell-only select {
+  border-color: var(--info-line);
+}
+.zone-level {
+  font-weight: 500;
+}
+.zone-level.level-high {
+  color: var(--good);
+}
+.zone-level.level-medium {
+  color: var(--info);
+}
+.zone-level.level-low {
+  color: var(--warn);
+}
+.malware-line {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0 0 4px;
+  color: var(--bad-ink);
+}
+.malware-line .icon {
+  flex: none;
+  margin-top: 2px;
+}

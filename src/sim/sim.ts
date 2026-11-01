@@ -46,6 +46,10 @@ import {
   type WifiSecurity,
 } from './wifi';
 import { dirOf, evaluate, logLine, track, type FwMode, type FwRuleInput } from './firewall';
+import { applyVlan, sameVlan } from './vlan';
+import type { ZoneLevel } from './zones';
+import { cleanOutbreak, infectHost, isProbe, newOutbreak, probeArrived, probeEnded } from './malware';
+import { cellKey, isPolicyValue, newZonePolicy, policyRules, zoneLogLine, type PolicyValue, type PolicyZone, type ZonePolicy } from './zonePolicy';
 import {
   appForPort,
   hostCount,
@@ -346,7 +350,11 @@ export class Sim {
   // -------------------------------------------------------------------------
 
   private frame(origin: string, src: Mac, dst: Mac, body: Partial<Frame>): Frame {
-    return { id: this.nextFrameId++, src, dst, origin, ...body };
+    const f: Frame = { id: this.nextFrameId++, src, dst, origin, ...body };
+    // The simulated outbreak's tries are drawn red (malware.ts).
+    const app = body.ip?.app;
+    if (app?.kind === 'svc' && isProbe(this.outbreak, app.conn, app.reply)) f.malware = true;
+    return f;
   }
 
   transmit(devId: string, ifaceId: string, frame: Frame, delay = this.opts.procMs): void {
@@ -395,12 +403,16 @@ export class Sim {
         this.drop(dev, refused, frame.ip, frame);
         return;
       }
-      const out = frame.dst === BROADCAST_MAC ? undefined : dev.macTable[frame.dst];
+      // A MAC learned on a port in another VLAN counts as unknown (vlan.ts).
+      const known = frame.dst === BROADCAST_MAC ? undefined : dev.macTable[frame.dst];
+      const out = known && sameVlan(dev, ifaceId, known) ? known : undefined;
       if (out) {
         if (out !== ifaceId && portUp(dev, out)) this.transmit(dev.id, out, frame, this.opts.l2Ms);
         return;
       }
-      for (const i of dev.ifaces) if (i.id !== ifaceId && i.linkId && portUp(dev, i.id)) this.transmit(dev.id, i.id, frame, this.opts.l2Ms);
+      for (const i of dev.ifaces) {
+        if (i.id !== ifaceId && i.linkId && portUp(dev, i.id) && sameVlan(dev, ifaceId, i.id)) this.transmit(dev.id, i.id, frame, this.opts.l2Ms);
+      }
       return;
     }
     const iface = dev.ifaces.find((i) => i.id === ifaceId);
@@ -2000,7 +2012,7 @@ export class Sim {
     track(fw, pkt, dir, v, this.t);
     this.emit({ t: this.t, type: 'firewall', device: dev.id, dir, verdict: v, pkt });
     const rule = v.ruleId ? fw.rules.find((r) => r.id === v.ruleId) : undefined;
-    if (v.action === 'deny' || rule?.log) this.log(dev.id, logLine(pkt, dir, v));
+    if (v.action === 'deny' || rule?.log) this.log(dev.id, dev.zonePolicy ? zoneLogLine(dev.zonePolicy, pkt, dir, v) : logLine(pkt, dir, v));
     if (v.action === 'allow') return true;
     this.drop(dev, 'firewall', pkt, frame);
     return false;
@@ -2056,10 +2068,12 @@ export class Sim {
     }
     const proto: L4 = pkt.proto === 'udp' ? 'udp' : 'tcp';
     const svc = serviceAt(dev, proto, pkt.dstPort);
+    if (svc) probeArrived(this, this.outbreak, dev, a.conn, pkt.dstPort);
     this.reply(dev, pkt, { kind: 'svc', conn: a.conn, app: svc?.app ?? a.app, reply: true, status: svc ? 'open' : 'closed', text: svc?.banner });
   }
 
   private endConn(devId: string, id: number, patch: Partial<Conn>): void {
+    probeEnded(this, this.outbreak, id);
     const c = this.devices[devId]?.conns?.find((x) => x.id === id);
     if (!c || c.status !== 'pending') return;
     Object.assign(c, patch, { doneAt: this.t });
@@ -2138,6 +2152,94 @@ export class Sim {
       scan.doneAt = this.t;
       this.emit({ t: this.t, type: 'scan-done', device: devId, scan });
     }
+  }
+
+  // --- VLANs, zone plan, malware, and zone policy (segmentation) ---
+  // VLANs live in vlan.ts (state on SwitchPort.vlan), the zone plan in zones.ts,
+  // the simulated outbreak in malware.ts, and the zone policy in zonePolicy.ts.
+  // -------------------------------------------------------------------------
+
+  /** The simulated outbreak (malware.ts). */
+  private outbreak = newOutbreak();
+  /** Zone plan: how closely each zone is guarded, by zone id (zones.ts). */
+  zoneLevels: Record<string, ZoneLevel> = {};
+
+  /** Put a switch port in a VLAN (1 is the default). Clears what the switch learned on that port. Needs configureSwitch first. */
+  setVlan(devId: string, port: string, vlan: number): void {
+    applyVlan(this, this.dev(devId), port, vlan);
+  }
+
+  /** Zone plan: put a device in a zone, or take it out with null. */
+  setZone(devId: string, zone: string | null): void {
+    const dev = this.dev(devId);
+    if ((dev.zone ?? null) === zone) return;
+    if (zone) dev.zone = zone;
+    else delete dev.zone;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'zone', on: !!zone, detail: zone ?? undefined });
+  }
+
+  /** Zone plan: set how closely a zone is guarded, or clear it with null. */
+  setZoneLevel(zone: string, level: ZoneLevel | null): void {
+    if (level) this.zoneLevels[zone] = level;
+    else delete this.zoneLevels[zone];
+  }
+
+  /**
+   * Simulated outbreak: infect one host (patient zero). It spreads from there
+   * (see malware.ts). `how` says how it got there, for the inspector. No-op if
+   * already infected.
+   */
+  infect(devId: string, how?: string): void {
+    infectHost(this, this.outbreak, devId, undefined, how);
+  }
+
+  /** Clear every simulated infection and stop the spread. */
+  cleanMalware(): void {
+    cleanOutbreak(this, this.outbreak);
+  }
+
+  /** True while the outbreak still has tries to make or answers to wait for. */
+  malwareRunning(): boolean {
+    return this.outbreak.rounds.size > 0 || this.outbreak.probes.size > 0;
+  }
+
+  /**
+   * Give a router's firewall a zone policy (every cell Allow all) and let it
+   * write the firewall's rules. Zones are listed in table order.
+   */
+  setupZonePolicy(devId: string, zones: PolicyZone[], outside?: ZonePolicy['outside']): void {
+    const dev = this.dev(devId);
+    if (!dev.firewall) throw new Error(`${devId} has no firewall`);
+    dev.zonePolicy = newZonePolicy(zones, outside);
+    this.writeZoneRules(dev);
+  }
+
+  /** Change one cell of a zone policy. The firewall's rules are rewritten to match. */
+  setZonePolicy(devId: string, from: string, to: string, value: PolicyValue): void {
+    const dev = this.dev(devId);
+    const zp = dev.zonePolicy;
+    if (!zp) throw new Error(`${devId} has no zone policy`);
+    if (from === to || !zp.zones.some((z) => z.id === from) || !zp.zones.some((z) => z.id === to)) throw new Error(`No zone policy cell ${from} to ${to}`);
+    if (!isPolicyValue(value)) throw new Error(`Bad zone policy value ${value}`);
+    const key = cellKey(from, to);
+    if ((zp.cells[key] ?? 'allow') === value) return;
+    if (value === 'allow') delete zp.cells[key];
+    else zp.cells[key] = value;
+    this.writeZoneRules(dev);
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'zone-policy', detail: `${from}>${to}=${value}` });
+  }
+
+  private writeZoneRules(dev: Device): void {
+    const fw = dev.firewall!;
+    const zp = dev.zonePolicy!;
+    fw.rules = [];
+    zp.written = {};
+    for (const r of policyRules(zp)) {
+      const id = `r${fw.nextId++}`;
+      fw.rules.push({ ...r.rule, id });
+      zp.written[id] = { from: r.from, to: r.to };
+    }
+    fw.changedAt = this.t;
   }
 }
 

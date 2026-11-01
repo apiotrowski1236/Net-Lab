@@ -4,11 +4,12 @@ import { macFloodLab } from './mac-flood';
 import { firewallLab } from './firewall';
 import { onPathLab } from './on-path';
 import { routeHijackLab } from './route-hijack';
+import { segmentationLab } from './segmentation';
 import { wirelessLab } from './wireless';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, routeHijackLab, wirelessLab, firewallLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, routeHijackLab, wirelessLab, segmentationLab, firewallLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the
@@ -30,14 +31,6 @@ export const STUBS: LabStub[] = [
     tagline: 'Scan a small office for weaknesses, rate each risk, and write the policies that fix them.',
     unit: 3,
     codehs: [],
-    comingSoon: true,
-  },
-  {
-    id: 'segmentation',
-    title: 'Walls Inside the Network',
-    tagline: "Split a submarine's flat network into zones and watch malware hit a wall.",
-    unit: 3,
-    codehs: ['3.8 Network Segmentation'],
     comingSoon: true,
   },
   {
