@@ -43,10 +43,9 @@ export function buildOffice(): Sim {
   const sim = new NetBuilder({ linkMs: 850 })
     .router('router', {
       label: 'District router',
-      sublabel: IP.router,
       icon: 'router',
-      x: 330,
-      y: 95,
+      x: 320,
+      y: 80,
       ifaces: [
         { id: 'lan', ip: `${IP.router}/24`, mac: MAC.router },
         { id: 'wan', ip: '10.50.0.2/30' },
@@ -56,8 +55,8 @@ export function buildOffice(): Sim {
       label: 'Records server',
       sublabel: IP.records,
       icon: 'server',
-      x: 120,
-      y: 210,
+      x: 130,
+      y: 185,
       ip: `${IP.records}/24`,
       gateway: IP.router,
       mac: MAC.records,
@@ -68,8 +67,8 @@ export function buildOffice(): Sim {
       label: 'Ms. Ortiz',
       sublabel: 'attendance clerk',
       icon: 'desktop',
-      x: 130,
-      y: 440,
+      x: 140,
+      y: 365,
       ip: `${IP.ortiz}/24`,
       gateway: IP.router,
       mac: MAC.ortiz,
@@ -78,19 +77,20 @@ export function buildOffice(): Sim {
       label: 'Mr. Chen',
       sublabel: 'counselor',
       icon: 'desktop',
-      x: 330,
-      y: 510,
+      x: 320,
+      y: 395,
       ip: `${IP.chen}/24`,
       gateway: IP.router,
       mac: MAC.chen,
     })
-    .switch('sw', { label: 'Office switch', sublabel: '8 ports', icon: 'switch', x: 400, y: 300, ports: 8 })
+    // No sublabels on the router and switch: the port tags sit right under them.
+    .switch('sw', { label: 'Office switch', icon: 'switch', x: 430, y: 235, ports: 8 })
     .host('printer', {
       label: 'Lobby printer',
       sublabel: IP.printer,
       icon: 'printer',
-      x: 760,
-      y: 500,
+      x: 770,
+      y: 380,
       ip: `${IP.printer}/24`,
       gateway: IP.router,
       mac: MAC.printer,
@@ -100,8 +100,8 @@ export function buildOffice(): Sim {
       label: 'Mallory',
       sublabel: 'visitor',
       icon: 'attacker',
-      x: 880,
-      y: 330,
+      x: 890,
+      y: 250,
       ip: `${IP.mallory}/24`,
       gateway: IP.router,
       mac: MAC.mallory,
@@ -153,11 +153,11 @@ function seedHistory(sim: Sim): void {
 export function zones(sim: Sim): MapZone[] {
   const jack = sim.dev('sw').switchSec?.ports[PORT.jack]?.shutdown;
   return [
-    { id: 'office', shape: { kind: 'rect', x: 30, y: 30, w: 590, h: 545 }, label: 'Front office (staff only)', tone: 'neutral' },
-    { id: 'lobby', shape: { kind: 'rect', x: 650, y: 200, w: 330, h: 375 }, label: 'Lobby (open to visitors)', tone: 'warn' },
+    { id: 'office', shape: { kind: 'rect', x: 40, y: 25, w: 590, h: 450 }, label: 'Front office (staff only)', tone: 'neutral' },
+    { id: 'lobby', shape: { kind: 'rect', x: 660, y: 135, w: 320, h: 340 }, label: 'Lobby (open to visitors)', tone: 'warn' },
     {
       id: 'jack',
-      shape: { kind: 'rect', x: 664, y: 236, w: 176, h: 30 },
+      shape: { kind: 'rect', x: 674, y: 171, w: 176, h: 30 },
       label: jack ? 'Wall jack, port 7: off' : 'Wall jack, port 7',
       tone: jack ? 'good' : 'bad',
     },

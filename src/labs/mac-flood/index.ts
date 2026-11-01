@@ -358,7 +358,8 @@ export const macFloodLab: LabDef = {
             { id: 'warn', text: 'The switch log has warnings.', feedback: 'Warnings happen for many reasons. Read what they say: which port did the new MACs arrive on?' },
             { id: 'p3', text: "Ms. Ortiz's port went down and up this morning.", feedback: 'That happened at 09:23, long before the flood. A PC restarting does that.' },
           ],
-          explain: 'One port that suddenly has dozens of new MAC addresses is the sign of MAC flooding. Every table-full line in the log names the same port.',
+          explain:
+            'One port that suddenly has dozens of new MAC addresses is the sign of MAC flooding. In the log, each table-full line from port 7 learned 20 new addresses at once. A real device, like Ms. Ortiz’s PC on port 3, brings one.',
         },
         {
           id: 'port',
@@ -506,11 +507,11 @@ export const macFloodLab: LabDef = {
       body: md`
         Mallory has left, and the [[printer]] is back on its cable. MAC filtering never complained: every frame had the right MAC. The switch's log noticed something else.
 
-        Open the **Logs** tab. Find the line where port 5 went **down** while Mallory unplugged the printer, and click it. A printer that drops off the network and comes back is worth checking on.
+        Open the **Logs** tab and type port 5 in the **Search** box. Only port 5's lines are left. Click a **warning** that says port 5 changed state to **down**: that is Mallory unplugging the printer. A printer that drops off the network and comes back is worth checking on.
 
         Now close the doors. A port with nothing plugged in is an open door. Click [[sw]], choose **Edit** on each empty port (6, 7, and 8), and press **Shut port down**.
 
-        Port 7 is off already because port security shut it. That lasts only until someone turns it back on, so shut it down on purpose.
+        Port 7 is off already because port security shut it. That lasts only until someone turns it back on, so press **Shut port down** on it too.
       `,
       focus: ['sw', 'printer'],
       open: 'logs',
@@ -518,7 +519,7 @@ export const macFloodLab: LabDef = {
         {
           id: 'log',
           label: 'Open the log line where port 5 went down',
-          hint: 'In the **Logs** tab, click the line that says port 5 changed state to down.',
+          hint: 'In the **Logs** tab, search for port 5. Click a warning line: it ends with changed state to down.',
           check: openedLog((e) => e.device === 'sw' && e.fields?.port === PORT.printer && e.fields?.state === 'down'),
         },
         {

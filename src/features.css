@@ -1251,6 +1251,7 @@
 .flood-meter.full .meter > span {
   background: var(--bad-solid);
 }
+.switch-ports .table th.num,
 .switch-ports .table td.num {
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -1272,6 +1273,9 @@
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
+}
+.port-edit-head strong {
+  flex: 1;
 }
 .port-edit-fields {
   display: flex;

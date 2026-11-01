@@ -60,8 +60,12 @@ function SwitchPortsInner({ session, sim, dev, has }: InspectorSectionProps) {
           <tr>
             <th>Port</th>
             <th>Goes to</th>
-            <th title="MAC addresses the switch has learned on this port">MACs</th>
-            <th title="Frames that came in this port">Frames in</th>
+            <th class="num" title="MAC addresses the switch has learned on this port">
+              MACs
+            </th>
+            <th class="num" title="Frames that came in this port">
+              Frames in
+            </th>
             <th>State</th>
             {edit && <th />}
           </tr>
@@ -110,6 +114,7 @@ function PortEditor({ session, dev, port }: { session: InspectorSectionProps['se
   const [allowed, setAllowed] = useState((cur?.allowed ?? []).join(' '));
   const [msg, setMsg] = useState<Msg>(null);
   const where = portLabel(port);
+  const Where = where.charAt(0).toUpperCase() + where.slice(1);
   const save = () => {
     if (!on) {
       if (!cur) return setMsg({ tone: 'info', text: `Port security is already off on ${where}.` });
@@ -121,21 +126,28 @@ function PortEditor({ session, dev, port }: { session: InspectorSectionProps['se
     session.dispatch({ type: 'port-security', device: dev.id, port, config: r.config });
     const c = r.config;
     const who = c.allowed ? `only ${c.allowed.join(', ')}` : `at most ${c.maxMacs} MAC${c.maxMacs === 1 ? '' : 's'}`;
-    setMsg({ tone: 'good', text: `Saved. ${where} allows ${who}. Anything else ${c.violation === 'shutdown' ? 'shuts the port down' : 'gets dropped'}.` });
+    setMsg({ tone: 'good', text: `Saved. ${Where} allows ${who}. Anything else ${c.violation === 'shutdown' ? 'shuts the port down' : 'gets dropped'}.` });
   };
-  const shut = !!p?.shutdown;
-  const toggleShut = () => {
-    session.dispatch({ type: 'port-shutdown', device: dev.id, port, shut: !shut });
-    setMsg({ tone: 'info', text: shut ? `${where} is on again.` : `${where} is shut down. It carries nothing until you turn it back on.` });
+  // A port that port security shut can still be shut on purpose: that one stays off until an admin turns it on.
+  const setShut = (shut: boolean) => {
+    session.dispatch({ type: 'port-shutdown', device: dev.id, port, shut });
+    setMsg({ tone: 'info', text: shut ? `${Where} is shut down. It carries nothing until you turn it back on.` : `${Where} is on again.` });
   };
   const bad = (f: string) => (msg?.tone === 'bad' && msg.field === f ? 'invalid' : '');
   return (
     <div class="port-edit">
       <div class="port-edit-head">
         <strong>{where}</strong>
-        <button class="btn small" onClick={toggleShut}>
-          {shut ? 'Turn port on' : 'Shut port down'}
-        </button>
+        {p?.shutdown !== 'admin' && (
+          <button class="btn small" onClick={() => setShut(true)}>
+            Shut port down
+          </button>
+        )}
+        {p?.shutdown && (
+          <button class="btn small ghost" onClick={() => setShut(false)}>
+            Turn port on
+          </button>
+        )}
       </div>
       <Toggle on={on} label={on ? 'Port security on' : 'Port security off'} onChange={(v) => (setOn(v), setMsg(null))} />
       {on && (

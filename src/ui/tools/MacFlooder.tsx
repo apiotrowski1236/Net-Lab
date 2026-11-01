@@ -23,25 +23,7 @@ export function MacFlooder({ session, spec }: ToolCardProps<'mac-flood'>) {
       <div class="tool-title">
         <Icon name="bolt" /> MAC flooder ({d.label})
       </div>
-      <p class="tool-desc">
-        Send frames from made-up MAC addresses, one right after another. A switch learns every new From MAC, so each one takes a spot
-        in its MAC table.
-      </p>
-      <div class="sentence">
-        Send
-        <span class="seg" role="group" aria-label="How many bursts">
-          {BURSTS.map((n) => (
-            <button key={n} class={bursts === n ? 'on' : ''} aria-pressed={bursts === n} onClick={() => setBursts(n)}>
-              {n}
-            </button>
-          ))}
-        </span>
-        {bursts === 1 ? 'burst' : 'bursts'} of {PER_BURST} frames
-      </div>
-      <button class="btn" disabled={!iface} onClick={() => session.dispatch({ type: 'mac-flood', device: d.id, bursts })}>
-        <Icon name="bolt" /> Flood
-      </button>
-      {!iface && <ToolMsg msg={{ tone: 'info', text: `${d.label} has no cable yet. Plug in first.` }} />}
+      <p class="tool-desc">Send frames from made-up MACs. The switch learns each new From MAC, so each one takes a spot in its MAC table.</p>
       {use && sw && (
         <div class="flood-meter small">
           <span>
@@ -52,6 +34,21 @@ export function MacFlooder({ session, spec }: ToolCardProps<'mac-flood'>) {
           </span>
         </div>
       )}
+      <div class="sentence">
+        Send
+        <span class="seg" role="group" aria-label="How many bursts">
+          {BURSTS.map((n) => (
+            <button key={n} class={bursts === n ? 'on' : ''} aria-pressed={bursts === n} onClick={() => setBursts(n)}>
+              {n}
+            </button>
+          ))}
+        </span>
+        {bursts === 1 ? 'burst' : 'bursts'} of {PER_BURST} frames
+        <button class="btn" disabled={!iface} onClick={() => session.dispatch({ type: 'mac-flood', device: d.id, bursts })}>
+          <Icon name="bolt" /> Flood
+        </button>
+      </div>
+      {!iface && <ToolMsg msg={{ tone: 'info', text: `${d.label} has no cable yet. Plug in first.` }} />}
     </div>
   );
 }
