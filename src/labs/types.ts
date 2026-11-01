@@ -103,7 +103,13 @@ export type ToolSpec =
   /** DNS forger: send forged answers from `device` to `resolver`. The student types the name and the address to plant. */
   | { kind: 'dns-forge'; device: string; resolver: string }
   /** Resolver defenses on `device`: flush the cache and turn on unpredictable query IDs. */
-  | { kind: 'resolver-defense'; device: string };
+  | { kind: 'resolver-defense'; device: string }
+  /** MAC flooding from `device`: bursts of frames from made-up MACs. */
+  | { kind: 'mac-flood'; device: string }
+  /** Change `device`'s MAC address (MAC spoofing), or put back the factory one. */
+  | { kind: 'mac-change'; device: string }
+  /** Port security and shutting ports on switch `device`, in the inspector. The card points there. */
+  | { kind: 'port-security'; device: string };
 
 /** Tools that change device settings in the inspector instead of having their own card. */
 export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route'] as const;

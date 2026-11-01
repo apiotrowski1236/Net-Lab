@@ -1,12 +1,14 @@
 import type { Sim } from '../sim/sim';
 import type { Frame, SimEvent } from '../sim/types';
 
-export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE';
+export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'ETH';
 
 export function protoOf(f: Frame): Proto {
   if (f.arp) return 'ARP';
   if (f.bgp) return 'ROUTE';
-  const ip = f.ip!;
+  // A bare Ethernet frame with nothing inside (MAC flooding sends these).
+  if (!f.ip) return 'ETH';
+  const ip = f.ip;
   if (ip.app.kind === 'ping') return 'PING';
   if (ip.app.kind === 'dns-query' || ip.app.kind === 'dns-answer') return 'DNS';
   return ip.encrypted ? 'HTTPS' : 'HTTP';
@@ -23,6 +25,7 @@ export const PROTO_COLOR: Record<Proto, string> = {
   DNS: '#7c3aed',
   PING: '#64748b',
   ROUTE: '#be185d',
+  ETH: '#0e7490',
 };
 
 /** Fill for forged ("FAKE") packets. White text, 4.8:1. */
@@ -42,6 +45,7 @@ const LAYER_COLOR = {
   DNS: 'var(--layer-dns)',
   PING: 'var(--layer-ping)',
   ROUTE: 'var(--layer-route)',
+  ETH: 'var(--layer-eth)',
 } as const;
 
 export const PROTO_BLURB: Record<Proto, string> = {
@@ -51,6 +55,7 @@ export const PROTO_BLURB: Record<Proto, string> = {
   DNS: 'DNS: looking up a name like bank.example to get its IP address.',
   PING: 'Ping: "Are you there?" / "Yes!"',
   ROUTE: 'Route announcement: one network telling its neighbor which addresses it can reach.',
+  ETH: 'Ethernet frame with nothing inside. A stack marked "×20" stands for 20 frames.',
 };
 
 /** Fake ciphertext so encrypted packets look like gibberish (deterministic per frame). */
@@ -76,8 +81,15 @@ export function nameForMac(sim: Sim, mac: string): string | undefined {
   return sim.deviceByMac(mac)?.label;
 }
 
-/** One-line summary, like Wireshark's Info column. */
+/** One-line summary, like Wireshark's Info column. A burst says how many frames it stands for. */
 export function infoOf(f: Frame): string {
+  const one = infoOfOne(f);
+  if (!f.burst) return one;
+  const each = f.burst.vary === 'src-mac' ? ', each from a different MAC' : f.burst.vary === 'src-ip' ? ', each from a different IP' : '';
+  return `${one}  (×${f.burst.count} frames${each})`;
+}
+
+function infoOfOne(f: Frame): string {
   if (f.arp) {
     const a = f.arp;
     return a.op === 'request' ? `Who has ${a.targetIp}? Tell ${a.senderIp}` : `${a.senderIp} is at ${a.senderMac}`;
@@ -86,7 +98,8 @@ export function infoOf(f: Frame): string {
     const b = f.bgp;
     return b.kind === 'announce' ? `I can reach ${b.prefix} via AS path ${b.path.join(' ')}` : `Withdraw ${b.prefix}`;
   }
-  const ip = f.ip!;
+  if (!f.ip) return 'Ethernet frame, no data';
+  const ip = f.ip;
   if (ip.encrypted && (ip.app.kind === 'http-req' || ip.app.kind === 'http-res')) return 'Application Data (encrypted)';
   switch (ip.app.kind) {
     case 'ping':
@@ -128,6 +141,16 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       ],
     },
   ];
+  if (f.burst) {
+    const b = f.burst;
+    const each = b.vary === 'src-mac' ? 'Each one has a different made-up From MAC.' : b.vary === 'src-ip' ? 'Each one has a different made-up From IP.' : 'They are all the same.';
+    layers[0].rows.push(['Copies', `${b.count} frames`, '(shown as one)']);
+    layers[0].note = `This is ${b.count} frames sent back to back. ${each}`;
+  }
+  if (!f.ip && !f.arp && !f.bgp) {
+    layers[0].note = `${layers[0].note ? `${layers[0].note} ` : ''}There is nothing inside: no IP packet, no data. A frame like this exists only to make switches learn its From MAC.`;
+    return layers;
+  }
   if (f.arp) {
     const a = f.arp;
     layers.push({
@@ -263,6 +286,10 @@ export function pingFailText(sim: Sim, e: Extract<SimEvent, { type: 'ping-fail' 
     }
     case 'ttl':
       return `The packet went around in a loop until its TTL ran out at ${at}.`;
+    case 'port-shutdown':
+      return `${at} has the port this computer is plugged into shut down, so it dropped the packet.`;
+    case 'port-security':
+      return `${at}'s port security does not allow this computer's MAC address on that port, so it dropped the packet.`;
     default:
       return `Dropped at ${at}.`;
   }

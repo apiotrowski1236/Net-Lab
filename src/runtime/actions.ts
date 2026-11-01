@@ -1,5 +1,6 @@
 import type { Sim } from '../sim/sim';
 import type { LabDef } from '../labs/types';
+import type { PortSecurityConfig } from '../sim/switchsec';
 
 /**
  * Every change a student makes to the network is one of these. They are
@@ -31,7 +32,15 @@ export type SimAction =
   /** Turn a resolver's defense (random query IDs and source ports) on or off. */
   | { type: 'resolver-harden'; device: string; on: boolean }
   /** Empty a resolver's cache. */
-  | { type: 'dns-flush'; device: string };
+  | { type: 'dns-flush'; device: string }
+  // Switch security (mac-flood)
+  /** Send `bursts` bursts of 20 frames, each from a made-up MAC. */
+  | { type: 'mac-flood'; device: string; bursts: number }
+  /** Change a device's MAC, or put back its factory MAC with null. */
+  | { type: 'set-mac'; device: string; mac: string | null }
+  /** Port security on a switch port, or null to turn it off. */
+  | { type: 'port-security'; device: string; port: string; config: PortSecurityConfig | null }
+  | { type: 'port-shutdown'; device: string; port: string; shut: boolean };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -101,6 +110,18 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'dns-flush':
       sim.flushResolverCache(a.device);
+      return;
+    case 'mac-flood':
+      sim.macFlood(a.device, a.bursts);
+      return;
+    case 'set-mac':
+      sim.setMac(a.device, a.mac);
+      return;
+    case 'port-security':
+      sim.setPortSecurity(a.device, a.port, a.config);
+      return;
+    case 'port-shutdown':
+      sim.setPortShutdown(a.device, a.port, a.shut);
       return;
   }
 }

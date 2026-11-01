@@ -24,6 +24,16 @@ import type {
   SimEvent,
 } from './types';
 import { forgedGuesses, freshEntry, nextQueryParams, type Waiter } from './dns';
+import { burstMac, type Burst } from './burst';
+import {
+  applyPortSecurity,
+  applyPortShutdown,
+  configureSwitch,
+  portUp,
+  switchIngress,
+  switchLinkChanged,
+  type PortSecurityConfig,
+} from './switchsec';
 
 /**
  * A deliberately simplified network simulator.
@@ -340,16 +350,18 @@ export class Sim {
       return;
     }
     if (dev.kind === 'switch') {
-      if (dev.macTable[frame.src] !== ifaceId) {
-        dev.macTable[frame.src] = ifaceId;
-        this.emit({ t: this.t, type: 'mac-learn', device: dev.id, mac: frame.src, iface: ifaceId });
+      // Learn the sender's MAC; switch security (switchsec.ts) may refuse the frame first.
+      const refused = switchIngress(this, dev, ifaceId, frame);
+      if (refused) {
+        this.drop(dev, refused, frame.ip, frame);
+        return;
       }
       const out = frame.dst === BROADCAST_MAC ? undefined : dev.macTable[frame.dst];
       if (out) {
-        if (out !== ifaceId) this.transmit(dev.id, out, frame, this.opts.l2Ms);
+        if (out !== ifaceId && portUp(dev, out)) this.transmit(dev.id, out, frame, this.opts.l2Ms);
         return;
       }
-      for (const i of dev.ifaces) if (i.id !== ifaceId && i.linkId) this.transmit(dev.id, i.id, frame, this.opts.l2Ms);
+      for (const i of dev.ifaces) if (i.id !== ifaceId && i.linkId && portUp(dev, i.id)) this.transmit(dev.id, i.id, frame, this.opts.l2Ms);
       return;
     }
     const iface = dev.ifaces.find((i) => i.id === ifaceId);
@@ -903,6 +915,8 @@ export class Sim {
     const lb = this.dev(b.device).label;
     this.emit({ t: this.t, type: 'config', device: a.device, what: 'cable', on: true, detail: `${ia.id} to ${lb} ${ib.id}` });
     this.emit({ t: this.t, type: 'config', device: b.device, what: 'cable', on: true, detail: `${ib.id} to ${la} ${ia.id}` });
+    switchLinkChanged(this, a.device, ia.id, true);
+    switchLinkChanged(this, b.device, ib.id, true);
     return id;
   }
 
@@ -920,6 +934,7 @@ export class Sim {
       // A switch forgets the addresses it learned on that port.
       for (const [mac, p] of Object.entries(dev.macTable)) if (p === end.iface) delete dev.macTable[mac];
       this.emit({ t: this.t, type: 'config', device: end.device, what: 'cable', on: false, detail: end.iface });
+      switchLinkChanged(this, end.device, end.iface, false);
     }
   }
 
@@ -1342,6 +1357,86 @@ export class Sim {
     r.pending = {};
     this.log(resolverId, { source: 'dns', level: 'notice', msg: 'cache flushed' });
     this.emit({ t: this.t, type: 'config', device: resolverId, what: 'resolver-flush' });
+  }
+
+  // --- switch security, bursts, and MAC flooding (mac-flood) ---
+  // State and switch behavior live in switchsec.ts and burst.ts.
+
+  /**
+   * Turn on a switch's security features: a MAC table that holds at most
+   * `tableSize` entries, per-port frame counts, log lines, port security, and
+   * shutting ports. See switchsec.ts.
+   */
+  configureSwitch(devId: string, opts: { tableSize?: number } = {}): void {
+    configureSwitch(this.dev(devId), opts);
+  }
+
+  /**
+   * Send one frame that stands for `burst.count` frames (see burst.ts), out
+   * the device's first port with a cable. Works for any frame: pass `ip` for
+   * a flood of pings, nothing for bare Ethernet frames. With vary 'src-mac'
+   * and no `src`, every copy gets a made-up source MAC. Returns the frame, or
+   * undefined if the device has no cable.
+   */
+  sendBurst(
+    devId: string,
+    body: Partial<Pick<Frame, 'src' | 'arp' | 'ip' | 'bgp' | 'forged'>> & { dst: Mac },
+    burst: Omit<Burst, 'seed'> & { seed?: number },
+    delay = 0,
+  ): Frame | undefined {
+    const dev = this.dev(devId);
+    const iface = dev.ifaces.find((i) => i.linkId);
+    if (!iface) return undefined;
+    const b: Burst = { count: Math.max(1, Math.floor(burst.count)), vary: burst.vary, seed: burst.seed ?? this.randInt(2 ** 31) };
+    const src = body.src ?? (b.vary === 'src-mac' ? burstMac(b.seed, 0) : iface.mac);
+    const f = this.frame(dev.id, src, body.dst, { ...body, src, burst: b.count > 1 ? b : undefined });
+    this.transmit(dev.id, iface.id, f, delay);
+    return f;
+  }
+
+  /**
+   * MAC flooding: `bursts` bursts of `perBurst` frames, each frame from a
+   * made-up source MAC and to a made-up destination, `gapMs` apart. A switch
+   * learns every source MAC, so its table fills up.
+   */
+  macFlood(devId: string, bursts = 1, perBurst = 20, gapMs = 300): void {
+    const n = Math.max(1, Math.floor(bursts));
+    const seeds = Array.from({ length: n }, () => this.randInt(2 ** 31));
+    seeds.forEach((seed, k) => {
+      // The destination is made up too, so no switch knows it: it goes out every port.
+      const dst = burstMac(seed, perBurst);
+      this.sendBurst(devId, { dst, forged: true }, { count: perBurst, vary: 'src-mac', seed }, k * gapMs);
+    });
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'mac-flood', detail: `${n} × ${perBurst} frames` });
+  }
+
+  /**
+   * Change the MAC address a device's network card sends (MAC spoofing).
+   * `null` puts back the card's factory MAC. Other devices' ARP tables keep
+   * the old MAC until they hear from it again.
+   */
+  setMac(devId: string, mac: Mac | null, ifaceId?: string): void {
+    const dev = this.dev(devId);
+    const iface = ifaceId ? dev.ifaces.find((i) => i.id === ifaceId) : dev.ifaces[0];
+    if (!iface) throw new Error(`${devId} has no port ${ifaceId}`);
+    const factory = iface.factoryMac ?? iface.mac;
+    const next = mac ?? factory;
+    const prev = iface.mac;
+    if (next === prev) return;
+    iface.factoryMac = factory;
+    iface.mac = next;
+    if (next === factory) delete iface.factoryMac;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'mac', on: next !== factory, detail: `${prev} to ${next}` });
+  }
+
+  /** Port security on one switch port, or null to turn it off. Needs configureSwitch first. */
+  setPortSecurity(devId: string, port: string, cfg: PortSecurityConfig | null): void {
+    applyPortSecurity(this, this.dev(devId), port, cfg);
+  }
+
+  /** Shut a switch port down, or turn it back on (which also clears a port that port security shut). Needs configureSwitch first. */
+  setPortShutdown(devId: string, port: string, shut: boolean): void {
+    applyPortShutdown(this, this.dev(devId), port, shut);
   }
 }
 

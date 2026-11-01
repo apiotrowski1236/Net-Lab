@@ -109,7 +109,7 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
   // Focus rings point at what to work on: they go once the step's goals are done.
   const goalsLeft = (session.step.goals ?? []).some((g) => !session.goalDone(session.step.id, g.id));
   const canReplay = session.canReplay();
-  const protos: Proto[] = ['ARP', 'HTTP', 'HTTPS', 'DNS', 'ROUTE', 'PING'];
+  const protos: Proto[] = ['ARP', 'HTTP', 'HTTPS', 'DNS', 'ROUTE', 'PING', 'ETH'];
   return (
     <div class={`stage ${replay ? 'replaying' : ''}`}>
       <div class="stage-bar">

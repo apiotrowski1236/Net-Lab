@@ -3,6 +3,9 @@ import type { ToolSpec } from '../../labs/types';
 import type { LabSession } from '../../runtime/session';
 import { DnsForge } from './DnsForge';
 import { ResolverDefense } from './ResolverDefense';
+import { MacChanger } from './MacChanger';
+import { MacFlooder } from './MacFlooder';
+import { PortSecurityCard } from './PortSecurityCard';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -20,4 +23,8 @@ export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
 export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps<K>> } = {
   'dns-forge': DnsForge,
   'resolver-defense': ResolverDefense,
+  // mac-flood
+  'mac-flood': MacFlooder,
+  'mac-change': MacChanger,
+  'port-security': PortSecurityCard,
 };
