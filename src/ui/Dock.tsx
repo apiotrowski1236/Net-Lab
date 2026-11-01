@@ -396,7 +396,8 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
         <div>
           <div class="insp-title">{dev.label}</div>
           <div class="insp-sub">
-            {dev.web && dev.kind === 'host' ? 'Server' : KIND_TEXT[dev.kind]}
+            {dev.wifi ? 'Wi-Fi access point' : dev.web && dev.kind === 'host' ? 'Server' : KIND_TEXT[dev.kind]}
+            {dev.kind === 'router' && dev.firewall ? ' with a firewall' : ''}
             {dev.bgp ? ` · Autonomous System ${dev.bgp.asn}` : ''}
             {dev.attacker ? ' · attacker' : ''}
           </div>
