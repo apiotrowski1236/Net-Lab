@@ -1268,6 +1268,73 @@
   background: var(--surface-2);
 }
 .port-edit-head {
+/* ---------------------------------------------------------------------------
+   Wi-Fi settings and tools (wireless lab)
+   --------------------------------------------------------------------------- */
+.wifi-settings .table.kv th {
+  width: 11rem;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.wifi-field {
+  margin: 12px 0;
+}
+.wifi-field > label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.wifi-field .seg {
+  flex-wrap: wrap;
+}
+.wifi-field p.small {
+  margin: 4px 0 0;
+}
+
+/* A clickable name inside a tool card (an SSID or a device). */
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--info);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.linklike:hover {
+  color: var(--info-ink);
+}
+
+/* Signal bars in a scan. */
+.wifi-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+}
+.wifi-bars .bar {
+  width: 4px;
+  border-radius: 1px;
+  background: var(--line-strong);
+  align-self: flex-end;
+}
+.wifi-bars .bar.on {
+  background: var(--good);
+}
+
+.table.wifi-scan td {
+  vertical-align: top;
+}
+.table.wifi-scan tr.flag td {
+  background: var(--warn-soft);
+}
+.tiny.muted {
+  font-size: 11px;
+}
+
+.crack-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1306,4 +1373,23 @@
 }
 .port-edit-fields input.invalid {
   border-color: var(--bad);
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.crack-row:first-of-type {
+  border-top: none;
+}
+.crack-row .tool-msg {
+  margin: 0;
+  flex: 1;
+}
+
+.triangulate-spots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.triangulate-spots .btn.on {
+  outline: 2px solid var(--good);
 }

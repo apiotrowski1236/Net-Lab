@@ -167,6 +167,21 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
       if (e.what === 'port-security') return { device: e.device, text: e.on ? 'port security on' : 'port security off', tone: 'info' };
       if (e.what === 'mac') return { device: e.device, text: e.on ? 'MAC address changed' : 'factory MAC back', tone: e.on ? 'warn' : 'info' };
       return null;
+    case 'wifi':
+      switch (e.what) {
+        case 'join':
+          return { device: e.device, text: 'device joined', tone: 'info' };
+        case 'leave':
+          return { device: e.device, text: 'device dropped off', tone: 'warn' };
+        case 'rejected':
+          return { device: e.device, text: 'join denied', tone: 'good' };
+        case 'crack':
+          return { device: e.device, text: e.ok ? 'key cracked!' : 'key held', tone: e.ok ? 'bad' : 'good' };
+        case 'jam':
+          return { device: e.device, text: e.ok ? 'jamming the air' : 'jamming stopped', tone: e.ok ? 'bad' : 'good' };
+        default:
+          return null;
+      }
     default:
       return null;
   }

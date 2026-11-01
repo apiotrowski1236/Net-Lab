@@ -34,6 +34,17 @@ import {
   switchLinkChanged,
   type PortSecurityConfig,
 } from './switchsec';
+import {
+  clientPasses,
+  crack,
+  distance as wifiDistance,
+  JOIN_THRESHOLD,
+  signalAt,
+  type ScanRow,
+  type WifiAuth,
+  type WifiReading,
+  type WifiSecurity,
+} from './wifi';
 
 /**
  * A deliberately simplified network simulator.
@@ -123,6 +134,10 @@ export class Sim {
   opts: SimOptions;
   /** While true, events are tagged `quiet`: a lesson setup is arranging the network, so the map doesn't flag each change. */
   quiet = false;
+  /** Radio jamming: when on, no device can join an access point on the jammed channel. */
+  jam: { on: boolean; channel: number; source?: string } = { on: false, channel: 0 };
+  /** Signal readings taken for triangulation (see Sim.wifiMeasure). */
+  wifiReadings: WifiReading[] = [];
 
   private jobs: Job[] = [];
   private seq = 0;
@@ -133,6 +148,8 @@ export class Sim {
   private nextPing = 1;
   private nextLogNo = 1;
   private randState = 0;
+  /** Last Wi-Fi outcome logged per client, to avoid repeating the same join/reject line. */
+  private wifiLast = new Map<string, string>();
   /** Pings still waiting for an answer: sequence number -> who sent it, and to where. */
   private pings = new Map<number, { device: string; to: Ip }>();
   private listeners = new Set<(e: SimEvent) => void>();
@@ -271,6 +288,8 @@ export class Sim {
     const iface = this.dev(devId).ifaces.find((i) => i.id === ifaceId);
     if (!iface?.linkId) return undefined;
     const link = this.links[iface.linkId];
+    // Mid-disconnect, the link is gone before both ports forget it.
+    if (!link) return undefined;
     return link.a.device === devId && link.a.iface === ifaceId ? link.b : link.a;
   }
 
@@ -1413,7 +1432,7 @@ export class Sim {
   /**
    * Change the MAC address a device's network card sends (MAC spoofing).
    * `null` puts back the card's factory MAC. Other devices' ARP tables keep
-   * the old MAC until they hear from it again.
+   * the old MAC until they hear from it again. A Wi-Fi client re-associates.
    */
   setMac(devId: string, mac: Mac | null, ifaceId?: string): void {
     const dev = this.dev(devId);
@@ -1427,6 +1446,11 @@ export class Sim {
     iface.mac = next;
     if (next === factory) delete iface.factoryMac;
     this.emit({ t: this.t, type: 'config', device: devId, what: 'mac', on: next !== factory, detail: `${prev} to ${next}` });
+    // A Wi-Fi client forgets what it learned and joins again under the new MAC.
+    if (dev.wifiClient) {
+      for (const k of Object.keys(dev.arp)) delete dev.arp[k];
+      this.recomputeWifi();
+    }
   }
 
   /** Port security on one switch port, or null to turn it off. Needs configureSwitch first. */
@@ -1437,6 +1461,294 @@ export class Sim {
   /** Shut a switch port down, or turn it back on (which also clears a port that port security shut). Needs configureSwitch first. */
   setPortShutdown(devId: string, port: string, shut: boolean): void {
     applyPortShutdown(this, this.dev(devId), port, shut);
+  }
+
+  // --- Wi-Fi (wireless) ---
+  // Access points live on Device.wifi; clients on Device.wifiClient. Association
+  // is derived from positions and settings by recomputeWifi, which runs after
+  // any Wi-Fi change, so a replay reproduces it exactly. See src/sim/wifi.ts.
+
+  /** Access points that are powered on. */
+  private activeAps(): Device[] {
+    return Object.values(this.devices).filter((d) => d.wifi && !d.wifi.off);
+  }
+
+  private wifiLinkId(apId: string, clientId: string): string {
+    return `W:${apId}:${clientId}`;
+  }
+
+  /** The AP a client currently hears best and may join, or undefined. */
+  private bestApFor(client: Device): Device | undefined {
+    const wc = client.wifiClient!;
+    let best: Device | undefined;
+    let bestSig = -Infinity;
+    for (const ap of this.activeAps()) {
+      if (ap.id === client.id || ap.wifi!.ssid !== wc.ssid) continue;
+      if (this.jam.on && this.jam.channel === ap.wifi!.channel) continue;
+      const sig = signalAt(ap.wifi!, ap, client, wc.antennaBoost ?? 0);
+      if (sig < JOIN_THRESHOLD) continue;
+      if (!clientPasses(ap.wifi!, { mac: client.ifaces[0].mac, passphrase: wc.passphrase, user: wc.user }).ok) continue;
+      if (sig > bestSig || (sig === bestSig && best && ap.wifi!.bssid < best.wifi!.bssid)) {
+        best = ap;
+        bestSig = sig;
+      }
+    }
+    return best;
+  }
+
+  /** Recompute every client's association from current positions and settings. */
+  recomputeWifi(): void {
+    for (const client of Object.values(this.devices)) {
+      if (!client.wifiClient) continue;
+      const best = this.bestApFor(client);
+      this.wifiSetAssociation(client.id, best?.id);
+      // Note a would-be join blocked by security (for the Logs tab and detection), once per change.
+      if (!best) {
+        const blocker = this.activeAps().find(
+          (ap) =>
+            ap.id !== client.id &&
+            ap.wifi!.ssid === client.wifiClient!.ssid &&
+            !(this.jam.on && this.jam.channel === ap.wifi!.channel) &&
+            signalAt(ap.wifi!, ap, client, client.wifiClient!.antennaBoost ?? 0) >= JOIN_THRESHOLD,
+        );
+        if (blocker) {
+          const res = clientPasses(blocker.wifi!, {
+            mac: client.ifaces[0].mac,
+            passphrase: client.wifiClient!.passphrase,
+            user: client.wifiClient!.user,
+          });
+          const key = `blocked:${blocker.id}:${res.reason}`;
+          if (this.wifiLast.get(client.id) !== key) {
+            this.wifiLast.set(client.id, key);
+            this.emit({ t: this.t, type: 'wifi', device: blocker.id, what: 'rejected', client: client.id, ssid: blocker.wifi!.ssid, bssid: blocker.wifi!.bssid, detail: res.reason });
+            this.log(blocker.id, {
+              source: 'wifi',
+              level: 'notice',
+              msg: `association from ${client.label} (${client.ifaces[0].mac}) denied: ${res.reason}`,
+              fields: { ssid: blocker.wifi!.ssid, bssid: blocker.wifi!.bssid, mac: client.ifaces[0].mac, action: 'denied', rule: res.reason ?? '' },
+            });
+          }
+        } else {
+          this.wifiLast.delete(client.id);
+        }
+      }
+    }
+  }
+
+  private wifiSetAssociation(clientId: string, apId: string | undefined): void {
+    const client = this.dev(clientId);
+    const cur = client.wifiClient?.joinedAp;
+    if (cur === apId) return;
+    if (cur) this.wifiDisassociate(clientId);
+    if (apId) this.wifiAssociate(apId, clientId);
+  }
+
+  /** Join a client to an access point (creates a wireless link). Normally called by recomputeWifi. */
+  wifiAssociate(apId: string, clientId: string): void {
+    const ap = this.dev(apId);
+    const client = this.dev(clientId);
+    if (client.wifiClient?.joinedAp && client.wifiClient.joinedAp !== apId) this.wifiDisassociate(clientId);
+    const portId = `w:${clientId}`;
+    let port = ap.ifaces.find((i) => i.id === portId);
+    if (!port) {
+      port = { id: portId, mac: portMac(ap, portId) };
+      ap.ifaces.push(port);
+    }
+    const linkId = this.wifiLinkId(apId, clientId);
+    port.linkId = linkId;
+    client.ifaces[0].linkId = linkId;
+    this.links[linkId] = { id: linkId, a: { device: apId, iface: portId }, b: { device: clientId, iface: client.ifaces[0].id }, wireless: true };
+    if (client.wifiClient) client.wifiClient.joinedAp = apId;
+    this.wifiLast.set(clientId, `joined:${apId}`);
+    this.emit({ t: this.t, type: 'wifi', device: apId, what: 'join', client: clientId, ssid: ap.wifi?.ssid, bssid: ap.wifi?.bssid });
+    this.log(apId, {
+      source: 'wifi',
+      level: 'info',
+      msg: `${client.label} (${client.ifaces[0].mac}) joined ${ap.wifi?.ssid ?? ap.label}`,
+      fields: { ssid: ap.wifi?.ssid ?? '', bssid: ap.wifi?.bssid ?? '', mac: client.ifaces[0].mac, action: 'joined' },
+    });
+  }
+
+  /** Drop a client's Wi-Fi association. */
+  wifiDisassociate(clientId: string): void {
+    const client = this.dev(clientId);
+    const apId = client.wifiClient?.joinedAp;
+    if (!apId) return;
+    const linkId = this.wifiLinkId(apId, clientId);
+    if (this.links[linkId]) {
+      delete this.links[linkId];
+      this.inflight = this.inflight.filter((f) => f.linkId !== linkId);
+      const ap = this.devices[apId];
+      if (ap) {
+        const portId = `w:${clientId}`;
+        ap.ifaces = ap.ifaces.filter((i) => i.id !== portId);
+        for (const [mac, p] of Object.entries(ap.macTable)) if (p === portId) delete ap.macTable[mac];
+      }
+      if (client.ifaces[0].linkId === linkId) delete client.ifaces[0].linkId;
+    }
+    if (client.wifiClient) client.wifiClient.joinedAp = undefined;
+    const ap = this.devices[apId];
+    this.emit({ t: this.t, type: 'wifi', device: apId, what: 'leave', client: clientId, ssid: ap?.wifi?.ssid, bssid: ap?.wifi?.bssid });
+    this.log(apId, {
+      source: 'wifi',
+      level: 'info',
+      msg: `${client.label} (${client.ifaces[0].mac}) left ${ap?.wifi?.ssid ?? ap?.label ?? ''}`,
+      fields: { ssid: ap?.wifi?.ssid ?? '', bssid: ap?.wifi?.bssid ?? '', mac: client.ifaces[0].mac, action: 'left' },
+    });
+  }
+
+  /** Set an AP's security mode (and passphrase). Open runs as a hub (everyone hears everyone); encrypted as a switch. */
+  setWifiSecurity(apId: string, security: WifiSecurity, passphrase?: string): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) return;
+    ap.wifi.security = security;
+    if (passphrase !== undefined) ap.wifi.passphrase = passphrase;
+    const kind = security === 'open' ? 'hub' : 'switch';
+    if (ap.kind !== kind) this.setL2Kind(apId, kind);
+    this.shareWifiKey(ap);
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-security', detail: security });
+    this.recomputeWifi();
+  }
+
+  setWifiPassphrase(apId: string, passphrase: string): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) return;
+    ap.wifi.passphrase = passphrase;
+    this.shareWifiKey(ap);
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-passphrase', detail: passphrase });
+    this.recomputeWifi();
+  }
+
+  /** Hand the shelter's own devices the current passphrase (staff tell the families). Attackers are never told. */
+  private shareWifiKey(ap: Device): void {
+    if (!ap.wifi) return;
+    for (const d of Object.values(this.devices)) {
+      if (d.wifiClient && !d.attacker && d.wifiClient.ssid === ap.wifi.ssid) d.wifiClient.passphrase = ap.wifi.passphrase;
+    }
+  }
+
+  setWifiPower(apId: string, power: 1 | 2 | 3 | 4): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) return;
+    ap.wifi.power = power;
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-power', detail: String(power) });
+    this.recomputeWifi();
+  }
+
+  setWifiBeacon(apId: string, on: boolean): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) return;
+    ap.wifi.beacon = on;
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-beacon', on });
+  }
+
+  setWifiWps(apId: string, on: boolean): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) return;
+    ap.wifi.wps = on;
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-wps', on });
+  }
+
+  setWifiAuth(apId: string, auth: WifiAuth): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) return;
+    ap.wifi.auth = auth;
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-auth', detail: auth });
+    this.recomputeWifi();
+  }
+
+  /** Turn an AP's MAC filter on or off. Pass the allowed MAC list when turning it on. */
+  setWifiMacFilter(apId: string, on: boolean, allow?: Mac[]): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) return;
+    ap.wifi.macFilter = { on, allow: allow ?? ap.wifi.macFilter?.allow ?? [] };
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-macfilter', on });
+    this.recomputeWifi();
+  }
+
+  /** Power an access point on or off (used for the rogue AP and the evil twin before they appear). */
+  setWifiOff(apId: string, off: boolean): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) return;
+    ap.wifi.off = off;
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-off', on: off });
+    this.recomputeWifi();
+  }
+
+  /** Try to crack an AP's key from the attacker's position. On success the attacker learns the passphrase. */
+  wifiCrack(attackerId: string, apId: string): void {
+    const ap = this.dev(apId);
+    const att = this.dev(attackerId);
+    if (!ap.wifi) return;
+    const res = crack(ap.wifi);
+    if (res.ok && ap.wifi.passphrase && att.wifiClient) att.wifiClient.passphrase = ap.wifi.passphrase;
+    this.emit({ t: this.t, type: 'wifi', device: attackerId, what: 'crack', ssid: ap.wifi.ssid, bssid: ap.wifi.bssid, ok: res.ok, detail: res.estimate });
+    this.log(attackerId, {
+      source: 'wifi',
+      level: res.ok ? 'warn' : 'info',
+      msg: res.ok ? `recovered the key for ${ap.wifi.ssid} by ${res.method} in ${res.estimate}` : `could not break ${ap.wifi.ssid}: ${res.estimate}`,
+      fields: { ssid: ap.wifi.ssid, bssid: ap.wifi.bssid, action: res.ok ? 'cracked' : 'crack-failed' },
+    });
+    this.recomputeWifi();
+  }
+
+  /** Turn jamming on or off on a channel. While on, nothing can join an AP on that channel. */
+  setWifiJam(sourceId: string, on: boolean, channel = 6): void {
+    this.jam = { on, channel, source: on ? sourceId : undefined };
+    this.emit({ t: this.t, type: 'wifi', device: sourceId, what: 'jam', ok: on, detail: `channel ${channel}` });
+    this.log(sourceId, {
+      source: 'wifi',
+      level: on ? 'warn' : 'info',
+      msg: on ? `jamming channel ${channel}: loud noise across the band` : `stopped jamming channel ${channel}`,
+      fields: { action: on ? 'jam-on' : 'jam-off', count: channel },
+    });
+    this.recomputeWifi();
+  }
+
+  /** The access points a scanner at `point` can hear, strongest first. */
+  wifiScanRows(point: { x: number; y: number }, rxBoost = 0): ScanRow[] {
+    const rows: ScanRow[] = [];
+    for (const ap of this.activeAps()) {
+      const signal = signalAt(ap.wifi!, ap, point, rxBoost);
+      if (signal < 1) continue;
+      rows.push({
+        device: ap.id,
+        ssid: ap.wifi!.ssid,
+        bssid: ap.wifi!.bssid,
+        security: ap.wifi!.security,
+        auth: ap.wifi!.auth,
+        wps: ap.wifi!.wps,
+        channel: ap.wifi!.channel,
+        signal,
+        rogue: !!ap.wifi!.rogue,
+      });
+    }
+    return rows.sort((a, b) => b.signal - a.signal || a.bssid.localeCompare(b.bssid));
+  }
+
+  /** Record that a scanner looked at the air (for a goal), and log what it saw. */
+  wifiScan(scannerId: string): ScanRow[] {
+    const scanner = this.dev(scannerId);
+    const rows = this.wifiScanRows(scanner, scanner.wifiClient?.antennaBoost ?? 0);
+    this.emit({ t: this.t, type: 'wifi', device: scannerId, what: 'scan', detail: String(rows.length) });
+    this.log(scannerId, {
+      source: 'wifi',
+      level: 'info',
+      msg: `scan found ${rows.length} network${rows.length === 1 ? '' : 's'}${this.jam.on ? `, heavy noise on channel ${this.jam.channel}` : ''}`,
+      fields: { action: 'scan', count: rows.length },
+    });
+    return rows;
+  }
+
+  /** Take one signal reading of `bssid` from `point`, for triangulation. */
+  wifiMeasure(scannerId: string, bssid: Mac, x: number, y: number): void {
+    const ap = Object.values(this.devices).find((d) => d.wifi?.bssid === bssid);
+    if (!ap) return;
+    // The distance the measured signal implies. The model is idealized, so this is the true distance.
+    const dist = wifiDistance(ap, { x, y });
+    this.wifiReadings = this.wifiReadings.filter((r) => !(r.bssid === bssid && r.x === x && r.y === y));
+    this.wifiReadings.push({ bssid, x, y, dist });
+    this.emit({ t: this.t, type: 'wifi', device: scannerId, what: 'ssid-seen', bssid, ssid: ap.wifi!.ssid, detail: `reading at ${Math.round(x)},${Math.round(y)}` });
   }
 }
 

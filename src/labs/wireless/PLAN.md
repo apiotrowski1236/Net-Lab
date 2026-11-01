@@ -1,6 +1,6 @@
 # Signals Past the Walls (`wireless`)
 
-Status: planned, wave 1. Follow `docs/unit3/ARCHITECTURE.md`.
+Status: built. Follow `docs/unit3/ARCHITECTURE.md`.
 
 Tagline: Secure an emergency shelter's Wi-Fi against snoopers in the parking lot, evil twins, and jammers.
 
@@ -48,3 +48,13 @@ Reach is distance on the map. Keep the radio model simple and say so: a device i
 ## Acceptance
 
 - Walkthrough test passes. Lab tests: the power setting changes who is in range; WEP cracks and WPA3 doesn't; a copied MAC passes MAC filtering and fails EAP; the evil twin attracts a device only with a stronger signal; replay gives the same associations.
+
+## Built (reconciliation with the plan)
+
+Shipped as 12 steps with the outline above. Deltas worth noting:
+
+- **Radio model.** `src/sim/wifi.ts` uses a linear signal model, not a hard circle: `signalAt = txPower(power) + rxBoost - 0.15 * distance` (clamped 0–100), and a device associates when its best heard signal clears `JOIN_THRESHOLD` (20) and it passes security. The dashed `MapZone` circle is the radius where a plain client (no antenna) would cross that threshold, so the visual still reads as "inside = in range." The lesson says in step 1 that the model is simplified and walls don't block. An attacker's `wifiClient.antennaBoost` (a high-gain antenna) raises `rxBoost`, which is how Mallory gets back in range after the power is lowered.
+- **Step 2 goal.** Mallory does not "join" the open network; an open AP (a `hub`) floods every frame to everyone in range, so she captures the family's plain-HTTP login from the lot with packet capture. Goals: scan from the lot, turn on capture, catch the login.
+- **Keeping families connected through upgrades.** When the AP's security/passphrase changes, non-attacker clients on the same SSID silently receive the new key (`Sim.shareWifiKey`), so tightening security never knocks the families off. Mallory is handed the key explicitly in step 6's setup (she is a sheltering guest), which is why MAC/EAP, not the passphrase, is what finally stops her.
+- **New shared APIs.** `Device.wifi` (`WifiAp`) and `Device.wifiClient` (`WifiClient`); Wi-Fi `SimEvent`/`SimAction` variants; `WebSite.account` (optional themed signed-in page text, added so the shelter portal doesn't show on-path's bank copy). These are additive and documented for the net-audit and logs labs to reuse.
+- **Verified in a real browser** at 1366×768: all 15 goals, 25 auto-checked points, and the reflection complete end to end with no console errors (screenshots under `/tmp/netlab-wireless/`).

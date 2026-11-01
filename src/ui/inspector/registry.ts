@@ -6,6 +6,7 @@ import type { Device } from '../../sim/types';
 import { DnsCache } from './DnsCache';
 import { DnsZone } from './DnsZone';
 import { SwitchPorts } from './SwitchPorts';
+import { wifiSettingsSection } from './WifiSettings';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -36,4 +37,6 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'dns-zone', slot: 'end', Section: DnsZone },
   // mac-flood
   { id: 'switch-ports', slot: 'settings', Section: SwitchPorts },
+  // wireless
+  wifiSettingsSection,
 ];

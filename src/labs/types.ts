@@ -109,10 +109,18 @@ export type ToolSpec =
   /** Change `device`'s MAC address (MAC spoofing), or put back the factory one. */
   | { kind: 'mac-change'; device: string }
   /** Port security and shutting ports on switch `device`, in the inspector. The card points there. */
-  | { kind: 'port-security'; device: string };
+  | { kind: 'port-security'; device: string }
+  /** Change an access point's Wi-Fi settings in the inspector (wireless lab). */
+  | { kind: 'wifi-config'; device: string }
+  /** Scan the air from one of these devices to see nearby networks (wireless lab). */
+  | { kind: 'wifi-scan'; devices: string[] }
+  /** Try to break into a network the attacker can hear (wireless lab). */
+  | { kind: 'wifi-crack'; attacker: string }
+  /** Locate a hidden access point by taking signal readings from set spots (wireless lab). */
+  | { kind: 'triangulate'; scanner: string; spots: { x: number; y: number; label: string }[] };
 
 /** Tools that change device settings in the inspector instead of having their own card. */
-export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route'] as const;
+export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route', 'wifi-config'] as const;
 
 /** Tools that unlock a dock tab instead of a Toolkit card. */
 export const TAB_TOOLS = ['logs'] as const;

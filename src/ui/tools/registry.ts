@@ -6,6 +6,9 @@ import { ResolverDefense } from './ResolverDefense';
 import { MacChanger } from './MacChanger';
 import { MacFlooder } from './MacFlooder';
 import { PortSecurityCard } from './PortSecurityCard';
+import { WifiScanner } from './WifiScanner';
+import { WifiCracker } from './WifiCracker';
+import { Triangulate } from './Triangulate';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -27,4 +30,8 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   'mac-flood': MacFlooder,
   'mac-change': MacChanger,
   'port-security': PortSecurityCard,
+  // wireless
+  'wifi-scan': WifiScanner,
+  'wifi-crack': WifiCracker,
+  triangulate: Triangulate,
 };

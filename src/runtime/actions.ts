@@ -40,7 +40,24 @@ export type SimAction =
   | { type: 'set-mac'; device: string; mac: string | null }
   /** Port security on a switch port, or null to turn it off. */
   | { type: 'port-security'; device: string; port: string; config: PortSecurityConfig | null }
-  | { type: 'port-shutdown'; device: string; port: string; shut: boolean };
+  | { type: 'port-shutdown'; device: string; port: string; shut: boolean }
+  // Wi-Fi (wireless lab). The device is the access point unless noted.
+  | { type: 'wifi-security'; device: string; security: 'open' | 'wep' | 'wpa' | 'wpa2' | 'wpa3'; passphrase?: string }
+  | { type: 'wifi-passphrase'; device: string; passphrase: string }
+  | { type: 'wifi-power'; device: string; power: 1 | 2 | 3 | 4 }
+  | { type: 'wifi-beacon'; device: string; on: boolean }
+  | { type: 'wifi-wps'; device: string; on: boolean }
+  | { type: 'wifi-auth'; device: string; auth: 'psk' | 'eap' }
+  | { type: 'wifi-macfilter'; device: string; on: boolean; allow?: string[] }
+  | { type: 'wifi-off'; device: string; off: boolean }
+  /** Attacker tries to recover an access point's key. */
+  | { type: 'wifi-crack'; device: string; ap: string }
+  /** Jam a channel so nothing can join an access point on it. */
+  | { type: 'wifi-jam'; device: string; on: boolean; channel?: number }
+  /** Scan the air from a device's position. */
+  | { type: 'wifi-scan'; device: string }
+  /** Take one signal reading of an access point from a point, for triangulation. */
+  | { type: 'wifi-measure'; device: string; bssid: string; x: number; y: number };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -114,6 +131,30 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
     case 'mac-flood':
       sim.macFlood(a.device, a.bursts);
       return;
+    case 'wifi-security':
+      sim.setWifiSecurity(a.device, a.security, a.passphrase);
+      return;
+    case 'wifi-passphrase':
+      sim.setWifiPassphrase(a.device, a.passphrase);
+      return;
+    case 'wifi-power':
+      sim.setWifiPower(a.device, a.power);
+      return;
+    case 'wifi-beacon':
+      sim.setWifiBeacon(a.device, a.on);
+      return;
+    case 'wifi-wps':
+      sim.setWifiWps(a.device, a.on);
+      return;
+    case 'wifi-auth':
+      sim.setWifiAuth(a.device, a.auth);
+      return;
+    case 'wifi-macfilter':
+      sim.setWifiMacFilter(a.device, a.on, a.allow);
+      return;
+    case 'wifi-off':
+      sim.setWifiOff(a.device, a.off);
+      return;
     case 'set-mac':
       sim.setMac(a.device, a.mac);
       return;
@@ -122,6 +163,18 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'port-shutdown':
       sim.setPortShutdown(a.device, a.port, a.shut);
+      return;
+    case 'wifi-crack':
+      sim.wifiCrack(a.device, a.ap);
+      return;
+    case 'wifi-jam':
+      sim.setWifiJam(a.device, a.on, a.channel);
+      return;
+    case 'wifi-scan':
+      sim.wifiScan(a.device);
+      return;
+    case 'wifi-measure':
+      sim.wifiMeasure(a.device, a.bssid, a.x, a.y);
       return;
   }
 }

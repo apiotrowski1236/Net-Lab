@@ -2,6 +2,7 @@ import type { Ip, Mac } from './addr';
 import type { DnsResolver } from './dns';
 import type { Burst } from './burst';
 import type { SwitchSec } from './switchsec';
+import type { WifiAp, WifiClient } from './wifi';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -160,6 +161,10 @@ export interface Device {
   logs: LogEntry[];
   /** Switch security: MAC table size, port security, shut ports (see switchsec.ts and Sim.configureSwitch). */
   switchSec?: SwitchSec;
+  /** Wi-Fi access point settings, when this device is an access point (see src/sim/wifi.ts). */
+  wifi?: WifiAp;
+  /** Wi-Fi client settings, when this device joins wireless networks (see src/sim/wifi.ts). */
+  wifiClient?: WifiClient;
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +318,21 @@ export type SimEvent = (
   /** A ping from `device` got no reply: dropped at `at` (with the reason), or timed out. */
   | { t: number; type: 'ping-fail'; device: string; to: Ip; seq: number; reason: DropReason | 'timeout'; at?: string; ip?: Ip }
   | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string }
+  /**
+   * A Wi-Fi event: a device joined or left an access point, a join was
+   * rejected, or the attacker scanned, cracked, or jammed. See src/sim/wifi.ts.
+   */
+  | {
+      t: number;
+      type: 'wifi';
+      device: string;
+      what: 'join' | 'leave' | 'rejected' | 'scan' | 'crack' | 'jam' | 'ssid-seen';
+      ssid?: string;
+      bssid?: Mac;
+      client?: string;
+      ok?: boolean;
+      detail?: string;
+    }
   /** A device wrote a log line (see Sim.log). */
   | { t: number; type: 'log'; device: string; entry: LogEntry }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */

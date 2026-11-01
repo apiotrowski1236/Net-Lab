@@ -1,5 +1,5 @@
 import type { SimAction } from '../runtime/actions';
-import { checkAddress, checkCable, checkForge, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, type Checked } from '../runtime/toolInput';
+import { checkAddress, checkCable, checkForge, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, checkWifiPassphrase, type Checked } from '../runtime/toolInput';
 import { checkNewMac, checkPortSecurity } from '../runtime/switchInput';
 import type { LabSession } from '../runtime/session';
 import type { Frame, LogEntry } from '../sim/types';
@@ -97,6 +97,12 @@ function assertTypable(s: LabSession, a: SimAction): void {
       r = c ? checkPortSecurity(sim, a.device, a.port, String(c.maxMacs), c.violation, (c.allowed ?? []).join(' ')) : { ok: true };
       break;
     }
+    case 'wifi-security':
+      r = a.passphrase !== undefined ? checkWifiPassphrase(sim, a.device, a.passphrase) : { ok: true };
+      break;
+    case 'wifi-passphrase':
+      r = checkWifiPassphrase(sim, a.device, a.passphrase);
+      break;
     default:
       r = { ok: true };
   }

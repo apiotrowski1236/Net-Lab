@@ -1,6 +1,7 @@
 import { intToIp, ipToInt, isIp, isPrefix, maskBits, networkOf, normalizePrefix, prefixContains, prefixLen, sameSubnet, type Ip, type Mac } from '../sim/addr';
 import type { Sim } from '../sim/sim';
 import type { Device, Iface } from '../sim/types';
+import { passphraseStrength, STRONG_PASSPHRASE_LEN } from '../sim/wifi';
 
 // Checks for what students type into the Toolkit. Each returns either the
 // cleaned-up value or a short message that says what's wrong and where to look.
@@ -386,3 +387,25 @@ export function checkPing(sim: Sim, deviceId: string, raw: string): Checked<{ ip
   if (dev.ifaces.some((i) => i.ip === ip)) return { ok: false, msg: `${ip} is ${dev.label}'s own address. Ping another device.` };
   return { ok: true, ip };
 }
+
+// ---------------------------------------------------------------------------
+// Wi-Fi (wireless lab)
+// ---------------------------------------------------------------------------
+
+/**
+ * Wi-Fi passphrase: the shared key families type to join. Any non-blank key
+ * saves; a short one gets a heads-up (not a block) so a student can see for
+ * themselves that a short key falls to guessing. `note` doesn't stop saving.
+ */
+export function checkWifiPassphrase(_sim: Sim, _apId: string, raw: string): Checked<{ passphrase: string; note?: string }> {
+  const pass = raw.trim();
+  if (!pass) return { ok: false, msg: 'Type a passphrase for families to join with.' };
+  if (/\s/.test(pass)) return { ok: false, msg: 'A Wi-Fi passphrase has no spaces. Join the words together or use dashes.' };
+  if (pass.length < 8) return { ok: false, msg: 'Wi-Fi passphrases are at least 8 characters. Make it longer.' };
+  const note =
+    passphraseStrength(pass) === 'weak'
+      ? `Heads up: ${pass.length} characters is short. An attacker who captures the handshake can guess it. ${STRONG_PASSPHRASE_LEN} or more holds up.`
+      : undefined;
+  return { ok: true, passphrase: pass, note };
+}
+

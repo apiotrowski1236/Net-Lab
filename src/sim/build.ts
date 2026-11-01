@@ -2,6 +2,7 @@ import type { Ip, Mac } from './addr';
 import { newResolver } from './dns';
 import { hashMac, Sim, type SimOptions } from './sim';
 import type { Device, DeviceIcon, DeviceKind, Iface, WebSite } from './types';
+import type { WifiAp, WifiClient } from './wifi';
 
 /**
  * Friendly builder for lab scenarios.
@@ -35,6 +36,8 @@ export interface HostOpts extends Placed {
   dnsZone?: Record<string, Ip>;
   /** Make this host a recursive resolver: it forwards cache misses to `upstream` and caches for `ttl` ms (default 60000). */
   resolver?: { upstream: Ip; ttl?: number };
+  /** Makes this computer a Wi-Fi client (wireless lab): it joins a network by name. */
+  wifiClient?: WifiClient;
 }
 
 export interface RouterOpts extends Placed {
@@ -51,6 +54,8 @@ export interface RouterOpts extends Placed {
 export interface L2Opts extends Placed {
   /** Make this many empty ports up front (p1, p2, ...). Without it, ports appear as cables are linked. */
   ports?: number;
+  /** Makes this an access point (wireless lab). Open Wi-Fi is a hub; encrypted is a switch. */
+  wifi?: WifiAp;
 }
 
 type End = string | [device: string, iface: string];
@@ -105,6 +110,7 @@ export class NetBuilder {
     d.web = o.web;
     d.dnsZone = o.dnsZone;
     if (o.resolver) d.resolver = newResolver(o.resolver.upstream, o.resolver.ttl ?? 60_000);
+    d.wifiClient = o.wifiClient;
     if (o.gateway) (this.staticRoutes[id] ??= []).push({ prefix: '0.0.0.0/0', via: o.gateway, iface: 'eth0' });
     this.sim.devices[id] = d;
     return this;
@@ -128,12 +134,16 @@ export class NetBuilder {
   }
 
   switch(id: string, o: L2Opts): this {
-    this.sim.devices[id] = this.ports(blank(id, 'switch', o, 'switch'), o.ports);
+    const d = this.ports(blank(id, 'switch', o, 'switch'), o.ports);
+    d.wifi = o.wifi;
+    this.sim.devices[id] = d;
     return this;
   }
 
   hub(id: string, o: L2Opts): this {
-    this.sim.devices[id] = this.ports(blank(id, 'hub', o, 'hub'), o.ports);
+    const d = this.ports(blank(id, 'hub', o, 'hub'), o.ports);
+    d.wifi = o.wifi;
+    this.sim.devices[id] = d;
     return this;
   }
 
