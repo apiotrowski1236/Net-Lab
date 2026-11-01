@@ -7,10 +7,11 @@ import { routeHijackLab } from './route-hijack';
 import { segmentationLab } from './segmentation';
 import { netAuditLab } from './net-audit';
 import { wirelessLab } from './wireless';
+import { logsLab } from './logs';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the
@@ -24,14 +25,6 @@ export const STUBS: LabStub[] = [
     tagline: "Turn a network's own echoes into a flood that knocks a ticket site offline.",
     unit: 3,
     codehs: ['3.3 Misdirected and Overwhelmed'],
-    comingSoon: true,
-  },
-  {
-    id: 'logs',
-    title: 'Log Detective',
-    tagline: 'Tune detection tools and read the logs to find attacks hiding in normal traffic.',
-    unit: 3,
-    codehs: ['3.18 The Story in the Logs'],
     comingSoon: true,
   },
 ];

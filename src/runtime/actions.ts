@@ -7,6 +7,7 @@ import type { PolicyValue } from '../sim/zonePolicy';
 import type { RiskLevel } from '../sim/audit';
 import type { HardenSetting } from '../sim/hardening';
 import type { VpnAuth } from '../sim/vpn';
+import type { Tolerance, TriageAction, Verdict } from '../sim/ids';
 
 /**
  * Every change a student makes to the network is one of these. They are
@@ -94,7 +95,15 @@ export type SimAction =
   /** Turn a management setting on a router or switch on or off: Telnet, SSH, or logins through the authentication server. */
   | { type: 'harden'; device: string; setting: HardenSetting; on: boolean }
   /** Change a VPN server's policy. */
-  | { type: 'vpn-config'; device: string; splitTunneling?: boolean; auth?: VpnAuth };
+  | { type: 'vpn-config'; device: string; splitTunneling?: boolean; auth?: VpnAuth }
+  /** Detection on an IDS sensor (logs lab): the signature set, anomaly detection and its tolerance, prevention (IPS) mode. */
+  | { type: 'ids-signatures'; device: string; on: boolean }
+  | { type: 'ids-anomaly'; device: string; on: boolean; tolerance: Tolerance }
+  | { type: 'ids-prevention'; device: string; on: boolean }
+  /** An analyst's call on a SIEM incident. */
+  | { type: 'siem-triage'; device: string; incident: number; verdict: Verdict; action: TriageAction }
+  /** The AI model's alert threshold on a SIEM, 0 to 1. */
+  | { type: 'ai-threshold'; device: string; value: number };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -263,6 +272,21 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'vpn-config':
       sim.setVpn(a.device, { splitTunneling: a.splitTunneling, auth: a.auth });
+      return;
+    case 'ids-signatures':
+      sim.idsSetSignatures(a.device, a.on);
+      return;
+    case 'ids-anomaly':
+      sim.idsSetAnomaly(a.device, a.on, a.tolerance);
+      return;
+    case 'ids-prevention':
+      sim.idsSetPrevention(a.device, a.on);
+      return;
+    case 'siem-triage':
+      sim.siemTriage(a.device, a.incident, a.verdict, a.action);
+      return;
+    case 'ai-threshold':
+      sim.aiSetThreshold(a.device, a.value);
       return;
   }
 }

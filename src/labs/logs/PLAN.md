@@ -1,6 +1,6 @@
 # Log Detective (`logs`)
 
-Status: planned, wave 2 (after wave 1 merges). Follow `docs/unit3/ARCHITECTURE.md`.
+Status: built (wave 2). 12 steps, registered in `src/labs/index.ts`. Follows `docs/unit3/ARCHITECTURE.md`. Full lesson in `SCRIPT.md` (its top section lists where the build departs from it). Code: `index.ts` (steps), `scenario.ts` (network and seeded history), `solution.ts` (answer key), `lab.test.ts`; detection engine in `src/sim/ids.ts`.
 
 Tagline: Tune detection tools and read the logs to find attacks hiding in normal traffic.
 

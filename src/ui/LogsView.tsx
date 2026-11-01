@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
 import type { LogEntry, LogLevel } from '../sim/types';
 import { Icon } from './icons';
+import { LogDetailExtras } from './logDetail';
 
 /** Most lines the table draws at once. Filters narrow the rest down. */
 const MAX_ROWS = 300;
@@ -35,17 +36,21 @@ export function LogsView({ session }: { session: LabSession }) {
   const ids = logDevices(session);
   const [only, setOnly] = useState<string>('all');
   const [level, setLevel] = useState<'all' | 'warn'>('all');
+  // Alerts only: shown once some device has raised an alert (an IDS sensor or a SIEM).
+  const [alertsOnly, setAlertsOnly] = useState(false);
   const [text, setText] = useState('');
   const [selected, setSelected] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
   const all: LogEntry[] = ids.flatMap((id) => sim.devices[id].logs).sort((a, b) => a.t - b.t || a.no - b.no);
+  const hasAlerts = all.some((e) => e.level === 'alert');
   const needle = text.trim().toLowerCase();
   const matching = all.filter(
     (e) =>
       (only === 'all' || e.device === only) &&
       (level === 'all' || e.level === 'warn' || e.level === 'alert') &&
+      (!alertsOnly || !hasAlerts || e.level === 'alert') &&
       (!needle || `${e.source} ${e.msg} ${sim.devices[e.device]?.label ?? ''}`.toLowerCase().includes(needle)),
   );
   const rows = matching.slice(-MAX_ROWS);
@@ -82,6 +87,11 @@ export function LogsView({ session }: { session: LabSession }) {
           <label class="check">
             <input type="checkbox" checked={level === 'warn'} onChange={(e) => setLevel((e.target as HTMLInputElement).checked ? 'warn' : 'all')} /> Warnings and alerts only
           </label>
+          {hasAlerts && (
+            <label class="check">
+              <input type="checkbox" checked={alertsOnly} onChange={(e) => setAlertsOnly((e.target as HTMLInputElement).checked)} /> Alerts only
+            </label>
+          )}
           <input class="logs-search" type="search" placeholder="Search" aria-label="Search the logs" value={text} onInput={(e) => setText((e.target as HTMLInputElement).value)} />
         </span>
       </div>
@@ -150,6 +160,7 @@ export function LogsView({ session }: { session: LabSession }) {
                     ))}
                   </tbody>
                 </table>
+                <LogDetailExtras session={session} entry={sel} />
               </div>
             ) : (
               <div class="dock-empty small">

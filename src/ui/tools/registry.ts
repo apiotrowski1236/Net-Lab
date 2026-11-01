@@ -18,6 +18,7 @@ import { ZonePolicyCard } from './ZonePolicyCard';
 import { ScannerTool } from './Scanner';
 import { RiskRegisterTool } from './RiskRegister';
 import { HardeningCard } from './HardeningCard';
+import { AiThresholdCard, IdsCard, SiemCard } from './DetectionCards';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -55,4 +56,8 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   scanner: ScannerTool,
   'risk-register': RiskRegisterTool,
   hardening: HardeningCard,
+  // logs
+  ids: IdsCard,
+  siem: SiemCard,
+  'ai-threshold': AiThresholdCard,
 };

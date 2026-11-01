@@ -6,6 +6,7 @@ import type { Sim } from '../sim/sim';
 import { targetsFor } from '../sim/malware';
 import { pingFailText } from './describe';
 import { connOutcomeLines, fwDenyText } from './firewallText';
+import { idsOutcomeLines } from './idsText';
 import { Icon } from './icons';
 import { renderMarkdown } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
@@ -254,6 +255,7 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
   }
   lines.push(...connOutcomeLines(sim, run.t));
   lines.push(...outbreakLines(sim, run.t));
+  lines.push(...idsOutcomeLines(sim, run.t));
   if (!lines.length) return null;
   const label = step.actions?.find((a) => a.id === run.action)?.label;
   return (

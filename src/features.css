@@ -1814,3 +1814,114 @@
   min-width: 0;
   font-size: 13.5px;
 }
+
+/* ---------------------------------------------------------------------------
+   Log Detective (logs): IDS detection, SIEM incidents, AI threshold
+   --------------------------------------------------------------------------- */
+.ids-group {
+  padding: 8px 0 10px;
+  border-bottom: 1px solid var(--line-2);
+}
+.ids-group:last-child {
+  border-bottom: 0;
+}
+.ids-group.flash,
+.siem-section.flash {
+  animation: flash 2s ease;
+}
+.ids-group > p {
+  margin: 6px 0;
+}
+.ids-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0;
+}
+.ids-sigs,
+.ids-alerts,
+.incident-parts {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.ids-sigs li,
+.ids-alerts li,
+.incident-parts li {
+  margin: 2px 0;
+}
+.ids-alerts .mono {
+  word-break: break-word;
+}
+.ids-judged {
+  margin-top: 6px;
+}
+.incident-list {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+.incident-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+.incident-row.on {
+  background: var(--brand-soft);
+}
+.incident-card {
+  margin: 6px 0 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--brand-line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.incident-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.incident-card > p {
+  margin: 6px 0 2px;
+}
+.incident-triage {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-2);
+}
+.incident-triage > .btn {
+  margin-top: 4px;
+}
+.capture-detail .incident-card {
+  margin-top: 10px;
+}
+.ai-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+.ai-slider input[type='range'] {
+  flex: 1;
+  max-width: 320px;
+  accent-color: var(--brand);
+}
+.ai-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 8px;
+}
+.ai-table tr.ai-hit td {
+  background: var(--bad-soft);
+}
+.ai-table td.ai-attack {
+  font-weight: 650;
+}
+.ids-sigs-wrap > summary {
+  cursor: pointer;
+  color: var(--muted);
+}

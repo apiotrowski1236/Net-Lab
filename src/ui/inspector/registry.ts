@@ -13,6 +13,8 @@ import { MalwareSection } from './Malware';
 import { VlansSection } from './Vlans';
 import { ZonePolicySection } from './ZonePolicy';
 import { HardeningSection } from './Hardening';
+import { Detection } from './Detection';
+import { SiemConsole } from './SiemConsole';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -55,4 +57,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'firewall-rules', slot: 'settings', Section: FirewallRulesSection },
   // net-audit
   { id: 'hardening', slot: 'settings', Section: HardeningSection },
+  // logs
+  { id: 'ids-detection', slot: 'settings', Section: Detection },
+  { id: 'siem-console', slot: 'settings', Section: SiemConsole },
 ];

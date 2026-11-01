@@ -65,13 +65,14 @@ Shared pieces built for these labs (wave 0):
 |---|---|
 | A Toolkit card for your tool | Add a `ToolSpec` kind in `src/labs/types.ts`, write `src/ui/tools/<Name>.tsx`, list it in `TOOL_CARDS` (`src/ui/tools/registry.ts`). Add its name to `TOOL_NAME` in `src/ui/Guide.tsx`. |
 | Settings or tables inside a device | Write `src/ui/inspector/<Name>.tsx` and list it in `INSPECTOR_SECTIONS` (`src/ui/inspector/registry.ts`). Return null for devices it doesn't apply to. Read from the `sim` prop (it may be a replay). No editing while `replaying`. |
+| A component that redraws when the network changes | Read `void session.simRev.value` in the component body (the sim isn't a signal). A component with hooks that skips it won't redraw. |
 | Toggles, tool messages, Save boxes, flashing rows | `src/ui/tools/parts.tsx`: `Toggle`, `ToolMsg`, `useDraft`, `recentlyChanged` |
 | A building, a signal's reach, a DMZ, a VLAN on the map | `LabDef.map.zones(sim)` returning `MapZone`s |
 | Logs | The `{ kind: 'logs', devices: [...] }` tool unlocks the Logs tab. `open: 'logs'` opens it. Goals: `openedLog(pred)`, `loggedSince(...)`. Solution move: `{ openLog: deviceId, where: (e) => ... }` |
 
 Typed inputs: the student types addresses, prefixes, MACs, ports, SSIDs. A check function (like those in `src/runtime/toolInput.ts`) returns `{ ok: false, msg, suggest? }` with a message that explains the mistake in this lab's terms ("That's Mallory's MAC, the one from the forged ARP replies."). The answer key goes through the same checks.
 
-Look and feel: use existing classes (`tool-card attack` or `defend`, `table`, `pill`, `callout`, `btn`) and CSS variables. Append new CSS to `src/features.css` under a comment naming your lab. Check both themes (dark is the default; the theme button is in the top bar) and a 1366x768 window, where the dock is short.
+Look and feel: use existing classes (`tool-card attack` or `defend`, `table`, `pill`, `callout`, `btn`) and CSS variables. Append new CSS to `src/features.css` under a comment naming your lab, and check that every rule you add closes. Check both themes (dark is the default; the theme button is in the top bar) and a 1366x768 window, where the dock is short.
 
 Map coordinates are a 1000 x 600 canvas. Keep device centers at least about 130 apart so names and tags fit.
 
@@ -123,6 +124,7 @@ Where to read each merged feature before you use it. Reuse these; extend them ad
 - **Simulated malware** (`segmentation`): `src/sim/malware.ts`. `sim.infect(id)` starts an outbreak that scans its own subnet and the next ones and spreads over file sharing (445) through `connectService`, so firewalls and VLANs stop it the normal way. `sim.cleanMalware()`, events `malware-infected` and `malware-done`, `Device.malware` (the map draws it red).
 - **Audit scanner and risk register** (`net-audit`): `src/sim/audit.ts`. `sim.auditScan(dev)` checks every device against a findings catalog (severity, evidence, fix) and ends in `scan-complete`; `sim.rateRisk` fills the risk register (`riskRating` combines likelihood and impact into low, moderate, or high). Tool kinds `scanner` and `risk-register`. Add a finding to the catalog rather than a second scanner.
 - **Hardening and VPN** (`net-audit`): `src/sim/hardening.ts` (`Device.hardening`: Telnet, SSH, logins through an authentication server; `sim.setHardening`; Telnet and SSH are real `Device.services`) and `src/sim/vpn.ts` (VPN server and client, split tunneling, sign-in method; `sim.setVpn`; drop reason `vpn-split-off`). Tool kind `hardening`, inspector section `hardening`. NetBuilder: router `services`, `firewall.guardSelf` (the router's firewall also checks traffic to the router itself), and `link(..., { tunnel: true })` for a dashed VPN tunnel. `Device.captureOwn` makes a capture include the device's own frames.
+- **Detection: IDS/IPS, SIEM, and AI scores** (`logs`): `src/sim/ids.ts`; its header comment is the reference. `sim.configureIds` makes a sensor (it sees a copy of each frame on its switch), `sim.configureSiem` a log collector. Sensor: `idsSetSignatures`, `idsSetAnomaly` (tolerance against `idsRecordBaseline`), `idsSetPrevention` (blocks with a firewall rule or `setPortShutdown`). SIEM: `siemCorrelate` ties lines from one source into incidents, `siemTriage`. AI: `aiScore`, `aiSetThreshold`. `connectService(..., { flow })` gives a connection a size and time, and firewall log lines then show `bytes=`. Actions `ids-*`, `siem-triage`, `ai-threshold`; event `type: 'ids'`; log sources `ids`, `ips`, `siem`, `ai`. Tool kinds `ids`, `siem`, `ai-threshold`; inspector sections `ids-detection` and `siem-console`. The Logs tab shows "Alerts only" when alerts exist, and an incident card in the detail pane.
 
 ## Your final report
 

@@ -37,6 +37,10 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   scanner: 'Vulnerability scanner',
   'risk-register': 'Risk register',
   hardening: 'Security settings (in the inspector)',
+  // logs
+  ids: 'Detection (in the inspector)',
+  siem: 'SIEM incidents (in the inspector)',
+  'ai-threshold': 'AI threshold (in the inspector)',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {

@@ -158,7 +158,15 @@ export type ToolSpec =
    * Telnet and SSH, port policy (net-audit). `vpn` also unlocks its VPN
    * settings; re-list the tool with it in a later step to unlock them then.
    */
-  | { kind: 'hardening'; device: string; vpn?: boolean };
+  | { kind: 'hardening'; device: string; vpn?: boolean }
+  /** Detection controls for the IDS sensor `device`, in the inspector (logs lab). `controls` reveals them one group at a time. */
+  | { kind: 'ids'; device: string; controls: IdsControl[] }
+  /** The SIEM `device`'s incident list and triage, in the inspector and the Logs tab. */
+  | { kind: 'siem'; device: string }
+  /** The AI model's alert threshold on the SIEM `device`, with live counts, in the inspector. */
+  | { kind: 'ai-threshold'; device: string };
+
+export type IdsControl = 'signatures' | 'anomaly' | 'prevention';
 
 /** What the firewall placement tool says about one choice of cable. */
 export interface PlacementFeedback {
