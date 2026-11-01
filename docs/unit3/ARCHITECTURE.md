@@ -107,6 +107,12 @@ Later labs reuse these, so design them as shared, documented APIs, not one-offs.
 | Vulnerability scanner and report; Telnet vs. SSH; router and switch hardening settings; VPN and split tunneling; risk register | `net-audit` (2) | |
 | IDS and IPS (signature, anomaly, hybrid); SIEM correlation; AI scores and threshold; alert triage | `logs` (2) | |
 
+### Shared APIs (merged)
+
+Where to read each merged feature before you use it. Reuse these; extend them additively if they fall short.
+
+- **DNS resolver** (`dns-spoof`): `src/sim/dns.ts` (resolver state, TTL cache, query IDs and ports); the resolver section of `src/sim/sim.ts` (`forgeDnsAnswer`, `setResolverHardened`, `flushResolverCache`); `NetBuilder` host option `resolver: { upstream, ttl }`. Log lines: `source: 'dns'` on the resolver (query, cache hit, hardening, flush; `cached` with `fields: { name, ip, from, ttl }`, level `notice` when a record changed), `source: 'web'` on every web server (`fields: { src, method, path, host }`). Frames with `forged: true` stay marked across hops.
+
 ## Your final report
 
 End with:
