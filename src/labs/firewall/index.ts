@@ -262,7 +262,7 @@ export const firewallLab: LabDef = {
 
         Use **Place firewalls** to put each one into a cable. The tool says what each choice protects. Try a few.
 
-        Each firewall has an **outside** port, facing the internet. A packet arriving there is going **in**. A packet from the other side is going **out**.
+        Each firewall has two sides. Its **outside** faces the internet. A packet arriving from outside is going **in**. A packet from the other side is going **out**.
       `,
       focus: ['fwA', 'fwB'],
       open: 'tools',

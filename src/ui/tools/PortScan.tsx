@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { checkScanTarget } from '../../runtime/firewallInput';
 import { portInfo, scanDone, scanFindings, type Scan } from '../../sim/services';
 import type { Sim } from '../../sim/sim';
@@ -91,8 +91,16 @@ function ScanResult({ sim, scan, open, onConnect }: { sim: Sim; scan: Scan; open
   const total = scan.hosts.length * (scan.ports.length + 1);
   const answered = scan.hosts.reduce((n, h) => n + (h.ping !== 'pending' ? 1 : 0) + scan.ports.filter((p) => h.ports[p] !== 'pending').length, 0);
   const many = scan.size === 1 ? '1 address' : `${scan.size} addresses`;
+  // The dock is short on a laptop. When a scan finishes, bring its results up
+  // (not when the Toolkit opens on an old scan).
+  const ref = useRef<HTMLDetailsElement>(null);
+  const wasDone = useRef(done);
+  useLayoutEffect(() => {
+    if (done && !wasDone.current && open) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    wasDone.current = done;
+  }, [done, open]);
   return (
-    <details class="scan-result" open={open}>
+    <details ref={ref} class="scan-result" open={open}>
       <summary>
         <span class="mono">{scan.target}</span>{' '}
         {done ? (
@@ -108,18 +116,17 @@ function ScanResult({ sim, scan, open, onConnect }: { sim: Sim; scan: Scan; open
           <thead>
             <tr>
               <th>Address</th>
-              <th>Ping</th>
               <th>Open ports</th>
             </tr>
           </thead>
           <tbody>
             {found.map((h) => (
               <tr key={h.ip}>
-                <td class="mono">
-                  {h.ip}
-                  <span class="muted"> {sim.deviceByIp(h.ip)?.label}</span>
+                <td>
+                  <span class="mono">{h.ip}</span>
+                  <div class="muted small">{sim.deviceByIp(h.ip)?.label}</div>
+                  <div class="small scan-ping">{h.ping ? 'answered ping' : <span class="muted">no ping reply</span>}</div>
                 </td>
-                <td>{h.ping ? 'replied' : <span class="muted">no reply</span>}</td>
                 <td>
                   {h.open.length === 0 && <span class="muted">none</span>}
                   <span class="port-list">
