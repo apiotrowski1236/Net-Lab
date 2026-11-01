@@ -2,6 +2,8 @@ import type { Sim } from '../sim/sim';
 import type { LabDef } from '../labs/types';
 import type { PortSecurityConfig } from '../sim/switchsec';
 import type { FwMode, FwRuleInput } from '../sim/firewall';
+import type { ZoneLevel } from '../sim/zones';
+import type { PolicyValue } from '../sim/zonePolicy';
 
 /**
  * Every change a student makes to the network is one of these. They are
@@ -71,7 +73,16 @@ export type SimAction =
   | { type: 'fw-edit-rule'; device: string; id: string; rule: FwRuleInput }
   | { type: 'fw-delete-rule'; device: string; id: string }
   | { type: 'fw-move-rule'; device: string; id: string; to: number }
-  | { type: 'fw-mode'; device: string; mode: FwMode };
+  | { type: 'fw-mode'; device: string; mode: FwMode }
+  // Segmentation
+  /** Put a switch port in a VLAN (1 is the default). */
+  | { type: 'set-vlan'; device: string; iface: string; vlan: number }
+  /** Zone plan: put a device in a zone, or take it out with null. */
+  | { type: 'set-zone'; device: string; zone: string | null }
+  /** Zone plan: how closely a zone is guarded, or null to clear it. */
+  | { type: 'set-zone-level'; zone: string; level: ZoneLevel | null }
+  /** One cell of a firewall's zone policy: what `from` may start toward `to`. */
+  | { type: 'set-zone-policy'; device: string; from: string; to: string; value: PolicyValue };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -216,6 +227,18 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'fw-mode':
       sim.fwSetMode(a.device, a.mode);
+      return;
+    case 'set-vlan':
+      sim.setVlan(a.device, a.iface, a.vlan);
+      return;
+    case 'set-zone':
+      sim.setZone(a.device, a.zone);
+      return;
+    case 'set-zone-level':
+      sim.setZoneLevel(a.zone, a.level);
+      return;
+    case 'set-zone-policy':
+      sim.setZonePolicy(a.device, a.from, a.to, a.value);
       return;
   }
 }

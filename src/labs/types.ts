@@ -94,7 +94,7 @@ export type ToolSpec =
    * Type IP addresses into the inspector. `fixed` pins a device to one
    * address; typing another shows `why`.
    */
-  | { kind: 'ip-config'; fixed?: { device: string; cidr: string; why: string }[] }
+  | { kind: 'ip-config'; fixed?: { device: string; iface?: string; cidr: string; why: string }[] }
   /** Set computers' default gateway in the inspector. */
   | { kind: 'gateway' }
   /** Add and remove routers' static routes in the inspector. */
@@ -130,7 +130,13 @@ export type ToolSpec =
    * Edit these firewalls' rules in the inspector (the card lists them). `modes`
    * are the firewall types the student may switch between; without it, no switching.
    */
-  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] };
+  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] }
+  /** Put a switch's ports in VLANs, in its inspector (segmentation). */
+  | { kind: 'vlan'; device: string }
+  /** Plan zones: put each listed device in a zone and give each zone a security level (segmentation). */
+  | { kind: 'zone-plan'; devices: string[] }
+  /** Set a firewall's zone policy, in its inspector (segmentation). */
+  | { kind: 'zone-policy'; device: string };
 
 /** What the firewall placement tool says about one choice of cable. */
 export interface PlacementFeedback {

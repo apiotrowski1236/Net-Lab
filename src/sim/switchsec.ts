@@ -56,6 +56,8 @@ export interface SwitchPort {
   security?: PortSecurity;
   /** Frames that came in this port. A burst counts as its full size. */
   framesIn: number;
+  /** The port's VLAN (segmentation, see vlan.ts). Missing: VLAN 1. */
+  vlan?: number;
 }
 
 /** A switch's security state. `Device.switchSec`. */

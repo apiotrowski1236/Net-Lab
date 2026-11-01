@@ -74,6 +74,9 @@ export const WELL_KNOWN: WellKnownPort[] = [
 /** Names for applications that have no well-known port of their own. */
 const OTHER_APPS: Record<string, string> = {
   'remote-control': 'Remote-control tool',
+  // segmentation: the submarine's own software
+  'target-data': 'Target data',
+  'status-reports': 'Status reports',
 };
 
 /** Ports a scan knocks on when it isn't given a list. */
