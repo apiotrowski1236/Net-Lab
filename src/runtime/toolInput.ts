@@ -284,7 +284,7 @@ export function checkGateway(sim: Sim, deviceId: string, raw: string): Checked<{
   if (!owner) {
     const routerHere = Object.values(sim.devices).some((d) => d.kind === 'router' && d.ifaces.some((i) => i.ip && sameSubnet(i.ip, me.ip!, me.prefix!)));
     if (!routerHere) {
-      return { ok: false, msg: `No router has an address on ${net}, ${name}'s network, so no gateway there can work. Check ${name}'s IP address first.` };
+      return { ok: false, msg: `No router has an address on ${net}, ${name}'s network, so no gateway there can work. Check ${name}'s IP address first. If it's right, give the router a port on ${net}.` };
     }
     return { ok: false, msg: `No device on ${net} uses ${ip}. Click the router on the map to find its address on this network.` };
   }

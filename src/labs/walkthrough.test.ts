@@ -413,7 +413,7 @@ describe('build-network lab details', () => {
     // With his own address on the wrong network, the right gateway can't work: say to fix the address first.
     sim.setIp('ben', 'eth0', '192.168.100.12', 24);
     expect(msg(checkGateway(sim, 'ben', ADDR.officeLan))).toMatch(/Check Ben's IP address first/);
-    expect(msg(checkGateway(sim, 'ben', '192.168.100.1'))).toMatch(/No router has an address on 192\.168\.100\.0\/24.*Check Ben's IP address first/);
+    expect(msg(checkGateway(sim, 'ben', '192.168.100.1'))).toMatch(/No router has an address on 192\.168\.100\.0\/24.*Check Ben's IP address first\. If it's right, give the router a port on 192\.168\.100\.0\/24\./);
 
     expect(checkPing(sim, 'alice', `${ADDR.ben}/24`)).toMatchObject({ ok: false, suggest: ADDR.ben });
   });
