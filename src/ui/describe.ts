@@ -3,10 +3,10 @@ import type { Frame, SimEvent } from '../sim/types';
 import { appName, portLabel } from '../sim/services';
 import { fwDenyText } from './firewallText';
 
-export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH';
+export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH' | 'TELNET';
 
 /** Pill for a connection to a service (services.ts), by the program really inside. */
-const SVC_PROTO: Record<string, Proto> = { https: 'HTTPS', http: 'HTTP', ssh: 'SSH', smb: 'SMB', dns: 'DNS' };
+const SVC_PROTO: Record<string, Proto> = { https: 'HTTPS', http: 'HTTP', ssh: 'SSH', smb: 'SMB', dns: 'DNS', telnet: 'TELNET' };
 
 export function protoOf(f: Frame): Proto {
   if (f.arp) return 'ARP';
@@ -35,6 +35,7 @@ export const PROTO_COLOR: Record<Proto, string> = {
   SSH: '#155e75',
   SMB: '#4d7c0f',
   TCP: '#7c2d12',
+  TELNET: '#a21caf',
 };
 
 /** Fill for forged ("FAKE") packets. White text, 4.8:1. */
@@ -68,11 +69,13 @@ export const PROTO_BLURB: Record<Proto, string> = {
   SSH: 'SSH: an administrator logging in to a computer from far away (encrypted).',
   SMB: 'SMB: Windows file sharing, for opening shared folders.',
   TCP: 'Other TCP traffic: a program talking to a service on some port.',
+  TELNET: 'Telnet: an administrator logging in to a device from far away, in plain text. Anyone who sees it reads the password.',
 };
 
 /** Packet colors the legend adds for labs whose hosts run services (services.ts). */
 export function extraProtos(sim: Sim): Proto[] {
-  return Object.values(sim.devices).some((d) => d.services?.length) ? ['SSH', 'SMB', 'TCP'] : [];
+  const base: Proto[] = Object.values(sim.devices).some((d) => d.services?.length) ? ['SSH', 'SMB', 'TCP'] : [];
+  return Object.values(sim.devices).some((d) => d.services?.some((x) => x.app === 'telnet')) ? [...base, 'TELNET'] : base;
 }
 
 /** Fake ciphertext so encrypted packets look like gibberish (deterministic per frame). */
@@ -131,7 +134,7 @@ function infoOfOne(f: Frame): string {
       return `Answer: ${ip.app.name} = ${ip.app.ip ?? 'not found'}`;
     case 'svc': {
       const port = portLabel((ip.app.reply ? ip.srcPort : ip.dstPort) ?? 0, ip.proto === 'udp' ? 'udp' : 'tcp');
-      if (!ip.app.reply) return `Connect to port ${port}${ip.app.text ? `: ${ip.app.text}` : ''}`;
+      if (!ip.app.reply) return `Connect to port ${port}${ip.app.text ? `: ${ip.encrypted ? 'encrypted data' : ip.app.text}` : ''}`;
       return ip.app.status === 'closed' ? `Port ${port} closed` : `Port ${port} open${ip.app.text ? `: ${ip.app.text}` : ''}`;
     }
   }
@@ -276,9 +279,22 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
         rows: [
           ['Program', appName(app.app)],
           ...(app.reply ? ([['Answer', app.status === 'closed' ? 'Nothing listens on this port' : 'Service answered']] as [string, string][]) : []),
-          ...(ip.encrypted ? ([['Data', 'encrypted']] as [string, string][]) : app.text ? ([['Data', app.text]] as [string, string][]) : []),
+          ...(ip.encrypted
+            ? ([['Data', !app.reply && app.text ? gibberish(f.id) : 'encrypted']] as [string, string][])
+            : app.text
+              ? ([['Data', app.text]] as [string, string][])
+              : []),
         ],
-        note: app.reply && !app.conn ? 'A reply that answers nothing anyone asked for.' : undefined,
+        // A login typed into an encrypted session shows as gibberish; one typed into Telnet is readable.
+        locked: ip.encrypted && !app.reply && !!app.text ? true : undefined,
+        note:
+          app.reply && !app.conn
+            ? 'A reply that answers nothing anyone asked for.'
+            : ip.encrypted && !app.reply && app.text
+              ? 'Only the two ends of this session hold the keys to read it.'
+              : app.app === 'telnet' && !app.reply && app.text
+                ? 'Telnet sends what you type as plain text, password included.'
+                : undefined,
       });
       break;
   }
@@ -326,6 +342,8 @@ export function pingFailText(sim: Sim, e: Extract<SimEvent, { type: 'ping-fail' 
       return `${at}'s port security does not allow this computer's MAC address on that port, so it dropped the packet.`;
     case 'firewall':
       return fwDenyText(sim, e.at, e.t);
+    case 'vpn-split-off':
+      return `${at}'s VPN has split tunneling off, so it won't carry traffic from other devices on its home network into the office.`;
     default:
       return `Dropped at ${at}.`;
   }

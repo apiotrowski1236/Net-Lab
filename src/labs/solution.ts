@@ -4,7 +4,9 @@ import { checkNewMac, checkPortSecurity } from '../runtime/switchInput';
 import type { LabSession } from '../runtime/session';
 import { checkRule, checkScanTarget, ruleDraft } from '../runtime/firewallInput';
 import type { Frame, LogEntry } from '../sim/types';
-import { isEncrypted, isPlainLogin } from './helpers';
+import { isEncrypted, isPlainLogin, isTelnetLogin } from './helpers';
+import { RISK_LEVELS } from '../sim/audit';
+import { HARDEN_SETTINGS } from '../sim/hardening';
 import type { ChoiceQuestion } from './types';
 
 /**
@@ -21,7 +23,9 @@ export type Move =
   /** Use a control in the Toolkit. */
   | { tool: SimAction }
   /** Click the first captured frame that matches in the Capture tab. */
-  | { openFrame: string; match: 'login' | 'encrypted' | ((f: Frame) => boolean) }
+  | { openFrame: string; match: 'login' | 'encrypted' | 'telnet' | ((f: Frame) => boolean) }
+  /** Click a finding in the vulnerability scanner's newest report on `openFinding` (the auditor). */
+  | { openFinding: string; id: string }
   /** Click the newest line in `openLog`'s log that matches `where`, in the Logs tab. */
   | { openLog: string; where: (e: LogEntry) => boolean };
 
@@ -34,7 +38,7 @@ export interface StepSolution {
 
 export type LabSolution = Record<string, StepSolution>;
 
-const MATCH: Record<'login' | 'encrypted', (f: Frame) => boolean> = { login: isPlainLogin, encrypted: isEncrypted };
+const MATCH: Record<'login' | 'encrypted' | 'telnet', (f: Frame) => boolean> = { login: isPlainLogin, encrypted: isEncrypted, telnet: isTelnetLogin };
 
 export function playMove(s: LabSession, m: Move): void {
   if ('inspect' in m) s.ui({ type: 'ui:inspect', device: m.inspect });
@@ -43,7 +47,12 @@ export function playMove(s: LabSession, m: Move): void {
     assertTypable(s, m.tool);
     s.dispatch(m.tool);
   }
-  else if ('openLog' in m) {
+  else if ('openFinding' in m) {
+    const a = s.sim.dev(m.openFinding).audit;
+    const hit = a?.reports[a.reports.length - 1]?.findings.find((f) => f.id === m.id);
+    if (!hit) throw new Error(`No ${m.id} finding in ${m.openFinding}'s newest report`);
+    s.ui({ type: 'ui:open-finding', device: m.openFinding, finding: m.id });
+  } else if ('openLog' in m) {
     const hit = [...s.sim.dev(m.openLog).logs].reverse().find(m.where);
     if (!hit) throw new Error(`No matching log line on ${m.openLog}`);
     s.ui({ type: 'ui:open-log', device: m.openLog, entry: hit });
@@ -112,6 +121,20 @@ function assertTypable(s: LabSession, a: SimAction): void {
       break;
     case 'scan':
       r = checkScanTarget(sim, a.device, a.target);
+      break;
+    // net-audit: chosen from dropdowns and toggles, so only check they name real things.
+    case 'rate-risk':
+      r =
+        sim.dev(a.device).audit?.reports.some((x) => x.findings.some((f) => f.id === a.finding)) &&
+        [a.likelihood, a.impact].every((l) => l === undefined || RISK_LEVELS.includes(l))
+          ? { ok: true }
+          : { ok: false, msg: `No finding ${a.finding} to rate` };
+      break;
+    case 'harden':
+      r = sim.dev(a.device).hardening && HARDEN_SETTINGS.includes(a.setting) ? { ok: true } : { ok: false, msg: `${a.device} has no setting ${a.setting}` };
+      break;
+    case 'vpn-config':
+      r = sim.dev(a.device).vpn?.server ? { ok: true } : { ok: false, msg: `${a.device} is not a VPN server` };
       break;
     default:
       r = { ok: true };

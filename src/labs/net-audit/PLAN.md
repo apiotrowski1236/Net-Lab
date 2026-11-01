@@ -1,6 +1,6 @@
 # The Network Audit (`net-audit`)
 
-Status: scripted, wave 2 (after wave 1 merges). Follow `docs/unit3/ARCHITECTURE.md`. Full lesson in `SCRIPT.md`.
+Status: built (wave 2). 12 steps, registered in `src/labs/index.ts`. Follows `docs/unit3/ARCHITECTURE.md`. Full lesson in `SCRIPT.md` (its top section lists the changes made while building). Code: `index.ts` (steps), `scenario.ts` (network), `solution.ts` (answer key), `lab.test.ts`.
 
 Tagline: Scan a small office for weaknesses, rate each risk, and write the policies that fix them.
 

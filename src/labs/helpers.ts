@@ -13,6 +13,10 @@ export const isPlainLogin = (f: Frame): boolean =>
 
 export const isEncrypted = (f: Frame): boolean => !!f.ip?.encrypted;
 
+/** A Telnet login sent in the clear: a request to a Telnet service carrying the typed login. */
+export const isTelnetLogin = (f: Frame): boolean =>
+  f.ip?.app.kind === 'svc' && f.ip.app.app === 'telnet' && !f.ip.app.reply && !f.ip.encrypted && !!f.ip.app.text;
+
 /** The student clicked this device on the map (or its chip in the lesson). */
 export const inspected =
   (device: string) =>

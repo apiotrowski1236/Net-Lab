@@ -1602,3 +1602,215 @@
   flex: none;
   margin-top: 2px;
 }
+
+/* ---------------------------------------------------------------------------
+   net-audit: vulnerability scanner, risk register, security settings, VPN tunnel
+   --------------------------------------------------------------------------- */
+.net-canvas .link.tunnel {
+  stroke: var(--brand-line);
+  stroke-dasharray: 10 7;
+  stroke-width: 3;
+}
+.net-canvas .link-label {
+  font-size: 12px;
+  font-weight: 650;
+  fill: var(--brand-ink);
+  paint-order: stroke;
+  stroke: var(--map-bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.audit-card .tool-row {
+  justify-content: flex-start;
+  border-top: 0;
+}
+.audit-report {
+  margin-top: 6px;
+}
+.audit-report-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 8px;
+}
+.audit-counts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+}
+.audit-fixed {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--good-soft);
+  color: var(--good-ink);
+  font-size: 13px;
+}
+.audit-fixed li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+}
+.audit-hint {
+  margin: 0 0 6px;
+}
+.audit-findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.audit-finding + .audit-finding {
+  border-top: 1px solid var(--line);
+}
+.audit-finding-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.audit-finding-row:hover {
+  background: var(--surface-3);
+}
+.audit-finding.open .audit-finding-row {
+  background: var(--brand-soft);
+}
+.audit-finding-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 650;
+}
+.audit-caret {
+  width: 1em;
+  color: var(--muted);
+}
+.audit-finding-body {
+  padding: 4px 12px 10px;
+  font-size: 13.5px;
+}
+.audit-finding-body p {
+  margin: 4px 0 6px;
+}
+.audit-finding-body dl {
+  margin: 0 0 8px;
+}
+.audit-finding-body dt {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.audit-finding-body dd {
+  margin: 2px 0 0;
+}
+.risk-pill {
+  justify-content: center;
+  min-width: 5.2em;
+}
+.audit-map,
+.risk-matrix {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.audit-map summary,
+.risk-matrix summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.risk-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.risk-row {
+  padding: 8px 0;
+  border-top: 1px solid var(--line-2);
+}
+.risk-row:first-child {
+  border-top: 0;
+}
+.risk-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.risk-row.fixed .risk-name {
+  color: var(--muted);
+}
+.risk-selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 6px;
+}
+.risk-selects label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.risk-selects select {
+  font-size: 13px;
+}
+.risk-selects select.unset {
+  border-color: var(--brand-line);
+  color: var(--muted);
+}
+.risk-name {
+  color: var(--muted);
+}
+.risk-name {
+  font-weight: 650;
+}
+.risk-matrix table th,
+.risk-matrix table td {
+  padding: 4px;
+  text-align: center;
+}
+.risk-matrix .risk-pill {
+  min-width: 0;
+}
+.hardening .harden-group {
+  margin: 12px 0 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hardening .harden-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line-2);
+  border-radius: 6px;
+}
+.hardening .harden-row.flash {
+  animation: flash 2s ease;
+}
+.hardening .harden-label {
+  flex: 1 1 14rem;
+  min-width: 0;
+  font-size: 13.5px;
+}

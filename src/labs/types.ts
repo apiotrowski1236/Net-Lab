@@ -9,7 +9,9 @@ export type UiEvent =
   | { type: 'ui:open-frame'; device: string; frame: Frame }
   /** The student clicked a line in the Logs tab. */
   | { type: 'ui:open-log'; device: string; entry: LogEntry }
-  | { type: 'ui:enter-step'; step: string };
+  | { type: 'ui:enter-step'; step: string }
+  /** The student opened a finding in the vulnerability scanner's report (net-audit). */
+  | { type: 'ui:open-finding'; device: string; finding: string };
 
 export type AnyEvent = SimEvent | UiEvent;
 
@@ -146,7 +148,17 @@ export type ToolSpec =
       levelNotes?: Record<string, Partial<Record<ZoneLevel, string>>>;
     }
   /** Set a firewall's zone policy, in its inspector (segmentation). */
-  | { kind: 'zone-policy'; device: string };
+  | { kind: 'zone-policy'; device: string }
+  /** Vulnerability scanner on `device`: scan its network, then read the report (net-audit). */
+  | { kind: 'scanner'; device: string }
+  /** The risk register on `device`: rate each finding's likelihood and impact (net-audit). */
+  | { kind: 'risk-register'; device: string }
+  /**
+   * Security settings for router or switch `device` in the inspector: logins,
+   * Telnet and SSH, port policy (net-audit). `vpn` also unlocks its VPN
+   * settings; re-list the tool with it in a later step to unlock them then.
+   */
+  | { kind: 'hardening'; device: string; vpn?: boolean };
 
 /** What the firewall placement tool says about one choice of cable. */
 export interface PlacementFeedback {

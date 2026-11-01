@@ -4,6 +4,9 @@ import type { PortSecurityConfig } from '../sim/switchsec';
 import type { FwMode, FwRuleInput } from '../sim/firewall';
 import type { ZoneLevel } from '../sim/zones';
 import type { PolicyValue } from '../sim/zonePolicy';
+import type { RiskLevel } from '../sim/audit';
+import type { HardenSetting } from '../sim/hardening';
+import type { VpnAuth } from '../sim/vpn';
 
 /**
  * Every change a student makes to the network is one of these. They are
@@ -82,7 +85,16 @@ export type SimAction =
   /** Zone plan: how closely a zone is guarded, or null to clear it. */
   | { type: 'set-zone-level'; zone: string; level: ZoneLevel | null }
   /** One cell of a firewall's zone policy: what `from` may start toward `to`. */
-  | { type: 'set-zone-policy'; device: string; from: string; to: string; value: PolicyValue };
+  | { type: 'set-zone-policy'; device: string; from: string; to: string; value: PolicyValue }
+  // Network audit (net-audit)
+  /** Run the vulnerability scanner on `device` (the auditor). */
+  | { type: 'audit-scan'; device: string }
+  /** Rate a finding in the auditor's risk register. A part left out keeps its value. */
+  | { type: 'rate-risk'; device: string; finding: string; likelihood?: RiskLevel; impact?: RiskLevel }
+  /** Turn a management setting on a router or switch on or off: Telnet, SSH, or logins through the authentication server. */
+  | { type: 'harden'; device: string; setting: HardenSetting; on: boolean }
+  /** Change a VPN server's policy. */
+  | { type: 'vpn-config'; device: string; splitTunneling?: boolean; auth?: VpnAuth };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -239,6 +251,18 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'set-zone-policy':
       sim.setZonePolicy(a.device, a.from, a.to, a.value);
+      return;
+    case 'audit-scan':
+      sim.auditScan(a.device);
+      return;
+    case 'rate-risk':
+      sim.rateRisk(a.device, a.finding, a.likelihood, a.impact);
+      return;
+    case 'harden':
+      sim.setHardening(a.device, a.setting, a.on);
+      return;
+    case 'vpn-config':
+      sim.setVpn(a.device, { splitTunneling: a.splitTunneling, auth: a.auth });
       return;
   }
 }

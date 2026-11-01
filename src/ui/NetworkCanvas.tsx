@@ -139,6 +139,7 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
         'gateway-off-net': 'gateway not on my network',
         'port-shutdown': 'port is off: dropped',
         'port-security': 'MAC not allowed: dropped',
+        'vpn-split-off': 'VPN: home device blocked',
       };
       // The 'firewall' event right before this one already says which rule blocked it.
       if (e.reason === 'firewall') return null;
@@ -165,6 +166,8 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
     case 'conn-result':
     case 'stray-reply':
       return connMarker(e);
+    case 'scan-complete':
+      return { device: e.device, text: e.findings.length ? `scan done: ${e.findings.length} finding${e.findings.length === 1 ? '' : 's'}` : 'scan done: clean', tone: e.findings.length ? 'warn' : 'good' };
     case 'ping-reply':
       return { device: e.device, text: 'ping reply', tone: 'good' };
     case 'ping-fail':
@@ -176,6 +179,11 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
       if (e.what === 'port') return { device: e.device, text: `${portName(e.detail ?? '')} ${e.on ? 'turned on' : 'shut down'}`, tone: e.on ? 'info' : 'warn' };
       if (e.what === 'port-security') return { device: e.device, text: e.on ? 'port security on' : 'port security off', tone: 'info' };
       if (e.what === 'mac') return { device: e.device, text: e.on ? 'MAC address changed' : 'factory MAC back', tone: e.on ? 'warn' : 'info' };
+      // net-audit
+      if (e.what === 'harden-telnet') return { device: e.device, text: e.on ? 'Telnet on' : 'Telnet off', tone: e.on ? 'warn' : 'good' };
+      if (e.what === 'harden-ssh') return { device: e.device, text: e.on ? 'SSH on' : 'SSH off', tone: 'info' };
+      if (e.what === 'harden-auth-server') return { device: e.device, text: e.on ? 'logins: auth server' : 'logins: local account', tone: e.on ? 'good' : 'warn' };
+      if (e.what === 'vpn') return { device: e.device, text: e.on ? 'split tunneling on' : 'split tunneling off', tone: e.on ? 'warn' : 'good' };
       return null;
     case 'wifi':
       switch (e.what) {
@@ -653,7 +661,12 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
           const b = sim.devices[l.b.device];
           return (
             <g key={l.id} class={`link-group ${picked === l.id ? 'picked' : ''}`}>
-              <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} class={`link ${l.wireless ? 'wireless' : ''}`} />
+              <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} class={`link ${l.wireless ? 'wireless' : ''}${l.tunnel ? ' tunnel' : ''}`} />
+              {l.tunnel && (
+                <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 8} class="link-label" text-anchor="middle">
+                  VPN tunnel
+                </text>
+              )}
               {cabling && (
                 <line
                   x1={a.x}

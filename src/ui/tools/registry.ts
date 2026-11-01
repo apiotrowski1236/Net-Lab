@@ -15,6 +15,9 @@ import { PortScanTool } from './PortScan';
 import { VlanCard } from './VlanCard';
 import { ZonePlan } from './ZonePlan';
 import { ZonePolicyCard } from './ZonePolicyCard';
+import { ScannerTool } from './Scanner';
+import { RiskRegisterTool } from './RiskRegister';
+import { HardeningCard } from './HardeningCard';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -48,4 +51,8 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   vlan: VlanCard,
   'zone-plan': ZonePlan,
   'zone-policy': ZonePolicyCard,
+  // net-audit
+  scanner: ScannerTool,
+  'risk-register': RiskRegisterTool,
+  hardening: HardeningCard,
 };

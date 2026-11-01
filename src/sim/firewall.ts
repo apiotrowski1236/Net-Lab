@@ -15,7 +15,10 @@ import type { IpPacket, LogEntry, LogLevel } from './types';
  *     bridge, it drops a switch's flooded copy of a frame meant for a device
  *     on the side it came from, without judging it.
  *   - kind 'router': firewall software inside a router. It checks packets the
- *     router forwards. (Packets addressed to the router itself aren't checked.)
+ *     router forwards. (Packets addressed to the router itself aren't checked,
+ *     unless `guardSelf` is on: then requests that arrive on the outside port
+ *     for the router's own addresses, such as a ping from the internet, are
+ *     checked as 'in' packets too. Replies to the router's own traffic pass.)
  *
  * DIRECTION
  *   Each firewall has one `outside` port: the side it doesn't trust (toward the
@@ -130,6 +133,8 @@ export interface FirewallState {
   placed?: FwPlacement;
   /** Sim time of the last change to its rules, type, or placement. Goals use it for "tested since your last change". */
   changedAt?: number;
+  /** On a router: also check requests from outside addressed to the router itself (a ping to its public address). */
+  guardSelf?: boolean;
 }
 
 export type FwDecidedBy =

@@ -12,6 +12,7 @@ import { ServicesSection } from './Services';
 import { MalwareSection } from './Malware';
 import { VlansSection } from './Vlans';
 import { ZonePolicySection } from './ZonePolicy';
+import { HardeningSection } from './Hardening';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -52,4 +53,6 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'malware', slot: 'settings', Section: MalwareSection },
   { id: 'zone-policy', slot: 'settings', Section: ZonePolicySection },
   { id: 'firewall-rules', slot: 'settings', Section: FirewallRulesSection },
+  // net-audit
+  { id: 'hardening', slot: 'settings', Section: HardeningSection },
 ];

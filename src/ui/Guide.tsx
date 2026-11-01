@@ -33,6 +33,10 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   vlan: 'VLANs (in the inspector)',
   'zone-plan': 'Zone plan',
   'zone-policy': 'Zone policy (in the inspector)',
+  // net-audit
+  scanner: 'Vulnerability scanner',
+  'risk-register': 'Risk register',
+  hardening: 'Security settings (in the inspector)',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {

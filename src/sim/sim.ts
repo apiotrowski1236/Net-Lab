@@ -53,6 +53,7 @@ import { cellKey, isPolicyValue, newZonePolicy, policyRules, zoneLogLine, type P
 import {
   appForPort,
   hostCount,
+  isReply,
   MAX_CONNS,
   MAX_SCANS,
   SCAN_PORTS,
@@ -65,6 +66,9 @@ import {
   type ProbeResult,
   type Scan,
 } from './services';
+import { auditFindings, MAX_REPORTS, scanHosts, type AuditReport, type RiskLevel } from './audit';
+import { MANAGEMENT_SERVICES, serviceOn, type HardenSetting } from './hardening';
+import { natKey, VPN_AUTH_LABEL, type VpnAuth } from './vpn';
 
 /**
  * A deliberately simplified network simulator.
@@ -367,6 +371,8 @@ export class Sim {
     const stillLinked = () => this.links[link.id] === link;
     this.schedule(delay, () => {
       if (!stillLinked()) return;
+      const me = this.devices[devId];
+      if (me?.sniffing && me.captureOwn) this.capture(me, copy);
       const flight: InFlight = {
         frame: copy,
         linkId: link.id,
@@ -501,7 +507,10 @@ export class Sim {
 
   private onIp(dev: Device, frame: Frame, iface?: Iface): void {
     const pkt = frame.ip!;
+    if (dev.vpn?.client && iface && this.vpnRelay(dev, frame, iface)) return;
     if (this.isLocal(dev, pkt.dst) || (dev.impersonate && this.hijacked(dev, pkt.dst))) {
+      // A router firewall with guardSelf also checks requests from outside to the router itself.
+      if (dev.firewall?.guardSelf && iface?.id === dev.firewall.outside && !isReply(pkt) && !this.fwPass(dev, iface.id, frame)) return;
       this.deliver(dev, pkt, frame);
       return;
     }
@@ -2240,6 +2249,150 @@ export class Sim {
       zp.written[id] = { from: r.from, to: r.to };
     }
     fw.changedAt = this.t;
+  }
+
+  // -------------------------------------------------------------------------
+  // --- network audit (net-audit) ---
+  // Vulnerability scanner and risk register (audit.ts), management hardening
+  // (hardening.ts), and the VPN with split tunneling (vpn.ts).
+  // -------------------------------------------------------------------------
+
+  /**
+   * Run a vulnerability scan from the auditor `devId` (it needs a
+   * `Device.audit`): a port scan of its scope, and the outside probe if one is
+   * set. When both finish, a report is added to `audit.reports` and
+   * 'scan-complete' fires. Does nothing while a scan is already running.
+   */
+  auditScan(devId: string): void {
+    const dev = this.dev(devId);
+    const a = dev.audit;
+    if (!a || a.running) return;
+    const id = a.nextReport++;
+    const scans = [{ device: devId, id: this.scan(devId, a.scope, a.ports ?? SCAN_PORTS) }];
+    if (a.outside) scans.push({ device: a.outside.from, id: this.scan(a.outside.from, a.outside.target, []) });
+    a.running = { id, t: this.t, scans };
+    const done = () => scans.every((s) => this.devices[s.device]?.scans?.find((x) => x.id === s.id)?.doneAt !== undefined);
+    if (done()) {
+      this.finishAudit(devId);
+      return;
+    }
+    const off = this.on((e) => {
+      if (e.type !== 'scan-done' || !done()) return;
+      off();
+      this.finishAudit(devId);
+    });
+  }
+
+  private finishAudit(devId: string): void {
+    const a = this.dev(devId).audit;
+    const run = a?.running;
+    if (!a || !run) return;
+    delete a.running;
+    const scanOf = (s?: { device: string; id: number }) => (s ? this.devices[s.device]?.scans?.find((x) => x.id === s.id) : undefined);
+    const inside = scanOf(run.scans[0]);
+    const outside = scanOf(run.scans[1]);
+    const findings = auditFindings(this, a, inside, outside);
+    const report: AuditReport = { id: run.id, t: run.t, doneAt: this.t, scope: a.scope, hosts: inside ? scanHosts(this, inside) : [], findings };
+    a.reports.push(report);
+    if (a.reports.length > MAX_REPORTS) a.reports.splice(0, a.reports.length - MAX_REPORTS);
+    this.emit({ t: this.t, type: 'scan-complete', device: devId, report: run.id, findings: findings.map((f) => f.id) });
+  }
+
+  /** Set the auditor's rating of a finding in the risk register. A part left out keeps its value. */
+  rateRisk(devId: string, finding: string, likelihood?: RiskLevel, impact?: RiskLevel): void {
+    const a = this.dev(devId).audit;
+    if (!a) return;
+    const e = (a.register[finding] ??= {});
+    if (likelihood) e.likelihood = likelihood;
+    if (impact) e.impact = impact;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'risk-register', detail: finding });
+  }
+
+  /**
+   * Change a management setting on a device with `Device.hardening`: turn its
+   * Telnet or SSH login service on or off, or send logins through the
+   * authentication server (removing local accounts) and back.
+   */
+  setHardening(devId: string, setting: HardenSetting, on: boolean): void {
+    const dev = this.dev(devId);
+    const h = dev.hardening;
+    if (!h) return;
+    let msg: string;
+    if (setting === 'auth-server') {
+      if (h.authServer === on) return;
+      h.authServer = on;
+      msg = on ? '%AAA-5-CONFIG: logins use the authentication server; local accounts removed' : '%AAA-5-CONFIG: logins use local accounts';
+    } else {
+      if (serviceOn(dev, setting) === on) return;
+      const svc = MANAGEMENT_SERVICES[setting];
+      const rest = (dev.services ?? []).filter((x) => !(x.proto === svc.proto && x.port === svc.port));
+      dev.services = on ? [...rest, { ...svc }].sort((x, y) => x.port - y.port) : rest;
+      msg = `%SYS-5-CONFIG_I: ${setting === 'ssh' ? 'SSH' : 'Telnet'} login ${on ? 'enabled' : 'disabled'}`;
+    }
+    this.emit({ t: this.t, type: 'config', device: devId, what: `harden-${setting}`, on });
+    this.log(devId, { source: 'config', level: 'notice', msg, fields: { rule: setting, action: on ? 'on' : 'off' } });
+  }
+
+  /**
+   * Change a VPN server's policy. Each client of this server follows it: with
+   * split tunneling off, its default gateway becomes the tunnel; with it on,
+   * the home router again.
+   */
+  setVpn(devId: string, patch: { splitTunneling?: boolean; auth?: VpnAuth }): void {
+    const s = this.dev(devId).vpn?.server;
+    if (!s) return;
+    if (patch.splitTunneling !== undefined) s.splitTunneling = patch.splitTunneling;
+    if (patch.auth) s.auth = patch.auth;
+    for (const d of Object.values(this.devices)) {
+      const c = d.vpn?.client;
+      if (!c || c.server !== devId) continue;
+      const gw = s.splitTunneling ? c.homeGateway : this.peerIp(d.id, c.iface);
+      if (gw && d.gateway !== gw) this.setGateway(d.id, gw);
+      if (!s.splitTunneling) c.nat = {};
+    }
+    const detail = `split tunneling ${s.splitTunneling ? 'on' : 'off'}, ${VPN_AUTH_LABEL[s.auth].toLowerCase()}`;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'vpn', on: s.splitTunneling, detail });
+    this.log(devId, { source: 'vpn', level: 'notice', msg: `%VPN-5-POLICY: ${detail}`, fields: { action: s.splitTunneling ? 'split' : 'full', rule: s.auth } });
+  }
+
+  /**
+   * A VPN client's view of an arriving packet (see vpn.ts). Returns true when
+   * it handled the packet: carried a home device's packet into the tunnel,
+   * passed a reply back to it, or refused it because split tunneling is off.
+   */
+  private vpnRelay(dev: Device, frame: Frame, iface: Iface): boolean {
+    const c = dev.vpn!.client!;
+    const pkt = frame.ip!;
+    const key = natKey(pkt);
+    if (iface.id === c.iface) {
+      // A reply for a home device whose request this client carried in.
+      const orig = key && isReply(pkt) && this.isLocal(dev, pkt.dst) ? c.nat[key] : undefined;
+      if (!key || !orig) return false;
+      delete c.nat[key];
+      pkt.dst = orig;
+      this.emit({ t: this.t, type: 'forwarded', device: dev.id, frame });
+      this.routeAndSend(dev, pkt, frame);
+      return true;
+    }
+    if (this.isLocal(dev, pkt.dst)) return false;
+    const server = this.devices[c.server]?.vpn?.server;
+    if (!server) return false;
+    if (!server.splitTunneling) {
+      this.drop(dev, 'vpn-split-off', pkt, frame);
+      return true;
+    }
+    const tunnelIp = dev.ifaces.find((i) => i.id === c.iface)?.ip;
+    if (this.egress(dev, pkt.dst).iface !== c.iface || !key || isReply(pkt) || !tunnelIp) return false;
+    c.nat[key] = pkt.src;
+    pkt.src = tunnelIp;
+    pkt.ttl -= 1;
+    if (pkt.ttl <= 0) {
+      this.drop(dev, 'ttl', pkt, frame);
+      return true;
+    }
+    this.emit({ t: this.t, type: 'forwarded', device: dev.id, frame });
+    this.routeAndSend(dev, pkt, frame);
+    return true;
   }
 }
 
