@@ -61,6 +61,21 @@ import {
   type ProbeResult,
   type Scan,
 } from './services';
+import {
+  correlate,
+  newSensor,
+  newSiem,
+  observe,
+  type AiEvent,
+  type Baseline,
+  type FlowInfo,
+  type Incident,
+  type SensorOptions,
+  type SiemOptions,
+  type Tolerance,
+  type TriageAction,
+  type Verdict,
+} from './ids';
 
 /**
  * A deliberately simplified network simulator.
@@ -378,6 +393,7 @@ export class Sim {
   }
 
   private receive(devId: string, ifaceId: string, frame: Frame): void {
+    if (this.idsSensors.length) this.idsTap(devId, ifaceId, frame);
     const dev = this.devices[devId];
     if (!dev) return;
     if (dev.kind === 'firewall') {
@@ -1800,7 +1816,7 @@ export class Sim {
     devId: string,
     to: Ip,
     port: number,
-    opts: { proto?: L4; app?: string; sport?: number; data?: string; tag?: string } = {},
+    opts: { proto?: L4; app?: string; sport?: number; data?: string; tag?: string; flow?: FlowInfo } = {},
   ): number {
     const dev = this.dev(devId);
     const proto = opts.proto ?? 'tcp';
@@ -1824,6 +1840,7 @@ export class Sim {
       encrypted: app === 'https' || app === 'ssh' ? true : undefined,
       app: { kind: 'svc', conn: id, app, reply: false, text: opts.data },
     };
+    if (opts.flow) pkt.flow = { ...opts.flow };
     if (!src) {
       this.drop(dev, 'no-ip', pkt);
       return id;
@@ -2138,6 +2155,132 @@ export class Sim {
       scan.doneAt = this.t;
       this.emit({ t: this.t, type: 'scan-done', device: devId, scan });
     }
+  }
+
+  // --- ids (logs) ---
+  // Network sensors (IDS, IPS), the SIEM, and AI scores. Rules and state live
+  // in ids.ts; its header explains them.
+  // -------------------------------------------------------------------------
+
+  /** Devices with a sensor. receive() hands taps only when a lab has one. */
+  private idsSensors: string[] = [];
+
+  private sensorOf(devId: string) {
+    const s = this.dev(devId).ids?.sensor;
+    if (!s) throw new Error(`${devId} is not a sensor. Call sim.configureIds first.`);
+    return s;
+  }
+
+  private siemOf(devId: string) {
+    const q = this.dev(devId).ids?.siem;
+    if (!q) throw new Error(`${devId} is not a SIEM. Call sim.configureSiem first.`);
+    return q;
+  }
+
+  /** A tapped device received a frame: hand a copy to each sensor watching it. */
+  private idsTap(devId: string, ifaceId: string, frame: Frame): void {
+    const tap = this.devices[devId];
+    if (!tap) return;
+    for (const id of this.idsSensors) {
+      const s = this.devices[id]?.ids?.sensor;
+      if (s?.taps.some((t) => t.device === devId && (!t.iface || t.iface === ifaceId))) observe(this, id, tap, ifaceId, frame);
+    }
+  }
+
+  private idsChanged(devId: string, what: string, on: boolean, msg: string): void {
+    this.sensorOf(devId).fired = {};
+    this.log(devId, { source: 'ids', level: 'notice', msg, fields: { setting: what, state: on ? 'on' : 'off' } });
+    this.emit({ t: this.t, type: 'config', device: devId, what, on });
+  }
+
+  /** Make a device a network sensor, with every kind of detection off. See ids.ts. */
+  configureIds(devId: string, opts: SensorOptions): void {
+    (this.dev(devId).ids ??= {}).sensor = newSensor(opts);
+    if (!this.idsSensors.includes(devId)) this.idsSensors.push(devId);
+  }
+
+  /** Signature detection on or off. */
+  idsSetSignatures(devId: string, on: boolean): void {
+    const s = this.sensorOf(devId);
+    if (s.signatures === on) return;
+    s.signatures = on;
+    this.idsChanged(devId, 'ids-signatures', on, on ? `signature set enabled (${s.rules} rules)` : 'signature set disabled');
+  }
+
+  /** Anomaly detection on or off, and its tolerance. */
+  idsSetAnomaly(devId: string, on: boolean, tolerance?: Tolerance): void {
+    const s = this.sensorOf(devId);
+    const tol = tolerance ?? s.tolerance;
+    if (s.anomaly === on && s.tolerance === tol) return;
+    s.anomaly = on;
+    s.tolerance = tol;
+    this.idsChanged(devId, 'ids-anomaly', on, on ? `anomaly detection on (tolerance ${tol})` : `anomaly detection off (tolerance ${tol})`);
+  }
+
+  /** Prevention on (the sensor acts on its alerts: an IPS) or off (it only alerts: an IDS). */
+  idsSetPrevention(devId: string, on: boolean): void {
+    const s = this.sensorOf(devId);
+    if (s.prevention === on) return;
+    s.prevention = on;
+    this.idsChanged(devId, 'ids-prevention', on, on ? 'prevention mode on: acting on alerts (IPS)' : 'prevention mode off: alerts only (IDS)');
+  }
+
+  /** Store the anomaly baseline: what normal looks like. */
+  idsRecordBaseline(devId: string, baseline: Baseline): void {
+    const s = this.sensorOf(devId);
+    s.baseline = { ...baseline, hours: [...baseline.hours], peers: { ...baseline.peers }, typical: { ...baseline.typical }, recordedAt: this.t };
+    const pad = (h: number) => `${String(h).padStart(2, '0')}:00`;
+    this.idsChanged(
+      devId,
+      'ids-baseline',
+      true,
+      `baseline recorded: ${Object.keys(baseline.peers).length} hosts, office hours ${pad(baseline.hours[0])} to ${pad(baseline.hours[1])}`,
+    );
+  }
+
+  /** Make a device a SIEM that collects the logs of `sources`. See ids.ts. */
+  configureSiem(devId: string, opts: SiemOptions): void {
+    (this.dev(devId).ids ??= {}).siem = newSiem(opts);
+  }
+
+  /** Group the sources' lines into incidents. Returns the incidents it opened. */
+  siemCorrelate(devId: string): Incident[] {
+    this.siemOf(devId);
+    return correlate(this, devId);
+  }
+
+  /** An analyst's call on an incident: real attack or false alarm, escalate or close. */
+  siemTriage(devId: string, incident: number, verdict: Verdict, action: TriageAction): void {
+    const inc = this.siemOf(devId).incidents.find((i) => i.id === incident);
+    if (!inc) return;
+    inc.verdict = verdict;
+    inc.action = action;
+    inc.triagedAt = this.t;
+    const done = action === 'escalate' ? 'escalated' : 'closed';
+    this.log(devId, {
+      source: 'siem',
+      level: 'notice',
+      msg: `INCIDENT ${incident} ${done}: ${verdict === 'real' ? 'real attack' : 'false alarm'}`,
+      fields: { incident, verdict, action, triage: done },
+    });
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'siem-triage', detail: `${incident} ${verdict} ${action}` });
+  }
+
+  /** An AI model scores these events (0 to 1, how likely each is malicious). */
+  aiScore(devId: string, events: AiEvent[]): void {
+    const q = this.siemOf(devId);
+    q.ai = { events: events.map((e) => ({ ...e })), scoredAt: this.t };
+    this.log(devId, { source: 'ai', level: 'notice', msg: `AI model scored ${events.length} events`, fields: { count: events.length } });
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'ai-score' });
+  }
+
+  /** Set the AI alert threshold (0 to 1, in steps of 0.05). */
+  aiSetThreshold(devId: string, value: number): void {
+    const q = this.siemOf(devId);
+    const v = Math.round(Math.min(1, Math.max(0, value)) * 20) / 20;
+    if (q.threshold === v) return;
+    q.threshold = v;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'ai-threshold', detail: v.toFixed(2) });
   }
 }
 

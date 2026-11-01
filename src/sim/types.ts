@@ -5,6 +5,7 @@ import type { SwitchSec } from './switchsec';
 import type { WifiAp, WifiClient } from './wifi';
 import type { FirewallState, FwDir, FwVerdict } from './firewall';
 import type { Conn, Scan, Service } from './services';
+import type { FlowInfo, IdsEventBody, IdsState } from './ids';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -176,6 +177,8 @@ export interface Device {
   scans?: Scan[];
   /** Firewall rules and state, on a router or a 'firewall' device (see firewall.ts). */
   firewall?: FirewallState;
+  /** A network sensor (IDS/IPS) or a SIEM, or both (see src/sim/ids.ts and Sim.configureIds / configureSiem). */
+  ids?: IdsState;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +242,8 @@ export interface IpPacket {
   /** Carried inside TLS (HTTPS). Anyone in the middle sees only gibberish. */
   encrypted?: boolean;
   app: AppData;
+  /** What the packet stands for: bytes its connection moved, and when replayed traffic first happened (see src/sim/ids.ts). */
+  flow?: FlowInfo;
 }
 
 export interface ArpPayload {
@@ -361,7 +366,9 @@ export type SimEvent = (
   /** A port scan finished: every probe answered or timed out. */
   | { t: number; type: 'scan-done'; device: string; scan: Scan }
   /** A reply nobody asked for reached `device` (a forged reply, for example). The device ignores it. */
-  | { t: number; type: 'stray-reply'; device: string; pkt: IpPacket }) & {
+  | { t: number; type: 'stray-reply'; device: string; pkt: IpPacket }
+  /** A sensor raised an alert, or (prevention on) shut a switch port or blocked an address. `device` is the sensor. See src/sim/ids.ts. */
+  | ({ t: number; type: 'ids' } & IdsEventBody)) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */
   quiet?: boolean;
 };

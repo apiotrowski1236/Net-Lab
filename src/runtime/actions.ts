@@ -2,6 +2,7 @@ import type { Sim } from '../sim/sim';
 import type { LabDef } from '../labs/types';
 import type { PortSecurityConfig } from '../sim/switchsec';
 import type { FwMode, FwRuleInput } from '../sim/firewall';
+import type { Tolerance, TriageAction, Verdict } from '../sim/ids';
 
 /**
  * Every change a student makes to the network is one of these. They are
@@ -71,7 +72,15 @@ export type SimAction =
   | { type: 'fw-edit-rule'; device: string; id: string; rule: FwRuleInput }
   | { type: 'fw-delete-rule'; device: string; id: string }
   | { type: 'fw-move-rule'; device: string; id: string; to: number }
-  | { type: 'fw-mode'; device: string; mode: FwMode };
+  | { type: 'fw-mode'; device: string; mode: FwMode }
+  /** Detection on an IDS sensor (logs lab): the signature set, anomaly detection and its tolerance, prevention (IPS) mode. */
+  | { type: 'ids-signatures'; device: string; on: boolean }
+  | { type: 'ids-anomaly'; device: string; on: boolean; tolerance: Tolerance }
+  | { type: 'ids-prevention'; device: string; on: boolean }
+  /** An analyst's call on a SIEM incident. */
+  | { type: 'siem-triage'; device: string; incident: number; verdict: Verdict; action: TriageAction }
+  /** The AI model's alert threshold on a SIEM, 0 to 1. */
+  | { type: 'ai-threshold'; device: string; value: number };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -216,6 +225,21 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'fw-mode':
       sim.fwSetMode(a.device, a.mode);
+      return;
+    case 'ids-signatures':
+      sim.idsSetSignatures(a.device, a.on);
+      return;
+    case 'ids-anomaly':
+      sim.idsSetAnomaly(a.device, a.on, a.tolerance);
+      return;
+    case 'ids-prevention':
+      sim.idsSetPrevention(a.device, a.on);
+      return;
+    case 'siem-triage':
+      sim.siemTriage(a.device, a.incident, a.verdict, a.action);
+      return;
+    case 'ai-threshold':
+      sim.aiSetThreshold(a.device, a.value);
       return;
   }
 }

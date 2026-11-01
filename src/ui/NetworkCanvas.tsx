@@ -7,6 +7,7 @@ import { FORGED_COLOR, PROTO_COLOR, protoOf } from './describe';
 import { DeviceGlyph, Icon } from './icons';
 import { portName } from '../runtime/toolInput';
 import { connMarker, fwMarker } from './firewallText';
+import { idsMarker } from './idsText';
 
 /** Device currently hovered in the lesson text (device chips) — highlighted on the map. */
 export const hoverDevice = signal<string | null>(null);
@@ -163,6 +164,8 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
     case 'conn-result':
     case 'stray-reply':
       return connMarker(e);
+    case 'ids':
+      return idsMarker(e);
     case 'ping-reply':
       return { device: e.device, text: 'ping reply', tone: 'good' };
     case 'ping-fail':

@@ -12,6 +12,7 @@ import { Triangulate } from './Triangulate';
 import { FirewallPlaceTool } from './FirewallPlace';
 import { FirewallRulesTool } from './FirewallRules';
 import { PortScanTool } from './PortScan';
+import { AiThresholdCard, IdsCard, SiemCard } from './DetectionCards';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -41,4 +42,8 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   'port-scan': PortScanTool,
   'firewall-place': FirewallPlaceTool,
   'firewall-rules': FirewallRulesTool,
+  // logs
+  ids: IdsCard,
+  siem: SiemCard,
+  'ai-threshold': AiThresholdCard,
 };

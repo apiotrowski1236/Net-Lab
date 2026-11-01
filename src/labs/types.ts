@@ -130,7 +130,15 @@ export type ToolSpec =
    * Edit these firewalls' rules in the inspector (the card lists them). `modes`
    * are the firewall types the student may switch between; without it, no switching.
    */
-  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] };
+  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] }
+  /** Detection controls for the IDS sensor `device`, in the inspector (logs lab). `controls` reveals them one group at a time. */
+  | { kind: 'ids'; device: string; controls: IdsControl[] }
+  /** The SIEM `device`'s incident list and triage, in the inspector and the Logs tab. */
+  | { kind: 'siem'; device: string }
+  /** The AI model's alert threshold on the SIEM `device`, with live counts, in the inspector. */
+  | { kind: 'ai-threshold'; device: string };
+
+export type IdsControl = 'signatures' | 'anomaly' | 'prevention';
 
 /** What the firewall placement tool says about one choice of cable. */
 export interface PlacementFeedback {

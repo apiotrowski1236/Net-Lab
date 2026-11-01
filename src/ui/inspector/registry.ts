@@ -9,6 +9,8 @@ import { SwitchPorts } from './SwitchPorts';
 import { wifiSettingsSection } from './WifiSettings';
 import { FirewallRulesSection } from './FirewallRules';
 import { ServicesSection } from './Services';
+import { Detection } from './Detection';
+import { SiemConsole } from './SiemConsole';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -44,4 +46,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   // firewall
   { id: 'services', slot: 'settings', Section: ServicesSection },
   { id: 'firewall-rules', slot: 'settings', Section: FirewallRulesSection },
+  // logs
+  { id: 'ids-detection', slot: 'settings', Section: Detection },
+  { id: 'siem-console', slot: 'settings', Section: SiemConsole },
 ];

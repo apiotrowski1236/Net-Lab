@@ -4,6 +4,7 @@ import { goalKey, type ChoiceQuestion, type QuestionDef, type StepDef, type Text
 import type { SimEvent } from '../sim/types';
 import { pingFailText } from './describe';
 import { connOutcomeLines, fwDenyText } from './firewallText';
+import { idsOutcomeLines } from './idsText';
 import { Icon } from './icons';
 import { renderMarkdown } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
@@ -237,6 +238,7 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
     else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost?.reason === 'firewall' ? ` ${dropText(sim, lost)}` : ''}` });
   }
   lines.push(...connOutcomeLines(sim, run.t));
+  lines.push(...idsOutcomeLines(sim, run.t));
   if (!lines.length) return null;
   const label = step.actions?.find((a) => a.id === run.action)?.label;
   return (

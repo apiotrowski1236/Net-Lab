@@ -349,10 +349,13 @@ export function logLine(pkt: IpPacket, dir: FwDir, v: FwVerdict): Omit<LogEntry,
   if (pkt.dstPort !== undefined) fields.dport = pkt.dstPort;
   if (v.app) fields.app = v.app;
   if (v.expected) fields.expected = v.expected;
+  // How much the connection moved, when the packet says (IpPacket.flow, see ids.ts).
+  const bytes = pkt.flow?.bytes;
+  if (bytes) fields.bytes = bytes;
   return {
     source: 'firewall',
     level,
-    msg: `${v.action.toUpperCase()} ${dir} ${proto} ${endpoint(pkt.src, pkt.srcPort)} -> ${endpoint(pkt.dst, pkt.dstPort)}${what} ${why}`,
+    msg: `${v.action.toUpperCase()} ${dir} ${proto} ${endpoint(pkt.src, pkt.srcPort)} -> ${endpoint(pkt.dst, pkt.dstPort)}${what} ${why}${bytes ? ` bytes=${bytes}` : ''}`,
     fields,
   };
 }
