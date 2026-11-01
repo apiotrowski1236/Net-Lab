@@ -1,4 +1,5 @@
 import type { Ip, Mac } from './addr';
+import type { WifiAp, WifiClient } from './wifi';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -61,6 +62,11 @@ export interface WebSite {
   fake?: boolean;
   /** Text of the page a plain visit (GET) shows. Defaults to a sign-in prompt. */
   page?: string;
+  /**
+   * Text of the page shown after a successful sign-in (POST). `{user}` is
+   * replaced with the submitted username. Defaults to a generic account page.
+   */
+  account?: string;
 }
 
 export interface BrowserState {
@@ -148,6 +154,10 @@ export interface Device {
   notes?: string[];
   /** What this device wrote to its log (newest last). Shown in the Logs tab. See Sim.log. */
   logs: LogEntry[];
+  /** Wi-Fi access point settings, when this device is an access point (see src/sim/wifi.ts). */
+  wifi?: WifiAp;
+  /** Wi-Fi client settings, when this device joins wireless networks (see src/sim/wifi.ts). */
+  wifiClient?: WifiClient;
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +300,21 @@ export type SimEvent = (
   /** A ping from `device` got no reply: dropped at `at` (with the reason), or timed out. */
   | { t: number; type: 'ping-fail'; device: string; to: Ip; seq: number; reason: DropReason | 'timeout'; at?: string; ip?: Ip }
   | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string }
+  /**
+   * A Wi-Fi event: a device joined or left an access point, a join was
+   * rejected, or the attacker scanned, cracked, or jammed. See src/sim/wifi.ts.
+   */
+  | {
+      t: number;
+      type: 'wifi';
+      device: string;
+      what: 'join' | 'leave' | 'rejected' | 'scan' | 'crack' | 'jam' | 'ssid-seen';
+      ssid?: string;
+      bssid?: Mac;
+      client?: string;
+      ok?: boolean;
+      detail?: string;
+    }
   /** A device wrote a log line (see Sim.log). */
   | { t: number; type: 'log'; device: string; entry: LogEntry }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */

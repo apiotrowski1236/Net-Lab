@@ -1110,7 +1110,9 @@ function PingTool({ session }: { session: LabSession }) {
 }
 
 function SettingsCard({ session, kinds, onSelect }: { session: LabSession; kinds: Set<string>; onSelect: (id: string) => void }) {
-  const devices = Object.values(session.sim.devices).filter((d) => d.kind === 'host' || d.kind === 'router');
+  const devices = Object.values(session.sim.devices).filter(
+    (d) => d.kind === 'host' || d.kind === 'router' || (kinds.has('wifi-config') && !!d.wifi),
+  );
   return (
     <div class="tool-card">
       <div class="tool-title">
@@ -1131,6 +1133,11 @@ function SettingsCard({ session, kinds, onSelect }: { session: LabSession; kinds
         {kinds.has('static-route') && (
           <li>
             <strong>Static routes</strong> under a router's routing table
+          </li>
+        )}
+        {kinds.has('wifi-config') && (
+          <li>
+            <strong>Wi-Fi settings</strong> on the access point
           </li>
         )}
       </ul>

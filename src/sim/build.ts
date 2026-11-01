@@ -1,6 +1,7 @@
 import type { Ip, Mac } from './addr';
 import { hashMac, Sim, type SimOptions } from './sim';
 import type { Device, DeviceIcon, DeviceKind, Iface, WebSite } from './types';
+import type { WifiAp, WifiClient } from './wifi';
 
 /**
  * Friendly builder for lab scenarios.
@@ -32,6 +33,8 @@ export interface HostOpts extends Placed {
   attacker?: boolean;
   web?: WebSite;
   dnsZone?: Record<string, Ip>;
+  /** Makes this computer a Wi-Fi client (wireless lab): it joins a network by name. */
+  wifiClient?: WifiClient;
 }
 
 export interface RouterOpts extends Placed {
@@ -48,6 +51,8 @@ export interface RouterOpts extends Placed {
 export interface L2Opts extends Placed {
   /** Make this many empty ports up front (p1, p2, ...). Without it, ports appear as cables are linked. */
   ports?: number;
+  /** Makes this an access point (wireless lab). Open Wi-Fi is a hub; encrypted is a switch. */
+  wifi?: WifiAp;
 }
 
 type End = string | [device: string, iface: string];
@@ -101,6 +106,7 @@ export class NetBuilder {
     d.attacker = o.attacker;
     d.web = o.web;
     d.dnsZone = o.dnsZone;
+    d.wifiClient = o.wifiClient;
     if (o.gateway) (this.staticRoutes[id] ??= []).push({ prefix: '0.0.0.0/0', via: o.gateway, iface: 'eth0' });
     this.sim.devices[id] = d;
     return this;
@@ -124,12 +130,16 @@ export class NetBuilder {
   }
 
   switch(id: string, o: L2Opts): this {
-    this.sim.devices[id] = this.ports(blank(id, 'switch', o, 'switch'), o.ports);
+    const d = this.ports(blank(id, 'switch', o, 'switch'), o.ports);
+    d.wifi = o.wifi;
+    this.sim.devices[id] = d;
     return this;
   }
 
   hub(id: string, o: L2Opts): this {
-    this.sim.devices[id] = this.ports(blank(id, 'hub', o, 'hub'), o.ports);
+    const d = this.ports(blank(id, 'hub', o, 'hub'), o.ports);
+    d.wifi = o.wifi;
+    this.sim.devices[id] = d;
     return this;
   }
 

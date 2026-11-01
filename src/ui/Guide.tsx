@@ -17,6 +17,10 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   gateway: 'Default gateway (in the inspector)',
   'static-route': 'Static routes (in the inspector)',
   logs: 'Logs (its own tab)',
+  'wifi-config': 'Wi-Fi settings (in the inspector)',
+  'wifi-scan': 'Wi-Fi scanner',
+  'wifi-crack': 'Wi-Fi cracker',
+  triangulate: 'Signal triangulation',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {

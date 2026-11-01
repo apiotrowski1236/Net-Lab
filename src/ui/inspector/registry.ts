@@ -28,4 +28,6 @@ export interface InspectorSection {
  * security, Wi-Fi settings, ...). Write each in src/ui/inspector/<Name>.tsx
  * with an <section><h4>...</h4>...</section> like the built-in ones, and list it here.
  */
-export const INSPECTOR_SECTIONS: InspectorSection[] = [];
+import { wifiSettingsSection } from './WifiSettings';
+
+export const INSPECTOR_SECTIONS: InspectorSection[] = [wifiSettingsSection];

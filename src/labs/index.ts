@@ -1,10 +1,11 @@
 import { buildNetworkLab } from './build-network';
 import { onPathLab } from './on-path';
 import { routeHijackLab } from './route-hijack';
+import { wirelessLab } from './wireless';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab, wirelessLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the
@@ -42,14 +43,6 @@ export const STUBS: LabStub[] = [
     tagline: 'Scan a small office for weaknesses, rate each risk, and write the policies that fix them.',
     unit: 3,
     codehs: [],
-    comingSoon: true,
-  },
-  {
-    id: 'wireless',
-    title: 'Signals Past the Walls',
-    tagline: "Secure an emergency shelter's Wi-Fi against snoopers in the parking lot, evil twins, and jammers.",
-    unit: 3,
-    codehs: ['3.7 Locking Down the Airwaves'],
     comingSoon: true,
   },
   {
