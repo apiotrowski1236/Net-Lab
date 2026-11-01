@@ -1295,6 +1295,23 @@ h4 {
   stroke-width: 4px;
   stroke-linejoin: round;
 }
+.device-sublabel.faint {
+  fill: var(--faint);
+  font-style: italic;
+}
+.port-tag {
+  pointer-events: none;
+}
+.port-tag rect {
+  fill: var(--map-bg);
+  stroke: var(--map-link);
+  stroke-width: 1.5;
+}
+.port-tag text {
+  font-size: 11px;
+  font-weight: 650;
+  fill: var(--ink-2);
+}
 .badge {
   stroke: var(--map-bg);
   stroke-width: 2;

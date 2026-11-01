@@ -1,5 +1,5 @@
 import type { SimAction } from '../runtime/actions';
-import { checkPrefix, checkSpoofClaim, checkStaticArp } from '../runtime/toolInput';
+import { checkAddress, checkCable, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, type Checked } from '../runtime/toolInput';
 import type { LabSession } from '../runtime/session';
 import type { Frame } from '../sim/types';
 import { isEncrypted, isPlainLogin } from './helpers';
@@ -49,14 +49,38 @@ export function playMove(s: LabSession, m: Move): void {
 
 /** The answer key's tool inputs must pass the same checks a student's typing does. */
 function assertTypable(s: LabSession, a: SimAction): void {
-  const r =
-    a.type === 'arp-spoof'
-      ? checkSpoofClaim(s.sim, a.device, a.victim, a.claimIp)
-      : a.type === 'static-arp'
-        ? checkStaticArp(s.sim, a.device, a.ip, a.mac)
-        : a.type === 'announce'
-          ? checkPrefix(s.sim, a.device, a.prefix)
-          : { ok: true as const };
+  const sim = s.sim;
+  let r: Checked<object>;
+  switch (a.type) {
+    case 'arp-spoof':
+      r = checkSpoofClaim(sim, a.device, a.victim, a.claimIp);
+      break;
+    case 'static-arp':
+      r = checkStaticArp(sim, a.device, a.ip, a.mac);
+      break;
+    case 'announce':
+      r = checkPrefix(sim, a.device, a.prefix);
+      break;
+    case 'cable':
+      r = checkCable(sim, a.a, a.aPort, a.b, a.bPort);
+      break;
+    case 'set-ip': {
+      const fixed = s.tools.flatMap((t) => (t.kind === 'ip-config' ? (t.fixed ?? []) : []));
+      r = checkAddress(sim, a.device, a.iface, a.cidr ?? '', fixed);
+      break;
+    }
+    case 'gateway':
+      r = checkGateway(sim, a.device, a.ip ?? '');
+      break;
+    case 'add-route':
+      r = checkRoute(sim, a.device, a.prefix, a.via);
+      break;
+    case 'ping':
+      r = checkPing(sim, a.device, a.ip);
+      break;
+    default:
+      r = { ok: true };
+  }
   if (!r.ok) throw new Error(`Tool input rejected for ${JSON.stringify(a)}: ${r.msg}`);
 }
 

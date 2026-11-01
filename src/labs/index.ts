@@ -1,9 +1,10 @@
+import { buildNetworkLab } from './build-network';
 import { onPathLab } from './on-path';
 import { routeHijackLab } from './route-hijack';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [onPathLab, routeHijackLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab];
 
 /** Planned labs, shown on the home page as "coming soon". */
 export const STUBS: LabStub[] = [

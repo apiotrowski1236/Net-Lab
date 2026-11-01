@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
+import { hasEndpoint } from '../store/outbox';
 import { profile } from '../store/profile';
 import { buildReport } from '../store/report';
 import { Icon } from './icons';
@@ -64,9 +65,10 @@ export function Summary({ session }: { session: LabSession }) {
   const doneItems = goalsDone + auto.filter((q) => q.correct).length + writtenDone;
   const pct = totalItems ? Math.round((doneItems / totalItems) * 100) : 100;
 
-  const title = p.submittedAt ? 'Submitted. Nice work!' : allDone ? 'Lab complete!' : 'Almost there';
+  const endpoint = hasEndpoint();
+  const title = p.submittedAt ? (endpoint ? 'Submitted. Nice work!' : 'Nice work! Now hand in your report.') : allDone ? 'Lab complete!' : 'Almost there';
   const message = allDone
-    ? `You finished all ${steps.length} steps of ${lab.title}. Submit your work, or download a copy.`
+    ? `You finished every step of ${lab.title}. ${p.submittedAt && !endpoint ? 'Upload the report file you downloaded, the way your teacher asked.' : endpoint ? 'Submit it to your teacher below.' : 'Submit it below to download your report.'}`
     : `${unfinished.length} step${unfinished.length > 1 ? 's' : ''} still ${unfinished.length > 1 ? 'have' : 'has'} unfinished work. Go back and finish, or submit what you have.`;
 
   let qn = 0;

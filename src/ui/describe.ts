@@ -1,5 +1,5 @@
 import type { Sim } from '../sim/sim';
-import type { Frame } from '../sim/types';
+import type { Frame, SimEvent } from '../sim/types';
 
 export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE';
 
@@ -230,4 +230,40 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
 
 export function fmtTime(ms: number): string {
   return (ms / 1000).toFixed(2) + 's';
+}
+
+/** Why a ping failed, in one sentence, for the ping tool. */
+export function pingFailText(sim: Sim, e: Extract<SimEvent, { type: 'ping-fail' }>): string {
+  const at = e.at ? sim.devices[e.at]?.label ?? e.at : '';
+  switch (e.reason) {
+    case 'timeout':
+      return 'No reply. Nothing came back before the ping gave up.';
+    case 'no-ip':
+      return `${at} has no IP address, so it can't send a ping.`;
+    case 'no-link':
+      return `${at} has no cable on the port the ping needed.`;
+    case 'no-gateway':
+      return `${at} has no default gateway, and ${e.ip} is not on its own network.`;
+    case 'gateway-off-net': {
+      const me = e.at ? sim.devices[e.at]?.ifaces.find((i) => i.ip && i.prefix !== undefined) : undefined;
+      return `${at}'s IP address${me ? ` (${me.ip}/${me.prefix})` : ''} and its default gateway (${e.ip}) aren't on the same network.`;
+    }
+    case 'no-route':
+      return `${at} has no route to ${e.ip}, so it dropped the packet.`;
+    case 'arp-timeout': {
+      // The address is set, but on a port with no cable: the commonest reason nobody answers while building a network.
+      for (const d of Object.values(sim.devices)) {
+        const i = d.ifaces.find((x) => x.ip === e.ip);
+        if (i && !i.linkId) {
+          const port = d.ifaces.length > 1 ? ` on ${i.id.replace(/^p(\d+)$/, 'port $1')}` : '';
+          return `${at} asked "Who has ${e.ip}?" and nobody answered. ${d.label} has that address${port}, but that port has no cable.`;
+        }
+      }
+      return `${at} asked "Who has ${e.ip}?" and nobody answered.`;
+    }
+    case 'ttl':
+      return `The packet went around in a loop until its TTL ran out at ${at}.`;
+    default:
+      return `Dropped at ${at}.`;
+  }
 }

@@ -762,3 +762,376 @@
     font-weight: 700;
   }
 }
+
+/* ---------- building a network: inspector editing, cables, ping ---------- */
+
+.sentence input.invalid,
+.inline-edit input.invalid {
+  border-color: var(--bad);
+  box-shadow: 0 0 0 1px var(--bad);
+}
+.inline-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.inline-edit input {
+  width: calc(18ch + 16px);
+  padding: 3px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--input-bg);
+  font-size: 13px;
+}
+.table tr.msg-row td {
+  padding-top: 0;
+}
+.table tr.msg-row .tool-msg {
+  margin: 0;
+}
+.table td.row-action {
+  text-align: right;
+  white-space: nowrap;
+}
+.route-form {
+  margin-top: 10px;
+}
+.ping-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+.ping-log li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 4px 0;
+  border-top: 1px solid var(--line-2);
+  line-height: 1.4;
+}
+.ping-log li:first-child {
+  border-top: 0;
+}
+.ping-log li .icon {
+  flex: none;
+  margin-top: 2px;
+}
+.ping-log li.good .icon {
+  color: var(--good);
+}
+.ping-log li.bad .icon {
+  color: var(--bad);
+}
+.ping-log li.wait {
+  color: var(--muted);
+}
+.settings-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+.device-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- Cables on the map: drag to plug in, click to unplug ---------- */
+.net-canvas.cabling .device {
+  cursor: grab;
+  touch-action: none;
+}
+.net-canvas.dragging,
+.net-canvas.dragging .device {
+  cursor: grabbing;
+}
+.net-canvas .link-hit {
+  stroke: transparent;
+  stroke-width: 18;
+  stroke-linecap: round;
+  cursor: pointer;
+}
+.net-canvas.dragging .link-hit {
+  pointer-events: none;
+}
+.net-canvas .link-group:hover .link,
+.net-canvas .link-group.picked .link {
+  stroke: var(--focus);
+  stroke-width: 4;
+}
+.cable-draft line {
+  stroke: var(--brand-line);
+  stroke-width: 3;
+  stroke-dasharray: 7 6;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.cable-draft circle {
+  fill: var(--brand-line);
+  pointer-events: none;
+}
+.cable-draft.ok line {
+  stroke: var(--good);
+  stroke-dasharray: none;
+}
+.cable-draft.bad line {
+  stroke: var(--bad);
+}
+.device.cable-source .device-card {
+  stroke: var(--focus);
+  stroke-width: 3;
+}
+.device.cable-ok .device-card {
+  stroke: var(--good-line);
+  stroke-width: 2.5;
+}
+.device.cable-no {
+  opacity: 0.45;
+}
+.device.cable-target.cable-ok .device-card {
+  stroke: var(--good);
+  stroke-width: 3.5;
+}
+.device.cable-target.cable-no {
+  opacity: 1;
+}
+.device.cable-target.cable-no .device-card {
+  stroke: var(--bad);
+  stroke-width: 3;
+}
+.cable-tip {
+  position: absolute;
+  z-index: 4;
+  max-width: 240px;
+  padding: 5px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-3);
+  box-shadow: var(--shadow-lg);
+  font: 12.5px/1.35 var(--font);
+  color: var(--ink);
+  pointer-events: none;
+}
+.cable-tip.ok {
+  border-color: var(--good-line);
+  color: var(--good-ink);
+}
+.cable-tip.bad {
+  border-color: var(--bad-line);
+  color: var(--bad-ink);
+}
+.cable-pop {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-3);
+  box-shadow: var(--shadow-lg);
+  font: 13px/1.35 var(--font);
+  color: var(--ink);
+  white-space: nowrap;
+  transform: translate(-50%, -130%);
+}
+.cable-pop .muted {
+  color: var(--muted);
+}
+.map-notice,
+.map-hint {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 40px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font: 13px/1.35 var(--font);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.map-hint {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  color: var(--muted);
+}
+.map-notice {
+  border: 1px solid var(--bad-line);
+  background: var(--bad-soft);
+  color: var(--bad-ink);
+}
+
+/* A browser page that finished a while ago shrinks to one line beside its computer. */
+.browser-chip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-3);
+  box-shadow: var(--shadow-lg);
+  font: 600 11.5px/1.5 var(--font);
+  color: var(--good-ink);
+  cursor: pointer;
+}
+.dock-tabs .new-tools {
+  background: var(--brand);
+  color: #fff;
+}
+.browser-chip.flip {
+  justify-content: flex-end;
+}
+.browser-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-chip.failed,
+.browser-chip.warning {
+  color: var(--bad-ink);
+  border-color: var(--bad-line);
+}
+.browser-chip:hover {
+  border-color: var(--brand-line);
+}
+.bb-who {
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+  min-height: 21px;
+}
+.bb-close {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.bb-close:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+/* What the step's last button did, right under the buttons. */
+.action-outcome {
+  list-style: none;
+  margin: -6px 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 13.5px;
+}
+.action-outcome li {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+.action-outcome li + li {
+  margin-top: 4px;
+}
+.action-outcome .icon {
+  flex: none;
+  margin-top: 3px;
+}
+.action-outcome li.good .icon {
+  color: var(--good);
+}
+.action-outcome li.bad {
+  color: var(--bad-ink);
+}
+.action-outcome li.bad .icon {
+  color: var(--bad);
+}
+.action-outcome li.wait {
+  color: var(--muted);
+}
+
+/* A question about the step's results waits until its goals are done. */
+.qcard.locked {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13.5px;
+  border-style: dashed;
+}
+
+/* Inspector tables are short. A pinned header would slide over the tables below it. */
+.inspector .table th {
+  position: static;
+}
+.action-outcome li.outcome-head {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* The dock is short on a laptop screen: a cue when there's more to scroll to. */
+.dock {
+  position: relative;
+}
+.more-below {
+  position: absolute;
+  right: 16px;
+  bottom: 8px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-3);
+  box-shadow: var(--shadow-lg);
+  font: 600 12px/1.5 var(--font);
+  color: var(--ink);
+  cursor: pointer;
+}
+.more-below:hover {
+  border-color: var(--brand-line);
+}
+
+/* Not ready to continue: the button still answers a click by showing what's left. */
+.btn.primary.todo {
+  background: var(--line-2);
+  border-color: var(--line);
+  color: var(--muted);
+}
+.btn.primary.todo:hover:not(:disabled) {
+  background: var(--line-2);
+  border-color: var(--line-strong);
+}
+.qmeta .warn {
+  color: var(--warn-ink);
+}
+.goal.nudge,
+.qcard.nudge {
+  animation: nudge 1.2s ease-out;
+}
+@keyframes nudge {
+  0%,
+  40% {
+    box-shadow: 0 0 0 3px var(--brand-line);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}

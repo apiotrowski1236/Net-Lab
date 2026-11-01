@@ -11,6 +11,11 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'bgp-announce': 'Route announcer',
   'bgp-validate': 'Route origin validation',
   'static-arp': 'Lock ARP entries',
+  cable: 'Cables',
+  ping: 'Ping',
+  'ip-config': 'IP addresses (in the inspector)',
+  gateway: 'Default gateway (in the inspector)',
+  'static-route': 'Static routes (in the inspector)',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {

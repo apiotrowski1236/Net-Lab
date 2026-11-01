@@ -59,6 +59,8 @@ export interface WebSite {
   https: boolean;
   /** An impostor. Looks the same, but cannot prove its identity over HTTPS. */
   fake?: boolean;
+  /** Text of the page a plain visit (GET) shows. Defaults to a sign-in prompt. */
+  page?: string;
 }
 
 export interface BrowserState {
@@ -69,6 +71,8 @@ export interface BrowserState {
   path: string;
   postBody?: string;
   startedAt: number;
+  /** When the page loaded or failed. */
+  doneAt?: number;
   reqId: number;
   title?: string;
   body?: string;
@@ -223,9 +227,23 @@ export interface InFlight {
 // Events: everything interesting the simulator does. Lab goals listen to these.
 // ---------------------------------------------------------------------------
 
-export type DropReason = 'no-route' | 'ttl' | 'blackhole' | 'arp-timeout' | 'not-forwarding' | 'no-service';
+export type DropReason =
+  | 'no-route'
+  | 'ttl'
+  | 'blackhole'
+  | 'arp-timeout'
+  | 'not-forwarding'
+  | 'no-service'
+  /** The device has no IP address, so it can't send IP packets at all. */
+  | 'no-ip'
+  /** The port the packet needs has no cable. */
+  | 'no-link'
+  /** A computer has no route for the destination: it isn't local and there's no default gateway. */
+  | 'no-gateway'
+  /** A computer's default gateway isn't on any network it is part of. */
+  | 'gateway-off-net';
 
-export type SimEvent =
+export type SimEvent = (
   | { t: number; type: 'captured'; device: string; no: number; frame: Frame }
   | { t: number; type: 'ignored'; device: string; frame: Frame }
   | { t: number; type: 'arp-update'; device: string; ip: Ip; mac: Mac; prev?: Mac; forged?: boolean }
@@ -233,13 +251,19 @@ export type SimEvent =
   | { t: number; type: 'mac-learn'; device: string; mac: Mac; iface: string }
   | { t: number; type: 'route-change'; device: string; prefix: string; route?: Route }
   | { t: number; type: 'route-rejected'; device: string; prefix: string; from: string; reason: string }
-  | { t: number; type: 'drop'; device: string; reason: DropReason; pkt?: IpPacket; frame?: Frame }
+  | { t: number; type: 'drop'; device: string; reason: DropReason; pkt?: IpPacket; frame?: Frame; nextHop?: Ip }
   | { t: number; type: 'forwarded'; device: string; frame: Frame }
   | { t: number; type: 'http-request'; device: string; frame: Frame; fake: boolean }
   | { t: number; type: 'credentials-stolen'; device: string; user: string; pass: string }
   | { t: number; type: 'page'; device: string; browser: BrowserState }
   | { t: number; type: 'dns-answer'; device: string; name: string; ip: Ip | null }
-  | { t: number; type: 'ping-reply'; device: string; from: Ip }
-  | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string };
+  | { t: number; type: 'ping-reply'; device: string; from: Ip; seq?: number }
+  | { t: number; type: 'ping-sent'; device: string; to: Ip; seq: number }
+  /** A ping from `device` got no reply: dropped at `at` (with the reason), or timed out. */
+  | { t: number; type: 'ping-fail'; device: string; to: Ip; seq: number; reason: DropReason | 'timeout'; at?: string; ip?: Ip }
+  | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string }) & {
+  /** Happened while a lesson setup arranged the network (see Sim.quiet). */
+  quiet?: boolean;
+};
 
 export type SimEventType = SimEvent['type'];

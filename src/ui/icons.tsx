@@ -216,6 +216,12 @@ export function Icon({ name, size = 16 }: { name: string; size?: number }) {
         <path d="M8 6 H5 A2 2 0 0 0 8 10 M16 6 H19 A2 2 0 0 1 16 10 M12 13 V17 M8 20 H16 M9 20 L10 17 H14 L15 20" />
       </g>
     ),
+    /** A network cable's plug. */
+    cable: <path d="M9 3 V7 M15 3 V7 M6 7 H18 V11 A6 6 0 0 1 12 17 A6 6 0 0 1 6 11 Z M12 17 V22" {...p} />,
+    /** Ping: a pulse going out and coming back. */
+    ping: <path d="M2 12 H7 L9.5 6 L14.5 18 L17 12 H22" {...p} />,
+    /** Device settings. */
+    sliders: <path d="M4 6 H13 M17 6 H20 M15 4 V8 M4 12 H6 M10 12 H20 M8 10 V14 M4 18 H12 M16 18 H20 M14 16 V20" {...p} />,
     info: (
       <g {...p}>
         <circle cx={12} cy={12} r={9} />

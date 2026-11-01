@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { prefixContains, prefixCovers, normalizePrefix } from './addr';
 import { buildCafe, enableWpa2, IP, LOGIN_BODY, MAC } from '../labs/on-path/scenario';
 import { buildInternet, BANK_IP, BANK_PREFIX, FAKE_BANK, LOGIN_BODY as BANK_LOGIN, MORE_SPECIFIC, replayAnnouncements } from '../labs/route-hijack/scenario';
+import { ADDR, buildParts, returnRoute, routerLink, SITE_URL, WEB_IP } from '../labs/build-network/scenario';
 import type { SimEvent } from './types';
 
 const loginCaptured = (events: SimEvent[], device: string) =>
@@ -204,5 +205,57 @@ describe('internet routing (route hijack lab)', () => {
     sim.withdraw('shady', BANK_PREFIX);
     sim.runUntilIdle();
     expect(pathAt(sim, 'home')).toEqual([200, 300, 400]);
+  });
+});
+
+describe('building a network (build-network lab)', () => {
+  it('starts with nothing plugged in and no addresses', () => {
+    const sim = buildParts();
+    expect(Object.keys(sim.links)).toHaveLength(0);
+    expect(Object.values(sim.devices).every((d) => d.ifaces.every((i) => !i.ip))).toBe(true);
+    expect(sim.dev('sw').ifaces.map((i) => i.id)).toEqual(['p1', 'p2', 'p3', 'p4']);
+  });
+
+  it('the finished network loads the page, and the server sees the request from Alice', () => {
+    const sim = buildParts();
+    returnRoute(sim);
+    sim.browse('alice', SITE_URL);
+    sim.runUntilIdle();
+    expect(sim.dev('alice').browser).toMatchObject({ status: 'loaded', from: WEB_IP, title: 'Company website' });
+    const req = sim.events.find((e) => e.type === 'http-request' && e.device === 'web');
+    expect(req?.type === 'http-request' && req.frame.ip?.src).toBe(ADDR.alice);
+  });
+
+  it('a router pings from the port that faces the target', () => {
+    const sim = buildParts();
+    routerLink(sim);
+    sim.setSniffing('dc', true);
+    sim.ping('office', ADDR.dcLink);
+    sim.runUntilIdle();
+    const req = sim.dev('dc').capture.find((c) => c.frame.ip?.app.kind === 'ping' && !c.frame.ip.app.reply);
+    expect(req?.frame.ip?.src).toBe(ADDR.officeLink);
+    expect(sim.events.some((e) => e.type === 'ping-reply' && e.device === 'office' && e.from === ADDR.dcLink)).toBe(true);
+  });
+
+  it('unplugging a cable loses the frames on it', () => {
+    const sim = buildParts();
+    returnRoute(sim);
+    sim.prewarmArp(['alice', 'ben']);
+    sim.ping('alice', ADDR.ben);
+    sim.advance(100); // the ping is on the cable to the switch
+    sim.disconnect('alice', 'eth0');
+    sim.runUntilIdle();
+    expect(sim.events.some((e) => e.type === 'ping-reply')).toBe(false);
+    expect(sim.events.at(-1)).toMatchObject({ type: 'ping-fail', reason: 'timeout' });
+  });
+
+  it('a static route whose next hop is not a neighbor drops the packet', () => {
+    const sim = buildParts();
+    returnRoute(sim);
+    sim.addRoute('office', '203.0.113.0/24', '203.0.113.1');
+    sim.browse('alice', SITE_URL);
+    sim.runUntilIdle();
+    expect(sim.events.some((e) => e.type === 'drop' && e.device === 'office' && e.reason === 'no-route')).toBe(true);
+    expect(sim.dev('alice').browser?.status).toBe('failed');
   });
 });

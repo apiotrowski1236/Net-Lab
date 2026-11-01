@@ -1,5 +1,5 @@
 import type { Ip, Mac } from './addr';
-import { Sim, type SimOptions } from './sim';
+import { hashMac, Sim, type SimOptions } from './sim';
 import type { Device, DeviceIcon, DeviceKind, Iface, WebSite } from './types';
 
 /**
@@ -24,8 +24,8 @@ interface Placed {
 }
 
 export interface HostOpts extends Placed {
-  /** CIDR, e.g. "192.168.1.10/24" */
-  ip: string;
+  /** CIDR, e.g. "192.168.1.10/24". Leave out for a computer that hasn't been set up yet. */
+  ip?: string;
   gateway?: Ip;
   dns?: Ip;
   mac?: Mac;
@@ -35,7 +35,8 @@ export interface HostOpts extends Placed {
 }
 
 export interface RouterOpts extends Placed {
-  ifaces: { id: string; ip: string; mac?: Mac }[];
+  /** Leave out a port's ip for a port that hasn't been set up yet. */
+  ifaces: { id: string; ip?: string; mac?: Mac }[];
   routes?: { prefix: string; via?: Ip; iface: string }[];
   /** BGP: AS number. Routers with an ASN peer with every directly linked router that also has one. */
   asn?: number;
@@ -44,16 +45,15 @@ export interface RouterOpts extends Placed {
   impersonate?: WebSite;
 }
 
-type End = string | [device: string, iface: string];
-
-function hashMac(id: string): Mac {
-  let h = 2166136261;
-  for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-  const bytes = [0x02, (h >>> 24) & 255, (h >>> 16) & 255, (h >>> 8) & 255, h & 255, (h * 31) & 255];
-  return bytes.map((b) => b.toString(16).padStart(2, '0')).join(':');
+export interface L2Opts extends Placed {
+  /** Make this many empty ports up front (p1, p2, ...). Without it, ports appear as cables are linked. */
+  ports?: number;
 }
 
-function cidr(s: string): { ip: Ip; prefix: number } {
+type End = string | [device: string, iface: string];
+
+function cidr(s: string | undefined): { ip?: Ip; prefix?: number } {
+  if (!s) return {};
   const [ip, p] = s.split('/');
   return { ip, prefix: p === undefined ? 24 : Number(p) };
 }
@@ -122,14 +122,19 @@ export class NetBuilder {
     return this;
   }
 
-  switch(id: string, o: Placed): this {
-    this.sim.devices[id] = blank(id, 'switch', o, 'switch');
+  switch(id: string, o: L2Opts): this {
+    this.sim.devices[id] = this.ports(blank(id, 'switch', o, 'switch'), o.ports);
     return this;
   }
 
-  hub(id: string, o: Placed): this {
-    this.sim.devices[id] = blank(id, 'hub', o, 'hub');
+  hub(id: string, o: L2Opts): this {
+    this.sim.devices[id] = this.ports(blank(id, 'hub', o, 'hub'), o.ports);
     return this;
+  }
+
+  private ports(dev: Device, n = 0): Device {
+    for (let i = 1; i <= n; i++) dev.ifaces.push({ id: `p${i}`, mac: hashMac(`${dev.id}/p${i}`) });
+    return dev;
   }
 
   link(a: End, b: End, opts: { wireless?: boolean } = {}): this {
@@ -146,8 +151,11 @@ export class NetBuilder {
     let iface: Iface | undefined;
     if (ifaceId) iface = dev.ifaces.find((i) => i.id === ifaceId);
     else if (dev.kind === 'hub' || dev.kind === 'switch') {
-      iface = { id: `p${dev.ifaces.length + 1}`, mac: hashMac(`${devId}/p${dev.ifaces.length + 1}`) };
-      dev.ifaces.push(iface);
+      iface = dev.ifaces.find((i) => !i.linkId);
+      if (!iface) {
+        iface = { id: `p${dev.ifaces.length + 1}`, mac: hashMac(`${devId}/p${dev.ifaces.length + 1}`) };
+        dev.ifaces.push(iface);
+      }
     } else iface = dev.ifaces.find((i) => !i.linkId);
     if (!iface) throw new Error(`No free interface on ${devId}${ifaceId ? `/${ifaceId}` : ''}`);
     if (iface.linkId) throw new Error(`${devId}/${iface.id} is already linked`);

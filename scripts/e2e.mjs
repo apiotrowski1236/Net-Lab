@@ -288,9 +288,9 @@ try {
     await page.waitForSelector('.summary-hero');
     await page.waitForTimeout(1100); // let the entrance animation finish
     await shot('summary');
-    await page.getByRole('button', { name: 'Mark as submitted' }).click();
-    await page.waitForSelector('text=Marked as submitted');
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download report' }).click()]);
+    // With no server to send to, one button marks the work submitted and downloads the report to hand in.
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Submit and download my report' }).click()]);
+    await page.waitForSelector('text=One more step');
     const name = dl.suggestedFilename();
     // Playwright's WebKit on Linux turns spaces into underscores; browsers on Macs and PCs keep them.
     if (!/^Riley[ _]Seeded[ _]-[ _].+\.html$/.test(name)) throw new Error(`Unexpected download name "${name}"`);
@@ -317,8 +317,8 @@ try {
       await shot('restore-confirm');
       await page.getByRole('button', { name: 'Open it' }).click();
       await page.waitForSelector('.summary-hero');
-      if (!(await page.locator('text=Marked as submitted').count())) throw new Error('Restored work lost its submission');
-      const [dl2] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download report' }).click()]);
+      if (!(await page.locator('text=One more step').count())) throw new Error('Restored work lost its submission');
+      const [dl2] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download again with my latest work' }).click()]);
       const html2 = readFileSync(await dl2.path(), 'utf8');
       if (!html2.includes(`Work ID ${workId}`)) throw new Error('Restored work has a different Work ID');
       if (!html2.includes('Restored from a saved report')) throw new Error('Report does not show the restore');
@@ -340,6 +340,61 @@ try {
       await ctx.close();
     }
     page = p;
+  }
+
+  step('build-network lab: drag cables on the map, unplug one, see the ping result under the button');
+  {
+    await page.goto(`${url}#/lab/build-network`);
+    await page.waitForSelector('.lesson');
+    // The device on the map, not the lesson's chip with the same name.
+    const device = (name) => page.locator('g.device').filter({ has: page.locator('text.device-label', { hasText: new RegExp(`^${name}$`) }) });
+    await device('Alice').click({ force: true });
+    await device('Office router').click({ force: true });
+    await answer('Connects the devices on one local network');
+    await answer('Each port connects to a different network');
+    await goalsDone(2);
+    await next();
+    await page.waitForSelector('.map-hint');
+    const center = async (name) => {
+      const b = await device(name).locator('rect.device-card').boundingBox();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    };
+    const drag = async (from, to, look) => {
+      const a = await center(from);
+      const b = await center(to);
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x, b.y, { steps: 8 });
+      if (look) await shot(look);
+      await page.mouse.up();
+      await page.waitForTimeout(150);
+    };
+    await drag('Alice', 'Office switch', 'drag-cable');
+    await expectCount('.link-group', 1, 'Cables after dragging Alice to the switch');
+    await drag('Alice', 'Web server');
+    await page.waitForSelector('.map-notice >> text=no free port');
+    // Click the cable to unplug it, then plug both computers in.
+    const a = await center('Alice');
+    const sw = await center('Office switch');
+    await page.mouse.click((a.x + sw.x) / 2, (a.y + sw.y) / 2);
+    await page.getByRole('dialog', { name: 'Cable' }).getByRole('button', { name: 'Unplug' }).click();
+    await expectCount('.link-group', 0, 'Cables after unplugging');
+    await drag('Alice', 'Office switch');
+    await drag('Ben', 'Office switch');
+    await expectCount('.link-group', 2, 'Cables after plugging in both computers');
+    await page.getByRole('button', { name: 'Alice pings Ben' }).click();
+    await page.waitForSelector('.action-outcome li.bad >> text=no IP address');
+    await goalsDone(3);
+    // The goals unlock a question about this result: the panel moves down, but keeps the result in view.
+    await page.waitForTimeout(900);
+    const seen = await page.evaluate(() => {
+      const box = document.querySelector('.lesson-scroll');
+      const r = document.querySelector('.action-outcome').getBoundingClientRect();
+      const v = box.getBoundingClientRect();
+      return r.top >= v.top - 1 && r.bottom <= v.bottom + 1;
+    });
+    if (!seen) throw new Error('The ping result scrolled out of view when the question unlocked');
+    await shot('build-network-cables');
   }
 
   step('route hijack lab opens');

@@ -13,6 +13,7 @@ import {
 import type {
   AppData,
   Device,
+  DropReason,
   Frame,
   Iface,
   InFlight,
@@ -45,6 +46,8 @@ export interface SimOptions {
   l2Ms: number;
   httpTimeoutMs: number;
   arpTimeoutMs: number;
+  /** How long a ping waits for its reply. */
+  pingTimeoutMs: number;
   /**
    * Resolve MAC addresses instantly instead of sending ARP requests.
    * Use for labs where ARP would just be noise (e.g. internet routing).
@@ -58,6 +61,7 @@ export const DEFAULT_SIM_OPTIONS: SimOptions = {
   l2Ms: 60,
   httpTimeoutMs: 8000,
   arpTimeoutMs: 8000,
+  pingTimeoutMs: 10000,
   autoArp: false,
 };
 
@@ -70,6 +74,19 @@ interface Job {
 export type RovResult = 'valid' | 'invalid' | 'unknown';
 
 const MAX_EVENTS = 4000;
+
+/** What a browser says when its own computer can't send the request. */
+const CANT_SEND: Partial<Record<DropReason, (ip: Ip, dev: Device) => string>> = {
+  'no-link': () => 'This computer isn’t plugged in to the network.',
+  'no-ip': () => 'This computer has no IP address, so it can’t send anything.',
+  'no-gateway': () => 'This computer has no default gateway, so it can’t reach other networks.',
+  'gateway-off-net': (ip, dev) => {
+    const me = dev.ifaces.find((i) => i.ip && i.prefix !== undefined);
+    const mine = me ? ` (${me.ip}/${me.prefix})` : '';
+    return `This computer’s IP address${mine} and its default gateway (${ip}) aren’t on the same network, so it can’t reach other networks.`;
+  },
+  'arp-timeout': (ip) => `Nobody answered at ${ip}, so the request never left this network.`,
+};
 const MAX_CAPTURE = 400;
 
 /** Frames are plain data. structuredClone is missing before Safari 15.4, so fall back to JSON. */
@@ -87,6 +104,8 @@ export class Sim {
   /** Name -> IP for hosts that have no DNS server configured. */
   hostsFile: Record<string, Ip> = {};
   opts: SimOptions;
+  /** While true, events are tagged `quiet`: a lesson setup is arranging the network, so the map doesn't flag each change. */
+  quiet = false;
 
   private jobs: Job[] = [];
   private seq = 0;
@@ -95,6 +114,8 @@ export class Sim {
   private nextCaptureNo = 1;
   private nextPort = 49152;
   private nextPing = 1;
+  /** Pings still waiting for an answer: sequence number -> who sent it, and to where. */
+  private pings = new Map<number, { device: string; to: Ip }>();
   private listeners = new Set<(e: SimEvent) => void>();
 
   constructor(opts: Partial<SimOptions> = {}) {
@@ -158,6 +179,7 @@ export class Sim {
   }
 
   emit(e: SimEvent): void {
+    if (this.quiet) e.quiet = true;
     this.events.push(e);
     if (this.events.length > MAX_EVENTS) this.events.splice(0, this.events.length - MAX_EVENTS);
     for (const l of this.listeners) l(e);
@@ -245,11 +267,15 @@ export class Sim {
     const peer = this.peer(devId, ifaceId);
     if (!peer) return;
     const iface = this.dev(devId).ifaces.find((i) => i.id === ifaceId)!;
+    const link = this.links[iface.linkId!];
     const copy = cloneFrame(frame);
+    // A frame on a cable that gets unplugged before it arrives is lost.
+    const stillLinked = () => this.links[link.id] === link;
     this.schedule(delay, () => {
+      if (!stillLinked()) return;
       const flight: InFlight = {
         frame: copy,
-        linkId: iface.linkId!,
+        linkId: link.id,
         from: devId,
         to: peer.device,
         toIface: peer.iface,
@@ -260,7 +286,7 @@ export class Sim {
       this.schedule(this.opts.linkMs, () => {
         const i = this.inflight.indexOf(flight);
         if (i >= 0) this.inflight.splice(i, 1);
-        this.receive(peer.device, peer.iface, copy);
+        if (stillLinked()) this.receive(peer.device, peer.iface, copy);
       });
     });
   }
@@ -376,35 +402,93 @@ export class Sim {
       return;
     }
     if (!dev.forwarding) {
-      this.emit({ t: this.t, type: 'drop', device: dev.id, reason: 'not-forwarding', pkt, frame });
+      this.drop(dev, 'not-forwarding', pkt, frame);
       return;
     }
     pkt.ttl -= 1;
     if (pkt.ttl <= 0) {
-      this.emit({ t: this.t, type: 'drop', device: dev.id, reason: 'ttl', pkt, frame });
+      this.drop(dev, 'ttl', pkt, frame);
       return;
     }
     this.emit({ t: this.t, type: 'forwarded', device: dev.id, frame });
     this.routeAndSend(dev, pkt, frame);
   }
 
-  /** Pick the route, find the next hop's MAC, and send. */
+  /**
+   * Record a dropped packet. A dropped ping (on its way out or on its way
+   * back) also ends that ping, so the sender learns where it died.
+   */
+  private drop(dev: Device, reason: DropReason, pkt?: IpPacket, frame?: Frame, nextHop?: Ip): void {
+    this.emit({ t: this.t, type: 'drop', device: dev.id, reason, pkt, frame, nextHop });
+    // A request that can't leave its own computer fails right away, like a real browser with no connection.
+    const b = dev.browser;
+    if (pkt?.app.kind === 'http-req' && b?.reqId === pkt.app.reqId && (b.status === 'loading' || b.status === 'resolving')) {
+      const why = CANT_SEND[reason];
+      if (why) this.failBrowser(dev, why(nextHop ?? pkt.dst, dev));
+    }
+    if (pkt?.app.kind !== 'ping') return;
+    const seq = pkt.app.seq;
+    const p = this.pings.get(seq);
+    if (!p) return;
+    this.pings.delete(seq);
+    this.emit({ t: this.t, type: 'ping-fail', device: p.device, to: p.to, seq, reason, at: dev.id, ip: nextHop ?? pkt.dst });
+  }
+
+  /** The port whose network contains `ip`, if the device is on that network. */
+  connectedIface(dev: Device, ip: Ip): string | undefined {
+    return dev.ifaces.find((i) => i.ip && i.prefix !== undefined && sameSubnet(i.ip, ip, i.prefix))?.id;
+  }
+
+  /**
+   * Which port a packet to `dst` leaves from. A static route's next hop must
+   * sit on one of the device's own networks; the route leaves through that port.
+   */
+  private egress(dev: Device, dst: Ip): { route: Route; iface: string } | { route?: Route; iface?: undefined } {
+    const route = this.lookup(dev, dst);
+    if (!route) return {};
+    if (route.via && route.source === 'static') {
+      const iface = this.connectedIface(dev, route.via);
+      return iface ? { route, iface } : { route };
+    }
+    return { route, iface: route.iface };
+  }
+
+  /** The address a device sends from when it talks to `dst`: the IP of the port the packet leaves through. */
+  srcFor(dev: Device, dst: Ip): Ip | undefined {
+    const out = this.egress(dev, dst).iface;
+    return dev.ifaces.find((i) => i.id === out && i.ip)?.ip ?? dev.ifaces.find((i) => i.ip)?.ip;
+  }
+
+  /** Pick the route, find the next hop's MAC, and send. `frame` is set when forwarding someone else's packet. */
   routeAndSend(dev: Device, pkt: IpPacket, frame?: Frame): void {
-    const r = this.lookup(dev, pkt.dst);
+    const mine = !frame && dev.kind === 'host';
+    const { route: r, iface } = this.egress(dev, pkt.dst);
     if (!r) {
-      this.emit({ t: this.t, type: 'drop', device: dev.id, reason: 'no-route', pkt, frame });
+      this.drop(dev, mine ? 'no-gateway' : 'no-route', pkt, frame);
       return;
     }
     if (!r.via && r.source === 'bgp') {
-      this.emit({ t: this.t, type: 'drop', device: dev.id, reason: 'blackhole', pkt, frame });
+      this.drop(dev, 'blackhole', pkt, frame);
       return;
     }
-    this.sendIp(dev, pkt, r.via ?? pkt.dst, r.iface);
+    if (!iface) {
+      this.drop(dev, mine ? 'gateway-off-net' : 'no-route', pkt, frame, r.via);
+      return;
+    }
+    this.sendIp(dev, pkt, r.via ?? pkt.dst, iface);
   }
 
   private sendIp(dev: Device, pkt: IpPacket, nextHop: Ip, ifaceId: string): void {
     const iface = dev.ifaces.find((i) => i.id === ifaceId);
     if (!iface) return;
+    if (!iface.ip) {
+      this.drop(dev, 'no-ip', pkt);
+      return;
+    }
+    if (!iface.linkId) {
+      this.drop(dev, 'no-link', pkt);
+      return;
+    }
     let entry = dev.arp[nextHop];
     if (!entry && this.opts.autoArp) {
       const owner = this.deviceByIp(nextHop);
@@ -426,11 +510,16 @@ export class Sim {
       const stuck = dev.pending.filter((p) => p.nextHop === nextHop);
       if (!stuck.length) return;
       dev.pending = dev.pending.filter((p) => p.nextHop !== nextHop);
-      for (const p of stuck) this.emit({ t: this.t, type: 'drop', device: dev.id, reason: 'arp-timeout', pkt: p.pkt });
+      for (const p of stuck) this.drop(dev, 'arp-timeout', p.pkt, undefined, nextHop);
     });
   }
 
   private originate(dev: Device, pkt: IpPacket): void {
+    // A computer with no cable can't send anything, wherever it's going.
+    if (dev.kind === 'host' && !dev.ifaces.some((i) => i.linkId)) {
+      this.drop(dev, 'no-link', pkt);
+      return;
+    }
     this.routeAndSend(dev, pkt);
   }
 
@@ -456,7 +545,10 @@ export class Sim {
     switch (app.kind) {
       case 'ping':
         if (!app.reply) this.reply(dev, pkt, { kind: 'ping', seq: app.seq, reply: true });
-        else this.emit({ t: this.t, type: 'ping-reply', device: dev.id, from: pkt.src });
+        else {
+          this.pings.delete(app.seq);
+          this.emit({ t: this.t, type: 'ping-reply', device: dev.id, from: pkt.src, seq: app.seq });
+        }
         return;
       case 'http-req':
         this.serveHttp(dev, pkt, frame);
@@ -480,7 +572,7 @@ export class Sim {
     const impostor = !this.isLocal(dev, pkt.dst) ? dev.impersonate : undefined;
     const site = impostor ?? dev.web;
     if (!site) {
-      this.emit({ t: this.t, type: 'drop', device: dev.id, reason: 'no-service', pkt, frame });
+      this.drop(dev, 'no-service', pkt, frame);
       return;
     }
     const fake = !!site.fake || !!impostor;
@@ -494,7 +586,7 @@ export class Sim {
     }
 
     let title = site.title;
-    let body = 'Please sign in to continue.';
+    let body = site.page ?? 'Please sign in to continue.';
     if (req.method === 'POST') {
       const creds = parseForm(req.body ?? '');
       const user = creds.user ?? creds.username ?? 'friend';
@@ -530,6 +622,7 @@ export class Sim {
       b.body = res.body;
       b.fake = res.certName !== b.host;
     }
+    b.doneAt = this.t;
     this.emit({ t: this.t, type: 'page', device: dev.id, browser: { ...b } });
   }
 
@@ -553,6 +646,7 @@ export class Sim {
     const b = dev.browser!;
     b.status = 'failed';
     b.error = error;
+    b.doneAt = this.t;
     this.emit({ t: this.t, type: 'page', device: dev.id, browser: { ...b } });
   }
 
@@ -560,7 +654,7 @@ export class Sim {
     const b = dev.browser!;
     b.status = 'loading';
     this.originate(dev, {
-      src: this.ipOf(dev.id),
+      src: this.srcFor(dev, ip) ?? '0.0.0.0',
       dst: ip,
       ttl: 64,
       proto: 'tcp',
@@ -592,13 +686,18 @@ export class Sim {
     const reqId = this.nextReqId++;
     dev.browser = { url, host, secure, path: m[3] ?? '/', postBody: body, status: 'resolving', startedAt: this.t, reqId };
 
+    if (!dev.ifaces.some((i) => i.ip)) {
+      this.drop(dev, 'no-ip');
+      this.failBrowser(dev, 'This computer has no IP address, so it can’t send anything.');
+      return;
+    }
     if (isIp(host)) this.sendHttp(dev, host);
     else if (dev.dnsCache[host]) this.sendHttp(dev, dev.dnsCache[host]);
     else if (dev.dnsServer) {
       const qid = reqId;
       dev.dnsPending[qid] = { name: host, reqId };
       this.originate(dev, {
-        src: this.ipOf(dev.id),
+        src: this.srcFor(dev, dev.dnsServer) ?? '0.0.0.0',
         dst: dev.dnsServer,
         ttl: 64,
         proto: 'udp',
@@ -620,15 +719,28 @@ export class Sim {
     });
   }
 
-  ping(devId: string, ip: Ip): void {
+  /**
+   * Send a ping from a device. It ends with a 'ping-reply' event, or a
+   * 'ping-fail' that says where it was dropped (or that it timed out).
+   * Returns the ping's sequence number.
+   */
+  ping(devId: string, ip: Ip): number {
     const dev = this.dev(devId);
-    this.originate(dev, {
-      src: this.ipOf(devId),
-      dst: ip,
-      ttl: 64,
-      proto: 'icmp',
-      app: { kind: 'ping', seq: this.nextPing++, reply: false },
+    const seq = this.nextPing++;
+    this.pings.set(seq, { device: devId, to: ip });
+    this.emit({ t: this.t, type: 'ping-sent', device: devId, to: ip, seq });
+    const src = this.srcFor(dev, ip);
+    const pkt: IpPacket = { src: src ?? '0.0.0.0', dst: ip, ttl: 64, proto: 'icmp', app: { kind: 'ping', seq, reply: false } };
+    if (!src) {
+      this.drop(dev, 'no-ip', pkt);
+      return seq;
+    }
+    this.originate(dev, pkt);
+    this.schedule(this.opts.pingTimeoutMs, () => {
+      if (!this.pings.delete(seq)) return;
+      this.emit({ t: this.t, type: 'ping-fail', device: devId, to: ip, seq, reason: 'timeout' });
     });
+    return seq;
   }
 
   setSniffing(devId: string, on: boolean): void {
@@ -692,6 +804,122 @@ export class Sim {
     if (look?.sublabel !== undefined) dev.sublabel = look.sublabel;
     if (look?.icon) dev.icon = look.icon;
     this.emit({ t: this.t, type: 'config', device: devId, what: 'kind', detail: kind });
+  }
+
+  // -------------------------------------------------------------------------
+  // Building a network: cables, addresses, gateways, and static routes
+  // -------------------------------------------------------------------------
+
+  /** A port with no cable. Switches and hubs grow a new port when every port is taken. */
+  freePort(devId: string): string | undefined {
+    const dev = this.dev(devId);
+    const free = dev.ifaces.find((i) => !i.linkId);
+    if (free) return free.id;
+    return dev.kind === 'switch' || dev.kind === 'hub' ? `p${dev.ifaces.length + 1}` : undefined;
+  }
+
+  /** The cable between two devices, if there is one. */
+  linkBetween(a: string, b: string): Link | undefined {
+    return Object.values(this.links).find(
+      (l) => (l.a.device === a && l.b.device === b) || (l.a.device === b && l.b.device === a),
+    );
+  }
+
+  /** Plug a cable between two ports. Leave a port out to use the device's first free port. Returns the link id. */
+  connect(a: { device: string; iface?: string }, b: { device: string; iface?: string }): string {
+    if (a.device === b.device) throw new Error('A cable needs two different devices');
+    const end = (e: { device: string; iface?: string }) => {
+      const dev = this.dev(e.device);
+      const id = e.iface ?? this.freePort(e.device);
+      if (!id) throw new Error(`${e.device} has no free port`);
+      let iface = dev.ifaces.find((i) => i.id === id);
+      if (!iface && (dev.kind === 'switch' || dev.kind === 'hub')) {
+        iface = { id, mac: portMac(dev, id) };
+        dev.ifaces.push(iface);
+      }
+      if (!iface) throw new Error(`${e.device} has no port ${id}`);
+      if (iface.linkId) throw new Error(`${e.device}/${id} already has a cable`);
+      return iface;
+    };
+    const ia = end(a);
+    const ib = end(b);
+    const id = `${a.device}.${ia.id}~${b.device}.${ib.id}`;
+    ia.linkId = id;
+    ib.linkId = id;
+    this.links[id] = { id, a: { device: a.device, iface: ia.id }, b: { device: b.device, iface: ib.id } };
+    const la = this.dev(a.device).label;
+    const lb = this.dev(b.device).label;
+    this.emit({ t: this.t, type: 'config', device: a.device, what: 'cable', on: true, detail: `${ia.id} to ${lb} ${ib.id}` });
+    this.emit({ t: this.t, type: 'config', device: b.device, what: 'cable', on: true, detail: `${ib.id} to ${la} ${ia.id}` });
+    return id;
+  }
+
+  /** Unplug the cable from one port (both ends come free). Frames on the cable are lost. */
+  disconnect(devId: string, ifaceId: string): void {
+    const iface = this.dev(devId).ifaces.find((i) => i.id === ifaceId);
+    const link = iface?.linkId ? this.links[iface.linkId] : undefined;
+    if (!link) return;
+    delete this.links[link.id];
+    this.inflight = this.inflight.filter((f) => f.linkId !== link.id);
+    for (const end of [link.a, link.b]) {
+      const dev = this.dev(end.device);
+      const port = dev.ifaces.find((i) => i.id === end.iface);
+      if (port) delete port.linkId;
+      // A switch forgets the addresses it learned on that port.
+      for (const [mac, p] of Object.entries(dev.macTable)) if (p === end.iface) delete dev.macTable[mac];
+      this.emit({ t: this.t, type: 'config', device: end.device, what: 'cable', on: false, detail: end.iface });
+    }
+  }
+
+  /**
+   * Set (or, with `ip` null, remove) a port's IP address. The device's
+   * connected routes follow, and its ARP table starts over.
+   */
+  setIp(devId: string, ifaceId: string, ip: Ip | null, prefix = 24): void {
+    const dev = this.dev(devId);
+    const iface = dev.ifaces.find((i) => i.id === ifaceId);
+    if (!iface) throw new Error(`${devId} has no port ${ifaceId}`);
+    if (ip) {
+      iface.ip = ip;
+      iface.prefix = prefix;
+    } else {
+      delete iface.ip;
+      delete iface.prefix;
+    }
+    dev.routes = [...this.connectedRoutes(dev), ...dev.routes.filter((r) => r.source !== 'connected')];
+    for (const [k, e] of Object.entries(dev.arp)) if (e.via !== 'static') delete dev.arp[k];
+    dev.pending = [];
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'ip', on: !!ip, detail: ip ? `${ifaceId} ${ip}/${prefix}` : ifaceId });
+  }
+
+  /** A computer's default gateway: where it sends anything that isn't on its own network. `null` removes it. */
+  setGateway(devId: string, ip: Ip | null): void {
+    const dev = this.dev(devId);
+    dev.gateway = ip ?? undefined;
+    dev.routes = dev.routes.filter((r) => !(r.source === 'static' && r.prefix === '0.0.0.0/0'));
+    if (ip) dev.routes.push({ prefix: '0.0.0.0/0', via: ip, iface: this.connectedIface(dev, ip) ?? dev.ifaces[0].id, source: 'static' });
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'gateway', on: !!ip, detail: ip ?? undefined });
+  }
+
+  /** Add a static route (replacing any static route for the same prefix). */
+  addRoute(devId: string, prefix: string, via: Ip): void {
+    const dev = this.dev(devId);
+    const p = normalizePrefix(prefix);
+    dev.routes = dev.routes.filter((r) => !(r.source === 'static' && r.prefix === p));
+    const route: Route = { prefix: p, via, iface: this.connectedIface(dev, via) ?? '', source: 'static' };
+    dev.routes.push(route);
+    if (p === '0.0.0.0/0' && dev.kind === 'host') dev.gateway = via;
+    this.emit({ t: this.t, type: 'route-change', device: devId, prefix: p, route });
+  }
+
+  removeRoute(devId: string, prefix: string): void {
+    const dev = this.dev(devId);
+    const p = normalizePrefix(prefix);
+    const before = dev.routes.length;
+    dev.routes = dev.routes.filter((r) => !(r.source === 'static' && r.prefix === p));
+    if (dev.routes.length === before) return;
+    if (p === '0.0.0.0/0' && dev.kind === 'host') dev.gateway = undefined;
+    this.emit({ t: this.t, type: 'route-change', device: devId, prefix: p });
   }
 
   /** Fill a switch's MAC table as if it had been running for a while. */
@@ -923,6 +1151,18 @@ export class Sim {
       .filter((i) => i.ip && i.prefix !== undefined)
       .map((i) => ({ prefix: networkOf(i.ip!, i.prefix!), iface: i.id, source: 'connected' as const }));
   }
+}
+
+/** A stable, locally administered MAC address for a port, from the device and port names. */
+export function portMac(dev: Device, ifaceId: string): Mac {
+  return hashMac(`${dev.id}/${ifaceId}`);
+}
+
+export function hashMac(id: string): Mac {
+  let h = 2166136261;
+  for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  const bytes = [0x02, (h >>> 24) & 255, (h >>> 16) & 255, (h >>> 8) & 255, h & 255, (h * 31) & 255];
+  return bytes.map((b) => b.toString(16).padStart(2, '0')).join(':');
 }
 
 export function parseForm(body: string): Record<string, string> {

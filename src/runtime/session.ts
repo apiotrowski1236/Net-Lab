@@ -35,9 +35,13 @@ export class LabSession {
   readonly replay = signal<Replay | null>(null);
   /** Loop replays until the student stops them. */
   readonly repeat = signal(false);
+  /** The lesson button pressed last, and when (sim time), so the lesson can show what it did. */
+  readonly lastRun = signal<{ step: string; action: string; t: number } | null>(null);
   replayWarning = '';
 
   private unsub?: () => void;
+  /** True while a step setup runs: its half-finished network shouldn't complete goals. */
+  private holdGoals = false;
   private simDirty = false;
 
   constructor(
@@ -106,13 +110,19 @@ export class LabSession {
     // Doing something on the network always brings the live network back.
     if (this.replay.peek()) this.stopReplay();
     if (this.progress.actions.length < MAX_ACTIONS) this.progress.actions.push({ t: this.sim.t, a });
-    applyAction(this.lab, this.sim, a);
+    this.holdGoals = a.type === 'setup';
+    try {
+      applyAction(this.lab, this.sim, a);
+    } finally {
+      this.holdGoals = false;
+    }
     touch(this.progress);
     this.checkGoals();
     this.simRev.value++;
   }
 
   runStepAction(actionId: string): void {
+    this.lastRun.value = { step: this.step.id, action: actionId, t: this.sim.t };
     this.dispatch({ type: 'step-action', step: this.step.id, action: actionId });
   }
 
@@ -179,7 +189,7 @@ export class LabSession {
     const byKey = new Map<string, ToolSpec>();
     for (let i = 0; i <= this.progress.maxStep; i++) {
       for (const t of this.lab.steps[i].tools ?? []) {
-        const who = 'device' in t ? t.device : t.devices.join(',');
+        const who = 'device' in t ? t.device : 'devices' in t ? t.devices.join(',') : '';
         byKey.set(`${t.kind}@${who}`, t);
       }
     }
@@ -200,7 +210,7 @@ export class LabSession {
 
   private onSimEvent(ev: SimEvent): void {
     this.simDirty = true;
-    this.checkGoals(ev);
+    if (!this.holdGoals) this.checkGoals(ev);
   }
 
   /** Called by the player once per animation frame. */

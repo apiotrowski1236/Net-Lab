@@ -22,6 +22,7 @@ To try it from a student laptop on the same Wi-Fi, run `npm run dev -- --host` a
 
 | Lab | CodeHS lessons | Steps | Time |
 |---|---|---|---|
+| **From Cable to Web Page**: build a network from loose parts. Plug in cables, give each device an IP address, set default gateways, and add static routes until Alice's browser loads a page from a server two routers away. Then troubleshoot a broken computer one layer at a time | 3.1 | 13 | ~45 min |
 | **Traffic in the Wrong Hands**: sniff a password on open Wi-Fi, see WPA2 stop it, ARP-poison your way into the middle, watch HTTPS defeat you, then lock ARP entries | 3.1, 3.2, 3.7 | 13 | ~45 min |
 | **Advertise a Bad Route**: hijack a bank's prefix with BGP, black-hole it, out-compete the real route with a more specific prefix, impersonate the bank, then deploy route origin validation | 3.1, 3.3 | 10 | ~40 min |
 
@@ -55,7 +56,7 @@ The step's unfinished goals stay unchecked and earn no points. The report, the d
 
 ### Finishing a lab
 
-The last step replaces the map with a summary: percent complete, goals, points, minutes, the skills the lab covered, every step with its status (and a **Go there** button for unfinished ones), and every answer with a **Change** button. From there students **Submit** and **Download report**.
+The last step replaces the map with a summary: percent complete, goals, points, minutes, the skills the lab covered, every step with its status (and a **Go there** button for unfinished ones), and every answer with a **Change** button. From there students hand in their work.
 
 ### Answer keys
 
@@ -111,7 +112,7 @@ If you set up the sheet before these columns existed, paste the new `Code.gs` ov
 
 ### Option 2: Report file
 
-With no `submitEndpoint` set, **Mark as submitted** marks the lab finished and students hand in a report themselves with **Download report**: one HTML file they can upload to Schoology. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, the Work ID, any teacher overrides, and any restores. The same file restores the student's work if their browser loses it.
+With no `submitEndpoint` set, one button, **Submit and download my report**, marks the lab finished and downloads the report. Students hand in that file themselves, for example by uploading it to Schoology. The summary reminds them that their teacher doesn't have it until they do. The report is one HTML file. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, the Work ID, any teacher overrides, and any restores. The same file restores the student's work if their browser loses it.
 
 ## Settings
 
@@ -210,6 +211,7 @@ src/
     types.ts                 what a lab, step, goal, question, and tool look like
     helpers.ts               building blocks for goal checks
     shuffle.ts               seeded order for multiple-choice options
+    build-network/           From Cable to Web Page (scenario, lesson, solution)
     on-path/                 Traffic in the Wrong Hands (scenario, lesson, solution)
     route-hijack/            Advertise a Bad Route (scenario, lesson, solution)
     walkthrough.test.ts      plays every lab start to finish
@@ -229,7 +231,7 @@ If you change a lab's steps after students have started, bump its `version`. Stu
 ## Adding a lab
 
 1. **Build the network.** Create `src/labs/<id>/scenario.ts` with a function that returns a `Sim`. Use `NetBuilder`: `.host()`, `.router()`, `.switch()`, `.hub()`, `.link()`. Place devices with `x` (0 to 1000) and `y` (0 to 600); the map zooms to fit them. Add a test in `src/sim/sim.test.ts` that the attack and the defense do what you expect.
-2. **Write the lesson.** Create `src/labs/<id>/index.ts` exporting a `LabDef`. Each step has a markdown `body` (write `[[deviceId]]` for a clickable device chip), optional `actions` (lesson buttons), `tools`, `goals`, `questions`, and a `setup` that restores whatever the step needs if the student reset the network or a teacher overrode an earlier step. Use the helpers in `src/labs/helpers.ts` for goal checks. Options are shuffled for students; mark "Both" or "None of these" options `last: true` to keep them at the end. End with a step that has `kind: 'submit'`.
+2. **Write the lesson.** Create `src/labs/<id>/index.ts` exporting a `LabDef`. Each step has a markdown `body` (write `[[deviceId]]` for a clickable device chip), optional `actions` (lesson buttons), `tools`, `goals`, `questions`, and a `setup` that restores whatever the step needs if the student reset the network or a teacher overrode an earlier step. Use the helpers in `src/labs/helpers.ts` for goal checks. For a lab where students build the network, leave addresses out of the scenario, give switches `ports`, and turn on the `cable`, `ping`, `ip-config`, `gateway`, and `static-route` tools. Set `map: { ports: true, addresses: true }` to label ports, show live addresses, and tag each MAC address a switch learns on the map. Setups in that kind of lab should finish earlier steps without undoing the student's own valid choices; see `src/labs/build-network/scenario.ts`. With the `cable` tool on, students also plug in cables by dragging from one device to another on the map, and unplug one by clicking it. Changes a `setup` makes don't put tags on the map, so a setup can break something for students to find. Mark a question `afterGoals: true` when it asks about something the student is about to see; it stays locked until the step's goals are done. Options are shuffled for students; mark "Both" or "None of these" options `last: true` to keep them at the end. End with a step that has `kind: 'submit'`.
 3. **Write the solution.** Create `src/labs/<id>/solution.ts` with the moves and text answers for each step, and add it to `SOLUTIONS` in `src/labs/walkthrough.test.ts`. Tool moves go through the same input checks a student's typing does, so the test fails if the lesson asks for something the tool would reject.
 4. **Register it** in `LABS` in `src/labs/index.ts` (and remove its "coming soon" entry from `STUBS`).
 5. Run `npm test` and `npm run e2e`, then try it yourself with `npm run dev`.

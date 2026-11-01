@@ -522,7 +522,7 @@ export const onPathLab: LabDef = {
       title: 'Review and submit',
       kind: 'submit',
       body: md`
-        Check your work below. You can go back to any step and change an answer, then submit again.
+        Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
       `,
     },
   ],

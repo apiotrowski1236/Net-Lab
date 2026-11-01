@@ -64,7 +64,10 @@ export interface TextQuestion {
   points?: number;
 }
 
-export type QuestionDef = ChoiceQuestion | TextQuestion;
+export type QuestionDef = (ChoiceQuestion | TextQuestion) & {
+  /** Hide until the step's goals are done: for questions about what the student is about to see. */
+  afterGoals?: boolean;
+};
 
 /**
  * Tools the lesson hands to the student. Students type addresses into the
@@ -79,7 +82,23 @@ export type ToolSpec =
   | { kind: 'bgp-announce'; device: string; target?: { ip: string; label: string } }
   | { kind: 'bgp-validate'; devices: string[] }
   /** Lock ARP entries on `device`. The student types the IP and the correct MAC. */
-  | { kind: 'static-arp'; device: string };
+  | { kind: 'static-arp'; device: string }
+  /** Plug cables between devices and unplug them. */
+  | { kind: 'cable' }
+  /** Send a ping from any computer or router. The student types the address. */
+  | { kind: 'ping' }
+  /**
+   * Type IP addresses into the inspector. `fixed` pins a device to one
+   * address; typing another shows `why`.
+   */
+  | { kind: 'ip-config'; fixed?: { device: string; cidr: string; why: string }[] }
+  /** Set computers' default gateway in the inspector. */
+  | { kind: 'gateway' }
+  /** Add and remove routers' static routes in the inspector. */
+  | { kind: 'static-route' };
+
+/** Tools that change device settings in the inspector instead of having their own card. */
+export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route'] as const;
 
 /** A button in the lesson that makes something happen on the network ("Alice signs in"). */
 export interface ActionDef {
@@ -127,6 +146,13 @@ export interface LabDef {
   captureDevice?: string;
   /** Annotate MAC addresses with the owning device's name in the inspector. */
   labelMacs?: boolean;
+  /**
+   * For labs where students build the network: show port names where cables
+   * meet routers and switches, and each device's current IP addresses under it.
+   */
+  map?: { ports?: boolean; addresses?: boolean };
+  /** Show computers' routing tables (their own network and the default gateway) in the inspector. */
+  hostRoutes?: boolean;
 }
 
 export interface LabStub {

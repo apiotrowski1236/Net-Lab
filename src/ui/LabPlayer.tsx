@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LabDef } from '../labs/types';
 import { LabSession } from '../runtime/session';
+import { checkCable } from '../runtime/toolInput';
 import { beacon, enqueue, hasEndpoint } from '../store/outbox';
 import { config, profile } from '../store/profile';
 import { getProgress } from '../store/progress';
@@ -10,7 +11,7 @@ import { CaptureView, Inspector, Toolkit } from './Dock';
 import { FORGED_COLOR, PROTO_BLURB, PROTO_COLOR, type Proto } from './describe';
 import { Icon } from './icons';
 import { LessonPanel } from './Lesson';
-import { NetworkCanvas } from './NetworkCanvas';
+import { type Cabling, NetworkCanvas } from './NetworkCanvas';
 import { Summary } from './Summary';
 import { TopBar } from './TopBar';
 
@@ -37,6 +38,22 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
   void session.rev.value;
   const replay = session.replay.value;
   const repeat = session.repeat.value;
+  // Plug and unplug cables right on the map once the lab hands out the cable tool.
+  const cabling: Cabling | undefined =
+    !replay && session.tools.some((t) => t.kind === 'cable')
+      ? {
+          check: (a, b) => {
+            const r = checkCable(session.sim, a, undefined, b, undefined);
+            return r.ok ? null : r.msg;
+          },
+          connect: (a, b) => session.dispatch({ type: 'cable', a, b }),
+          unplug: (id) => {
+            const l = session.sim.links[id];
+            if (l) session.dispatch({ type: 'unplug', device: l.a.device, iface: l.a.iface });
+          },
+          hint: !!session.step.tools?.some((t) => t.kind === 'cable'),
+        }
+      : undefined;
 
   useEffect(() => {
     let raf = 0;
@@ -80,6 +97,16 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
     return () => cancelAnimationFrame(raf);
   }, [session]);
 
+  // Escape closes the packet colors legend.
+  useEffect(() => {
+    if (!legend) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setLegend(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [legend]);
+
+  // Focus rings point at what to work on: they go once the step's goals are done.
+  const goalsLeft = (session.step.goals ?? []).some((g) => !session.goalDone(session.step.id, g.id));
   const canReplay = session.canReplay();
   const protos: Proto[] = ['ARP', 'HTTP', 'HTTPS', 'DNS', 'ROUTE', 'PING'];
   return (
@@ -115,7 +142,7 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
           >
             <Icon name="repeat" /> Repeat
           </button>
-          <button class="btn ghost small" onClick={() => setLegend(!legend)}>
+          <button class="btn ghost small" aria-expanded={legend} onClick={() => setLegend(!legend)}>
             Packet colors
           </button>
           <button
@@ -165,7 +192,16 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
         </div>
       )}
       <div class="canvas-wrap">
-        <NetworkCanvas sim={session.view} tick={tick} selected={selected} focus={session.step.focus ?? []} onSelect={onSelect} />
+        <NetworkCanvas
+          sim={session.view}
+          tick={tick}
+          selected={selected}
+          focus={goalsLeft || !session.step.goals?.length ? (session.step.focus ?? []) : []}
+          onSelect={onSelect}
+          opts={session.lab.map}
+          cabling={cabling}
+          since={replay ? undefined : session.since}
+        />
       </div>
     </div>
   );
@@ -175,12 +211,37 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
 // Dock: inspector / capture / tools. Re-renders when the network changes, not every frame.
 // ---------------------------------------------------------------------------
 
-function Dock({ session, tab, setTab, selected }: { session: LabSession; tab: Tab; setTab: (t: Tab) => void; selected: string | null }) {
+function Dock({
+  session,
+  tab,
+  setTab,
+  selected,
+  onSelect,
+}: {
+  session: LabSession;
+  tab: Tab;
+  setTab: (t: Tab) => void;
+  selected: string | null;
+  onSelect: (id: string) => void;
+}) {
   void session.simRev.value;
   void session.rev.value;
   const lab = session.lab;
   const tools = session.tools;
   const capDev = lab.captureDevice ? session.sim.devices[lab.captureDevice] : undefined;
+  // The dock is short on a laptop screen: say when there's more to scroll to.
+  const body = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  const measure = () => {
+    const el = body.current;
+    const m = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 12;
+    if (m !== more) setMore(m);
+  };
+  useLayoutEffect(measure);
+  useEffect(() => {
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  });
   const seenTools = useRef(tools.length);
   const newTools = tools.length > seenTools.current && tab !== 'tools';
   if (tab === 'tools') seenTools.current = tools.length;
@@ -196,15 +257,19 @@ function Dock({ session, tab, setTab, selected }: { session: LabSession; tab: Ta
           </button>
         )}
         <button role="tab" aria-selected={tab === 'tools'} class={tab === 'tools' ? 'on' : ''} onClick={() => setTab('tools')}>
-          <Icon name="bolt" /> Toolkit {tools.length > 0 && <span class="count">{tools.length}</span>}
-          {newTools && <span class="new-dot" title="New tool" />}
+          <Icon name="bolt" /> Toolkit {newTools && <span class="count new-tools">new tool</span>}
         </button>
       </div>
-      <div class="dock-body">
+      <div class="dock-body" ref={body} onScroll={measure}>
         {tab === 'inspect' && <Inspector session={session} deviceId={selected} />}
         {tab === 'capture' && capDev && <CaptureView session={session} deviceId={capDev.id} />}
-        {tab === 'tools' && <Toolkit session={session} tools={tools} />}
+        {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} />}
       </div>
+      {more && (
+        <button class="more-below" onClick={() => body.current?.scrollBy({ top: body.current.clientHeight * 0.7, behavior: 'smooth' })}>
+          More below <Icon name="chevronDown" size={13} />
+        </button>
+      )}
     </div>
   );
 }
@@ -296,7 +361,7 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
           ) : (
             <>
               <Stage session={session} selected={selected} onSelect={select} />
-              <Dock session={session} tab={tab} setTab={setTab} selected={selected} />
+              <Dock session={session} tab={tab} setTab={setTab} selected={selected} onSelect={select} />
             </>
           )}
         </main>

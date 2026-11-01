@@ -92,7 +92,7 @@ Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(wh
 <div class="stat"><b>${goalsDone} / ${r.goals.length}</b>goals</div>
 <div class="stat"><b>${r.stepReached} / ${r.lab.steps}</b>steps reached</div>
 <div class="stat"><b>${r.activeMinutes}</b>active minutes</div>
-<div class="stat"><b>${r.score.teacherMax}</b>written-answer pts for the teacher</div>
+<div class="stat"><b>${r.questions.filter((q) => !q.autoGraded && q.answer.trim()).length} / ${r.questions.filter((q) => !q.autoGraded).length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>
 </div>
 ${overrideSummary}${failures}${restores}
 ${steps}
@@ -138,22 +138,33 @@ export function SubmitBox({ session }: { session: LabSession }) {
   const endpoint = hasEndpoint();
   const current = () => buildReport(lab, session.progress, profile.value, session.progress.submittedAt ? 'submitted' : 'in-progress');
 
+  const download = () => downloadReport(lab, current(), makeBackup(session.progress, profile.value));
   const submit = () => {
     session.markSubmitted();
     flushSaves();
     if (endpoint) enqueue(buildReport(lab, session.progress, profile.value, 'submitted'));
+    // Without a server, the downloaded file is how the work reaches the teacher: one button does both.
+    else download();
   };
 
   return (
     <div class="submit-box">
       {!who.name.trim() && <div class="callout warn">Add your name (top right) before you submit.</div>}
       <div class="row gap wrap">
-        <button class="btn primary big" disabled={!who.name.trim()} onClick={submit}>
-          <Icon name="send" /> {p.submittedAt ? 'Submit again with my latest work' : endpoint ? 'Submit to my teacher' : 'Mark as submitted'}
-        </button>
-        <button class="btn big" onClick={() => downloadReport(lab, current(), makeBackup(session.progress, profile.value))}>
-          <Icon name="download" /> Download report
-        </button>
+        {endpoint ? (
+          <>
+            <button class="btn primary big" disabled={!who.name.trim()} onClick={submit}>
+              <Icon name="send" /> {p.submittedAt ? 'Submit again with my latest work' : 'Submit to my teacher'}
+            </button>
+            <button class="btn big" onClick={download}>
+              <Icon name="download" /> Download report
+            </button>
+          </>
+        ) : (
+          <button class="btn primary big" disabled={!who.name.trim()} onClick={submit}>
+            <Icon name="download" /> {p.submittedAt ? 'Download again with my latest work' : 'Submit and download my report'}
+          </button>
+        )}
       </div>
       <div class="submit-status">
         {p.submittedAt ? (
@@ -171,16 +182,16 @@ export function SubmitBox({ session }: { session: LabSession }) {
               <div class="callout info">Submitted. Waiting to send.</div>
             )
           ) : (
-            <div class="callout good">
-              <Icon name="check" /> Marked as submitted {when(new Date(p.submittedAt).toISOString())}. Now download your report and hand it in the way your
-              teacher asked, for example by uploading it to Schoology.
+            <div class="callout info">
+              <Icon name="upload" /> <strong>One more step.</strong> Submitted {when(new Date(p.submittedAt).toISOString())}, and your report downloaded as a file. Hand in that
+              file the way your teacher asked, for example by uploading it to Schoology. Your teacher doesn't have it until you do.
             </div>
           )
         ) : (
           <p class="muted small">
             {endpoint
               ? 'Submitting sends your goals and answers straight to your teacher. If you change anything later, submit again.'
-              : 'Your teacher collects this lab as a file. Mark it submitted, then download the report and hand it in.'}{' '}
+              : 'Your teacher collects this lab as a file. This button downloads your report. Then hand in that file the way your teacher asked.'}{' '}
             The report doubles as a backup: if your work ever goes missing, open it on the home page.
           </p>
         )}
