@@ -1,6 +1,9 @@
 import type { ComponentType } from 'preact';
 import type { ToolSpec } from '../../labs/types';
 import type { LabSession } from '../../runtime/session';
+import { FirewallPlaceTool } from './FirewallPlace';
+import { FirewallRulesTool } from './FirewallRules';
+import { PortScanTool } from './PortScan';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -15,4 +18,8 @@ export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
  * src/ui/tools/<Name>.tsx using the pieces in ./parts, and list it here.
  * The Toolkit draws a card for every unlocked tool of a listed kind.
  */
-export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps<K>> } = {};
+export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps<K>> } = {
+  'port-scan': PortScanTool,
+  'firewall-place': FirewallPlaceTool,
+  'firewall-rules': FirewallRulesTool,
+};

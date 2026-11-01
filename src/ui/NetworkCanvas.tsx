@@ -6,6 +6,7 @@ import type { BrowserState, Device, InFlight, SimEvent } from '../sim/types';
 import { FORGED_COLOR, PROTO_COLOR, protoOf } from './describe';
 import { DeviceGlyph, Icon } from './icons';
 import { portName } from '../runtime/toolInput';
+import { connMarker, fwMarker } from './firewallText';
 
 /** Device currently hovered in the lesson text (device chips) — highlighted on the map. */
 export const hoverDevice = signal<string | null>(null);
@@ -130,6 +131,8 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
         'no-gateway': 'no gateway: dropped',
         'gateway-off-net': 'gateway not on my network',
       };
+      // The 'firewall' event right before this one already says which rule blocked it.
+      if (e.reason === 'firewall') return null;
       // Say where the packet was going: a request and its reply look the same otherwise.
       if (e.reason === 'no-route' && e.pkt?.dst) return { device: e.device, text: `no route to ${e.pkt.dst}: dropped`, tone: 'bad' };
       return { device: e.device, text: why[e.reason] ?? 'dropped', tone: 'bad' };
@@ -146,6 +149,11 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
       return { device: e.device, text: 'rejected bad route', tone: 'good' };
     case 'credentials-stolen':
       return { device: e.device, text: 'password stolen!', tone: 'bad' };
+    case 'firewall':
+      return fwMarker(e);
+    case 'conn-result':
+    case 'stray-reply':
+      return connMarker(e);
     case 'ping-reply':
       return { device: e.device, text: 'ping reply', tone: 'good' };
     case 'ping-fail':
@@ -651,6 +659,7 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
           if (d.sniffing) badges.push({ icon: 'eye', title: 'Capturing packets', tone: 'bad' });
           if (d.forwarding && d.kind === 'host') badges.push({ icon: 'arrows', title: 'Forwarding traffic', tone: 'bad' });
           if (d.bgp?.validate) badges.push({ icon: 'shield', title: 'Validating routes', tone: 'good' });
+          if (d.firewall && d.kind !== 'firewall') badges.push({ icon: 'shield', title: 'Firewall software on', tone: 'good' });
           if (Object.values(d.arp).some((e) => e.via === 'static')) badges.push({ icon: 'lock', title: 'Locked ARP entry', tone: 'good' });
           if (d.stolen.length) badges.push({ icon: 'key', title: `${d.stolen.length} stolen password(s)`, tone: 'bad' });
           return (

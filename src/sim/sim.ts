@@ -1347,6 +1347,7 @@ export class Sim {
     this.connect({ device: fwId, iface: inPort.id }, { device: inEnd.device, iface: inEnd.iface });
     fw.placed = { a: { ...outEnd }, b: { ...inEnd }, home };
     fw.conns = [];
+    fw.changedAt = this.t;
     const da = this.dev(outEnd.device);
     const db = this.dev(inEnd.device);
     box.x = Math.round((da.x + db.x) / 2);
@@ -1366,6 +1367,7 @@ export class Sim {
     box.y = p.home.y;
     delete box.firewall!.placed;
     box.firewall!.conns = [];
+    box.firewall!.changedAt = this.t;
     this.emit({ t: this.t, type: 'config', device: fwId, what: 'firewall-placed', on: false });
   }
 
@@ -1376,6 +1378,7 @@ export class Sim {
   }
 
   private fwChanged(devId: string, detail: string): void {
+    this.fwOf(devId).changedAt = this.t;
     this.emit({ t: this.t, type: 'config', device: devId, what: 'firewall-rules', detail });
   }
 
@@ -1422,6 +1425,7 @@ export class Sim {
     const fw = this.fwOf(devId);
     fw.mode = mode;
     fw.conns = [];
+    fw.changedAt = this.t;
     this.emit({ t: this.t, type: 'config', device: devId, what: 'firewall-mode', detail: mode });
   }
 

@@ -145,8 +145,8 @@ export function connOutcomeLines(sim: Sim, since: number): OutcomeLine[] {
       continue;
     }
     if (e.type !== 'firewall' || !startedBy(e.pkt, seqs, reqs, conns)) continue;
-    // A ping's own line already says which firewall blocked it.
-    if (e.pkt.app.kind === 'ping' && e.verdict.action === 'deny') continue;
+    // A ping's or a browser's own line already says which firewall blocked it.
+    if ((e.pkt.app.kind === 'ping' || e.pkt.app.kind === 'http-req' || e.pkt.app.kind === 'http-res') && e.verdict.action === 'deny') continue;
     const k = `${e.device} ${e.dir} ${isReply(e.pkt)} ${e.verdict.by} ${e.verdict.ruleNo ?? ''} ${e.verdict.action}`;
     if (seen.has(k)) continue;
     seen.add(k);

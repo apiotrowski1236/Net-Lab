@@ -3,6 +3,7 @@ import type { LabSession } from '../runtime/session';
 import { goalKey, type ChoiceQuestion, type QuestionDef, type StepDef, type TextQuestion } from '../labs/types';
 import type { SimEvent } from '../sim/types';
 import { pingFailText } from './describe';
+import { connOutcomeLines, fwDenyText } from './firewallText';
 import { Icon } from './icons';
 import { renderMarkdown } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
@@ -194,6 +195,8 @@ function dropText(sim: LabSession['sim'], e: Drop): string {
       return `${at} asked "Who has ${e.nextHop ?? dst}?" and nobody answered, so it dropped the ${what}.`;
     case 'ttl':
       return `The ${what} went around in a loop until its TTL ran out at ${at}.`;
+    case 'firewall':
+      return fwDenyText(sim, e.device, e.t);
     default:
       return `${at} dropped the ${what}.`;
   }
@@ -231,8 +234,9 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
     if (lost && (b.status === 'resolving' || b.status === 'loading')) lines.push({ tone: 'bad', text: `${who} still loading. ${dropText(sim, lost)}` });
     else if (b.status === 'resolving' || b.status === 'loading') lines.push({ tone: 'wait', text: `${who} loading…` });
     else if (b.status === 'loaded') lines.push({ tone: 'good', text: `${who} loaded "${b.title}".` });
-    else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}` });
+    else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost?.reason === 'firewall' ? ` ${dropText(sim, lost)}` : ''}` });
   }
+  lines.push(...connOutcomeLines(sim, run.t));
   if (!lines.length) return null;
   const label = step.actions?.find((a) => a.id === run.action)?.label;
   return (

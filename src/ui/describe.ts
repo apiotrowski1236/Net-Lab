@@ -253,7 +253,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
         rows: [
           ['Program', appName(app.app)],
           ...(app.reply ? ([['Answer', app.status === 'closed' ? 'Nothing listens on this port' : 'Service answered']] as [string, string][]) : []),
-          ...(app.text ? ([['Data', app.text]] as [string, string][]) : []),
+          ...(ip.encrypted ? ([['Data', 'encrypted']] as [string, string][]) : app.text ? ([['Data', app.text]] as [string, string][]) : []),
         ],
         note: app.reply && !app.conn ? 'A reply that answers nothing anyone asked for.' : undefined,
       });

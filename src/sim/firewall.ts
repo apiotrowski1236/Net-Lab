@@ -124,6 +124,8 @@ export interface FirewallState {
   /** Next rule id number. */
   nextId: number;
   placed?: FwPlacement;
+  /** Sim time of the last change to its rules, type, or placement. Goals use it for "tested since your last change". */
+  changedAt?: number;
 }
 
 export type FwDecidedBy =

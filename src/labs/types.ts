@@ -1,5 +1,6 @@
 import type { Sim } from '../sim/sim';
 import type { Frame, LogEntry, SimEvent } from '../sim/types';
+import type { FwMode } from '../sim/firewall';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
@@ -99,7 +100,28 @@ export type ToolSpec =
   /** Add and remove routers' static routes in the inspector. */
   | { kind: 'static-route' }
   /** Unlock the Logs tab, showing these devices' logs. Not a Toolkit card. */
-  | { kind: 'logs'; devices: string[] };
+  | { kind: 'logs'; devices: string[] }
+  /** Port scanner on `device`: ping sweep plus port scan of an address or network the student types, then connect to what's open. */
+  | { kind: 'port-scan'; device: string }
+  /**
+   * Put standalone firewalls into cables. The outside port faces `internet`.
+   * `feedback` explains each placement (`between` is the two devices the cable joined).
+   */
+  | { kind: 'firewall-place'; devices: string[]; internet: string; feedback?: PlacementFeedback[] }
+  /**
+   * Edit these firewalls' rules in the inspector (the card lists them). `modes`
+   * are the firewall types the student may switch between; without it, no switching.
+   */
+  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] };
+
+/** What the firewall placement tool says about one choice of cable. */
+export interface PlacementFeedback {
+  /** Which firewall this is about (leave out: any of them). */
+  device?: string;
+  between: [string, string];
+  good: boolean;
+  text: string;
+}
 
 /** Tools that change device settings in the inspector instead of having their own card. */
 export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route'] as const;
