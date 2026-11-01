@@ -33,7 +33,7 @@ To try it from a student laptop on the same Wi-Fi, run `npm run dev -- --host` a
 | **Firewall Rulebook**: protect Adams County Hospital. Scan a wide-open network, place two firewalls to build a screened subnet, write and order the edge firewall's rules, lock down the inner firewall, compare stateless, stateful, and next-generation firewalls, then read the firewall log | 3.10, 3.12 | 12 | ~45 min |
 | **Log Detective**: work the morning shift at a water utility. Filter hundreds of log lines, turn on IDS signatures, catch a quiet upload with anomaly detection and see a false positive, switch to prevention, triage a SIEM incident, tune an AI alert threshold, and hunt indicators of compromise | 3.18 | 12 | ~45 min |
 
-The home page also lists the planned labs as "coming soon": smurf attacks. Together with the labs above they cover every topic in the CED's Unit 3. [docs/unit3/COVERAGE.md](docs/unit3/COVERAGE.md) maps each learning objective to a lab, each lab's plan is in `src/labs/<id>/PLAN.md`, and [docs/unit3/ARCHITECTURE.md](docs/unit3/ARCHITECTURE.md) is the guide for building one.
+The home page also lists one planned lab as "coming soon": Echo Storm, on smurf attacks. Together with the labs above it covers every topic in the CED's Unit 3. [docs/unit3/COVERAGE.md](docs/unit3/COVERAGE.md) maps each learning objective to a lab, each lab's plan is in `src/labs/<id>/PLAN.md`, and [docs/unit3/ARCHITECTURE.md](docs/unit3/ARCHITECTURE.md) is the guide for building one.
 
 ### How a lab works
 
