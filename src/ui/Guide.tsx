@@ -1,6 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { shuffledOptions } from '../labs/shuffle';
-import type { LabDef, ToolSpec } from '../labs/types';
+import type { LabDef, StepDef, ToolSpec } from '../labs/types';
 import { Icon } from './icons';
 import { renderMarkdown } from './markdown';
 
@@ -97,16 +97,16 @@ export function Guide({ lab }: { lab: LabDef }) {
           </h2>
           <Md src={s.body} labels={labels} />
 
-          {!!(s.actions?.length || s.tools?.length) && (
+          {!!(s.actions?.length || newTools(steps, i).length) && (
             <div class="guide-extras">
               {s.actions?.length ? (
                 <div>
                   <b>Buttons in this step:</b> {s.actions.map((a) => a.label).join(', ')}
                 </div>
               ) : null}
-              {s.tools?.length ? (
+              {newTools(steps, i).length ? (
                 <div>
-                  <b>New in the Toolkit:</b> {[...new Set(s.tools.map((t) => TOOL_NAME[t.kind]))].join(', ')}
+                  <b>New in the Toolkit:</b> {newTools(steps, i).join(', ')}
                 </div>
               ) : null}
             </div>
@@ -158,4 +158,10 @@ export function Guide({ lab }: { lab: LabDef }) {
       <footer class="guide-foot">NetLab · {lab.title} · Answers are entered and checked in the lab itself.</footer>
     </div>
   );
+}
+
+/** Tools that step `i` grants for the first time. A later step that adds a device or mode to a tool doesn't name it again. */
+function newTools(steps: StepDef[], i: number): string[] {
+  const earlier = new Set(steps.slice(0, i).flatMap((p) => p.tools?.map((t) => t.kind) ?? []));
+  return [...new Set((steps[i].tools ?? []).filter((t) => !earlier.has(t.kind)).map((t) => TOOL_NAME[t.kind]))];
 }
