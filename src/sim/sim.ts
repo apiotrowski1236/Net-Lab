@@ -23,6 +23,22 @@ import type {
   Route,
   SimEvent,
 } from './types';
+import { dirOf, evaluate, logLine, track, type FwMode, type FwRuleInput } from './firewall';
+import {
+  appForPort,
+  hostCount,
+  MAX_CONNS,
+  MAX_SCANS,
+  SCAN_PORTS,
+  scanDone,
+  scanTarget,
+  serviceAt,
+  usedAddresses,
+  type Conn,
+  type L4,
+  type ProbeResult,
+  type Scan,
+} from './services';
 
 /**
  * A deliberately simplified network simulator.
@@ -334,6 +350,10 @@ export class Sim {
   private receive(devId: string, ifaceId: string, frame: Frame): void {
     const dev = this.devices[devId];
     if (!dev) return;
+    if (dev.kind === 'firewall') {
+      this.fwBridge(dev, ifaceId, frame);
+      return;
+    }
     if (dev.kind === 'hub') {
       for (const i of dev.ifaces) if (i.id !== ifaceId && i.linkId) this.transmit(dev.id, i.id, frame, this.opts.l2Ms);
       return;
@@ -365,7 +385,7 @@ export class Sim {
     }
     if (frame.arp) this.onArp(dev, iface, frame);
     else if (frame.bgp) this.onBgp(dev, iface, frame);
-    else if (frame.ip) this.onIp(dev, frame);
+    else if (frame.ip) this.onIp(dev, frame, iface);
   }
 
   private capture(dev: Device, frame: Frame): void {
@@ -435,7 +455,7 @@ export class Sim {
     return !!r && r.source === 'bgp' && !r.via && r.learnedFrom === dev.id;
   }
 
-  private onIp(dev: Device, frame: Frame): void {
+  private onIp(dev: Device, frame: Frame, iface?: Iface): void {
     const pkt = frame.ip!;
     if (this.isLocal(dev, pkt.dst) || (dev.impersonate && this.hijacked(dev, pkt.dst))) {
       this.deliver(dev, pkt, frame);
@@ -445,6 +465,8 @@ export class Sim {
       this.drop(dev, 'not-forwarding', pkt, frame);
       return;
     }
+    // Firewall software in a router checks what it forwards.
+    if (dev.firewall && iface && !this.fwPass(dev, iface.id, frame)) return;
     pkt.ttl -= 1;
     if (pkt.ttl <= 0) {
       this.drop(dev, 'ttl', pkt, frame);
@@ -460,6 +482,7 @@ export class Sim {
    */
   private drop(dev: Device, reason: DropReason, pkt?: IpPacket, frame?: Frame, nextHop?: Ip): void {
     this.emit({ t: this.t, type: 'drop', device: dev.id, reason, pkt, frame, nextHop });
+    this.svcDropped(dev, reason, pkt);
     // A request that can't leave its own computer fails right away, like a real browser with no connection.
     const b = dev.browser;
     if (pkt?.app.kind === 'http-req' && b?.reqId === pkt.app.reqId && (b.status === 'loading' || b.status === 'resolving')) {
@@ -585,6 +608,7 @@ export class Sim {
     switch (app.kind) {
       case 'ping':
         if (!app.reply) this.reply(dev, pkt, { kind: 'ping', seq: app.seq, reply: true });
+        else if (this.scanPingAnswered(dev, app.seq)) return;
         else {
           this.pings.delete(app.seq);
           this.emit({ t: this.t, type: 'ping-reply', device: dev.id, from: pkt.src, seq: app.seq });
@@ -603,6 +627,9 @@ export class Sim {
         return;
       case 'dns-answer':
         this.onDnsAnswer(dev, pkt);
+        return;
+      case 'svc':
+        this.onSvc(dev, pkt);
         return;
     }
   }
@@ -1191,7 +1218,344 @@ export class Sim {
       .filter((i) => i.ip && i.prefix !== undefined)
       .map((i) => ({ prefix: networkOf(i.ip!, i.prefix!), iface: i.id, source: 'connected' as const }));
   }
+
+  // -------------------------------------------------------------------------
+  // --- firewall (firewall) ---
+  // Services, connections, port scans (services.ts), and firewalls (firewall.ts).
+  // -------------------------------------------------------------------------
+
+  private nextConn = 1;
+  private nextScan = 1;
+  /** Connections and scan probes waiting for a reply: connection id -> who is waiting. */
+  private svcWaiting = new Map<number, { device: string; scan?: number; ip: Ip; port: number }>();
+  /** Scan pings waiting for a reply: ping sequence number -> which scan sent it. */
+  private scanPings = new Map<number, { device: string; scan: number; ip: Ip }>();
+
+  /**
+   * Connect from a device to a service: one request to `to` on `port`, and one
+   * reply. Returns the connection id. The result lands in the device's
+   * `conns` and in a 'conn-result' event (see services.ts for what each status
+   * means). `app` is the program the client speaks: by default, the one the
+   * port is known for. `sport` picks the client's own port.
+   */
+  connectService(
+    devId: string,
+    to: Ip,
+    port: number,
+    opts: { proto?: L4; app?: string; sport?: number; data?: string; tag?: string } = {},
+  ): number {
+    const dev = this.dev(devId);
+    const proto = opts.proto ?? 'tcp';
+    const id = this.nextConn++;
+    const app = opts.app ?? appForPort(proto, port) ?? proto;
+    const conn: Conn = { id, t: this.t, to, port, proto, sport: opts.sport ?? this.nextPort++, app, status: 'pending' };
+    if (opts.data) conn.data = opts.data;
+    if (opts.tag) conn.tag = opts.tag;
+    const list = (dev.conns ??= []);
+    list.push(conn);
+    if (list.length > MAX_CONNS) list.splice(0, list.length - MAX_CONNS);
+    this.svcWaiting.set(id, { device: devId, ip: to, port });
+    const src = this.srcFor(dev, to);
+    const pkt: IpPacket = {
+      src: src ?? '0.0.0.0',
+      dst: to,
+      ttl: 64,
+      proto,
+      srcPort: conn.sport,
+      dstPort: port,
+      encrypted: app === 'https' || app === 'ssh' ? true : undefined,
+      app: { kind: 'svc', conn: id, app, reply: false, text: opts.data },
+    };
+    if (!src) {
+      this.drop(dev, 'no-ip', pkt);
+      return id;
+    }
+    this.originate(dev, pkt);
+    this.schedule(this.opts.pingTimeoutMs, () => {
+      if (this.svcWaiting.delete(id)) this.endConn(devId, id, { status: 'no-answer', reason: 'timeout' });
+    });
+    return id;
+  }
+
+  /**
+   * Port scan: ping every address in `target` (an address, or a network like
+   * "10.0.1.0/24"), then knock on each of `ports` there. Probes go out a little
+   * apart, as a real scanner paces them. Results fill in the device's `scans`;
+   * a 'scan-done' event fires when the last probe has its answer. Only
+   * addresses some device uses get probes (the others never answer).
+   */
+  scan(devId: string, target: string, ports: number[] = SCAN_PORTS): number {
+    const dev = this.dev(devId);
+    const tgt = scanTarget(target);
+    if (!tgt) throw new Error(`Bad scan target: ${target}`);
+    const id = this.nextScan++;
+    const addrs = usedAddresses(Object.values(this.devices), tgt.prefix, devId);
+    const scan: Scan = {
+      id,
+      t: this.t,
+      target: target.trim(),
+      ports: [...ports],
+      size: tgt.single ? 1 : hostCount(tgt.prefix),
+      hosts: addrs.map((ip) => ({ ip, ping: 'pending', ports: Object.fromEntries(ports.map((p) => [p, 'pending' as ProbeResult])) })),
+    };
+    const list = (dev.scans ??= []);
+    list.push(scan);
+    if (list.length > MAX_SCANS) list.splice(0, list.length - MAX_SCANS);
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'scan', detail: scan.target });
+    if (!addrs.length) {
+      scan.doneAt = this.t;
+      this.emit({ t: this.t, type: 'scan-done', device: devId, scan });
+      return id;
+    }
+    let k = 0;
+    for (const h of scan.hosts) {
+      this.schedule(SCAN_GAP_MS * k++, () => this.probePing(dev, scan, h.ip));
+      for (const p of scan.ports) this.schedule(SCAN_GAP_MS * k++, () => this.probePort(dev, scan, h.ip, p));
+    }
+    return id;
+  }
+
+  /**
+   * Send a hand-built IP packet from a device exactly as given: any source
+   * address, any ports, any contents. Labs use it for forged packets, such as
+   * a fake reply that answers nothing (AppData 'svc' with conn 0).
+   */
+  sendPacket(devId: string, pkt: Omit<IpPacket, 'ttl'> & { ttl?: number }): void {
+    this.originate(this.dev(devId), { ttl: 64, ...pkt });
+  }
+
+  /**
+   * Put a standalone firewall (a 'firewall' device) into the cable between
+   * devices `a` and `b`. Its outside port faces `outside` (a or b). Addresses
+   * and routes stay the same: the firewall passes frames along like the cable
+   * did, after checking them. It moves to the middle of that cable on the map.
+   */
+  placeFirewall(fwId: string, a: string, b: string, outside: string): void {
+    const box = this.dev(fwId);
+    const fw = box.firewall;
+    if (box.kind !== 'firewall' || !fw) throw new Error(`${fwId} is not a standalone firewall`);
+    if (outside !== a && outside !== b) throw new Error(`The outside of ${fwId} must face ${a} or ${b}`);
+    if (fw.placed) this.unplaceFirewall(fwId);
+    const link = this.linkBetween(a, b);
+    if (!link) throw new Error(`No cable between ${a} and ${b}`);
+    const [outEnd, inEnd] = link.a.device === outside ? [link.a, link.b] : [link.b, link.a];
+    const inPort = box.ifaces.find((i) => i.id !== fw.outside);
+    if (!inPort) throw new Error(`${fwId} needs two ports`);
+    const home = { x: box.x, y: box.y };
+    this.disconnect(outEnd.device, outEnd.iface);
+    this.connect({ device: outEnd.device, iface: outEnd.iface }, { device: fwId, iface: fw.outside });
+    this.connect({ device: fwId, iface: inPort.id }, { device: inEnd.device, iface: inEnd.iface });
+    fw.placed = { a: { ...outEnd }, b: { ...inEnd }, home };
+    fw.conns = [];
+    const da = this.dev(outEnd.device);
+    const db = this.dev(inEnd.device);
+    box.x = Math.round((da.x + db.x) / 2);
+    box.y = Math.round((da.y + db.y) / 2);
+    this.emit({ t: this.t, type: 'config', device: fwId, what: 'firewall-placed', on: true, detail: `between ${da.label} and ${db.label}` });
+  }
+
+  /** Take a placed firewall out of its cable and plug the two ends back together. */
+  unplaceFirewall(fwId: string): void {
+    const box = this.dev(fwId);
+    const p = box.firewall?.placed;
+    if (!p) return;
+    for (const i of box.ifaces) if (i.linkId) this.disconnect(fwId, i.id);
+    const free = (e: { device: string; iface: string }) => !this.devices[e.device]?.ifaces.find((i) => i.id === e.iface)?.linkId;
+    if (free(p.a) && free(p.b)) this.connect(p.a, p.b);
+    box.x = p.home.x;
+    box.y = p.home.y;
+    delete box.firewall!.placed;
+    box.firewall!.conns = [];
+    this.emit({ t: this.t, type: 'config', device: fwId, what: 'firewall-placed', on: false });
+  }
+
+  private fwOf(devId: string) {
+    const fw = this.dev(devId).firewall;
+    if (!fw) throw new Error(`${devId} has no firewall`);
+    return fw;
+  }
+
+  private fwChanged(devId: string, detail: string): void {
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'firewall-rules', detail });
+  }
+
+  /** Add a rule at position `at` (0 = top; default: the bottom, just above the implicit deny). Returns its id. */
+  fwAddRule(devId: string, rule: FwRuleInput, at?: number): string {
+    const fw = this.fwOf(devId);
+    const id = `r${fw.nextId++}`;
+    const i = at === undefined ? fw.rules.length : Math.max(0, Math.min(fw.rules.length, at));
+    fw.rules.splice(i, 0, { ...rule, id });
+    this.fwChanged(devId, `added rule ${i + 1}`);
+    return id;
+  }
+
+  /** Replace a rule's criteria and action. It keeps its id and place. */
+  fwEditRule(devId: string, id: string, rule: FwRuleInput): void {
+    const fw = this.fwOf(devId);
+    const i = fw.rules.findIndex((r) => r.id === id);
+    if (i < 0) return;
+    fw.rules[i] = { ...rule, id };
+    this.fwChanged(devId, `changed rule ${i + 1}`);
+  }
+
+  fwDeleteRule(devId: string, id: string): void {
+    const fw = this.fwOf(devId);
+    const i = fw.rules.findIndex((r) => r.id === id);
+    if (i < 0) return;
+    fw.rules.splice(i, 1);
+    this.fwChanged(devId, `deleted rule ${i + 1}`);
+  }
+
+  /** Move a rule to position `to` (0 = top). */
+  fwMoveRule(devId: string, id: string, to: number): void {
+    const fw = this.fwOf(devId);
+    const i = fw.rules.findIndex((r) => r.id === id);
+    if (i < 0) return;
+    const [r] = fw.rules.splice(i, 1);
+    const j = Math.max(0, Math.min(fw.rules.length, to));
+    fw.rules.splice(j, 0, r);
+    this.fwChanged(devId, `moved rule ${i + 1} to ${j + 1}`);
+  }
+
+  /** Switch between stateless, stateful, and next-generation. The connection table starts empty. */
+  fwSetMode(devId: string, mode: FwMode): void {
+    const fw = this.fwOf(devId);
+    fw.mode = mode;
+    fw.conns = [];
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'firewall-mode', detail: mode });
+  }
+
+  fwClearConns(devId: string): void {
+    this.fwOf(devId).conns = [];
+  }
+
+  /** A firewall checks one IP packet that arrived on `ingress`. Denied: logs it, drops it, and returns false. */
+  private fwPass(dev: Device, ingress: string, frame: Frame): boolean {
+    const fw = dev.firewall!;
+    const pkt = frame.ip!;
+    const dir = dirOf(fw, ingress);
+    const v = evaluate(fw, pkt, dir);
+    track(fw, pkt, dir, v, this.t);
+    this.emit({ t: this.t, type: 'firewall', device: dev.id, dir, verdict: v, pkt });
+    const rule = v.ruleId ? fw.rules.find((r) => r.id === v.ruleId) : undefined;
+    if (v.action === 'deny' || rule?.log) this.log(dev.id, logLine(pkt, dir, v));
+    if (v.action === 'allow') return true;
+    this.drop(dev, 'firewall', pkt, frame);
+    return false;
+  }
+
+  /** A standalone firewall: frames pass from one port to the other, and IP packets are checked first. */
+  private fwBridge(dev: Device, ingress: string, frame: Frame): void {
+    const out = dev.ifaces.find((i) => i.id !== ingress && i.linkId);
+    if (!out) return;
+    if (frame.ip && dev.firewall && !this.fwPass(dev, ingress, frame)) return;
+    this.transmit(dev.id, out.id, frame, this.opts.l2Ms);
+  }
+
+  /** A service request arrived, or a reply to one of this device's connections. */
+  private onSvc(dev: Device, pkt: IpPacket): void {
+    const a = pkt.app as Extract<AppData, { kind: 'svc' }>;
+    if (a.reply) {
+      const w = a.conn ? this.svcWaiting.get(a.conn) : undefined;
+      if (!w || w.device !== dev.id) {
+        this.emit({ t: this.t, type: 'stray-reply', device: dev.id, pkt });
+        return;
+      }
+      this.svcWaiting.delete(a.conn);
+      const status = a.status ?? 'open';
+      if (w.scan !== undefined) this.setProbe(dev.id, w.scan, w.ip, w.port, status);
+      else this.endConn(dev.id, a.conn, { status, banner: a.text });
+      return;
+    }
+    const proto: L4 = pkt.proto === 'udp' ? 'udp' : 'tcp';
+    const svc = serviceAt(dev, proto, pkt.dstPort);
+    this.reply(dev, pkt, { kind: 'svc', conn: a.conn, app: svc?.app ?? a.app, reply: true, status: svc ? 'open' : 'closed', text: svc?.banner });
+  }
+
+  private endConn(devId: string, id: number, patch: Partial<Conn>): void {
+    const c = this.devices[devId]?.conns?.find((x) => x.id === id);
+    if (!c || c.status !== 'pending') return;
+    Object.assign(c, patch, { doneAt: this.t });
+    this.emit({ t: this.t, type: 'conn-result', device: devId, conn: { ...c } });
+  }
+
+  /** A dropped packet ends the connection or scan probe it belonged to. */
+  private svcDropped(at: Device, reason: DropReason, pkt?: IpPacket): void {
+    const a = pkt?.app;
+    if (a?.kind === 'ping') {
+      const s = this.scanPings.get(a.seq);
+      if (!s) return;
+      this.scanPings.delete(a.seq);
+      this.setProbe(s.device, s.scan, s.ip, 'ping', 'no-answer');
+      return;
+    }
+    if (a?.kind !== 'svc' || !a.conn) return;
+    const w = this.svcWaiting.get(a.conn);
+    if (!w) return;
+    this.svcWaiting.delete(a.conn);
+    if (w.scan !== undefined) this.setProbe(w.device, w.scan, w.ip, w.port, 'no-answer');
+    else this.endConn(w.device, a.conn, { status: 'no-answer', at: at.id, reason });
+  }
+
+  private scanPingAnswered(dev: Device, seq: number): boolean {
+    const s = this.scanPings.get(seq);
+    if (!s || s.device !== dev.id) return false;
+    this.scanPings.delete(seq);
+    this.setProbe(dev.id, s.scan, s.ip, 'ping', 'open');
+    return true;
+  }
+
+  private probePing(dev: Device, scan: Scan, ip: Ip): void {
+    const seq = this.nextPing++;
+    const src = this.srcFor(dev, ip);
+    if (!src) {
+      this.setProbe(dev.id, scan.id, ip, 'ping', 'no-answer');
+      return;
+    }
+    this.scanPings.set(seq, { device: dev.id, scan: scan.id, ip });
+    this.originate(dev, { src, dst: ip, ttl: 64, proto: 'icmp', app: { kind: 'ping', seq, reply: false } });
+    this.schedule(this.opts.pingTimeoutMs, () => {
+      if (this.scanPings.delete(seq)) this.setProbe(dev.id, scan.id, ip, 'ping', 'no-answer');
+    });
+  }
+
+  private probePort(dev: Device, scan: Scan, ip: Ip, port: number): void {
+    const id = this.nextConn++;
+    const src = this.srcFor(dev, ip);
+    if (!src) {
+      this.setProbe(dev.id, scan.id, ip, port, 'no-answer');
+      return;
+    }
+    this.svcWaiting.set(id, { device: dev.id, scan: scan.id, ip, port });
+    this.originate(dev, {
+      src,
+      dst: ip,
+      ttl: 64,
+      proto: 'tcp',
+      srcPort: this.nextPort++,
+      dstPort: port,
+      app: { kind: 'svc', conn: id, app: appForPort('tcp', port) ?? 'tcp', reply: false },
+    });
+    this.schedule(this.opts.pingTimeoutMs, () => {
+      if (this.svcWaiting.delete(id)) this.setProbe(dev.id, scan.id, ip, port, 'no-answer');
+    });
+  }
+
+  private setProbe(devId: string, scanId: number, ip: Ip, which: number | 'ping', result: ProbeResult): void {
+    const scan = this.devices[devId]?.scans?.find((s) => s.id === scanId);
+    const h = scan?.hosts.find((x) => x.ip === ip);
+    if (!scan || !h) return;
+    if (which === 'ping') h.ping = result;
+    else h.ports[which] = result;
+    if (!scan.doneAt && scanDone(scan)) {
+      scan.doneAt = this.t;
+      this.emit({ t: this.t, type: 'scan-done', device: devId, scan });
+    }
+  }
 }
+
+/** Time between one scan probe and the next. */
+const SCAN_GAP_MS = 80;
 
 /** A stable, locally administered MAC address for a port, from the device and port names. */
 export function portMac(dev: Device, ifaceId: string): Mac {

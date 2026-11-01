@@ -1,5 +1,6 @@
 import type { Sim } from '../sim/sim';
 import type { LabDef } from '../labs/types';
+import type { FwMode, FwRuleInput } from '../sim/firewall';
 
 /**
  * Every change a student makes to the network is one of these. They are
@@ -25,7 +26,20 @@ export type SimAction =
   | { type: 'set-ip'; device: string; iface: string; cidr: string | null }
   | { type: 'gateway'; device: string; ip: string | null }
   | { type: 'add-route'; device: string; prefix: string; via: string }
-  | { type: 'remove-route'; device: string; prefix: string };
+  | { type: 'remove-route'; device: string; prefix: string }
+  /** Port scan from `device`: an address or a network. */
+  | { type: 'scan'; device: string; target: string; ports?: number[] }
+  /** Connect from `device` to a service. `app` is the program it speaks (default: the port's own). */
+  | { type: 'connect'; device: string; to: string; port: number; app?: string }
+  /** Put a standalone firewall into the cable between `a` and `b`, its outside port toward `outside`. */
+  | { type: 'fw-place'; device: string; a: string; b: string; outside: string }
+  | { type: 'fw-unplace'; device: string }
+  /** Firewall rules. `at` and `to` are positions counted from 0 (the top). */
+  | { type: 'fw-add-rule'; device: string; rule: FwRuleInput; at?: number }
+  | { type: 'fw-edit-rule'; device: string; id: string; rule: FwRuleInput }
+  | { type: 'fw-delete-rule'; device: string; id: string }
+  | { type: 'fw-move-rule'; device: string; id: string; to: number }
+  | { type: 'fw-mode'; device: string; mode: FwMode };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -86,6 +100,33 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'remove-route':
       sim.removeRoute(a.device, a.prefix);
+      return;
+    case 'scan':
+      sim.scan(a.device, a.target, a.ports);
+      return;
+    case 'connect':
+      sim.connectService(a.device, a.to, a.port, { app: a.app });
+      return;
+    case 'fw-place':
+      sim.placeFirewall(a.device, a.a, a.b, a.outside);
+      return;
+    case 'fw-unplace':
+      sim.unplaceFirewall(a.device);
+      return;
+    case 'fw-add-rule':
+      sim.fwAddRule(a.device, a.rule, a.at);
+      return;
+    case 'fw-edit-rule':
+      sim.fwEditRule(a.device, a.id, a.rule);
+      return;
+    case 'fw-delete-rule':
+      sim.fwDeleteRule(a.device, a.id);
+      return;
+    case 'fw-move-rule':
+      sim.fwMoveRule(a.device, a.id, a.to);
+      return;
+    case 'fw-mode':
+      sim.fwSetMode(a.device, a.mode);
       return;
   }
 }
