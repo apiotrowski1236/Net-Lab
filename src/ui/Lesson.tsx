@@ -197,6 +197,10 @@ function dropText(sim: LabSession['sim'], e: Drop): string {
       return `The ${what} went around in a loop until its TTL ran out at ${at}.`;
     case 'firewall':
       return fwDenyText(sim, e.device, e.t);
+    case 'congestion':
+      return `The link to Hilltop is full, so the ${what} was dropped. A flood is using up the link.`;
+    case 'no-broadcast':
+      return `${at} refused to forward the ${what} to a whole network's broadcast address.`;
     default:
       return `${at} dropped the ${what}.`;
   }
@@ -234,7 +238,7 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
     if (lost && (b.status === 'resolving' || b.status === 'loading')) lines.push({ tone: 'bad', text: `${who} still loading. ${dropText(sim, lost)}` });
     else if (b.status === 'resolving' || b.status === 'loading') lines.push({ tone: 'wait', text: `${who} loading…` });
     else if (b.status === 'loaded') lines.push({ tone: 'good', text: `${who} loaded "${b.title}".` });
-    else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost?.reason === 'firewall' ? ` ${dropText(sim, lost)}` : ''}` });
+    else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost && (lost.reason === 'firewall' || lost.reason === 'congestion') ? ` ${dropText(sim, lost)}` : ''}` });
   }
   lines.push(...connOutcomeLines(sim, run.t));
   if (!lines.length) return null;

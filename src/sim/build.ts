@@ -178,11 +178,11 @@ export class NetBuilder {
     return dev;
   }
 
-  link(a: End, b: End, opts: { wireless?: boolean } = {}): this {
+  link(a: End, b: End, opts: { wireless?: boolean; capacity?: number } = {}): this {
     const id = `L${this.linkSeq++}`;
     const ea = this.endpoint(a, id);
     const eb = this.endpoint(b, id);
-    this.sim.links[id] = { id, a: ea, b: eb, wireless: opts.wireless };
+    this.sim.links[id] = { id, a: ea, b: eb, wireless: opts.wireless, capacityPps: opts.capacity };
     return this;
   }
 

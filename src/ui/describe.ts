@@ -326,6 +326,10 @@ export function pingFailText(sim: Sim, e: Extract<SimEvent, { type: 'ping-fail' 
       return `${at}'s port security does not allow this computer's MAC address on that port, so it dropped the packet.`;
     case 'firewall':
       return fwDenyText(sim, e.at, e.t);
+    case 'congestion':
+      return `The link out of ${at} is full, so the ping was dropped. A flood is using up the link.`;
+    case 'no-broadcast':
+      return `${at} would not forward a ping to a whole network's broadcast address, so it dropped the request.`;
     default:
       return `Dropped at ${at}.`;
   }

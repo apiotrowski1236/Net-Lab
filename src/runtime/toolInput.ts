@@ -388,6 +388,34 @@ export function checkPing(sim: Sim, deviceId: string, raw: string): Checked<{ ip
   return { ok: true, ip };
 }
 
+/**
+ * Echo tool (smurf): the target to ping, and an optional source to forge. The
+ * target may be a broadcast address (that is the point). A blank source means
+ * the sender's own address.
+ */
+export function checkEcho(sim: Sim, deviceId: string, rawTarget: string, rawSource: string): Checked<{ target: Ip; source?: Ip }> {
+  const target = rawTarget.trim();
+  const dev = sim.dev(deviceId);
+  if (!target) return { ok: false, field: 'target', msg: 'Type the IP address to ping.' };
+  if (target.includes('/')) {
+    const bare = target.split('/')[0];
+    return { ok: false, field: 'target', msg: 'Ping one address, with no slash.', suggest: isIp(bare) ? bare : undefined };
+  }
+  if (!isIp(target)) return { ok: false, field: 'target', msg: IP_FORMAT };
+  if (dev.ifaces.some((i) => i.ip === target)) return { ok: false, field: 'target', msg: `${target} is ${dev.label}'s own address. Ping another device.` };
+  const source = rawSource.trim();
+  if (!source) return { ok: true, target };
+  if (source.includes('/')) {
+    const bare = source.split('/')[0];
+    return { ok: false, field: 'source', msg: 'A source is one address, with no slash.', suggest: isIp(bare) ? bare : undefined };
+  }
+  if (!isIp(source)) return { ok: false, field: 'source', msg: IP_FORMAT };
+  if (dev.ifaces.some((i) => i.ip === source)) {
+    return { ok: false, field: 'source', msg: `A smurf aims the replies at the victim, not at yourself. Use the ticket server's address, 192.0.2.10.` };
+  }
+  return { ok: true, target, source };
+}
+
 // ---------------------------------------------------------------------------
 // Wi-Fi (wireless lab)
 // ---------------------------------------------------------------------------

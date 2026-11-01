@@ -4,6 +4,43 @@ This is the full lesson as students see it: scenario, map, every step's body, bu
 questions, answer key, and the behaviors the implementer must build. An implementer turns this into
 `index.ts`, `scenario.ts`, `solution.ts`, a sim feature or two, and a UI tool. Translate, don't redesign.
 
+## Built: deviations from this script
+
+The lab is built (`Status: built` in `PLAN.md`). Where the implementation departs from the script
+below, this is the record of record — the script is otherwise unchanged. None of these alter what a
+student experiences; they are implementation choices the script left open or named only loosely.
+
+- **A campus switch sits between the college router's LAN and the three PCs.** The script's topology put
+  pc1–pc3 on `campus`'s LAN directly; the build inserts a `campussw` switch (`campus.lan → campussw → pc1/pc2/pc3`)
+  so the LAN looks like a real shared segment and the directed-broadcast fan-out reads naturally on the map.
+- **Amplification is synthesized as one aggregate reply at the college router, not 30 separate PC replies.**
+  When a directed broadcast is forwarded onto the campus LAN, the router emits a single reply *burst* with
+  `count = LAN_HOSTS × burstSize(request)` and source = the lowest campus host (`lanRepresentative`), instead
+  of delivering an echo to each of 30 hosts and collecting 30 replies. The meter math and the "how many
+  replies" answers are identical; the event stream stays small and deterministic.
+- **Congestion is a persistent per-link load, and bursts are exempt from the drop test.** A lesson action
+  sets a steady `pps` load on the uplink (`setLinkFlood`), cleared by the matching fix. A lone packet drops
+  when `linkLoad + 1 > capacity`; a burst frame (`burstSize > 1`) crosses regardless. That is what lets the
+  flood still reach the edge firewall in step 8 while the fan's single ticket request is the thing that drops.
+- **The step 4 `congested` and step 5 `ddos` goals check the meter crossing 60, not a congestion-drop event.**
+  They assert `sim.linkPps(uplinkId) > 60`, matching the script's "watch the meter pass 60" hint. The fan's
+  request still fails on the same press (the answer key also presses *fan buys a ticket*), so the lesson beat
+  is unchanged.
+- **Step 8 ships an explicit open-ICMP allow rule on the edge firewall, and the fix is added above it.** The
+  edge router's stateless firewall is created when step 8 starts (`ensureEdgeFirewall`), pre-loaded with an
+  "allow ICMP from anywhere" rule (the weakness). The answer key adds a deny-inbound-ICMP rule *above* it
+  (`fw-add-rule … at: 0`), rather than the script's placeholder `fw-rule` shape. The `rule` goal verifies
+  effective denial by evaluating a sample inbound ping, not by matching a specific rule row.
+- **"The ISP filters upstream" is a firewall rule plus a flood clear.** `ispFilterUpstream` gives the provider
+  a stateless firewall that denies inbound ICMP toward Hilltop and clears the botnet load off the uplink, so
+  the fan can buy only after it runs — giving the "why filter upstream" question something concrete on screen.
+- **`features.css` carried a pre-existing unclosed-brace bug that had to be repaired to build.** Two shipped
+  rules on `main` (`.port-edit-head` and `.triangulate-spots .btn.on`) were missing closing braces from an
+  earlier lab merge; under CSS nesting this silently swallowed the firewall/wireless CSS that followed, and
+  the production CSS minifier rejected this lab's new `@keyframes` once it landed inside the nest. The build
+  restores both braces (and the lost `.port-edit-head` body) so the following rules un-nest correctly; the new
+  `congestion-pulse` keyframe animates `opacity` rather than `stroke-dashoffset` (the minifier rejected the latter).
+
 ## What changed from PLAN.md
 
 The plan stands. These are refinements, not a change of course, so `PLAN.md` is unchanged:

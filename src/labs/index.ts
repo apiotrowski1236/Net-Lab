@@ -3,12 +3,13 @@ import { dnsSpoofLab } from './dns-spoof';
 import { macFloodLab } from './mac-flood';
 import { firewallLab } from './firewall';
 import { onPathLab } from './on-path';
+import { smurfLab } from './smurf';
 import { routeHijackLab } from './route-hijack';
 import { wirelessLab } from './wireless';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, routeHijackLab, wirelessLab, firewallLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, wirelessLab, firewallLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the
@@ -16,14 +17,6 @@ export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoof
  * docs/unit3/COVERAGE.md for what each covers.
  */
 export const STUBS: LabStub[] = [
-  {
-    id: 'smurf',
-    title: 'Echo Storm',
-    tagline: "Turn a network's own echoes into a flood that knocks a ticket site offline.",
-    unit: 3,
-    codehs: ['3.3 Misdirected and Overwhelmed'],
-    comingSoon: true,
-  },
   {
     id: 'net-audit',
     title: 'The Network Audit',

@@ -1,6 +1,6 @@
 # Echo Storm (`smurf`)
 
-Status: planned, wave 2 (after `firewall` and `mac-flood` merge). Follow `docs/unit3/ARCHITECTURE.md`.
+Status: built
 
 Tagline: Turn a network's own echoes into a flood that knocks a ticket site offline, then shut the amplifier down.
 

@@ -130,7 +130,11 @@ export type ToolSpec =
    * Edit these firewalls' rules in the inspector (the card lists them). `modes`
    * are the firewall types the student may switch between; without it, no switching.
    */
-  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] };
+  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] }
+  /** Echo tool (smurf): ping from `device`, with an optional forged source address. Its own Toolkit card. */
+  | { kind: 'echo-tool'; device: string }
+  /** Turn `device`'s directed-broadcast forwarding on or off, in the inspector (smurf). Not a Toolkit card. */
+  | { kind: 'directed-broadcast'; device: string };
 
 /** What the firewall placement tool says about one choice of cable. */
 export interface PlacementFeedback {

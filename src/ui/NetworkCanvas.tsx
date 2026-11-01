@@ -139,6 +139,8 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
         'gateway-off-net': 'gateway not on my network',
         'port-shutdown': 'port is off: dropped',
         'port-security': 'MAC not allowed: dropped',
+        congestion: 'link full: dropped',
+        'no-broadcast': 'broadcast blocked: dropped',
       };
       // The 'firewall' event right before this one already says which rule blocked it.
       if (e.reason === 'firewall') return null;
@@ -164,7 +166,7 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
     case 'stray-reply':
       return connMarker(e);
     case 'ping-reply':
-      return { device: e.device, text: 'ping reply', tone: 'good' };
+      return { device: e.device, text: e.count && e.count > 1 ? `${e.count} ping replies` : 'ping reply', tone: 'good' };
     case 'ping-fail':
       return e.reason === 'timeout' ? { device: e.device, text: 'no reply', tone: 'bad' } : null;
     case 'config':
@@ -633,9 +635,10 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
         {Object.values(sim.links).map((l) => {
           const a = sim.devices[l.a.device];
           const b = sim.devices[l.b.device];
+          const congested = l.capacityPps !== undefined && sim.linkPps(l.id) > l.capacityPps;
           return (
             <g key={l.id} class={`link-group ${picked === l.id ? 'picked' : ''}`}>
-              <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} class={`link ${l.wireless ? 'wireless' : ''}`} />
+              <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} class={`link ${l.wireless ? 'wireless' : ''} ${congested ? 'congested' : ''}`} />
               {cabling && (
                 <line
                   x1={a.x}

@@ -12,6 +12,7 @@ import { Triangulate } from './Triangulate';
 import { FirewallPlaceTool } from './FirewallPlace';
 import { FirewallRulesTool } from './FirewallRules';
 import { PortScanTool } from './PortScan';
+import { EchoTool } from './EchoTool';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -41,4 +42,6 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   'port-scan': PortScanTool,
   'firewall-place': FirewallPlaceTool,
   'firewall-rules': FirewallRulesTool,
+  // smurf
+  'echo-tool': EchoTool,
 };
