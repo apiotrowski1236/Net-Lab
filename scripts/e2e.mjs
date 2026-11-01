@@ -5,7 +5,8 @@
 // work was saved, goes offline to prove the service worker serves the app,
 // then checks replay, the lab guide, typed tool inputs, the teacher override,
 // the summary page with its download, and restoring work from that download
-// (plus refusing another student's file or an edited one). Saves screenshots to ./screenshots.
+// (plus refusing another student's file or an edited one), and opens every lab and
+// its guide. Saves screenshots to ./screenshots.
 //
 // Needs a Chromium for Playwright: `npx playwright-core install chromium`,
 // or set CHROME_PATH to any Chrome or Chromium binary.
@@ -395,6 +396,27 @@ try {
     });
     if (!seen) throw new Error('The ping result scrolled out of view when the question unlocked');
     await shot('build-network-cables');
+  }
+
+  step('every lab and its guide open, and every side tab renders');
+  {
+    await page.goto(`${url}#/`);
+    await page.waitForSelector('.lab-card');
+    const ids = await page.$$eval('.lab-card.open a.lab-card-link', (as) => as.map((a) => a.getAttribute('href').replace('#/lab/', '')));
+    if (ids.length < 3) throw new Error(`Expected at least 3 open labs on the home page, found ${ids.length}`);
+    for (const id of ids) {
+      await page.goto(`${url}#/guide/${id}`);
+      await page.waitForSelector('.guide-head');
+      await page.goto(`${url}#/lab/${id}`);
+      await page.waitForSelector('.lesson');
+      for (const tab of await page.getByRole('tab').all()) {
+        await tab.click();
+        await page.waitForTimeout(100);
+      }
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+      if (wide) throw new Error(`The ${id} lab scrolls sideways`);
+      await shot(`lab-${id}`);
+    }
   }
 
   step('route hijack lab opens');
