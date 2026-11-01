@@ -5,7 +5,7 @@ import { routeHijackLab } from './route-hijack';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab, dnsSpoofLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, dnsSpoofLab, routeHijackLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the
