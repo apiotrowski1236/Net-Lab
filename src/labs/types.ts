@@ -99,7 +99,13 @@ export type ToolSpec =
   /** Add and remove routers' static routes in the inspector. */
   | { kind: 'static-route' }
   /** Unlock the Logs tab, showing these devices' logs. Not a Toolkit card. */
-  | { kind: 'logs'; devices: string[] };
+  | { kind: 'logs'; devices: string[] }
+  /** MAC flooding from `device`: bursts of frames from made-up MACs. */
+  | { kind: 'mac-flood'; device: string }
+  /** Change `device`'s MAC address (MAC spoofing), or put back the factory one. */
+  | { kind: 'mac-change'; device: string }
+  /** Port security and shutting ports on switch `device`, in the inspector. The card points there. */
+  | { kind: 'port-security'; device: string };
 
 /** Tools that change device settings in the inspector instead of having their own card. */
 export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route'] as const;

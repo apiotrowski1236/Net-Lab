@@ -17,6 +17,9 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   gateway: 'Default gateway (in the inspector)',
   'static-route': 'Static routes (in the inspector)',
   logs: 'Logs (its own tab)',
+  'mac-flood': 'MAC flooder',
+  'mac-change': 'MAC changer',
+  'port-security': 'Port security (in the inspector)',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {
@@ -53,7 +56,7 @@ export function Guide({ lab }: { lab: LabDef }) {
         <h1>{lab.title}</h1>
         <p class="guide-tagline">{lab.tagline}</p>
         <div class="guide-meta">
-          About {lab.minutes} minutes · {steps.length} steps · CodeHS {lab.codehs.join(', ')}
+          About {lab.minutes} minutes · {steps.length} steps{lab.codehs.length > 0 && ` · CodeHS ${lab.codehs.join(', ')}`}
         </div>
         {lab.objectives.length > 0 && (
           <>

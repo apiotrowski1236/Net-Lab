@@ -20,6 +20,7 @@ export type DeviceIcon =
   | 'phone'
   | 'desktop'
   | 'server'
+  | 'printer'
   | 'router'
   | 'switch'
   | 'hub'

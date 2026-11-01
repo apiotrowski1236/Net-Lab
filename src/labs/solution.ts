@@ -1,5 +1,6 @@
 import type { SimAction } from '../runtime/actions';
 import { checkAddress, checkCable, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, type Checked } from '../runtime/toolInput';
+import { checkNewMac, checkPortSecurity } from '../runtime/switchInput';
 import type { LabSession } from '../runtime/session';
 import type { Frame, LogEntry } from '../sim/types';
 import { isEncrypted, isPlainLogin } from './helpers';
@@ -18,8 +19,8 @@ export type Move =
   | { press: string }
   /** Use a control in the Toolkit. */
   | { tool: SimAction }
-  /** Click a captured frame in the Capture tab. */
-  | { openFrame: string; match: 'login' | 'encrypted' }
+  /** Click the first captured frame that matches in the Capture tab. */
+  | { openFrame: string; match: 'login' | 'encrypted' | ((f: Frame) => boolean) }
   /** Click the newest line in `openLog`'s log that matches `where`, in the Logs tab. */
   | { openLog: string; where: (e: LogEntry) => boolean };
 
@@ -46,8 +47,9 @@ export function playMove(s: LabSession, m: Move): void {
     if (!hit) throw new Error(`No matching log line on ${m.openLog}`);
     s.ui({ type: 'ui:open-log', device: m.openLog, entry: hit });
   } else {
-    const hit = s.sim.dev(m.openFrame).capture.find((c) => MATCH[m.match](c.frame));
-    if (!hit) throw new Error(`No ${m.match} frame captured on ${m.openFrame}`);
+    const pred = typeof m.match === 'function' ? m.match : MATCH[m.match];
+    const hit = s.sim.dev(m.openFrame).capture.find((c) => pred(c.frame));
+    if (!hit) throw new Error(`No ${typeof m.match === 'function' ? 'matching' : m.match} frame captured on ${m.openFrame}`);
     s.ui({ type: 'ui:open-frame', device: m.openFrame, frame: hit.frame });
   }
   s.sim.runUntilIdle();
@@ -84,6 +86,14 @@ function assertTypable(s: LabSession, a: SimAction): void {
     case 'ping':
       r = checkPing(sim, a.device, a.ip);
       break;
+    case 'set-mac':
+      r = a.mac === null ? { ok: true } : checkNewMac(sim, a.device, a.mac);
+      break;
+    case 'port-security': {
+      const c = a.config;
+      r = c ? checkPortSecurity(sim, a.device, a.port, String(c.maxMacs), c.violation, (c.allowed ?? []).join(' ')) : { ok: true };
+      break;
+    }
     default:
       r = { ok: true };
   }

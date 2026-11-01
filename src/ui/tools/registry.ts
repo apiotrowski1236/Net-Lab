@@ -1,6 +1,9 @@
 import type { ComponentType } from 'preact';
 import type { ToolSpec } from '../../labs/types';
 import type { LabSession } from '../../runtime/session';
+import { MacChanger } from './MacChanger';
+import { MacFlooder } from './MacFlooder';
+import { PortSecurityCard } from './PortSecurityCard';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -15,4 +18,9 @@ export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
  * src/ui/tools/<Name>.tsx using the pieces in ./parts, and list it here.
  * The Toolkit draws a card for every unlocked tool of a listed kind.
  */
-export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps<K>> } = {};
+export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps<K>> } = {
+  // mac-flood
+  'mac-flood': MacFlooder,
+  'mac-change': MacChanger,
+  'port-security': PortSecurityCard,
+};

@@ -48,6 +48,16 @@ export function DeviceGlyph({ icon, color = 'currentColor' }: { icon: DeviceIcon
           <circle cx={-7} cy={12} r={1.2} fill={color} />
         </g>
       );
+    case 'printer':
+      return (
+        <g {...s}>
+          <path d="M-10 -6 V-17 H10 V-6" />
+          <rect x={-17} y={-6} width={34} height={15} rx={2.5} />
+          <path d="M-10 4 V16 H10 V4 Z" />
+          <line x1={-5} y1={9} x2={5} y2={9} />
+          <circle cx={11} cy={-1} r={1.2} fill={color} />
+        </g>
+      );
     case 'router':
       return (
         <g {...s}>

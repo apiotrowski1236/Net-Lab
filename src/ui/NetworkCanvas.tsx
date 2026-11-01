@@ -111,9 +111,16 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
   if (e.quiet) return null;
   switch (e.type) {
     case 'mac-learn': {
+      if (e.count && e.count > 1) return { device: e.device, text: `learned ${e.count} MACs: ${portName(e.iface)}`, tone: 'warn' };
       const who = macName?.(e.mac);
       return who ? { device: e.device, text: `learned ${who}: ${portName(e.iface)}`, tone: 'info' } : null;
     }
+    case 'mac-overflow':
+      return { device: e.device, text: 'MAC table full', tone: 'bad' };
+    case 'port-security':
+      return e.action === 'shutdown'
+        ? { device: e.device, text: `port security shut ${portName(e.iface)}`, tone: 'good' }
+        : { device: e.device, text: `blocked ${e.count} MAC${e.count === 1 ? '' : 's'}: ${portName(e.iface)}`, tone: 'good' };
     case 'ignored':
       if (capturedAt.has(`${e.device}@${e.t}`)) return { device: e.device, text: 'copied it', tone: 'bad' };
       return { device: e.device, text: 'not for me', tone: 'muted' };
@@ -129,6 +136,8 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
         'no-link': 'no cable',
         'no-gateway': 'no gateway: dropped',
         'gateway-off-net': 'gateway not on my network',
+        'port-shutdown': 'port is off: dropped',
+        'port-security': 'MAC not allowed: dropped',
       };
       // Say where the packet was going: a request and its reply look the same otherwise.
       if (e.reason === 'no-route' && e.pkt?.dst) return { device: e.device, text: `no route to ${e.pkt.dst}: dropped`, tone: 'bad' };
@@ -154,6 +163,9 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
       if (e.what === 'cable') return { device: e.device, text: e.on ? 'plugged in' : 'unplugged', tone: e.on ? 'info' : 'warn' };
       if (e.what === 'ip') return { device: e.device, text: e.on ? 'address set' : 'address removed', tone: e.on ? 'info' : 'warn' };
       if (e.what === 'gateway') return { device: e.device, text: e.on ? 'gateway set' : 'gateway removed', tone: e.on ? 'info' : 'warn' };
+      if (e.what === 'port') return { device: e.device, text: `${portName(e.detail ?? '')} ${e.on ? 'turned on' : 'shut down'}`, tone: e.on ? 'info' : 'warn' };
+      if (e.what === 'port-security') return { device: e.device, text: e.on ? 'port security on' : 'port security off', tone: 'info' };
+      if (e.what === 'mac') return { device: e.device, text: e.on ? 'MAC address changed' : 'factory MAC back', tone: e.on ? 'warn' : 'info' };
       return null;
     default:
       return null;
@@ -209,10 +221,28 @@ function Packet({ sim, f }: { sim: Sim; f: InFlight }) {
   const label = forged ? `FAKE ${proto}` : proto;
   const w = label.length * 8 + (proto === 'HTTPS' ? 28 : 18);
   const fill = forged ? FORGED_COLOR : PROTO_COLOR[proto];
+  // A burst (one frame standing for many, see sim/burst.ts) draws as a stack with its count.
+  const count = f.frame.burst?.count ?? 1;
+  const many = count > 1 ? `×${count}` : '';
+  const cw = many.length * 7 + 10;
   return (
-    <g transform={`translate(${x},${y})`} class="packet">
+    <g transform={`translate(${x},${y})`} class={`packet${many ? ' packet-burst' : ''}`}>
+      {many && (
+        <>
+          <rect x={-w / 2 + 8} y={-20} width={w} height={24} rx={12} fill={fill} class="packet-pill packet-stack" />
+          <rect x={-w / 2 + 4} y={-16} width={w} height={24} rx={12} fill={fill} class="packet-pill packet-stack" />
+        </>
+      )}
       {/* Ring color comes from CSS (.packet-pill) so it matches the map in either theme. */}
       <rect x={-w / 2} y={-12} width={w} height={24} rx={12} fill={fill} class="packet-pill" />
+      {many && (
+        <g transform={`translate(${w / 2 + 2},0)`} class="packet-count">
+          <rect x={-cw / 2} y={-9} width={cw} height={18} rx={9} />
+          <text y={4} text-anchor="middle">
+            {many}
+          </text>
+        </g>
+      )}
       {proto === 'HTTPS' && (
         <g transform={`translate(${-w / 2 + 9},-5) scale(0.5)`} fill="none" stroke="#fff" stroke-width={3}>
           <rect x={2} y={9} width={16} height={11} rx={2} fill="#fff" />
