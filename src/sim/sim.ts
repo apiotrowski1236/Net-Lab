@@ -2184,9 +2184,13 @@ export class Sim {
     else delete this.zoneLevels[zone];
   }
 
-  /** Simulated outbreak: infect one host (patient zero). It spreads from there (see malware.ts). No-op if already infected. */
-  infect(devId: string): void {
-    infectHost(this, this.outbreak, devId);
+  /**
+   * Simulated outbreak: infect one host (patient zero). It spreads from there
+   * (see malware.ts). `how` says how it got there, for the inspector. No-op if
+   * already infected.
+   */
+  infect(devId: string, how?: string): void {
+    infectHost(this, this.outbreak, devId, undefined, how);
   }
 
   /** Clear every simulated infection and stop the spread. */

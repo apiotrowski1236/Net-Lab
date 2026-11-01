@@ -24,6 +24,7 @@ import {
   SW_PORTS,
   VLAN,
   warmArp,
+  ZONE_NAME,
   ZONE_OF,
   ZONES,
 } from './scenario';
@@ -35,7 +36,7 @@ import {
 const connect = (from: string, to: string, port: number) => (sim: Sim) => void sim.connectService(from, sim.ipOf(to), port);
 
 const pingFire: ActionDef = { id: 'ping-fire', label: 'Crew laptop 1 pings Fire control', run: (sim) => void sim.ping('crew1', sim.ipOf('fire')) };
-const install = (label: string): ActionDef => ({ id: 'install', label, run: (sim) => sim.infect('crew1') });
+const install = (label: string): ActionDef => ({ id: 'install', label, run: (sim) => sim.infect('crew1', 'The game a sailor installed carried it.') });
 
 // ---------------------------------------------------------------------------
 // Goal checks
@@ -55,6 +56,24 @@ const fwDenied = (sim: Sim, since: number, from: string, to: string, port: numbe
   loggedSince(sim, 'fw', since, (e) => deny(e) && e.fields?.src === sim.ipOf(from) && e.fields?.dst === sim.ipOf(to) && e.fields?.dport === port);
 
 const WEAPONS_OPS = ['fire', 'torpedo', 'command', 'nav', 'chart'];
+
+/** What the zone plan card says when a computer goes in another zone (step 3). */
+const JOB: Record<string, string> = {
+  fire: 'aims the torpedoes',
+  torpedo: 'launches the torpedoes',
+  command: 'is where officers run the ship',
+  nav: 'steers the ship',
+  chart: 'stores the charts Navigation uses',
+  crew1: 'is a sailor’s own laptop',
+  crew2: 'is a sailor’s own laptop',
+  media: 'stores movies for the crew',
+};
+const PLAN_FIT = Object.fromEntries(INSIDE.map((id) => [id, { zone: ZONE_OF[id], job: JOB[id] }]));
+const WEAPONS_LOW = 'Think about what an attacker could do from Fire control.';
+const LEVEL_NOTES = {
+  weapons: { medium: WEAPONS_LOW, low: WEAPONS_LOW },
+  crew: { high: 'Crew laptops run games and downloads. Would you trust them as much as Fire control?' },
+};
 
 /** Port shutdown (mac-flood) and its inspector, for step 8. */
 const PORT_TOOL: ToolSpec = { kind: 'port-security', device: 'sw' };
@@ -215,7 +234,7 @@ export const segmentationLab: LabDef = {
         2. Give each zone a security level.
       `,
       open: 'tools',
-      tools: [{ kind: 'zone-plan', devices: INSIDE }],
+      tools: [{ kind: 'zone-plan', devices: INSIDE, zones: ZONES.map((z) => ({ id: z, label: ZONE_NAME[z] })), fit: PLAN_FIT, levelNotes: LEVEL_NOTES }],
       goals: [
         {
           id: 'assign',
@@ -293,7 +312,7 @@ export const segmentationLab: LabDef = {
       `,
       focus: ['sw', 'crew1'],
       open: { inspect: 'sw' },
-      tools: [{ kind: 'vlan', device: 'sw' }, { kind: 'ping' }],
+      tools: [{ kind: 'vlan', device: 'sw', vlans: ZONES.map((z) => ({ id: VLAN[z], name: ZONE_NAME[z] })) }, { kind: 'ping' }],
       actions: [
         {
           id: 'ping-fire',

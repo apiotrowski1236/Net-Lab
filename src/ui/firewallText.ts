@@ -2,6 +2,7 @@ import { ruleText, type FwRule, type FwVerdict } from '../sim/firewall';
 import { appForPort, appName, isReply, portLabel, type Conn } from '../sim/services';
 import type { Sim } from '../sim/sim';
 import type { IpPacket, SimEvent } from '../sim/types';
+import { cellValue, onlyPort, pairName, verdictPair, zoneLabel } from '../sim/zonePolicy';
 
 // Student-facing words for firewalls, connections, and scans (src/sim/firewall.ts
 // and src/sim/services.ts). The map, the lesson's test buttons, and the
@@ -26,13 +27,35 @@ export function whyText(v: FwVerdict, rules: FwRule[] | undefined): string {
   }
 }
 
+/**
+ * For a firewall with a zone policy (segmentation): the decision in the
+ * policy's words ("its zone policy denies Crew to Weapons"). Undefined when no
+ * zone policy rule decided it.
+ */
+export function zoneWhyText(sim: Sim, fwId: string, v: FwVerdict): string | undefined {
+  const zp = sim.devices[fwId]?.zonePolicy;
+  const pair = zp && v.by === 'rule' ? verdictPair(zp, v) : undefined;
+  if (!zp || !pair) return undefined;
+  const outside = zp.outside?.label ?? 'the outside';
+  const the = `the ${outside.charAt(0).toLowerCase()}${outside.slice(1)}`;
+  if (pair.from === 'outside') return `its zone policy lets nothing from ${the} start a connection inside`;
+  if (pair.to === 'outside') return `its zone policy lets inside computers reach ${the}`;
+  const cell = cellValue(zp, pair.from, pair.to);
+  const port = onlyPort(cell);
+  const service = port === undefined ? undefined : zp.zones.find((z) => z.id === pair.to)?.services.find((x) => x.port === port);
+  const only = port === undefined ? '' : `port ${port}${service ? ` (${service.name})` : ''} from ${zoneLabel(zp, pair.from)} to ${zoneLabel(zp, pair.to)}`;
+  if (v.action === 'allow') return port === undefined ? `its zone policy allows all traffic from ${zoneLabel(zp, pair.from)} to ${zoneLabel(zp, pair.to)}` : `its zone policy allows ${only}`;
+  return port === undefined ? `its zone policy denies ${pairName(zp, pair.from, pair.to)}` : `its zone policy allows only ${only}`;
+}
+
 /** "Firewall A let the request in: rule 2, ALLOW in TCP ..." */
 export function fwEventText(sim: Sim, e: FwEvent): string {
   const label = sim.devices[e.device]?.label ?? e.device;
   const what = isReply(e.pkt) ? 'reply' : 'request';
   const allowed = e.verdict.action === 'allow';
-  const verb = allowed ? `let the ${what} ${e.dir === 'in' ? 'in' : 'out'}` : `blocked the ${what}`;
-  return `${label} ${verb}: ${whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.`;
+  const zoned = !!sim.devices[e.device]?.zonePolicy;
+  const verb = allowed ? `let the ${what} ${zoned ? 'through' : e.dir === 'in' ? 'in' : 'out'}` : `blocked the ${what}`;
+  return `${label} ${verb}: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.`;
 }
 
 /** For a packet a firewall dropped at time `t`: which firewall, and why. */
@@ -41,7 +64,7 @@ export function fwDenyText(sim: Sim, fwId: string | undefined, t: number): strin
   for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= t - 1; i--) {
     const e = sim.events[i];
     if (e.type === 'firewall' && e.device === fwId && e.verdict.action === 'deny' && e.t <= t) {
-      return `${label} blocked it: ${whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.`;
+      return `${label} blocked it: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.`;
     }
   }
   return `${label} blocked it.`;

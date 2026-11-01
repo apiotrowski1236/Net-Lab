@@ -232,6 +232,13 @@ export function Icon({ name, size = 16 }: { name: string; size?: number }) {
     ping: <path d="M2 12 H7 L9.5 6 L14.5 18 L17 12 H22" {...p} />,
     /** Device settings. */
     sliders: <path d="M4 6 H13 M17 6 H20 M15 4 V8 M4 12 H6 M10 12 H20 M8 10 V14 M4 18 H12 M16 18 H20 M14 16 V20" {...p} />,
+    /** Malware (segmentation). */
+    bug: (
+      <g {...p}>
+        <rect x={8} y={8} width={8} height={12} rx={4} />
+        <path d="M10 8 A2 2 0 0 1 14 8 M12 12 V20 M8 12 H4 M16 12 H20 M8 16 H4 M16 16 H20 M9 6 L7 4 M15 6 L17 4" />
+      </g>
+    ),
     info: (
       <g {...p}>
         <circle cx={12} cy={12} r={9} />

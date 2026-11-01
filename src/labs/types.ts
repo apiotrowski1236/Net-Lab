@@ -1,6 +1,7 @@
 import type { Sim } from '../sim/sim';
 import type { Frame, LogEntry, SimEvent } from '../sim/types';
 import type { FwMode } from '../sim/firewall';
+import type { ZoneLevel } from '../sim/zones';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
@@ -131,10 +132,19 @@ export type ToolSpec =
    * are the firewall types the student may switch between; without it, no switching.
    */
   | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] }
-  /** Put a switch's ports in VLANs, in its inspector (segmentation). */
-  | { kind: 'vlan'; device: string }
+  /** Put a switch's ports in VLANs, in its inspector (segmentation). `vlans` are the choices besides VLAN 1, with names. */
+  | { kind: 'vlan'; device: string; vlans?: { id: number; name: string }[] }
   /** Plan zones: put each listed device in a zone and give each zone a security level (segmentation). */
-  | { kind: 'zone-plan'; devices: string[] }
+  | {
+      kind: 'zone-plan';
+      devices: string[];
+      /** The zones to choose from, in order. */
+      zones: { id: string; label: string }[];
+      /** Each device's zone on a good plan, and its job ("aims the torpedoes"), for the line after a change. */
+      fit?: Record<string, { zone: string; job: string }>;
+      /** A level that doesn't suit a zone: zone id -> level -> what to say after "Saved.". */
+      levelNotes?: Record<string, Partial<Record<ZoneLevel, string>>>;
+    }
   /** Set a firewall's zone policy, in its inspector (segmentation). */
   | { kind: 'zone-policy'; device: string };
 

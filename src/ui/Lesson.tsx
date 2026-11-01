@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
 import { goalKey, type ChoiceQuestion, type QuestionDef, type StepDef, type TextQuestion } from '../labs/types';
 import type { SimEvent } from '../sim/types';
+import type { Sim } from '../sim/sim';
+import { targetsFor } from '../sim/malware';
 import { pingFailText } from './describe';
 import { connOutcomeLines, fwDenyText } from './firewallText';
 import { Icon } from './icons';
@@ -202,6 +204,20 @@ function dropText(sim: LabSession['sim'], e: Drop): string {
   }
 }
 
+/** The simulated outbreak a button started (segmentation): where it runs, then how far it got. */
+function outbreakLines(sim: Sim, since: number): { tone: 'good' | 'bad' | 'wait'; text: string }[] {
+  const start = sim.events.find((e) => e.t >= since && e.type === 'malware-infected' && e.via === 'install');
+  if (!start || start.type !== 'malware-infected') return [];
+  const lines: { tone: 'good' | 'bad' | 'wait'; text: string }[] = [{ tone: 'bad', text: `The malware is running on ${sim.devices[start.device]?.label ?? start.device}.` }];
+  const done = sim.events.find((e) => e.t >= start.t && e.type === 'malware-done');
+  if (!done || done.type !== 'malware-done') lines.push({ tone: 'wait', text: 'It is spreading…' });
+  else {
+    const of = targetsFor(sim, sim.dev(start.device)).length + 1;
+    lines.push({ tone: done.infected.length > of / 2 ? 'bad' : 'good', text: `The malware stopped. Infected: ${done.infected.length} of ${of} computers.` });
+  }
+  return lines;
+}
+
 function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }) {
   // Shows live network state: re-render whenever the network changes.
   void session.simRev.value;
@@ -237,6 +253,7 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
     else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost?.reason === 'firewall' ? ` ${dropText(sim, lost)}` : ''}` });
   }
   lines.push(...connOutcomeLines(sim, run.t));
+  lines.push(...outbreakLines(sim, run.t));
   if (!lines.length) return null;
   const label = step.actions?.find((a) => a.id === run.action)?.label;
   return (

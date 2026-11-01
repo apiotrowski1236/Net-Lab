@@ -158,6 +158,8 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
       return { device: e.device, text: 'rejected bad route', tone: 'good' };
     case 'credentials-stolen':
       return { device: e.device, text: 'password stolen!', tone: 'bad' };
+    case 'malware-infected':
+      return { device: e.device, text: 'infected', tone: 'bad' };
     case 'firewall':
       return fwMarker(e);
     case 'conn-result':
@@ -225,6 +227,21 @@ function recentMarkers(sim: Sim, since = 0, learn = false): Marker[] {
   return out;
 }
 
+/** Device pairs joined by more than one cable, with how many. */
+function parallelLinks(sim: Sim): { key: string; a: Device; b: Device; n: number }[] {
+  const count = new Map<string, number>();
+  for (const l of Object.values(sim.links)) {
+    if (l.wireless) continue;
+    const key = [l.a.device, l.b.device].sort().join('|');
+    count.set(key, (count.get(key) ?? 0) + 1);
+  }
+  return [...count].flatMap(([key, n]) => {
+    if (n < 2) return [];
+    const [a, b] = key.split('|').map((id) => sim.devices[id]);
+    return a && b ? [{ key, a, b, n }] : [];
+  });
+}
+
 function packetPos(sim: Sim, f: InFlight): { x: number; y: number; angle: number } {
   const a = sim.devices[f.from];
   const b = sim.devices[f.to];
@@ -243,7 +260,8 @@ function Packet({ sim, f }: { sim: Sim; f: InFlight }) {
   const forged = !!f.frame.forged;
   const label = forged ? `FAKE ${proto}` : proto;
   const w = label.length * 8 + (proto === 'HTTPS' ? 28 : 18);
-  const fill = forged ? FORGED_COLOR : PROTO_COLOR[proto];
+  // The simulated outbreak's tries (segmentation) are red like forged frames.
+  const fill = forged || f.frame.malware ? FORGED_COLOR : PROTO_COLOR[proto];
   // A burst (one frame standing for many, see sim/burst.ts) draws as a stack with its count.
   const count = f.frame.burst?.count ?? 1;
   const many = count > 1 ? `×${count}` : '';
@@ -657,6 +675,21 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
           );
         })}
 
+        {/* Cables between the same two devices draw on top of each other: say how many (segmentation's firewall-to-switch cables). */}
+        {parallelLinks(sim).map(({ key, a, b, n }) => {
+          const text = `×${n}`;
+          const w = text.length * 7 + 12;
+          return (
+            <g key={key} transform={`translate(${(a.x + b.x) / 2},${(a.y + b.y) / 2})`} class="port-tag link-count">
+              <title>{`${n} cables between ${a.label} and ${b.label}`}</title>
+              <rect x={-w / 2} y={-9} width={w} height={18} rx={9} />
+              <text y={4} text-anchor="middle">
+                {text}
+              </text>
+            </g>
+          );
+        })}
+
         {drag &&
           (() => {
             const a = sim.devices[drag.from];
@@ -707,11 +740,12 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
           if (d.firewall && d.kind !== 'firewall') badges.push({ icon: 'shield', title: 'Firewall software on', tone: 'good' });
           if (Object.values(d.arp).some((e) => e.via === 'static')) badges.push({ icon: 'lock', title: 'Locked ARP entry', tone: 'good' });
           if (d.stolen.length) badges.push({ icon: 'key', title: `${d.stolen.length} stolen password(s)`, tone: 'bad' });
+          if (d.malware) badges.push({ icon: 'bug', title: 'Infected', tone: 'bad' });
           return (
             <g
               key={d.id}
               transform={`translate(${d.x},${d.y})`}
-              class={`device ${d.attacker ? 'attacker' : ''} ${isSel ? 'selected' : ''} ${isHover ? 'hover' : ''} ${cableClass}`}
+              class={`device ${d.attacker ? 'attacker' : ''} ${d.malware ? 'infected' : ''} ${isSel ? 'selected' : ''} ${isHover ? 'hover' : ''} ${cableClass}`}
               onClick={() => !swallowClick.current && onSelect(d.id)}
               onPointerDown={(e) => startPress(d.id, e)}
               role="button"

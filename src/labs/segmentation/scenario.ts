@@ -88,6 +88,7 @@ export const POLICY_ZONES: PolicyZone[] = [
       { port: 80, name: 'movies' },
       { port: 445, name: 'file sharing' },
     ],
+    allowWarning: 'Crew laptops run games and downloads. Allow all lets anything on them reach {to}.',
   },
 ];
 

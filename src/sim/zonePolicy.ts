@@ -43,6 +43,8 @@ export interface PolicyZone {
   net: string;
   /** Services in this zone a policy may allow on their own. */
   services: PolicyService[];
+  /** Said when a cell in this zone's row is set to Allow all. `{to}` is the other zone's label. */
+  allowWarning?: string;
 }
 
 export type PolicyValue = 'allow' | 'deny' | `only:${number}`;
