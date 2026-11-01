@@ -1,4 +1,6 @@
 import type { Ip, Mac } from './addr';
+import type { Burst } from './burst';
+import type { SwitchSec } from './switchsec';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -33,6 +35,8 @@ export interface Iface {
   ip?: Ip;
   prefix?: number;
   linkId?: string;
+  /** The MAC built into the card, kept while `mac` is changed (MAC spoofing, see Sim.setMac). */
+  factoryMac?: Mac;
 }
 
 export interface ArpEntry {
@@ -148,6 +152,8 @@ export interface Device {
   notes?: string[];
   /** What this device wrote to its log (newest last). Shown in the Logs tab. See Sim.log. */
   logs: LogEntry[];
+  /** Switch security: MAC table size, port security, shut ports (see switchsec.ts and Sim.configureSwitch). */
+  switchSec?: SwitchSec;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +238,8 @@ export interface Frame {
   origin: string;
   /** Set when an attacker forged this frame. Drawn in red so students can follow it. */
   forged?: boolean;
+  /** This one frame stands for many (a flood). See burst.ts. */
+  burst?: Burst;
 }
 
 export interface Link {
@@ -269,14 +277,23 @@ export type DropReason =
   /** A computer has no route for the destination: it isn't local and there's no default gateway. */
   | 'no-gateway'
   /** A computer's default gateway isn't on any network it is part of. */
-  | 'gateway-off-net';
+  | 'gateway-off-net'
+  /** The switch port is shut down (by an admin, or by port security). */
+  | 'port-shutdown'
+  /** Port security refused the frame's source MAC. */
+  | 'port-security';
 
 export type SimEvent = (
   | { t: number; type: 'captured'; device: string; no: number; frame: Frame }
   | { t: number; type: 'ignored'; device: string; frame: Frame }
   | { t: number; type: 'arp-update'; device: string; ip: Ip; mac: Mac; prev?: Mac; forged?: boolean }
   | { t: number; type: 'arp-rejected'; device: string; ip: Ip; mac: Mac }
-  | { t: number; type: 'mac-learn'; device: string; mac: Mac; iface: string }
+  /** A switch learned `mac` on `iface`. From a burst, `count` new MACs at once (`mac` is the first). */
+  | { t: number; type: 'mac-learn'; device: string; mac: Mac; iface: string; count?: number }
+  /** A full MAC table pushed out its oldest entries to learn new ones on `iface`. */
+  | { t: number; type: 'mac-overflow'; device: string; iface: string; learned: number; evicted: Mac[] }
+  /** Port security caught a MAC it doesn't allow on `iface`: shut the port, or dropped `count` frames. */
+  | { t: number; type: 'port-security'; device: string; iface: string; mac: Mac; action: 'shutdown' | 'restrict'; count: number }
   | { t: number; type: 'route-change'; device: string; prefix: string; route?: Route }
   | { t: number; type: 'route-rejected'; device: string; prefix: string; from: string; reason: string }
   | { t: number; type: 'drop'; device: string; reason: DropReason; pkt?: IpPacket; frame?: Frame; nextHop?: Ip }
