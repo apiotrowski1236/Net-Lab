@@ -91,7 +91,7 @@ export const logsLab: LabDef = {
       body: md`
         You are the new security analyst at Riverbend Water Utility. It runs the treatment plant for the whole city, so the office network is small but it matters. Break into the control room and you reach the plant.
 
-        Every device keeps a **log**, a running record of what it did. The firewall, the switch [[sw]], the servers [[files]] and [[backup]], the staff computers, and the plant controller [[plant]] all write lines. One place collects them all: the **SIEM** ([[siem]]), short for security information and event management. It is your console for the whole network.
+        Every device keeps a **log**, a running record of what it did. [[fw]], [[sw]], the servers [[files]] and [[backup]], the staff computers, and [[plant]] all write lines. One place collects them all: the **SIEM** ([[siem]]), short for security information and event management. It is your console for the whole network.
 
         Everything here is a simulation of one night at the utility. The attacks already happened. Your job this morning is to find them.
 
@@ -150,7 +150,7 @@ export const logsLab: LabDef = {
       body: md`
         The overnight log holds hundreds of lines here, and a real utility's SIEM would hold millions a day. You cannot read them all. You search and filter instead.
 
-        Something tried to break into the [[files]] records server last night. Find it.
+        Something tried to break into [[files]] last night. Find it.
 
         1. Set the device filter to the Records server.
         2. Check **Warnings and alerts only** to hide the routine lines.
@@ -189,7 +189,7 @@ export const logsLab: LabDef = {
       id: 'signatures',
       title: 'Signatures',
       body: md`
-        A **NIDS**, a network intrusion detection system, watches traffic and raises an **alert** when it sees something it knows is bad. The sensor [[nids]] is a NIDS. Its rules have been off since 02:00, when a signature update failed. That is why nothing caught the intruder overnight.
+        A **NIDS**, a network intrusion detection system, watches traffic and raises an **alert** when it sees something it knows is bad. [[nids]], on the switch's mirror port, is a NIDS. Its rules have been off since 02:00, when a signature update failed. That is why nothing caught the intruder overnight.
 
         Open the **Detection** controls on [[nids]] and turn on the **signature set**. A signature is a stored pattern for a known attack, the way antivirus knows a known virus.
 
@@ -233,7 +233,7 @@ export const logsLab: LabDef = {
       id: 'something-new',
       title: 'Something new',
       body: md`
-        At 03:12 last night, [[pc2]], Raj's PC in finance, sent a large upload to \`${EXFIL}\`. No staffer was in the building. No list of known-bad addresses has ever seen that IP.
+        At 03:12 last night, [[pc2]] in finance sent a large upload to \`${EXFIL}\`. No staffer was in the building. No list of known-bad addresses has ever seen that IP.
 
         Press **Replay the 3 a.m. upload**. Watch the signature set. It stays silent.
       `,
@@ -330,9 +330,9 @@ export const logsLab: LabDef = {
       body: md`
         A NIDS only warns. A **NIPS**, a network intrusion prevention system, can also act. It can close a switch port, block an IP address or a MAC address, or reject a protocol. The same sensor can do both jobs. You decide whether it may act.
 
-        Turn on **prevention mode**. Then press **Replay the MAC flood**. The intruder's laptop [[mal]] floods the switch [[sw]] with made-up MAC addresses to make it leak everyone's traffic. In prevention mode the sensor shuts the port the flood came from. The attack stops on its own.
+        Turn on **prevention mode**. Then press **Replay the MAC flood**. The intruder's laptop, [[mal]], floods [[sw]] with made-up MAC addresses to make it leak everyone's traffic. In prevention mode the sensor shuts the port the flood came from. The attack stops on its own.
 
-        Now press **Replay the 2 a.m. backup** again. The backup still looks anomalous, so the NIPS blocks the [[backup]] server at the firewall. A normal backup failed, and no human decided that.
+        Now press **Replay the 2 a.m. backup** again. The backup still looks anomalous, so the NIPS blocks [[backup]] at the firewall. A normal backup failed, and no human decided that.
       `,
       setup: anomalyAtMedium,
       open: { inspect: 'nids' },

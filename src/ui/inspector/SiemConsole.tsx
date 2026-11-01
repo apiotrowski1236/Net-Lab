@@ -38,6 +38,8 @@ export const canTriage = (session: LabSession, siemId: string) => session.tools.
  * Logs tab when the student opens the incident's line.
  */
 export function IncidentCard({ session, sim, siemId, inc, edit }: { session: LabSession; sim: Sim; siemId: string; inc: Incident; edit: boolean }) {
+  // Hooks state plus unchanged props would skip re-renders: follow the network directly.
+  void session.simRev.value;
   const [verdict, setVerdict] = useState<Verdict | undefined>(inc.verdict);
   const [action, setAction] = useState<TriageAction | undefined>(inc.action);
   const [msg, setMsg] = useState<Msg>(null);
@@ -105,6 +107,7 @@ export function IncidentCard({ session, sim, siemId, inc, edit }: { session: Lab
  * 'ai-threshold' tool) the AI model's scores and alert threshold.
  */
 export function SiemConsole({ session, sim, dev, replaying }: InspectorSectionProps) {
+  void session.simRev.value;
   const q = dev.ids?.siem;
   const [open, setOpen] = useState<number | null>(null);
   if (!q) return null;
@@ -149,6 +152,7 @@ export function SiemConsole({ session, sim, dev, replaying }: InspectorSectionPr
 }
 
 function AiThreshold({ session, sim, devId, q, edit }: { session: LabSession; sim: Sim; devId: string; q: Siem; edit: boolean }) {
+  void session.simRev.value;
   const [draft, setDraft] = useState<number | null>(null);
   const value = draft ?? q.threshold;
   const flash = recentlyChanged(sim, (e) => e.type === 'config' && e.device === devId && e.what === 'ai-score', 2500);

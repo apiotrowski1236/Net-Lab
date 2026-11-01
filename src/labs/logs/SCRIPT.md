@@ -4,6 +4,23 @@ The full lesson, as students see it, ready to translate into `index.ts`, `scenar
 
 **Orchestrator edit:** step 8's body no longer gives the good threshold range. Students find it with the counters; the goal hint still names it if they get stuck.
 
+## Changes made while building
+
+Places where the code departs from this script because the simulation forced it, or because the script left a gap. `index.ts`, `scenario.ts`, and `solution.ts` are the source of truth.
+
+1. **The backup goes offsite.** A backup to `10.10.20.11` stays inside the LAN, so the NIDS (which also taps the firewall's internet line) could not block it at the firewall, and `backup` would be a known peer of `files` either way. The backup is now the **monthly offsite backup**: `backup` sends ~40 MB to a vault at `192.0.2.50:873` at 02:00. It still scores deviation 2 (off hours, +10x size; the vault is a known peer). In prevention mode the IPS blocks `10.10.20.11` at the edge firewall and the transfer gets no answer. The button is **Replay the 2 a.m. backup** (`run-backup`), not "Run the scheduled backup". The AI event reads "Monthly backup sends 40 MB offsite".
+2. **The internet cloud hosts the outside servers.** `internet` carries the exfil site `45.77.12.9`, the vault `192.0.2.50`, DNS, and the update server as /32 addresses, so the replayed connections get real answers.
+3. **DNS is `192.0.2.53`, not the firewall.** The firewall in this sim does not forward DNS, so hosts use an outside resolver and the firewall logs their lookups as `ALLOW out UDP ... :53`.
+4. **Rule numbers follow a real six-rule rulebook** (`RULES` in `scenario.ts`): 1 vendor SSH in, 2 DNS out, 3 HTTPS out, 4 everything else out, 5 no broadcast pings in, 6 everything else in. Every seeded firewall line is built by the firewall's own `logLine`, so the numbers match what the engine would write: the upload is `rule 4`, the scan denies are `rule 6`, the C2 beacon and SSH-on-443 are `rule 3`.
+5. **Firewall line levels come from the engine.** Denies log at `notice` and allows at `info`, not `warn`. The SSH-on-443 line is `warn` (app mismatch) and the C2 line `notice` (threat feed). Step 2 still works with "Warnings and alerts only" because the failed sign-ins are `warn`.
+6. **Why the sensor missed the night.** Step 3's body explains that the signature set was loaded at 00:00 and paused at 02:00 by a failed signature update (a seeded `warn` line), so the 01:03 port-scan alert is in the history but the ARP poisoning at 02:30 raised nothing. "Right now its rules are off" becomes "Its rules have been off since 02:00".
+7. **Incident 1041 opens at 01:05:18**, when the third kind of event (the first failed sign-in) arrives, not 01:20. The SIEM correlates as lines arrive, so the incident opens as soon as it has three kinds within 20 minutes. Its `kinds` field lists them in arrival order: `deny,scan,auth-fail`. The scan itself starts at 01:02.
+8. **Ten AI events, not seven.** Added three normal events (update check 0.40, staff web browsing 0.20, DNS lookups 0.10) so the table looks like a morning, not a quiz. The scores of the original seven are unchanged, and the good range is still exactly 0.70 to 0.75 (tested).
+9. **Log sources.** Switch lines use the sources `link`, `mac-table`, and `system` (the switch's real log sources), so step 1's switch goal checks the device, not a `switch` source. The plant controller's source is `modbus`.
+10. **Step 9's `ids-line` IoC goal** accepts an `ips` line as well as an `ids` line, since prevention mode writes `ips` lines on the same sensor.
+11. **Step bodies were reworded** where a device chip would repeat its own label (a chip renders as "Backup server", so "the [[backup]] server" read "the Backup server server"), and "just" was removed per the house voice.
+12. **Triage happens in an incident card.** Opening the `INCIDENT 1041` line in the Logs tab shows the incident's parts with Verdict, Action, and **Save triage**, so step 7 never leaves the Logs tab. The same card is in the SIEM server's inspector. The Logs tab gained an **Alerts only** filter (item 10 of "Simulator behaviors"), shown only when the current lines include alerts.
+
 ## Changes from the plan
 
 The plan's 12 steps, CodeHS lesson, and CED LOs are unchanged. This script fills in the specifics and makes three design decisions the plan left open. None of them change the plan's direction, so `PLAN.md` is not edited.

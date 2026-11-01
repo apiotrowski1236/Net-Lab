@@ -48,14 +48,17 @@ export function Detection({ session, sim, dev, replaying }: InspectorSectionProp
             <span>Signature set ({s.rules} rules)</span> <OnOff on={s.signatures} />
           </div>
         )}
-        <p class="small muted">Matches traffic against stored patterns of known attacks. Some of the rules:</p>
-        <ul class="ids-sigs small">
-          {SIGNATURES.map((g) => (
-            <li key={g.id}>
-              <span class="mono">{g.id}</span> {g.text}
-            </li>
-          ))}
-        </ul>
+        <p class="small muted">Matches traffic against stored patterns of known attacks.</p>
+        <details class="ids-sigs-wrap small">
+          <summary>Some of the rules</summary>
+          <ul class="ids-sigs">
+            {SIGNATURES.map((g) => (
+              <li key={g.id}>
+                <span class="mono">{g.id}</span> {g.text}
+              </li>
+            ))}
+          </ul>
+        </details>
       </div>
 
       {(can.has('anomaly') || s.anomaly || s.baseline) && (
@@ -152,7 +155,7 @@ function Judged({ dev, s }: { dev: Device; s: IdsSensor }) {
             </td>
             <td>{deviationWhy(j)}</td>
             <td>
-              {j.deviation} {j.alerted ? <span class="pill tiny bad">ALERT</span> : <span class="muted">below {j.min}</span>}
+              {j.deviation} {j.alerted ? <span class="pill tiny bad">ALERT</span> : <span class="muted">needs {j.min}</span>}
             </td>
           </tr>
         ))}
