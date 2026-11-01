@@ -1541,7 +1541,8 @@
   margin: 6px 0 10px;
 }
 .zone-plan .table th {
-  background: var(--surface-2);
+  position: static;
+  background: transparent;
 }
 .zone-grid {
   table-layout: fixed;
