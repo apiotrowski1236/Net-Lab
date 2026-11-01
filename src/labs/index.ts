@@ -4,11 +4,12 @@ import { macFloodLab } from './mac-flood';
 import { firewallLab } from './firewall';
 import { onPathLab } from './on-path';
 import { routeHijackLab } from './route-hijack';
+import { netAuditLab } from './net-audit';
 import { wirelessLab } from './wireless';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, routeHijackLab, wirelessLab, firewallLab];
+export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, routeHijackLab, netAuditLab, wirelessLab, firewallLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the
@@ -22,14 +23,6 @@ export const STUBS: LabStub[] = [
     tagline: "Turn a network's own echoes into a flood that knocks a ticket site offline.",
     unit: 3,
     codehs: ['3.3 Misdirected and Overwhelmed'],
-    comingSoon: true,
-  },
-  {
-    id: 'net-audit',
-    title: 'The Network Audit',
-    tagline: 'Scan a small office for weaknesses, rate each risk, and write the policies that fix them.',
-    unit: 3,
-    codehs: [],
     comingSoon: true,
   },
   {

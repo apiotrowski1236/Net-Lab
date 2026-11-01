@@ -9,6 +9,7 @@ import { SwitchPorts } from './SwitchPorts';
 import { wifiSettingsSection } from './WifiSettings';
 import { FirewallRulesSection } from './FirewallRules';
 import { ServicesSection } from './Services';
+import { HardeningSection } from './Hardening';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -44,4 +45,6 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   // firewall
   { id: 'services', slot: 'settings', Section: ServicesSection },
   { id: 'firewall-rules', slot: 'settings', Section: FirewallRulesSection },
+  // net-audit
+  { id: 'hardening', slot: 'settings', Section: HardeningSection },
 ];
