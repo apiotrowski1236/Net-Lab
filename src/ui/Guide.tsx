@@ -29,6 +29,9 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'port-scan': 'Port scanner',
   'firewall-place': 'Place firewalls',
   'firewall-rules': 'Firewall rules (in the inspector)',
+  scanner: 'Vulnerability scanner',
+  'risk-register': 'Risk register',
+  hardening: 'Security settings (in the inspector)',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {

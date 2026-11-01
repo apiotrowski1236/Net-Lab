@@ -5,6 +5,9 @@ import type { SwitchSec } from './switchsec';
 import type { WifiAp, WifiClient } from './wifi';
 import type { FirewallState, FwDir, FwVerdict } from './firewall';
 import type { Conn, Scan, Service } from './services';
+import type { AuditState } from './audit';
+import type { Hardening } from './hardening';
+import type { VpnState } from './vpn';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -176,6 +179,14 @@ export interface Device {
   scans?: Scan[];
   /** Firewall rules and state, on a router or a 'firewall' device (see firewall.ts). */
   firewall?: FirewallState;
+  /** While sniffing, also record the frames this device sends, as Wireshark does on your own computer. Off by default. */
+  captureOwn?: boolean;
+  /** Vulnerability scanner and risk register, on the auditor's computer (see audit.ts). */
+  audit?: AuditState;
+  /** Management settings a security policy covers: how admins log in (see hardening.ts). */
+  hardening?: Hardening;
+  /** VPN server (on a router) or client (on a remote computer) settings (see vpn.ts). */
+  vpn?: VpnState;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +286,8 @@ export interface Link {
   a: { device: string; iface: string };
   b: { device: string; iface: string };
   wireless?: boolean;
+  /** A VPN tunnel: an encrypted path across the internet, drawn dashed and labeled (see vpn.ts). Not a real cable. */
+  tunnel?: boolean;
 }
 
 export interface InFlight {
@@ -311,7 +324,9 @@ export type DropReason =
   /** Port security refused the frame's source MAC. */
   | 'port-security'
   /** A firewall's rules denied the packet (the 'firewall' event just before says which rule). */
-  | 'firewall';
+  | 'firewall'
+  /** A VPN client with split tunneling off refused to carry a home-network device's packet into the tunnel (see vpn.ts). */
+  | 'vpn-split-off';
 
 export type SimEvent = (
   | { t: number; type: 'captured'; device: string; no: number; frame: Frame }
@@ -360,6 +375,8 @@ export type SimEvent = (
   | { t: number; type: 'conn-result'; device: string; conn: Conn }
   /** A port scan finished: every probe answered or timed out. */
   | { t: number; type: 'scan-done'; device: string; scan: Scan }
+  /** A vulnerability scan finished (see audit.ts). `findings` are the ids still present, in catalog order. */
+  | { t: number; type: 'scan-complete'; device: string; report: number; findings: string[] }
   /** A reply nobody asked for reached `device` (a forged reply, for example). The device ignores it. */
   | { t: number; type: 'stray-reply'; device: string; pkt: IpPacket }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */

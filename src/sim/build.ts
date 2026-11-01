@@ -59,7 +59,9 @@ export interface RouterOpts extends Placed {
   attacker?: boolean;
   impersonate?: WebSite;
   /** Firewall software inside the router: it checks the packets the router forwards. `outside` is the port facing the less trusted side. See firewall.ts. */
-  firewall?: { outside: string; mode?: FwMode; rules?: FwRuleInput[] };
+  firewall?: { outside: string; mode?: FwMode; rules?: FwRuleInput[]; guardSelf?: boolean };
+  /** Programs answering on the router's own addresses (Telnet or SSH for management). See services.ts and hardening.ts. */
+  services?: Service[];
 }
 
 export interface L2Opts extends Placed {
@@ -138,6 +140,8 @@ export class NetBuilder {
     d.attacker = o.attacker;
     d.impersonate = o.impersonate;
     if (o.firewall) d.firewall = newFirewall(o.firewall.outside, o.firewall.mode, o.firewall.rules);
+    if (o.firewall?.guardSelf) d.firewall!.guardSelf = true;
+    if (o.services) d.services = o.services.map((x) => ({ ...x }));
     if (o.routes) (this.staticRoutes[id] ??= []).push(...o.routes);
     if (o.asn !== undefined) {
       d.bgp = { asn: o.asn, origins: o.origins ?? [], neighbors: [], adjIn: {}, best: {}, sentTo: {}, validate: false };
@@ -178,11 +182,13 @@ export class NetBuilder {
     return dev;
   }
 
-  link(a: End, b: End, opts: { wireless?: boolean } = {}): this {
+  /** `tunnel` marks a VPN tunnel (drawn dashed and labeled; see vpn.ts) instead of a cable. */
+  link(a: End, b: End, opts: { wireless?: boolean; tunnel?: boolean } = {}): this {
     const id = `L${this.linkSeq++}`;
     const ea = this.endpoint(a, id);
     const eb = this.endpoint(b, id);
     this.sim.links[id] = { id, a: ea, b: eb, wireless: opts.wireless };
+    if (opts.tunnel) this.sim.links[id].tunnel = true;
     return this;
   }
 

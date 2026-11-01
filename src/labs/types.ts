@@ -8,7 +8,9 @@ export type UiEvent =
   | { type: 'ui:open-frame'; device: string; frame: Frame }
   /** The student clicked a line in the Logs tab. */
   | { type: 'ui:open-log'; device: string; entry: LogEntry }
-  | { type: 'ui:enter-step'; step: string };
+  | { type: 'ui:enter-step'; step: string }
+  /** The student opened a finding in the vulnerability scanner's report (net-audit). */
+  | { type: 'ui:open-finding'; device: string; finding: string };
 
 export type AnyEvent = SimEvent | UiEvent;
 
@@ -130,7 +132,13 @@ export type ToolSpec =
    * Edit these firewalls' rules in the inspector (the card lists them). `modes`
    * are the firewall types the student may switch between; without it, no switching.
    */
-  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] };
+  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] }
+  /** Vulnerability scanner on `device`: scan its network, then read the report (net-audit). */
+  | { kind: 'scanner'; device: string }
+  /** The risk register on `device`: rate each finding's likelihood and impact (net-audit). */
+  | { kind: 'risk-register'; device: string }
+  /** Security settings for router or switch `device` in the inspector: logins, Telnet and SSH, port policy, VPN (net-audit). */
+  | { kind: 'hardening'; device: string };
 
 /** What the firewall placement tool says about one choice of cable. */
 export interface PlacementFeedback {
