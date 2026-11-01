@@ -26,7 +26,7 @@ To try it from a student laptop on the same Wi-Fi, run `npm run dev -- --host` a
 | **Traffic in the Wrong Hands**: sniff a password on open Wi-Fi, see WPA2 stop it, ARP-poison your way into the middle, watch HTTPS defeat you, then lock ARP entries | 3.1, 3.2, 3.7 | 13 | ~45 min |
 | **Advertise a Bad Route**: hijack a bank's prefix with BGP, black-hole it, out-compete the real route with a more specific prefix, impersonate the bank, then deploy route origin validation | 3.1, 3.3 | 10 | ~40 min |
 
-The home page also lists four planned labs (DNS spoofing, segmentation, firewall rules, log analysis) as "coming soon".
+The home page also lists eight planned labs as "coming soon": MAC flooding, DNS poisoning, smurf attacks, a network audit, wireless security, segmentation, firewalls, and log analysis. Together with the labs above they cover every topic in the CED's Unit 3. [docs/unit3/COVERAGE.md](docs/unit3/COVERAGE.md) maps each learning objective to a lab, each lab's plan is in `src/labs/<id>/PLAN.md`, and [docs/unit3/ARCHITECTURE.md](docs/unit3/ARCHITECTURE.md) is the guide for building one.
 
 ### How a lab works
 

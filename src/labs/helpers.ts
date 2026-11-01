@@ -1,5 +1,5 @@
 import type { Sim } from '../sim/sim';
-import type { Frame, SimEvent } from '../sim/types';
+import type { Frame, LogEntry, SimEvent } from '../sim/types';
 import type { CheckCtx } from './types';
 
 /**
@@ -24,6 +24,22 @@ export const openedFrame =
   (device: string, pred: (f: Frame) => boolean = () => true) =>
   ({ ev }: CheckCtx): boolean =>
     ev?.type === 'ui:open-frame' && ev.device === device && pred(ev.frame);
+
+/** The student clicked a log line matching `pred` in the Logs tab. */
+export const openedLog =
+  (pred: (e: LogEntry) => boolean = () => true) =>
+  ({ ev }: CheckCtx): boolean =>
+    ev?.type === 'ui:open-log' && pred(ev.entry);
+
+/** `device` wrote a log line matching `pred` since the step started. */
+export function loggedSince(sim: Sim, device: string, since: number, pred: (e: LogEntry) => boolean): boolean {
+  const logs = sim.dev(device).logs;
+  for (let i = logs.length - 1; i >= 0; i--) {
+    if (logs[i].t < since) return false;
+    if (pred(logs[i])) return true;
+  }
+  return false;
+}
 
 /** Some event since the step started matches. */
 export function happened(sim: Sim, since: number, pred: (e: SimEvent) => boolean): boolean {

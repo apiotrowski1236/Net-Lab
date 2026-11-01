@@ -16,6 +16,7 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'ip-config': 'IP addresses (in the inspector)',
   gateway: 'Default gateway (in the inspector)',
   'static-route': 'Static routes (in the inspector)',
+  logs: 'Logs (its own tab)',
 };
 
 function Md({ src, labels }: { src: string; labels: Record<string, string> }) {

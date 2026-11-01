@@ -146,6 +146,34 @@ export interface Device {
   pending: { pkt: IpPacket; nextHop: Ip; iface: string; since: number }[];
   /** Extra notes shown in the inspector. */
   notes?: string[];
+  /** What this device wrote to its log (newest last). Shown in the Logs tab. See Sim.log. */
+  logs: LogEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Logs: what firewalls, switches, servers, and sensors write down
+// ---------------------------------------------------------------------------
+
+/** How serious a log line is. 'alert' is for detection tools (IDS, SIEM) raising an alarm. */
+export type LogLevel = 'info' | 'notice' | 'warn' | 'alert';
+
+/**
+ * One line in a device's log. Write `msg` the way the real device would
+ * ("DENY in TCP 203.0.113.9:51522 -> 10.0.2.10:22 rule 3"), and put the same
+ * facts in `fields` so filters and goal checks don't parse text.
+ */
+export interface LogEntry {
+  /** Running number across the whole network, in the order lines were written. */
+  no: number;
+  /** Simulated time. Seeded history (logs from before the lab starts) may be negative. */
+  t: number;
+  device: string;
+  /** The part of the device that wrote it: 'firewall', 'port-security', 'switch', 'dns', 'wifi', 'ids', 'auth', 'web', ... */
+  source: string;
+  level: LogLevel;
+  msg: string;
+  /** Common keys: src, dst, proto, sport, dport, mac, ip, ssid, rule, action, user, count. */
+  fields?: Record<string, string | number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -261,7 +289,9 @@ export type SimEvent = (
   | { t: number; type: 'ping-sent'; device: string; to: Ip; seq: number }
   /** A ping from `device` got no reply: dropped at `at` (with the reason), or timed out. */
   | { t: number; type: 'ping-fail'; device: string; to: Ip; seq: number; reason: DropReason | 'timeout'; at?: string; ip?: Ip }
-  | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string }) & {
+  | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string }
+  /** A device wrote a log line (see Sim.log). */
+  | { t: number; type: 'log'; device: string; entry: LogEntry }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */
   quiet?: boolean;
 };

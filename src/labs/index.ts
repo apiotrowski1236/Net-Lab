@@ -6,20 +6,56 @@ import type { LabDef, LabStub } from './types';
 /** Every playable lab, in the order they appear on the home page. */
 export const LABS: LabDef[] = [buildNetworkLab, onPathLab, routeHijackLab];
 
-/** Planned labs, shown on the home page as "coming soon". */
+/**
+ * Planned labs, shown on the home page as "coming soon", in the order of the
+ * CED's Unit 3 topics. Each has a plan in src/labs/<id>/PLAN.md; see
+ * docs/unit3/COVERAGE.md for what each covers.
+ */
 export const STUBS: LabStub[] = [
+  {
+    id: 'mac-flood',
+    title: 'Flood the Switch',
+    tagline: "Overflow a switch's memory so it repeats everyone's traffic to you, then lock its ports.",
+    unit: 3,
+    codehs: [],
+    comingSoon: true,
+  },
   {
     id: 'dns-spoof',
     title: 'Wrong Directions',
-    tagline: 'Forge a DNS answer and send a whole café to the wrong site.',
+    tagline: "Poison a DNS server's memory and send a whole school to a fake sign-in page.",
     unit: 3,
     codehs: ['3.3 Misdirected and Overwhelmed'],
     comingSoon: true,
   },
   {
+    id: 'smurf',
+    title: 'Echo Storm',
+    tagline: "Turn a network's own echoes into a flood that knocks a ticket site offline.",
+    unit: 3,
+    codehs: ['3.3 Misdirected and Overwhelmed'],
+    comingSoon: true,
+  },
+  {
+    id: 'net-audit',
+    title: 'The Network Audit',
+    tagline: 'Scan a small office for weaknesses, rate each risk, and write the policies that fix them.',
+    unit: 3,
+    codehs: [],
+    comingSoon: true,
+  },
+  {
+    id: 'wireless',
+    title: 'Signals Past the Walls',
+    tagline: "Secure an emergency shelter's Wi-Fi against snoopers in the parking lot, evil twins, and jammers.",
+    unit: 3,
+    codehs: ['3.7 Locking Down the Airwaves'],
+    comingSoon: true,
+  },
+  {
     id: 'segmentation',
     title: 'Walls Inside the Network',
-    tagline: 'Split a flat network into zones and watch an intruder hit a wall.',
+    tagline: "Split a submarine's flat network into zones and watch malware hit a wall.",
     unit: 3,
     codehs: ['3.8 Network Segmentation'],
     comingSoon: true,
@@ -27,7 +63,7 @@ export const STUBS: LabStub[] = [
   {
     id: 'firewall',
     title: 'Firewall Rulebook',
-    tagline: 'Write allow and deny rules, then test them against live traffic.',
+    tagline: 'Place two firewalls in a hospital network and write the rules that let patients in and keep attackers out.',
     unit: 3,
     codehs: ['3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
     comingSoon: true,
@@ -35,7 +71,7 @@ export const STUBS: LabStub[] = [
   {
     id: 'logs',
     title: 'Log Detective',
-    tagline: 'Read router and server logs to find the attack hiding in normal traffic.',
+    tagline: 'Tune detection tools and read the logs to find attacks hiding in normal traffic.',
     unit: 3,
     codehs: ['3.18 The Story in the Logs'],
     comingSoon: true,

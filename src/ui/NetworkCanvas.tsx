@@ -1,5 +1,6 @@
 import { signal } from '@preact/signals';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import type { LabDef, MapZone } from '../labs/types';
 import type { Sim } from '../sim/sim';
 import type { BrowserState, Device, InFlight, SimEvent } from '../sim/types';
 import { FORGED_COLOR, PROTO_COLOR, protoOf } from './describe';
@@ -21,12 +22,49 @@ interface Box {
 }
 
 /** Frame the map tightly around the devices, leaving room for labels below and markers above. */
-function fitBox(devices: Device[], extraLines = 0): Box {
+function fitBox(devices: Device[], extraLines = 0, zones: MapZone[] = []): Box {
   const xs = devices.map((d) => d.x);
   const ys = devices.map((d) => d.y);
-  const x = Math.min(...xs) - 95;
-  const y = Math.min(...ys) - 105;
-  return { x, y, w: Math.max(...xs) + 95 - x, h: Math.max(...ys) + 80 + extraLines * 16 - y };
+  let l = Math.min(...xs) - 95;
+  let t = Math.min(...ys) - 105;
+  let r = Math.max(...xs) + 95;
+  let b = Math.max(...ys) + 80 + extraLines * 16;
+  // Zones (a building, a signal's reach) stay on the map too, with a little room for their labels.
+  for (const z of zones) {
+    const zb = zoneBounds(z);
+    l = Math.min(l, zb.l - 10);
+    t = Math.min(t, zb.t - 24);
+    r = Math.max(r, zb.r + 10);
+    b = Math.max(b, zb.b + 10);
+  }
+  return { x: l, y: t, w: r - l, h: b - t };
+}
+
+function zoneBounds(z: MapZone): { l: number; t: number; r: number; b: number } {
+  const s = z.shape;
+  return s.kind === 'rect' ? { l: s.x, t: s.y, r: s.x + s.w, b: s.y + s.h } : { l: s.cx - s.r, t: s.cy - s.r, r: s.cx + s.r, b: s.cy + s.r };
+}
+
+/** Labeled areas behind the devices (see LabDef.map.zones). */
+function Zones({ zones }: { zones: MapZone[] }) {
+  return (
+    <g class="zones" aria-hidden="true">
+      {zones.map((z) => {
+        const cls = `zone tone-${z.tone ?? 'neutral'} ${z.dashed ? 'dashed' : ''}`;
+        const s = z.shape;
+        return (
+          <g key={z.id} class={cls}>
+            {s.kind === 'rect' ? <rect x={s.x} y={s.y} width={s.w} height={s.h} rx={14} /> : <circle cx={s.cx} cy={s.cy} r={s.r} />}
+            {z.label && (
+              <text class="zone-label" x={s.kind === 'rect' ? s.x + 12 : s.cx} y={s.kind === 'rect' ? s.y + 20 : s.cy - s.r + 18} text-anchor={s.kind === 'rect' ? 'start' : 'middle'}>
+                {z.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </g>
+  );
 }
 
 /** The lines under a device's name: its sublabel, or (for labs where students build the network) its live addresses. */
@@ -352,8 +390,8 @@ export interface CanvasProps {
   selected: string | null;
   focus: string[];
   onSelect: (id: string) => void;
-  /** Extras for labs where students build the network (see LabDef.map). */
-  opts?: { ports?: boolean; addresses?: boolean };
+  /** Map extras: port tags and live addresses for labs where students build the network, and zones (see LabDef.map). */
+  opts?: LabDef['map'];
   cabling?: Cabling;
   /** When the current step started (sim time). Browser results from before it are hidden. */
   since?: number;
@@ -391,7 +429,8 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
   const lines = new Map(devices.map((d) => [d.id, sublines(d, !!opts?.addresses)]));
   // Leave room for routers with more than one address line (the layout stays put as addresses change).
   const maxLines = opts?.addresses ? Math.max(1, ...devices.map((d) => (d.kind === 'router' ? d.ifaces.length : 1))) : 1;
-  const box = fitBox(devices, maxLines - 1);
+  const zones = opts?.zones?.(sim) ?? [];
+  const box = fitBox(devices, maxLines - 1, zones);
   const tagged = (d: Device) => !!opts?.ports && (d.kind === 'router' || d.kind === 'switch' || d.kind === 'hub');
   const wrap = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -535,6 +574,8 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
             <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.12" class="card-shadow-fe" />
           </filter>
         </defs>
+
+        {zones.length > 0 && <Zones zones={zones} />}
 
         {Object.values(sim.links).map((l) => {
           const a = sim.devices[l.a.device];

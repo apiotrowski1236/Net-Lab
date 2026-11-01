@@ -1135,3 +1135,76 @@
     box-shadow: 0 0 0 0 transparent;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Map zones (LabDef.map.zones): a building, a signal's reach, a DMZ or VLAN.
+   Faint fills under cables and devices; the label sits at the top.
+   --------------------------------------------------------------------------- */
+.zone rect,
+.zone circle {
+  fill: var(--zone-fill, var(--surface-2));
+  fill-opacity: 0.55;
+  stroke: var(--zone-line, var(--line));
+  stroke-width: 2;
+}
+.zone.dashed rect,
+.zone.dashed circle {
+  stroke-dasharray: 8 6;
+  fill-opacity: 0.35;
+}
+.zone.tone-info {
+  --zone-fill: var(--info-soft);
+  --zone-line: var(--info-line);
+}
+.zone.tone-good {
+  --zone-fill: var(--good-soft);
+  --zone-line: var(--good-line);
+}
+.zone.tone-warn {
+  --zone-fill: var(--warn-soft);
+  --zone-line: var(--warn-line);
+}
+.zone.tone-bad {
+  --zone-fill: var(--bad-soft);
+  --zone-line: var(--bad-line);
+}
+.zone-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+/* ---------------------------------------------------------------------------
+   Logs tab
+   --------------------------------------------------------------------------- */
+.logs-filters {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.logs-search {
+  width: 9rem;
+}
+.logs-more {
+  margin: 6px 8px;
+}
+.logs-table tr.lvl-warn td:first-child {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+.logs-table tr.lvl-alert td:first-child {
+  box-shadow: inset 3px 0 0 var(--bad);
+}
+.pill.lvl.notice {
+  color: var(--info-ink);
+  background: var(--info-soft);
+}
+.pill.lvl.warn {
+  color: var(--warn-ink);
+  background: var(--warn-soft);
+}
+.pill.lvl.alert {
+  color: var(--bad-ink);
+  background: var(--bad-soft);
+}

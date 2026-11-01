@@ -1,7 +1,7 @@
 import type { SimAction } from '../runtime/actions';
 import { checkAddress, checkCable, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, type Checked } from '../runtime/toolInput';
 import type { LabSession } from '../runtime/session';
-import type { Frame } from '../sim/types';
+import type { Frame, LogEntry } from '../sim/types';
 import { isEncrypted, isPlainLogin } from './helpers';
 import type { ChoiceQuestion } from './types';
 
@@ -19,7 +19,9 @@ export type Move =
   /** Use a control in the Toolkit. */
   | { tool: SimAction }
   /** Click a captured frame in the Capture tab. */
-  | { openFrame: string; match: 'login' | 'encrypted' };
+  | { openFrame: string; match: 'login' | 'encrypted' }
+  /** Click the newest line in `openLog`'s log that matches `where`, in the Logs tab. */
+  | { openLog: string; where: (e: LogEntry) => boolean };
 
 export interface StepSolution {
   /** What to do, in order. The network runs until it is quiet after each move. */
@@ -39,7 +41,11 @@ export function playMove(s: LabSession, m: Move): void {
     assertTypable(s, m.tool);
     s.dispatch(m.tool);
   }
-  else {
+  else if ('openLog' in m) {
+    const hit = [...s.sim.dev(m.openLog).logs].reverse().find(m.where);
+    if (!hit) throw new Error(`No matching log line on ${m.openLog}`);
+    s.ui({ type: 'ui:open-log', device: m.openLog, entry: hit });
+  } else {
     const hit = s.sim.dev(m.openFrame).capture.find((c) => MATCH[m.match](c.frame));
     if (!hit) throw new Error(`No ${m.match} frame captured on ${m.openFrame}`);
     s.ui({ type: 'ui:open-frame', device: m.openFrame, frame: hit.frame });

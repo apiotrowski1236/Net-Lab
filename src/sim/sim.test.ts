@@ -3,6 +3,7 @@ import { prefixContains, prefixCovers, normalizePrefix } from './addr';
 import { buildCafe, enableWpa2, IP, LOGIN_BODY, MAC } from '../labs/on-path/scenario';
 import { buildInternet, BANK_IP, BANK_PREFIX, FAKE_BANK, LOGIN_BODY as BANK_LOGIN, MORE_SPECIFIC, replayAnnouncements } from '../labs/route-hijack/scenario';
 import { ADDR, buildParts, returnRoute, routerLink, SITE_URL, WEB_IP } from '../labs/build-network/scenario';
+import { NetBuilder } from './build';
 import type { SimEvent } from './types';
 
 const loginCaptured = (events: SimEvent[], device: string) =>
@@ -257,5 +258,35 @@ describe('building a network (build-network lab)', () => {
     sim.runUntilIdle();
     expect(sim.events.some((e) => e.type === 'drop' && e.device === 'office' && e.reason === 'no-route')).toBe(true);
     expect(sim.dev('alice').browser?.status).toBe('failed');
+  });
+});
+
+describe('device logs', () => {
+  it('numbers lines across devices, emits an event, and can backdate seeded history', () => {
+    const sim = new NetBuilder()
+      .host('a', { label: 'A', x: 0, y: 0, ip: '10.0.0.1/24' })
+      .host('b', { label: 'B', x: 100, y: 0, ip: '10.0.0.2/24' })
+      .build();
+    const seen: string[] = [];
+    sim.on((e) => e.type === 'log' && seen.push(e.entry.msg));
+    sim.advance(5000);
+    const old = sim.log('a', { source: 'auth', level: 'info', msg: 'old line' }, -60000);
+    const now = sim.log('b', { source: 'firewall', level: 'warn', msg: 'DENY in TCP', fields: { dport: 22 } });
+    expect(old).toMatchObject({ no: 1, t: -60000, device: 'a' });
+    expect(now).toMatchObject({ no: 2, t: 5000, device: 'b', fields: { dport: 22 } });
+    expect(sim.dev('b').logs).toEqual([now]);
+    expect(seen).toEqual(['old line', 'DENY in TCP']);
+  });
+});
+
+describe('seeded randomness', () => {
+  it('repeats for the same seed and differs for another', () => {
+    const run = (seed: number) => {
+      const sim = new NetBuilder({ seed }).host('a', { label: 'A', x: 0, y: 0 }).build();
+      return [sim.rand(), sim.rand(), sim.randInt(1000)];
+    };
+    expect(run(7)).toEqual(run(7));
+    expect(run(7)).not.toEqual(run(8));
+    expect(run(7).slice(0, 2).every((x) => x >= 0 && x < 1)).toBe(true);
   });
 });

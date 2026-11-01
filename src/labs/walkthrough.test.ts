@@ -14,7 +14,6 @@ import { ADDR, NET, portToward, WEB_IP, WEB_PIN } from './build-network/scenario
 import { buildNetworkSolution } from './build-network/solution';
 import { onPathSolution } from './on-path/solution';
 import { IP, MAC } from './on-path/scenario';
-import { routeHijackSolution } from './route-hijack/solution';
 import { shuffledOptions } from './shuffle';
 import { correctChoice, playMove, playStep, type LabSolution } from './solution';
 import type { LabDef } from './types';
@@ -62,11 +61,17 @@ function freshProgress(lab: LabDef): LabProgress {
   };
 }
 
-const SOLUTIONS: Record<string, LabSolution> = {
-  'build-network': buildNetworkSolution,
-  'on-path': onPathSolution,
-  'route-hijack': routeHijackSolution,
-};
+/**
+ * Every lab's answer key, found by folder: src/labs/<lab id>/solution.ts must
+ * export one LabSolution whose name ends in "Solution".
+ */
+const SOLUTIONS: Record<string, LabSolution> = Object.fromEntries(
+  Object.entries(import.meta.glob<Record<string, unknown>>('./*/solution.ts', { eager: true })).map(([path, mod]) => {
+    const found = Object.entries(mod).find(([name]) => name.endsWith('Solution'));
+    if (!found) throw new Error(`${path} exports no ...Solution`);
+    return [path.split('/')[1], found[1] as LabSolution];
+  }),
+);
 
 /** Play a lab from the start through step `until` (inclusive), asserting every step completes. */
 function playThrough(lab: LabDef, until = lab.steps.length - 1, s = new LabSession(lab, freshProgress(lab))): LabSession {

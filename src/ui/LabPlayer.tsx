@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { LabDef } from '../labs/types';
+import { TAB_TOOLS, type LabDef } from '../labs/types';
 import { LabSession } from '../runtime/session';
 import { checkCable } from '../runtime/toolInput';
 import { beacon, enqueue, hasEndpoint } from '../store/outbox';
@@ -11,11 +11,12 @@ import { CaptureView, Inspector, Toolkit } from './Dock';
 import { FORGED_COLOR, PROTO_BLURB, PROTO_COLOR, type Proto } from './describe';
 import { Icon } from './icons';
 import { LessonPanel } from './Lesson';
+import { logDevices, LogsView } from './LogsView';
 import { type Cabling, NetworkCanvas } from './NetworkCanvas';
 import { Summary } from './Summary';
 import { TopBar } from './TopBar';
 
-type Tab = 'inspect' | 'capture' | 'tools';
+type Tab = 'inspect' | 'capture' | 'tools' | 'logs';
 
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -227,8 +228,13 @@ function Dock({
   void session.simRev.value;
   void session.rev.value;
   const lab = session.lab;
-  const tools = session.tools;
+  // Tools that open their own tab (Logs) don't count as new Toolkit cards.
+  const tools = session.tools.filter((t) => !(TAB_TOOLS as readonly string[]).includes(t.kind));
   const capDev = lab.captureDevice ? session.sim.devices[lab.captureDevice] : undefined;
+  const logIds = logDevices(session);
+  const logLines = logIds.reduce((n, id) => n + session.sim.devices[id].logs.length, 0);
+  const seenLogs = useRef(logLines);
+  if (tab === 'logs') seenLogs.current = logLines;
   // The dock is short on a laptop screen: say when there's more to scroll to.
   const body = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState(false);
@@ -259,11 +265,17 @@ function Dock({
         <button role="tab" aria-selected={tab === 'tools'} class={tab === 'tools' ? 'on' : ''} onClick={() => setTab('tools')}>
           <Icon name="bolt" /> Toolkit {newTools && <span class="count new-tools">new tool</span>}
         </button>
+        {logIds.length > 0 && (
+          <button role="tab" aria-selected={tab === 'logs'} class={tab === 'logs' ? 'on' : ''} onClick={() => setTab('logs')}>
+            <Icon name="list" /> Logs <span class={`count ${logLines > seenLogs.current ? 'new-tools' : ''}`}>{logLines}</span>
+          </button>
+        )}
       </div>
       <div class="dock-body" ref={body} onScroll={measure}>
         {tab === 'inspect' && <Inspector session={session} deviceId={selected} />}
         {tab === 'capture' && capDev && <CaptureView session={session} deviceId={capDev.id} />}
         {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} />}
+        {tab === 'logs' && <LogsView session={session} />}
       </div>
       {more && (
         <button class="more-below" onClick={() => body.current?.scrollBy({ top: body.current.clientHeight * 0.7, behavior: 'smooth' })}>
@@ -292,7 +304,7 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
   useEffect(() => {
     const open = session.step.open;
     if (!open) return;
-    if (open === 'capture' || open === 'tools') setTab(open);
+    if (open === 'capture' || open === 'tools' || open === 'logs') setTab(open);
     else {
       setSelected(open.inspect);
       setTab('inspect');

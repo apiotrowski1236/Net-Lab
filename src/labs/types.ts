@@ -1,10 +1,12 @@
 import type { Sim } from '../sim/sim';
-import type { Frame, SimEvent } from '../sim/types';
+import type { Frame, LogEntry, SimEvent } from '../sim/types';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
   | { type: 'ui:inspect'; device: string }
   | { type: 'ui:open-frame'; device: string; frame: Frame }
+  /** The student clicked a line in the Logs tab. */
+  | { type: 'ui:open-log'; device: string; entry: LogEntry }
   | { type: 'ui:enter-step'; step: string };
 
 export type AnyEvent = SimEvent | UiEvent;
@@ -95,10 +97,15 @@ export type ToolSpec =
   /** Set computers' default gateway in the inspector. */
   | { kind: 'gateway' }
   /** Add and remove routers' static routes in the inspector. */
-  | { kind: 'static-route' };
+  | { kind: 'static-route' }
+  /** Unlock the Logs tab, showing these devices' logs. Not a Toolkit card. */
+  | { kind: 'logs'; devices: string[] };
 
 /** Tools that change device settings in the inspector instead of having their own card. */
 export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route'] as const;
+
+/** Tools that unlock a dock tab instead of a Toolkit card. */
+export const TAB_TOOLS = ['logs'] as const;
 
 /** A button in the lesson that makes something happen on the network ("Alice signs in"). */
 export interface ActionDef {
@@ -122,7 +129,7 @@ export interface StepDef {
   /** Devices to spotlight on the map. */
   focus?: string[];
   /** Open a dock tab when the step starts. */
-  open?: 'capture' | 'tools' | { inspect: string };
+  open?: 'capture' | 'tools' | 'logs' | { inspect: string };
   /** The final "review and submit" step. */
   kind?: 'submit';
 }
@@ -150,9 +157,31 @@ export interface LabDef {
    * For labs where students build the network: show port names where cables
    * meet routers and switches, and each device's current IP addresses under it.
    */
-  map?: { ports?: boolean; addresses?: boolean };
+  map?: {
+    ports?: boolean;
+    addresses?: boolean;
+    /** Shapes drawn behind the devices: a building's walls, a Wi-Fi signal's reach, a DMZ or VLAN. Recomputed as the network changes. */
+    zones?: (sim: Sim) => MapZone[];
+  };
+  /** Wall-clock time at the start of the lab ("09:00" by default). Log lines are stamped from it. */
+  clock?: string;
   /** Show computers' routing tables (their own network and the default gateway) in the inspector. */
   hostRoutes?: boolean;
+}
+
+/**
+ * A labeled area on the map, in map coordinates (the 1000 x 600 canvas the
+ * devices sit on). Drawn under cables and devices, so keep fills faint.
+ */
+export interface MapZone {
+  id: string;
+  shape: { kind: 'rect'; x: number; y: number; w: number; h: number } | { kind: 'circle'; cx: number; cy: number; r: number };
+  /** Shown at the zone's top-left (rect) or top (circle). */
+  label?: string;
+  /** Colors the outline and fill: 'neutral' for a building, 'good' for a protected zone, 'bad' for hostile ground. */
+  tone?: 'neutral' | 'info' | 'good' | 'warn' | 'bad';
+  /** Dashed outline, e.g. for a radio signal's reach or a logical zone like a VLAN. */
+  dashed?: boolean;
 }
 
 export interface LabStub {

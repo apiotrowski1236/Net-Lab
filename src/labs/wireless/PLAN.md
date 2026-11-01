@@ -1,0 +1,50 @@
+# Signals Past the Walls (`wireless`)
+
+Status: planned, wave 1. Follow `docs/unit3/ARCHITECTURE.md`.
+
+Tagline: Secure an emergency shelter's Wi-Fi against snoopers in the parking lot, evil twins, and jammers.
+
+CodeHS: `3.7 Locking Down the Airwaves`. CED LOs: 3.1.B, 3.1.C, 3.2.A, 3.2.B, 3.5.E.
+
+## What students learn
+
+- Radio doesn't stop at walls (3.1.B.4). A **wireless access point (WAP)** sends **beacon frames** that announce its **SSID** and security settings to anyone nearby.
+- Turning down **signal strength** or aiming the antenna keeps the signal inside the space (3.2.B.2). Turning off **beacon broadcasting** hides the network from casual scans (3.2.B.1), a low risk on its own (3.1.C.6).
+- **Encryption** (3.2.B.3, 3.1.B.7): open Wi-Fi lets anyone in range read traffic. WEP, WPS, and the original WPA are broken. WPA2 holds with a strong passphrase. WPA3 is strongest.
+- **Who may join** (3.1.B.5, 3.2.B.4): MAC filtering helps but can be spoofed. Requiring each user to authenticate (EAP to an authentication server) is stronger.
+- **Rogue access point** (3.1.B.6): a WAP plugged into an open wall jack gives a back door into the LAN that skips every setting above.
+- **Evil twin** (3.5.E.1): a lookalike SSID with a stronger signal draws devices in. Detect it by scanning for SSIDs that look like yours, then find it by signal triangulation.
+- **Jamming** (3.5.E.2): when no device in an area can connect, scan for electromagnetic noise.
+- A **wireless security policy** (3.2.A.4): EAP to an approved server, AES encryption with a minimum key length, beacons disabled.
+
+## Scenario and map
+
+CED unit scenario 3B. After a storm, the Ridgeview High gym is an emergency shelter. A satellite link gives internet. You are a National Guard network technician setting up Wi-Fi for families. Map: the gym as a building zone, a parking lot outside it, the WAP inside with a dashed circle showing its signal's reach (it should start large enough to cover part of the lot), families' phones and laptops inside, the volunteer desk laptop, a hallway wall jack, and a car in the lot with Mallory's laptop.
+
+Reach is distance on the map. Keep the radio model simple and say so: a device is in range if it is inside the circle, and signal strength falls off with distance.
+
+## Step outline
+
+1. **The shelter network**: tour. Inspect the WAP's settings: SSID, broadcast on, security open, power high.
+2. **What a car can hear**: Mallory runs a Wi-Fi scanner from the lot: she sees the beacon (SSID, open, signal). She joins and captures a family's plain-HTTP traffic. Goal: Mallory joined from outside. Question: why walls didn't help.
+3. **Keep it inside**: lower the power (and or aim it) until the circle covers the gym but not the lot. Goal: every family device still in range, Mallory out of range. Question about what else could still reach (a stronger antenna).
+4. **Hide the name**: turn off beacon broadcasting. Families can still join a saved network. Question: why this is weak protection on its own (devices still ask for the network by name; a patient scanner sees it), and why the CED rates it low risk.
+5. **Lock the air**: try WEP. Mallory (with a strong antenna, back in range) cracks it in seconds. Try WPA2 with a short passphrase, cracked by guessing; WPA2 with a long passphrase holds; WPA3 holds. Turn off WPS (a PIN that can be guessed). Goal: WPA3 (or WPA2 with a strong passphrase) and WPS off. Question: rank the protocols.
+6. **Who gets in**: turn on MAC filtering with the families' devices. Mallory reads an allowed MAC from the air and copies it. She gets in. Switch to user authentication (EAP to an authentication server: each family gets its own login). Goal: Mallory can't join with a copied MAC. Question: why per-user logins beat a shared password and a MAC list.
+7. **A box in the hallway**: someone plugs a cheap WAP into the hallway jack: an open SSID that bridges straight into the LAN. Find it with the scanner (an SSID you didn't set up, on your wired network) and shut the jack's port. Goal: rogue WAP gone.
+8. **The twin**: Mallory broadcasts "Ridgeview Shelter" (yours is "Ridgeview-Shelter") from the lot with a strong signal. A phone joins it. Scan, spot the lookalike, and take three signal readings to triangulate it to the lot. Goal: located. Question about how to tell the twin apart.
+9. **Nobody can connect**: every device near the desk drops. A spectrum scan shows noise across the channel. Question: jamming vs. a broken WAP, and what to do.
+10. **The wireless policy**: multi-select which rules belong in the shelter's wireless security policy.
+11. **Reflect**: written, the shelter's configuration in a few sentences (the scenario's deliverable), naming each setting and the attack it stops.
+12. **Submit**.
+
+## Core features this lab owns
+
+- WAP state (`Device.wifi`): SSID, beacon broadcast, security mode (`open`, `wep`, `wpa`, `wpa2`, `wpa3`), passphrase strength, WPS, transmit power and direction, MAC filter, authentication (`psk` or `eap`), channel. Association: a wireless host joins if it's in range and passes security; hosts out of range drop off. Keep `on-path`'s café Wi-Fi (a hub or switch with wireless links) working unchanged.
+- The signal's reach as a `MapZone` that follows the power setting.
+- Wi-Fi scanner (SSID, BSSID, security, signal, channel by location), cracking with time estimates by mode and passphrase, rogue WAP, evil twin, jamming, and triangulation from readings. Log lines from the WAP (`source: 'wifi'`): joins, rejected joins, new SSIDs seen.
+- Inspector section for WAP settings. Toolkit cards for the scanner, cracker, and triangulation.
+
+## Acceptance
+
+- Walkthrough test passes. Lab tests: the power setting changes who is in range; WEP cracks and WPA3 doesn't; a copied MAC passes MAC filtering and fails EAP; the evil twin attracts a device only with a stronger signal; replay gives the same associations.

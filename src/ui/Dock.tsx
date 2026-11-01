@@ -1,3 +1,4 @@
+import type { ComponentType } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
 import type { Sim } from '../sim/sim';
@@ -5,6 +6,9 @@ import type { Captured, Device, Route } from '../sim/types';
 import { SETTING_TOOLS, type ToolSpec } from '../labs/types';
 import { PROTO_COLOR, endpoints, fmtTime, infoOf, layersOf, nameForMac, pingFailText, protoOf } from './describe';
 import { Icon } from './icons';
+import { INSPECTOR_SECTIONS, type InspectorSectionProps } from './inspector/registry';
+import { TOOL_CARDS, type ToolCardProps } from './tools/registry';
+import { recentlyChanged, Toggle, ToolMsg, useDraft, type Msg } from './tools/parts';
 import {
   checkAddress,
   checkCable,
@@ -29,15 +33,6 @@ const KIND_TEXT: Record<Device['kind'], string> = {
   hub: 'Hub',
 };
 
-function recentlyChanged(sim: Sim, pred: (e: Sim['events'][number]) => boolean, ms = 4000): boolean {
-  for (let i = sim.events.length - 1; i >= 0; i--) {
-    const e = sim.events[i];
-    if (sim.t - e.t > ms) return false;
-    if (pred(e)) return true;
-  }
-  return false;
-}
-
 function nextHopText(sim: Sim, dev: Device, r: Route, ports: boolean): string {
   if (r.source === 'bgp' && !r.via) return 'Nowhere: we claim it ourselves';
   if (!r.via) return ports && dev.ifaces.length > 1 ? `Deliver directly (on this network, out ${portName(r.iface)})` : 'Deliver directly (on this network)';
@@ -49,12 +44,6 @@ function nextHopText(sim: Sim, dev: Device, r: Route, ports: boolean): string {
 
 /** A static route whose next hop isn't on any of the device's networks goes nowhere. */
 const brokenRoute = (sim: Sim, dev: Device, r: Route) => r.source === 'static' && !!r.via && !sim.connectedIface(dev, r.via);
-
-/** A text box with a Save button, for one setting. Shows the current value until the student types. */
-function useDraft(current: string) {
-  const [draft, setDraft] = useState<string | null>(null);
-  return { value: draft ?? current, edited: draft !== null, set: setDraft, clear: () => setDraft(null) };
-}
 
 type Fixed = Extract<ToolSpec, { kind: 'ip-config' }>['fixed'];
 
@@ -326,6 +315,9 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
   const fixed = tools.flatMap((t) => (t.kind === 'ip-config' ? (t.fixed ?? []) : []));
   const showRoutes = dev.kind === 'router' || dev.forwarding || (!!lab.hostRoutes && dev.kind === 'host');
   const unplugged = cables && layer3 && !dev.ifaces.some((i) => i.linkId);
+  const extra: InspectorSectionProps = { session, sim, dev, replaying, has };
+  const sections = (slot: 'settings' | 'end') =>
+    INSPECTOR_SECTIONS.filter((x) => x.slot === slot).map(({ id, Section }) => <Section key={`${id}-${dev.id}`} {...extra} />);
   // A switch works below IP: its ports have no addresses to show, only where their cables go.
   const ports = (
     <section>
@@ -423,6 +415,8 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
       {dev.kind === 'router' && routing}
 
       {dev.kind === 'host' && (canGateway || lab.hostRoutes) && <GatewayField key={dev.id} session={session} dev={dev} edit={canGateway} />}
+
+      {sections('settings')}
 
       {(dev.kind === 'host' || (dev.kind === 'router' && !dev.bgp)) && (
         <section>
@@ -565,6 +559,8 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
           </table>
         </section>
       )}
+
+      {sections('end')}
     </div>
   );
 }
@@ -698,39 +694,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
 // Toolkit
 // ---------------------------------------------------------------------------
 
-function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button class={`toggle ${on ? 'on' : ''}`} role="switch" aria-checked={on} onClick={() => onChange(!on)}>
-      <span class="toggle-track">
-        <span class="toggle-knob" />
-      </span>
-      <span>{label}</span>
-    </button>
-  );
-}
 
-/** A one-line message under a tool input: what went wrong, or what just happened. */
-function ToolMsg({ msg }: { msg: { tone: 'bad' | 'good' | 'info'; text: string; suggest?: string; onSuggest?: () => void; field?: string } | null }) {
-  const ref = useRef<HTMLDivElement>(null);
-  // The dock is short on a small laptop screen. Make sure the student sees the message.
-  useLayoutEffect(() => ref.current?.scrollIntoView({ block: 'nearest' }), [msg?.text]);
-  if (!msg) return null;
-  return (
-    <div ref={ref} class={`tool-msg ${msg.tone}`} role={msg.tone === 'bad' ? 'alert' : 'status'}>
-      <Icon name={msg.tone === 'bad' ? 'warn' : msg.tone === 'good' ? 'check' : 'info'} size={14} />
-      <span>
-        {msg.text}
-        {msg.suggest && msg.onSuggest && (
-          <button class="btn tiny" onClick={msg.onSuggest}>
-            Use {msg.suggest}
-          </button>
-        )}
-      </span>
-    </div>
-  );
-}
-
-type Msg = Parameters<typeof ToolMsg>[0]['msg'];
 
 function ArpSpoofTool({ session, spec }: { session: LabSession; spec: Extract<ToolSpec, { kind: 'arp-spoof' }> }) {
   const sim = session.sim;
@@ -1248,8 +1212,10 @@ export function Toolkit({ session, tools, onSelect }: { session: LabSession; too
             return <CableTool session={session} />;
           case 'ping':
             return <PingTool session={session} />;
-          default:
-            return null;
+          default: {
+            const Card = TOOL_CARDS[t.kind] as ComponentType<ToolCardProps> | undefined;
+            return Card ? <Card session={session} spec={t} onSelect={onSelect} /> : null;
+          }
         }
       })}
       {settingKinds.size > 0 && <SettingsCard session={session} kinds={settingKinds} onSelect={onSelect} />}

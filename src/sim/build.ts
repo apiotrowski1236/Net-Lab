@@ -76,6 +76,7 @@ function blank(id: string, kind: DeviceKind, o: Placed, icon: DeviceIcon): Devic
     sniffing: false,
     forwarding: false,
     capture: [],
+    logs: [],
     stolen: [],
     pending: [],
     notes: o.notes,

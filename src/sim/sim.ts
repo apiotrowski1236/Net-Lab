@@ -19,6 +19,7 @@ import type {
   InFlight,
   IpPacket,
   Link,
+  LogEntry,
   Route,
   SimEvent,
 } from './types';
@@ -53,6 +54,8 @@ export interface SimOptions {
    * Use for labs where ARP would just be noise (e.g. internet routing).
    */
   autoArp: boolean;
+  /** Seeds Sim.rand. Same seed, same actions: same network, every time. */
+  seed: number;
 }
 
 export const DEFAULT_SIM_OPTIONS: SimOptions = {
@@ -63,6 +66,7 @@ export const DEFAULT_SIM_OPTIONS: SimOptions = {
   arpTimeoutMs: 8000,
   pingTimeoutMs: 10000,
   autoArp: false,
+  seed: 1,
 };
 
 interface Job {
@@ -88,6 +92,8 @@ const CANT_SEND: Partial<Record<DropReason, (ip: Ip, dev: Device) => string>> = 
   'arp-timeout': (ip) => `Nobody answered at ${ip}, so the request never left this network.`,
 };
 const MAX_CAPTURE = 400;
+/** Lines each device keeps in its log. */
+const MAX_LOG = 2000;
 
 /** Frames are plain data. structuredClone is missing before Safari 15.4, so fall back to JSON. */
 const cloneFrame: (f: Frame) => Frame =
@@ -114,12 +120,32 @@ export class Sim {
   private nextCaptureNo = 1;
   private nextPort = 49152;
   private nextPing = 1;
+  private nextLogNo = 1;
+  private randState = 0;
   /** Pings still waiting for an answer: sequence number -> who sent it, and to where. */
   private pings = new Map<number, { device: string; to: Ip }>();
   private listeners = new Set<(e: SimEvent) => void>();
 
   constructor(opts: Partial<SimOptions> = {}) {
     this.opts = { ...DEFAULT_SIM_OPTIONS, ...opts };
+    this.randState = this.opts.seed >>> 0;
+  }
+
+  /**
+   * A random number in [0, 1). Use this, never Math.random: a saved lab is
+   * rebuilt by replaying its actions, and this replays the same numbers.
+   */
+  rand(): number {
+    // mulberry32
+    let x = (this.randState = (this.randState + 0x6d2b79f5) >>> 0);
+    x = Math.imul(x ^ (x >>> 15), x | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  }
+
+  /** A random whole number from 0 to n - 1. */
+  randInt(n: number): number {
+    return Math.floor(this.rand() * n);
   }
 
   // -------------------------------------------------------------------------
@@ -183,6 +209,20 @@ export class Sim {
     this.events.push(e);
     if (this.events.length > MAX_EVENTS) this.events.splice(0, this.events.length - MAX_EVENTS);
     for (const l of this.listeners) l(e);
+  }
+
+  /**
+   * A device writes one line to its log. Features call this where a real
+   * device would log (a firewall rule matched, a switch port shut down, a DNS
+   * answer changed). `at` backdates a line, for seeding history in a step setup.
+   */
+  log(devId: string, line: Omit<LogEntry, 'no' | 't' | 'device'>, at = this.t): LogEntry {
+    const dev = this.dev(devId);
+    const entry: LogEntry = { no: this.nextLogNo++, t: at, device: devId, ...line };
+    dev.logs.push(entry);
+    if (dev.logs.length > MAX_LOG) dev.logs.splice(0, dev.logs.length - MAX_LOG);
+    this.emit({ t: this.t, type: 'log', device: devId, entry });
+    return entry;
   }
 
   // -------------------------------------------------------------------------
