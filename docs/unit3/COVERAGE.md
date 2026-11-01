@@ -16,7 +16,7 @@ Source: [AP Cybersecurity CED](https://apcentral.collegeboard.org/media/pdf/ap-c
 | Advertise a Bad Route | `route-hijack` | done | 3.1 traffic redirection (BGP hijacking, beyond the CED) |
 | The Network Audit | `net-audit` | planned, wave 2 | 3.1.C risk assessment and scanners, 3.2.A router, switch, and VPN policies |
 | Signals Past the Walls | `wireless` | built (e52b28a) | 3.1.B wireless threats, 3.2 wireless policy and configuration, 3.5 evil twin and jamming |
-| Walls Inside the Network | `segmentation` | built (MERGESHA) | 3.1.B lateral movement, 3.3 segmentation, VLANs, subnets, zone policy, 3.4.C firewall per segment |
+| Walls Inside the Network | `segmentation` | built (5095c77) | 3.1.B lateral movement, 3.3 segmentation, VLANs, subnets, zone policy, 3.4.C firewall per segment |
 | Firewall Rulebook | `firewall` | built (3bc65ec) | 3.4 firewall types, ACLs, placement, configuration, 3.3 screened subnet, 3.1 open ports and risk, 3.5 firewall logs |
 | Log Detective | `logs` | planned, wave 2 | 3.5 NIDS, NIPS, SIEM, AI detection, detection methods, IoCs |
 
