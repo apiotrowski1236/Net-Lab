@@ -1268,6 +1268,12 @@
   background: var(--surface-2);
 }
 .port-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
 /* ---------------------------------------------------------------------------
    Wi-Fi settings and tools (wireless lab)
    --------------------------------------------------------------------------- */
@@ -1392,6 +1398,7 @@
 }
 .triangulate-spots .btn.on {
   outline: 2px solid var(--good);
+}
 
 /* ---------------------------------------------------------------------------
    Firewall Rulebook (firewall): port scanner, firewall placement, rule editor
