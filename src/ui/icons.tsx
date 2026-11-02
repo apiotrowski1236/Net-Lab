@@ -48,6 +48,23 @@ export function DeviceGlyph({ icon, color = 'currentColor' }: { icon: DeviceIcon
           <circle cx={-7} cy={12} r={1.2} fill={color} />
         </g>
       );
+    case 'tv':
+      return (
+        <g {...s}>
+          <rect x={-19} y={-14} width={38} height={24} rx={2.5} />
+          <path d="M-6 16 H6 M0 10 V16" />
+        </g>
+      );
+    case 'console':
+      // A game controller: a d-pad on the left, two buttons on the right.
+      return (
+        <g {...s}>
+          <path d="M-12 -9 H12 C18 -9 21 -3 21 4 C21 12 16 15 12 11 L8 7 H-8 L-12 11 C-16 15 -21 12 -21 4 C-21 -3 -18 -9 -12 -9 Z" />
+          <path d="M-12 -3 V5 M-16 1 H-8" />
+          <circle cx={10} cy={-2} r={1.6} fill={color} />
+          <circle cx={14} cy={3} r={1.6} fill={color} />
+        </g>
+      );
     case 'printer':
       return (
         <g {...s}>

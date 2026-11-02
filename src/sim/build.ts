@@ -75,6 +75,8 @@ export interface RouterOpts extends Placed {
 export interface L2Opts extends Placed {
   /** Make this many empty ports up front (p1, p2, ...). Without it, ports appear as cables are linked. */
   ports?: number;
+  /** Named ports made before the numbered ones, like a home Wi-Fi router's built-in 'inside' port (home-network). */
+  named?: string[];
   /** Makes this an access point (wireless lab). Open Wi-Fi is a hub; encrypted is a switch. */
   wifi?: WifiAp;
 }
@@ -162,14 +164,14 @@ export class NetBuilder {
   }
 
   switch(id: string, o: L2Opts): this {
-    const d = this.ports(blank(id, 'switch', o, 'switch'), o.ports);
+    const d = this.ports(blank(id, 'switch', o, 'switch'), o.ports, o.named);
     d.wifi = o.wifi;
     this.sim.devices[id] = d;
     return this;
   }
 
   hub(id: string, o: L2Opts): this {
-    const d = this.ports(blank(id, 'hub', o, 'hub'), o.ports);
+    const d = this.ports(blank(id, 'hub', o, 'hub'), o.ports, o.named);
     d.wifi = o.wifi;
     this.sim.devices[id] = d;
     return this;
@@ -188,7 +190,8 @@ export class NetBuilder {
     return this;
   }
 
-  private ports(dev: Device, n = 0): Device {
+  private ports(dev: Device, n = 0, named: string[] = []): Device {
+    for (const p of named) dev.ifaces.push({ id: p, mac: hashMac(`${dev.id}/${p}`) });
     for (let i = 1; i <= n; i++) dev.ifaces.push({ id: `p${i}`, mac: hashMac(`${dev.id}/p${i}`) });
     return dev;
   }

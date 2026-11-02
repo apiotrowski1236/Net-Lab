@@ -69,9 +69,14 @@ function Zones({ zones }: { zones: MapZone[] }) {
   );
 }
 
+/** Does the map show this device's live addresses (LabDef.map.addresses)? */
+function showsAddresses(d: Device, addresses: NonNullable<LabDef['map']>['addresses']): boolean {
+  return (d.kind === 'host' || d.kind === 'router') && (typeof addresses === 'function' ? addresses(d) : !!addresses);
+}
+
 /** The lines under a device's name: its sublabel, or (for labs where students build the network) its live addresses. */
-function sublines(d: Device, addresses: boolean): { text: string; muted?: boolean }[] {
-  if (!addresses || (d.kind !== 'host' && d.kind !== 'router')) return d.sublabel ? [{ text: d.sublabel }] : [];
+function sublines(d: Device, addresses: NonNullable<LabDef['map']>['addresses']): { text: string; muted?: boolean }[] {
+  if (!showsAddresses(d, addresses)) return d.sublabel ? [{ text: d.sublabel }] : [];
   const set = d.ifaces.filter((i) => i.ip);
   if (!set.length) return [{ text: 'no IP address', muted: true }];
   if (d.kind === 'host') return set.map((i) => ({ text: `${i.ip}/${i.prefix}` }));
@@ -525,9 +530,11 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
   // Labs where students build the network (port labels on) show what the switch learns.
   const markers = recentMarkers(sim, since, !!opts?.ports);
   const hover = hoverDevice.value;
-  const lines = new Map(devices.map((d) => [d.id, sublines(d, !!opts?.addresses)]));
+  const lines = new Map(devices.map((d) => [d.id, sublines(d, opts?.addresses)]));
   // Leave room for routers with more than one address line (the layout stays put as addresses change).
-  const maxLines = opts?.addresses ? Math.max(1, ...devices.map((d) => (d.kind === 'router' ? d.ifaces.length : 1))) : 1;
+  const maxLines = opts?.addresses
+    ? Math.max(1, ...devices.map((d) => (d.kind === 'router' && showsAddresses(d, opts.addresses) ? d.ifaces.length : 1)))
+    : 1;
   const zones = opts?.zones?.(sim) ?? [];
   const box = fitBox(devices, maxLines - 1, zones);
   const tagged = (d: Device) => !!opts?.ports && (d.kind === 'router' || d.kind === 'switch' || d.kind === 'hub');
@@ -688,7 +695,8 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
                   VPN tunnel
                 </text>
               )}
-              {cabling && (
+              {/* A built-in cable (Link.fixed) can't be unplugged. */}
+              {cabling && !l.fixed && (
                 <line
                   x1={a.x}
                   y1={a.y}
@@ -737,7 +745,8 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
           })()}
 
         {opts?.ports &&
-          Object.values(sim.links).flatMap((l) =>
+          // Wi-Fi has no ports to name.
+          Object.values(sim.links).filter((l) => !l.wireless).flatMap((l) =>
             [
               [l.a, l.b],
               [l.b, l.a],

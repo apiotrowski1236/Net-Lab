@@ -61,6 +61,8 @@ export type SimAction =
   | { type: 'wifi-auth'; device: string; auth: 'psk' | 'eap' }
   | { type: 'wifi-macfilter'; device: string; on: boolean; allow?: string[] }
   | { type: 'wifi-off'; device: string; off: boolean }
+  /** Rename an access point's network (home-network). Devices that knew the old name drop off. */
+  | { type: 'wifi-ssid'; device: string; ssid: string }
   /** Attacker tries to recover an access point's key. */
   | { type: 'wifi-crack'; device: string; ap: string }
   /** Jam a channel so nothing can join an access point on it. */
@@ -210,6 +212,9 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'wifi-off':
       sim.setWifiOff(a.device, a.off);
+      return;
+    case 'wifi-ssid':
+      sim.setWifiSsid(a.device, a.ssid);
       return;
     case 'set-mac':
       sim.setMac(a.device, a.mac);

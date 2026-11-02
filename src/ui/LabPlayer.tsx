@@ -44,7 +44,8 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
     !replay && session.tools.some((t) => t.kind === 'cable')
       ? {
           check: (a, b) => {
-            const r = checkCable(session.sim, a, undefined, b, undefined);
+            const tool = session.tools.find((t) => t.kind === 'cable');
+            const r = checkCable(session.sim, a, undefined, b, undefined, tool?.kind === 'cable' ? tool.refuse : undefined);
             return r.ok ? null : r.msg;
           },
           connect: (a, b) => session.dispatch({ type: 'cable', a, b }),

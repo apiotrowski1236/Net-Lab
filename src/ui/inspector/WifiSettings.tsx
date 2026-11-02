@@ -3,6 +3,7 @@ import { passphraseStrength, SECURITY_LABEL, type WifiSecurity } from '../../sim
 import type { InspectorSection, InspectorSectionProps } from './registry';
 import { Toggle, ToolMsg, useDraft, type Msg } from '../tools/parts';
 import { useState } from 'preact/hooks';
+import { basicWifi } from './WifiSetup';
 
 const MODES: WifiSecurity[] = ['open', 'wep', 'wpa', 'wpa2', 'wpa3'];
 const POWERS: (1 | 2 | 3 | 4)[] = [1, 2, 3, 4];
@@ -17,7 +18,8 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
   const ap = dev.wifi;
   const pass = useDraft(ap?.passphrase ?? '');
   const [msg, setMsg] = useState<Msg>(null);
-  if (!ap) return null;
+  // A home router's basic setup page shows instead (WifiSetup.tsx).
+  if (!ap || basicWifi(session, dev.id)) return null;
   const edit = has('wifi-config') && !replaying;
 
   const savePass = () => {

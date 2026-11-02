@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
 import type { Sim } from '../sim/sim';
 import type { Captured, Device, Route } from '../sim/types';
-import { SETTING_TOOLS, type ToolSpec } from '../labs/types';
+import { SETTING_TOOLS, type CableRefusal, type ToolSpec } from '../labs/types';
 import { PROTO_COLOR, endpoints, fmtTime, infoOf, layersOf, nameForMac, pingFailText, protoOf } from './describe';
 import { Icon } from './icons';
 import { INSPECTOR_SECTIONS, type InspectorSectionProps } from './inspector/registry';
@@ -950,7 +950,7 @@ function endName(sim: Sim, end: { device: string; iface: string }): string {
   return d.ifaces.length > 1 ? `${d.label} ${portName(end.iface)}` : d.label;
 }
 
-function CableTool({ session }: { session: LabSession }) {
+function CableTool({ session, refuse }: { session: LabSession; refuse?: CableRefusal[] }) {
   // Shows live network state: re-render whenever the network changes.
   void session.simRev.value;
   const sim = session.sim;
@@ -962,7 +962,7 @@ function CableTool({ session }: { session: LabSession }) {
   const eb = ends.find((e) => e.key === b);
   const connect = () => {
     if (!ea || !eb) return setMsg({ tone: 'bad', text: 'Choose a device for each end of the cable.' });
-    const r = checkCable(sim, ea.device, ea.port, eb.device, eb.port);
+    const r = checkCable(sim, ea.device, ea.port, eb.device, eb.port, refuse);
     if (!r.ok) return setMsg({ tone: 'bad', text: r.msg });
     session.dispatch({ type: 'cable', a: ea.device, aPort: ea.port, b: eb.device, bPort: eb.port });
     setA('');
@@ -974,7 +974,8 @@ function CableTool({ session }: { session: LabSession }) {
     set((e.target as HTMLSelectElement).value);
     setMsg(null);
   };
-  const links = Object.values(sim.links);
+  // A built-in cable (Link.fixed) can't be unplugged.
+  const links = Object.values(sim.links).filter((l) => !l.fixed);
   return (
     <div class="tool-card">
       <div class="tool-title">
@@ -1122,7 +1123,17 @@ function PingTool({ session }: { session: LabSession }) {
   );
 }
 
-function SettingsCard({ session, kinds, onSelect }: { session: LabSession; kinds: Set<string>; onSelect: (id: string) => void }) {
+function SettingsCard({
+  session,
+  kinds,
+  basicWifi,
+  onSelect,
+}: {
+  session: LabSession;
+  kinds: Set<string>;
+  basicWifi?: boolean;
+  onSelect: (id: string) => void;
+}) {
   const devices = Object.values(session.sim.devices).filter(
     (d) => d.kind === 'host' || d.kind === 'router' || (kinds.has('wifi-config') && !!d.wifi),
   );
@@ -1150,7 +1161,15 @@ function SettingsCard({ session, kinds, onSelect }: { session: LabSession; kinds
         )}
         {kinds.has('wifi-config') && (
           <li>
-            <strong>Wi-Fi settings</strong> on the access point
+            {basicWifi ? (
+              <>
+                <strong>Wi-Fi setup</strong> on the Wi-Fi router
+              </>
+            ) : (
+              <>
+                <strong>Wi-Fi settings</strong> on the access point
+              </>
+            )}
           </li>
         )}
       </ul>
@@ -1229,7 +1248,7 @@ export function Toolkit({ session, tools, onSelect }: { session: LabSession; too
           case 'static-arp':
             return <StaticArpTool session={session} spec={t} />;
           case 'cable':
-            return <CableTool session={session} />;
+            return <CableTool session={session} refuse={t.refuse} />;
           case 'ping':
             return <PingTool session={session} />;
           default: {
@@ -1238,7 +1257,12 @@ export function Toolkit({ session, tools, onSelect }: { session: LabSession; too
           }
         }
       })}
-      {settingKinds.size > 0 && <SettingsCard session={session} kinds={settingKinds} onSelect={onSelect} />}
+      {settingKinds.size > 0 && <SettingsCard
+          session={session}
+          kinds={settingKinds}
+          basicWifi={tools.some((t) => t.kind === 'wifi-config' && !!t.basic)}
+          onSelect={onSelect}
+        />}
     </div>
   );
 }
