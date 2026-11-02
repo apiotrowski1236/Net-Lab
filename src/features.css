@@ -1982,9 +1982,6 @@
     opacity: 0.5;
   }
 }
-.zzdebug {
-  color: red;
-}
 
 /* ---------------------------------------------------------------------------
    home-network: the DHCP layer in the capture viewer, Connected devices,

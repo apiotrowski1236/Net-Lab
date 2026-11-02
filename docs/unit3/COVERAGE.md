@@ -8,6 +8,7 @@ Source: [AP Cybersecurity CED](https://apcentral.collegeboard.org/media/pdf/ap-c
 
 | Lab | id | Status | Main topics |
 |---|---|---|---|
+| Who Gets the Packet? | `home-network` | built (08b8853) | Prerequisite networking from the ground up: devices, packets, Wi-Fi, MAC and IP addresses, DHCP, switches, ARP, default gateway, NAT; 3.1.B Wi-Fi reach and open networks, 3.2.B WPA3 |
 | From Cable to Web Page | `build-network` | done | Prerequisite networking: cables, IP, MAC, ARP, switches, gateways, routes |
 | Traffic in the Wrong Hands | `on-path` | done | 3.1 ARP poisoning, on-path, sniffing, 3.2 WPA2, 3.5 ARP detection |
 | Flood the Switch | `mac-flood` | built (08c5b30) | 3.1 MAC flooding and spoofing, 3.2 switch policy, 3.3 port security, 3.5 detection |
@@ -33,8 +34,8 @@ The three CED unit scenarios each anchor a lab: 3A (Adams County Hospital) is `f
 | 3.1.B.1 | Malicious traffic floods (DoS), maps the internal network, or spoofs devices. Missing or misconfigured firewalls | `smurf`, `firewall`, `net-audit` |
 | 3.1.B.2 | Lateral movement from one compromised LAN device to others | `segmentation` |
 | 3.1.B.3 | A physical data port with no port security lets an adversary in for DoS, MAC flooding, or MAC spoofing | `mac-flood` |
-| 3.1.B.4 | Wi-Fi signals and beacon frames that reach outside the building | `wireless` |
-| 3.1.B.5 | Networks that don't authenticate devices and users are easy to join | `wireless`, `mac-flood` |
+| 3.1.B.4 | Wi-Fi signals and beacon frames that reach outside the building | `wireless`, `home-network` |
+| 3.1.B.5 | Networks that don't authenticate devices and users are easy to join | `wireless`, `mac-flood`, `home-network` |
 | 3.1.B.6 | Rogue access point plugged into an open port bypasses the firewall | `wireless` |
 | 3.1.B.7 | Breaking wireless encryption | `wireless` (also `on-path`) |
 | 3.1.C.1 | Network vulnerabilities threaten confidentiality, integrity, and availability: interception, DoS, lateral movement | `net-audit` (and every attack lab's CIA questions) |
@@ -52,7 +53,7 @@ The three CED unit scenarios each anchor a lab: 3A (Adams County Hospital) is `f
 | 3.2.A.4 | Wireless policy: EAP authentication to an approved server, AES encryption with a minimum key length, beacon frames disabled | `wireless` |
 | 3.2.B.1 | Disable beacon broadcasting | `wireless` |
 | 3.2.B.2 | Control a WAP's broadcast direction and signal strength | `wireless` |
-| 3.2.B.3 | Strong encryption: WEP, WPS, and original WPA are insecure; WPA3 is strongest | `wireless` |
+| 3.2.B.3 | Strong encryption: WEP, WPS, and original WPA are insecure; WPA3 is strongest | `wireless`, `home-network` |
 | 3.2.B.4 | MAC filtering and user authentication | `wireless`, `mac-flood` |
 
 ## Topic 3.3: Segmentation (skill: Mitigate Risk)

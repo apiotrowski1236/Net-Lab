@@ -22,6 +22,7 @@ To try it from a student laptop on the same Wi-Fi, run `npm run dev -- --host` a
 
 | Lab | CodeHS lessons | Steps | Time |
 |---|---|---|---|
+| **Who Gets the Packet?**: start here, with no networking background. Set up a family's home Wi-Fi router: plug in the wired devices, name the network and lock it with WPA3, watch the router hand out addresses (DHCP), follow a print job through the switch, then see the router share one public address with the whole home (NAT) and turn away a packet nobody asked for | 3.1 | 11 | ~40 min |
 | **From Cable to Web Page**: build a network from loose parts. Plug in cables, give each device an IP address, set default gateways, and add static routes until Alice's browser loads a page from a server two routers away. Then troubleshoot a broken computer one layer at a time | 3.1 | 13 | ~45 min |
 | **Traffic in the Wrong Hands**: sniff a password on open Wi-Fi, see WPA2 stop it, ARP-poison your way into the middle, watch HTTPS defeat you, then lock ARP entries | 3.1, 3.2, 3.7 | 13 | ~45 min |
 | **Flood the Switch**: plug into an open lobby jack, flood the office switch's MAC table until it repeats everyone's traffic, find the flood in the switch's log, stop it with port security, beat MAC filtering by spoofing a printer, then shut unused ports | none | 11 | ~45 min |
