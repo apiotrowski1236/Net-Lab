@@ -10,6 +10,7 @@ import { flushSaves } from '../store/storage';
 import { CaptureView, Inspector, Toolkit } from './Dock';
 import { extraProtos, FORGED_COLOR, PROTO_BLURB, PROTO_COLOR, type Proto } from './describe';
 import { Icon } from './icons';
+import { jumpFor, type Jump } from './jump';
 import { LessonPanel } from './Lesson';
 import { logDevices, LogsView } from './LogsView';
 import { type Cabling, NetworkCanvas } from './NetworkCanvas';
@@ -19,6 +20,8 @@ import { TopBar } from './TopBar';
 type Tab = 'inspect' | 'capture' | 'tools' | 'logs';
 
 const SPEEDS = [0.5, 1, 2, 4];
+/** Network time per real millisecond at 1×: a third of real time, slow enough to follow each packet. */
+const RATE = 1 / 3;
 
 // ---------------------------------------------------------------------------
 // Stage: the animated network. Owns the animation loop so only it re-renders every frame.
@@ -71,7 +74,7 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
       if (rp) {
         // The live network waits while a replay plays.
         sim = rp.sim;
-        if (!pausedRef.current && !rp.done) rp.advance(dt * speedRef.current);
+        if (!pausedRef.current && !rp.done) rp.advance(dt * speedRef.current * RATE);
         dirty = rp.consumeDirty();
         if (rp.done) {
           heldSince ||= now;
@@ -83,7 +86,7 @@ function Stage({ session, selected, onSelect }: { session: LabSession; selected:
         } else heldSince = 0;
       } else {
         heldSince = 0;
-        if (!pausedRef.current) sim.advance(dt * speedRef.current);
+        if (!pausedRef.current) sim.advance(dt * speedRef.current * RATE);
         dirty = session.consumeSimDirty();
       }
       if (dirty) session.simRev.value++;
@@ -219,12 +222,14 @@ function Dock({
   setTab,
   selected,
   onSelect,
+  jump,
 }: {
   session: LabSession;
   tab: Tab;
   setTab: (t: Tab) => void;
   selected: string | null;
   onSelect: (id: string) => void;
+  jump: Jump | null;
 }) {
   void session.simRev.value;
   void session.rev.value;
@@ -249,6 +254,24 @@ function Dock({
   useLayoutEffect(() => {
     if (body.current) body.current.scrollTop = 0;
   }, [tab, selected]);
+  // A lesson chip that points at a tool: scroll to it and make it glow.
+  useLayoutEffect(() => {
+    const el = body.current;
+    if (!jump || !el || tab !== jump.tab || selected !== jump.device) return;
+    const hits = jump.selectors
+      .flatMap((sel) => [...el.querySelectorAll<HTMLElement>(sel)])
+      .map((h) => (h.getClientRects().length ? h : (h.firstElementChild as HTMLElement | null)))
+      .filter((h): h is HTMLElement => !!h && h.offsetHeight > 0);
+    if (!hits.length) return;
+    const top = el.scrollTop + hits[0].getBoundingClientRect().top - el.getBoundingClientRect().top - 10;
+    el.scrollTo({ top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    for (const h of hits) {
+      h.classList.remove('jump-glow');
+      void h.offsetWidth; // restart the animation on a second click
+      h.classList.add('jump-glow');
+      h.addEventListener('animationend', () => h.classList.remove('jump-glow'), { once: true });
+    }
+  }, [jump?.n]);
   useEffect(() => {
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
@@ -262,7 +285,16 @@ function Dock({
   return (
     <div class="dock">
       <div class="dock-tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'inspect'} class={tab === 'inspect' ? 'on' : ''} onClick={() => setTab('inspect')}>
+        <button
+          role="tab"
+          aria-selected={tab === 'inspect'}
+          class={tab === 'inspect' ? 'on' : ''}
+          onClick={() => {
+            // A chip can open a device's Toolkit card first; looking inside it still counts as opening it.
+            if (tab !== 'inspect' && selected) session.ui({ type: 'ui:inspect', device: selected });
+            setTab('inspect');
+          }}
+        >
           <Icon name="target" /> Inspect{selected ? `: ${session.sim.devices[selected]?.label}` : ''}
         </button>
         {capDev && (
@@ -303,6 +335,8 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
   const session = useMemo(() => new LabSession(lab, getProgress(who.id, lab.id, lab.version)), [lab, who.id]);
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('inspect');
+  const [jump, setJump] = useState<Jump | null>(null);
+  const jumps = useRef(0);
   const stepId = session.step.id;
   void session.rev.value;
 
@@ -367,21 +401,35 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
   const select = (id: string) => {
     setSelected(id);
     setTab('inspect');
+    setJump(null);
     session.ui({ type: 'ui:inspect', device: id });
+  };
+  /**
+   * A device chip in the lesson (toolkit: true) or a card's Open button: go
+   * straight to the tool this step hands out for that device, if there is one.
+   */
+  const open = (id: string, toolkit: boolean) => {
+    const dev = session.sim.devices[id];
+    const j = dev ? jumpFor(session.tools, dev, toolkit, ++jumps.current) : null;
+    setSelected(id);
+    setTab(j?.tab ?? 'inspect');
+    setJump(j);
+    // A Toolkit card isn't the inspector: opening the device waits until the student looks inside it.
+    if (j?.tab !== 'tools') session.ui({ type: 'ui:inspect', device: id });
   };
 
   return (
     <div class="player">
       <TopBar session={session} />
       <div class="player-body">
-        <LessonPanel session={session} onDevice={select} />
+        <LessonPanel session={session} onDevice={(id) => open(id, true)} />
         <main class={`stage-col ${session.step.kind === 'submit' ? 'summary-col' : ''}`}>
           {session.step.kind === 'submit' ? (
             <Summary session={session} />
           ) : (
             <>
               <Stage session={session} selected={selected} onSelect={select} />
-              <Dock session={session} tab={tab} setTab={setTab} selected={selected} onSelect={select} />
+              <Dock session={session} tab={tab} setTab={setTab} selected={selected} onSelect={(id) => open(id, false)} jump={jump} />
             </>
           )}
         </main>

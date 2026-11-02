@@ -2007,3 +2007,24 @@
   flex: 0 1 18rem;
   min-width: 0;
 }
+
+/* A lesson chip took the student to this tool: a ring that fades. */
+.tool-slot {
+  display: contents;
+}
+.jump-glow {
+  animation: jump-glow 2.2s ease-out;
+}
+.inspector .jump-glow {
+  border-radius: 8px;
+  outline-offset: 5px;
+}
+@keyframes jump-glow {
+  0%,
+  35% {
+    outline: 3px solid var(--brand-line);
+  }
+  100% {
+    outline: 3px solid transparent;
+  }
+}

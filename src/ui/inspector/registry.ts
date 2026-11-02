@@ -37,6 +37,8 @@ export interface InspectorSection {
   slot: 'settings' | 'end';
   /** Return null for devices the section doesn't apply to. */
   Section: ComponentType<InspectorSectionProps>;
+  /** Tools the student uses in this section. A lesson chip for the tool's device scrolls here. */
+  tools?: ToolSpec['kind'][];
 }
 
 /**
@@ -48,26 +50,26 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'dns-cache', slot: 'settings', Section: DnsCache },
   { id: 'dns-zone', slot: 'end', Section: DnsZone },
   // segmentation (before mac-flood's ports table, so a switch shows its VLANs first)
-  { id: 'vlans', slot: 'settings', Section: VlansSection },
+  { id: 'vlans', slot: 'settings', Section: VlansSection, tools: ['vlan'] },
   // mac-flood
-  { id: 'switch-ports', slot: 'settings', Section: SwitchPorts },
+  { id: 'switch-ports', slot: 'settings', Section: SwitchPorts, tools: ['port-security'] },
   // wireless
-  wifiSettingsSection,
+  { ...wifiSettingsSection, tools: ['wifi-config'] },
   // firewall
   { id: 'services', slot: 'settings', Section: ServicesSection },
   // segmentation (the zone policy before the rules it writes)
   { id: 'malware', slot: 'settings', Section: MalwareSection },
-  { id: 'zone-policy', slot: 'settings', Section: ZonePolicySection },
-  { id: 'firewall-rules', slot: 'settings', Section: FirewallRulesSection },
+  { id: 'zone-policy', slot: 'settings', Section: ZonePolicySection, tools: ['zone-policy'] },
+  { id: 'firewall-rules', slot: 'settings', Section: FirewallRulesSection, tools: ['firewall-rules'] },
   // net-audit
-  { id: 'hardening', slot: 'settings', Section: HardeningSection },
+  { id: 'hardening', slot: 'settings', Section: HardeningSection, tools: ['hardening'] },
   // logs
-  { id: 'ids-detection', slot: 'settings', Section: Detection },
-  { id: 'siem-console', slot: 'settings', Section: SiemConsole },
+  { id: 'ids-detection', slot: 'settings', Section: Detection, tools: ['ids'] },
+  { id: 'siem-console', slot: 'settings', Section: SiemConsole, tools: ['siem', 'ai-threshold'] },
   // smurf
-  routerPanelSection,
+  { ...routerPanelSection, tools: ['directed-broadcast'] },
   // home-network
-  wifiSetupSection,
+  { ...wifiSetupSection, tools: ['wifi-config'] },
   dhcpLeasesSection,
   natTableSection,
 ];

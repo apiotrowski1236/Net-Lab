@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
 import type { Sim } from '../sim/sim';
 import type { Captured, Device, Route } from '../sim/types';
-import { SETTING_TOOLS, type CableRefusal, type ToolSpec } from '../labs/types';
+import { SETTING_TOOLS, toolKey, type CableRefusal, type ToolSpec } from '../labs/types';
 import { PROTO_COLOR, endpoints, fmtTime, infoOf, layersOf, nameForMac, pingFailText, protoOf } from './describe';
 import { Icon } from './icons';
 import { INSPECTOR_SECTIONS, type InspectorSectionProps } from './inspector/registry';
@@ -327,10 +327,18 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
   const unplugged = cables && layer3 && !dev.ifaces.some((i) => i.linkId);
   const extra: InspectorSectionProps = { session, sim, dev, replaying, has };
   const sections = (slot: 'settings' | 'end') =>
-    INSPECTOR_SECTIONS.filter((x) => x.slot === slot).map(({ id, Section }) => <Section key={`${id}-${dev.id}`} {...extra} />);
+    INSPECTOR_SECTIONS.filter((x) => x.slot === slot).map(({ id, Section, tools }) =>
+      tools ? (
+        <div key={`${id}-${dev.id}`} data-tools={tools.join(' ')}>
+          <Section {...extra} />
+        </div>
+      ) : (
+        <Section key={`${id}-${dev.id}`} {...extra} />
+      ),
+    );
   // A switch works below IP: its ports have no addresses to show, only where their cables go.
   const ports = (
-    <section>
+    <section data-tools={layer3 ? 'ip-config' : undefined}>
       <h4>{layer3 ? 'Addresses' : 'Ports'}</h4>
       <table class="table">
         <thead>
@@ -352,7 +360,7 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 
   // A router's routing table is what students come for: it goes right after its addresses.
   const routing = showRoutes && (
-        <section>
+        <section data-tools="static-route">
           <h4>
             Routing table <span class="muted">where to send packets for each destination</span>
           </h4>
@@ -425,7 +433,11 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 
       {dev.kind === 'router' && routing}
 
-      {dev.kind === 'host' && (canGateway || lab.hostRoutes) && <GatewayField key={dev.id} session={session} dev={dev} edit={canGateway} />}
+      {dev.kind === 'host' && (canGateway || lab.hostRoutes) && (
+        <div data-tools="gateway">
+          <GatewayField key={dev.id} session={session} dev={dev} edit={canGateway} />
+        </div>
+      )}
 
       {sections('settings')}
 
@@ -1197,68 +1209,73 @@ export function Toolkit({ session, tools, onSelect }: { session: LabSession; too
       </div>
     );
   }
+  const card = (t: ToolSpec) => {
+    switch (t.kind) {
+      case 'sniffer': {
+        const d = sim.devices[t.device];
+        return (
+          <div class="tool-card attack">
+            <div class="tool-title">
+              <Icon name="eye" /> Packet capture ({d.label})
+            </div>
+            <p class="tool-desc">Copy every frame that reaches {d.label}'s network card, even frames addressed to someone else.</p>
+            <Toggle on={d.sniffing} label={d.sniffing ? 'Capturing' : 'Off'} onChange={(on) => session.dispatch({ type: 'sniff', device: t.device, on })} />
+          </div>
+        );
+      }
+      case 'forwarding': {
+        const d = sim.devices[t.device];
+        return (
+          <div class="tool-card attack">
+            <div class="tool-title">
+              <Icon name="arrows" /> IP forwarding ({d.label})
+            </div>
+            <p class="tool-desc">Pass along packets meant for someone else instead of dropping them, so the victim never notices.</p>
+            <Toggle on={d.forwarding} label={d.forwarding ? 'Forwarding' : 'Off'} onChange={(on) => session.dispatch({ type: 'forward', device: t.device, on })} />
+          </div>
+        );
+      }
+      case 'arp-spoof':
+        return <ArpSpoofTool session={session} spec={t} />;
+      case 'bgp-announce':
+        return <AnnounceTool session={session} spec={t} />;
+      case 'bgp-validate':
+        return (
+          <div class="tool-card defend">
+            <div class="tool-title">
+              <Icon name="shield" /> Route origin validation (RPKI)
+            </div>
+            <p class="tool-desc">Check every announcement against the public registry of who owns which addresses. Reject liars.</p>
+            {t.devices.map((id) => {
+              const d = sim.devices[id];
+              return (
+                <div class="tool-row">
+                  <span>{d.label}</span>
+                  <Toggle on={!!d.bgp?.validate} label={d.bgp?.validate ? 'Validating' : 'Off'} onChange={(on) => session.dispatch({ type: 'validate', device: id, on })} />
+                </div>
+              );
+            })}
+          </div>
+        );
+      case 'static-arp':
+        return <StaticArpTool session={session} spec={t} />;
+      case 'cable':
+        return <CableTool session={session} refuse={t.refuse} />;
+      case 'ping':
+        return <PingTool session={session} />;
+      default: {
+        const Card = TOOL_CARDS[t.kind] as ComponentType<ToolCardProps> | undefined;
+        return Card ? <Card session={session} spec={t} onSelect={onSelect} /> : null;
+      }
+    }
+  };
   return (
     <div class="toolkit">
-      {tools.map((t) => {
-        switch (t.kind) {
-          case 'sniffer': {
-            const d = sim.devices[t.device];
-            return (
-              <div class="tool-card attack">
-                <div class="tool-title">
-                  <Icon name="eye" /> Packet capture ({d.label})
-                </div>
-                <p class="tool-desc">Copy every frame that reaches {d.label}'s network card, even frames addressed to someone else.</p>
-                <Toggle on={d.sniffing} label={d.sniffing ? 'Capturing' : 'Off'} onChange={(on) => session.dispatch({ type: 'sniff', device: t.device, on })} />
-              </div>
-            );
-          }
-          case 'forwarding': {
-            const d = sim.devices[t.device];
-            return (
-              <div class="tool-card attack">
-                <div class="tool-title">
-                  <Icon name="arrows" /> IP forwarding ({d.label})
-                </div>
-                <p class="tool-desc">Pass along packets meant for someone else instead of dropping them, so the victim never notices.</p>
-                <Toggle on={d.forwarding} label={d.forwarding ? 'Forwarding' : 'Off'} onChange={(on) => session.dispatch({ type: 'forward', device: t.device, on })} />
-              </div>
-            );
-          }
-          case 'arp-spoof':
-            return <ArpSpoofTool session={session} spec={t} />;
-          case 'bgp-announce':
-            return <AnnounceTool session={session} spec={t} />;
-          case 'bgp-validate':
-            return (
-              <div class="tool-card defend">
-                <div class="tool-title">
-                  <Icon name="shield" /> Route origin validation (RPKI)
-                </div>
-                <p class="tool-desc">Check every announcement against the public registry of who owns which addresses. Reject liars.</p>
-                {t.devices.map((id) => {
-                  const d = sim.devices[id];
-                  return (
-                    <div class="tool-row">
-                      <span>{d.label}</span>
-                      <Toggle on={!!d.bgp?.validate} label={d.bgp?.validate ? 'Validating' : 'Off'} onChange={(on) => session.dispatch({ type: 'validate', device: id, on })} />
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          case 'static-arp':
-            return <StaticArpTool session={session} spec={t} />;
-          case 'cable':
-            return <CableTool session={session} refuse={t.refuse} />;
-          case 'ping':
-            return <PingTool session={session} />;
-          default: {
-            const Card = TOOL_CARDS[t.kind] as ComponentType<ToolCardProps> | undefined;
-            return Card ? <Card session={session} spec={t} onSelect={onSelect} /> : null;
-          }
-        }
-      })}
+      {tools.map((t) => (
+        <div class="tool-slot" key={toolKey(t)} data-tool-key={toolKey(t)}>
+          {card(t)}
+        </div>
+      ))}
       {settingKinds.size > 0 && <SettingsCard
           session={session}
           kinds={settingKinds}

@@ -388,7 +388,7 @@ export const homeNetworkLab: LabDef = {
         3. **Request.** The device: "I'll take it."
         4. **Ack** (short for acknowledge). The router: "It's yours. And I'm your way out to the internet."
 
-        Press **The TV restarts**. Set the speed to **0.5×** and watch the TV get its address again.
+        Press **The TV restarts** and watch it get its address again.
 
         Then click [[router]] and find **Connected devices**: every device's name, MAC address, and IP address. Click [[phone]] too, and check that its addresses match its line in the list.
 

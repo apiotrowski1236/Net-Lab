@@ -423,7 +423,7 @@ The computers and the switch have forgotten everything they learned so far.
    - Operations: VLAN 20.
    - Crew: VLAN 30.
 2. Leave port 10, the firewall's cable, in VLAN 1 for now.
-3. Set the speed to 0.5×. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes.
+3. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes.
 4. Press **Crew laptop 1 pings the media server**.
 
 Try other pairs with the **Ping** tool in the Toolkit tab.

@@ -229,9 +229,8 @@ export const buildNetworkLab: LabDef = {
 
         The computers and the switch have forgotten everything they learned in the last step.
 
-        1. Set the speed to 0.5× so you can follow each packet.
-        2. Press **Alice pings Ben**. Watch for the ARP packets before the ping.
-        3. Click [[sw]] and read its **MAC address table**.
+        1. Press **Alice pings Ben**. Watch for the ARP packets before the ping.
+        2. Click [[sw]] and read its **MAC address table**.
       `,
       setup: (sim) => {
         officeLan(sim);
@@ -333,7 +332,7 @@ export const buildNetworkLab: LabDef = {
 
         1. Click [[alice]]. Set her default gateway to the office router's address on her network. A gateway is one address, with no slash.
         2. Do the same for [[ben]].
-        3. Set the speed to 0.5×. Press **Alice opens the website**. The page won't load yet, because you'll build the web server's network, \`203.0.113.0/24\`, in the next step. Watch how far the request gets.
+        3. Press **Alice opens the website**. The page won't load yet, because you'll build the web server's network, \`203.0.113.0/24\`, in the next step. Watch how far the request gets.
 
         Her browser will say **Not secure**. This site uses plain HTTP, so nothing it sends is encrypted. More on that at the end.
       `,
