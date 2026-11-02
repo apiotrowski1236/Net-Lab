@@ -24,7 +24,7 @@ interface Box {
 }
 
 /** Frame the map tightly around the devices, leaving room for labels below and markers above. */
-function fitBox(devices: Device[], extraLines = 0, zones: MapZone[] = []): Box {
+function fitBox(devices: Device[], extraLines = 0, zones: MapZone[] = [], below = 0): Box {
   const xs = devices.map((d) => d.x);
   const ys = devices.map((d) => d.y);
   let l = Math.min(...xs) - 95;
@@ -39,7 +39,7 @@ function fitBox(devices: Device[], extraLines = 0, zones: MapZone[] = []): Box {
     r = Math.max(r, zb.r + 10);
     b = Math.max(b, zb.b + 10);
   }
-  return { x: l, y: t, w: r - l, h: b - t };
+  return { x: l, y: t, w: r - l, h: b + below - t };
 }
 
 function zoneBounds(z: MapZone): { l: number; t: number; r: number; b: number } {
@@ -536,7 +536,8 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
     ? Math.max(1, ...devices.map((d) => (d.kind === 'router' && showsAddresses(d, opts.addresses) ? d.ifaces.length : 1)))
     : 1;
   const zones = opts?.zones?.(sim) ?? [];
-  const box = fitBox(devices, maxLines - 1, zones);
+  // The cable hint sits over the bottom of the map: keep the bottom row's labels clear of it.
+  const box = fitBox(devices, maxLines - 1, zones, cabling?.hint ? 48 : 0);
   const tagged = (d: Device) => !!opts?.ports && (d.kind === 'router' || d.kind === 'switch' || d.kind === 'hub');
   const wrap = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
