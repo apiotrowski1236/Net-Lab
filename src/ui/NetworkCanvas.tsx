@@ -108,8 +108,13 @@ interface Marker {
   life: number;
 }
 
-/** `macName`: when set, a switch shows what it learns ("learned Alice: port 1"). */
-function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string) => string | undefined): Omit<Marker, 't' | 'life'> | null {
+/** `macName`: when set, a switch shows what it learns ("learned Alice: port 1"). `devName` names a device by id. */
+function markerFor(
+  e: SimEvent,
+  capturedAt: Set<string>,
+  macName?: (mac: string) => string | undefined,
+  devName?: (id: string) => string | undefined,
+): Omit<Marker, 't' | 'life'> | null {
   if (e.quiet) return null;
   switch (e.type) {
     case 'mac-learn': {
@@ -143,6 +148,7 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
         'vpn-split-off': 'VPN: home device blocked',
         congestion: 'link full: dropped',
         'no-broadcast': 'broadcast blocked: dropped',
+        unsolicited: 'nobody asked: dropped',
       };
       // The 'firewall' event right before this one already says which rule blocked it.
       if (e.reason === 'firewall') return null;
@@ -190,6 +196,15 @@ function markerFor(e: SimEvent, capturedAt: Set<string>, macName?: (mac: string)
       if (e.what === 'harden-auth-server') return { device: e.device, text: e.on ? 'logins: auth server' : 'logins: local account', tone: e.on ? 'good' : 'warn' };
       if (e.what === 'vpn') return { device: e.device, text: e.on ? 'split tunneling on' : 'split tunneling off', tone: e.on ? 'warn' : 'good' };
       return null;
+    // home-network: DHCP messages (dhcp.ts) and NAT translations (nat.ts)
+    case 'dhcp': {
+      const text = { discover: 'asks for an address', offer: `offers ${e.ip}`, request: `takes ${e.ip}`, ack: `gives ${e.ip}` }[e.what];
+      return { device: e.device, text, tone: 'info' };
+    }
+    case 'nat':
+      return e.what === 'out'
+        ? { device: e.device, text: `sent as ${e.entry.proto === 'icmp' ? e.publicIp : `${e.publicIp}:${e.entry.public}`}`, tone: 'info' }
+        : { device: e.device, text: `answer for ${(e.who && devName?.(e.who)) ?? e.entry.inside.ip}`, tone: 'info' };
     case 'wifi':
       switch (e.what) {
         case 'join':
@@ -233,7 +248,7 @@ function recentMarkers(sim: Sim, since = 0, learn = false): Marker[] {
     const fail = e.type === 'drop' || e.type === 'ping-fail';
     const life = fail ? FAIL_MARKER_MS : MARKER_MS;
     if (age > life) continue;
-    const m = markerFor(e, captured, macName);
+    const m = markerFor(e, captured, macName, (id) => sim.devices[id]?.label);
     if (m && fail && (changed.get(m.device) ?? -1) > e.t) continue;
     if (m && !out.some((o) => o.device === m.device && o.text === m.text)) out.push({ ...m, t: e.t, life });
   }

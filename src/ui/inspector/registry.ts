@@ -16,6 +16,8 @@ import { HardeningSection } from './Hardening';
 import { Detection } from './Detection';
 import { SiemConsole } from './SiemConsole';
 import { routerPanelSection } from './TrafficMeter';
+import { dhcpLeasesSection } from './DhcpLeases';
+import { natTableSection } from './NatTable';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -63,4 +65,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'siem-console', slot: 'settings', Section: SiemConsole },
   // smurf
   routerPanelSection,
+  // home-network
+  dhcpLeasesSection,
+  natTableSection,
 ];

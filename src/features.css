@@ -1985,3 +1985,17 @@
 .zzdebug {
   color: red;
 }
+
+/* ---------------------------------------------------------------------------
+   home-network: the DHCP layer in the capture viewer, Connected devices,
+   Address sharing (NAT), Wi-Fi setup
+   --------------------------------------------------------------------------- */
+:root[data-theme='dark'] {
+  --layer-dhcp: #a5b4fc;
+}
+:root[data-theme='light'] {
+  --layer-dhcp: #4338ca;
+}
+.nat-table .pill.tiny {
+  margin-left: 6px;
+}

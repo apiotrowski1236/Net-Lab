@@ -2,15 +2,17 @@ import type { Sim } from '../sim/sim';
 import type { Frame, SimEvent } from '../sim/types';
 import { appName, portLabel } from '../sim/services';
 import { fwDenyText } from './firewallText';
+import { DHCP_OP_LABEL, dhcpIps, dhcpSays, fromClient } from '../sim/dhcp';
 
-export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH' | 'TELNET';
+export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH' | 'TELNET' | 'DHCP' | 'PRINT';
 
 /** Pill for a connection to a service (services.ts), by the program really inside. */
-const SVC_PROTO: Record<string, Proto> = { https: 'HTTPS', http: 'HTTP', ssh: 'SSH', smb: 'SMB', dns: 'DNS', telnet: 'TELNET' };
+const SVC_PROTO: Record<string, Proto> = { https: 'HTTPS', http: 'HTTP', ssh: 'SSH', smb: 'SMB', dns: 'DNS', telnet: 'TELNET', ipp: 'PRINT' };
 
 export function protoOf(f: Frame): Proto {
   if (f.arp) return 'ARP';
   if (f.bgp) return 'ROUTE';
+  if (f.dhcp) return 'DHCP';
   // A bare Ethernet frame with nothing inside (MAC flooding sends these).
   if (!f.ip) return 'ETH';
   const ip = f.ip;
@@ -36,6 +38,8 @@ export const PROTO_COLOR: Record<Proto, string> = {
   SMB: '#4d7c0f',
   TCP: '#7c2d12',
   TELNET: '#a21caf',
+  DHCP: '#4338ca',
+  PRINT: '#0f766e',
 };
 
 /** Fill for forged ("FAKE") packets. White text, 4.8:1. */
@@ -56,6 +60,7 @@ const LAYER_COLOR = {
   PING: 'var(--layer-ping)',
   ROUTE: 'var(--layer-route)',
   ETH: 'var(--layer-eth)',
+  DHCP: 'var(--layer-dhcp)',
 } as const;
 
 export const PROTO_BLURB: Record<Proto, string> = {
@@ -70,12 +75,19 @@ export const PROTO_BLURB: Record<Proto, string> = {
   SMB: 'SMB: Windows file sharing, for opening shared folders.',
   TCP: 'Other TCP traffic: a program talking to a service on some port.',
   TELNET: 'Telnet: an administrator logging in to a device from far away, in plain text. Anyone who sees it reads the password.',
+  DHCP: 'DHCP: a device asking for an IP address, and the router handing one out.',
+  PRINT: 'Print: a document on its way to a printer over the network.',
 };
 
-/** Packet colors the legend adds for labs whose hosts run services (services.ts). */
+/** Packet colors the legend adds for labs whose hosts run services (services.ts), hand out addresses (dhcp.ts), or print. */
 export function extraProtos(sim: Sim): Proto[] {
-  const base: Proto[] = Object.values(sim.devices).some((d) => d.services?.length) ? ['SSH', 'SMB', 'TCP'] : [];
-  return Object.values(sim.devices).some((d) => d.services?.some((x) => x.app === 'telnet')) ? [...base, 'TELNET'] : base;
+  const devs = Object.values(sim.devices);
+  // A printer alone doesn't bring in the other services' colors.
+  const base: Proto[] = devs.some((d) => d.services?.some((x) => x.app !== 'ipp')) ? ['SSH', 'SMB', 'TCP'] : [];
+  const out: Proto[] = devs.some((d) => d.services?.some((x) => x.app === 'telnet')) ? [...base, 'TELNET'] : base;
+  if (devs.some((d) => d.dhcp)) out.push('DHCP');
+  if (devs.some((d) => d.services?.some((x) => x.app === 'ipp'))) out.push('PRINT');
+  return out;
 }
 
 /** Fake ciphertext so encrypted packets look like gibberish (deterministic per frame). */
@@ -118,6 +130,7 @@ function infoOfOne(f: Frame): string {
     const b = f.bgp;
     return b.kind === 'announce' ? `I can reach ${b.prefix} via AS path ${b.path.join(' ')}` : `Withdraw ${b.prefix}`;
   }
+  if (f.dhcp) return dhcpSays(f.dhcp);
   if (!f.ip) return 'Ethernet frame, no data';
   const ip = f.ip;
   if (ip.encrypted && (ip.app.kind === 'http-req' || ip.app.kind === 'http-res')) return 'Application Data (encrypted)';
@@ -142,6 +155,8 @@ function infoOfOne(f: Frame): string {
 
 export function endpoints(f: Frame): { src: string; dst: string } {
   if (f.ip) return { src: f.ip.src, dst: f.ip.dst };
+  // The IP addresses a real DHCP message carries (the simulation leaves out its IP and UDP layers).
+  if (f.dhcp) return dhcpIps(f.dhcp);
   return { src: f.src, dst: f.dst === 'ff:ff:ff:ff:ff:ff' ? 'Broadcast' : f.dst };
 }
 
@@ -171,6 +186,42 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
     const each = b.vary === 'src-mac' ? 'Each one has a different made-up From MAC.' : b.vary === 'src-ip' ? 'Each one has a different made-up From IP.' : 'They are all the same.';
     layers[0].rows.push(['Copies', `${b.count} frames`, '(shown as one)']);
     layers[0].note = `This is ${b.count} frames sent back to back. ${each}`;
+  }
+  if (f.dhcp) {
+    const m = f.dhcp;
+    const asks = fromClient(m);
+    const ips = dhcpIps(m);
+    layers.push(
+      {
+        title: 'IP packet (delivery across networks)',
+        color: LAYER_COLOR.ip,
+        rows: [
+          ['From IP', ips.src, asks ? '(no address yet)' : tag(nameForIp(sim, ips.src))],
+          ['To IP', ips.dst, ips.dst === '255.255.255.255' ? '(everyone on this network)' : '(the address being handed out)'],
+        ],
+        note: asks ? 'The device has no IP address yet, so it sends from 0.0.0.0 to everyone.' : undefined,
+      },
+      {
+        title: 'UDP',
+        color: LAYER_COLOR.transport,
+        rows: [
+          ['From port', asks ? '68' : '67', asks ? '(DHCP client)' : '(DHCP server)'],
+          ['To port', asks ? '67' : '68', asks ? '(DHCP server)' : '(DHCP client)'],
+        ],
+      },
+      {
+        title: `DHCP ${DHCP_OP_LABEL[m.op]}`,
+        color: LAYER_COLOR.DHCP,
+        rows: [
+          ['Message', dhcpSays(m)],
+          ['Device name', m.name ?? '-'],
+          ['Device MAC', m.client, tag(nameForMac(sim, m.client))],
+          ...(m.ip ? ([[m.op === 'offer' ? 'Address offered' : 'Address', `${m.ip}${m.prefix !== undefined ? `/${m.prefix}` : ''}`]] as [string, string][]) : []),
+          ...(m.gateway ? ([['Default gateway', m.gateway, tag(nameForIp(sim, m.gateway))]] as [string, string, string?][]) : []),
+        ],
+      },
+    );
+    return layers;
   }
   if (!f.ip && !f.arp && !f.bgp) {
     layers[0].note = `${layers[0].note ? `${layers[0].note} ` : ''}There is nothing inside: no IP packet, no data. A frame like this exists only to make switches learn its From MAC.`;
@@ -217,6 +268,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       ['To IP', ip.dst, tag(nameForIp(sim, ip.dst))],
       ['TTL', String(ip.ttl), '(hops left before it’s thrown away)'],
     ],
+    note: ip.nat ? natNote(sim, ip) : undefined,
   });
   if (ip.proto !== 'icmp') {
     layers.push({
@@ -301,6 +353,17 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
   return layers;
 }
 
+/** What a NAT router changed on this packet (nat.ts), in plain words. */
+function natNote(sim: Sim, ip: NonNullable<Frame['ip']>): string {
+  const n = ip.nat!;
+  const by = sim.devices[n.by]?.label ?? 'The router';
+  const at = (addr: string, port?: number) => (port === undefined || ip.proto === 'icmp' ? addr : `${addr} port ${port}`);
+  if (n.was.dst !== undefined) {
+    return `${by} changed the To address. On the internet, this packet went to ${at(n.was.dst, n.was.dstPort)}. ${by}’s address-sharing list said that’s ${at(ip.dst, ip.dstPort)}.`;
+  }
+  return `${by} changed the From address. Inside the home, this packet came from ${at(n.was.src ?? '?', n.was.srcPort)}. Out here it carries the shared public address, ${at(ip.src, ip.srcPort)}.`;
+}
+
 export function fmtTime(ms: number): string {
   return (ms / 1000).toFixed(2) + 's';
 }
@@ -348,6 +411,8 @@ export function pingFailText(sim: Sim, e: Extract<SimEvent, { type: 'ping-fail' 
       return `The link out of ${at} is full, so the ping was dropped. A flood is using up the link.`;
     case 'no-broadcast':
       return `${at} would not forward a ping to a whole network's broadcast address, so it dropped the request.`;
+    case 'unsolicited':
+      return `${at} dropped the ping: nobody behind it asked for it.`;
     default:
       return `Dropped at ${at}.`;
   }

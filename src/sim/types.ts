@@ -11,6 +11,8 @@ import type { AuditState } from './audit';
 import type { Hardening } from './hardening';
 import type { VpnState } from './vpn';
 import type { FlowInfo, IdsEventBody, IdsState } from './ids';
+import type { DhcpMessage, DhcpState } from './dhcp';
+import type { NatEntry, NatNote, NatState } from './nat';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -39,7 +41,9 @@ export type DeviceIcon =
   | 'cloud'
   | 'attacker'
   | 'firewall'
-  | 'isp';
+  | 'isp'
+  | 'tv'
+  | 'console';
 
 export interface Iface {
   id: string;
@@ -85,6 +89,8 @@ export interface WebSite {
   page?: string;
   /** Line shown after a successful sign-in (POST), after "Welcome back, NAME!". Defaults to a bank balance. */
   dashboard?: string;
+  /** Pages by path ("/cats"), for a site with more than one. A path not listed gets `title` and `page`. */
+  pages?: Record<string, { title: string; page: string }>;
 }
 
 export interface BrowserState {
@@ -211,6 +217,10 @@ export interface Device {
    * amplifier. See src/sim/broadcast.ts.
    */
   directedBroadcast?: boolean;
+  /** DHCP: a router port that hands out addresses, or a computer that gets its address automatically (see dhcp.ts). */
+  dhcp?: DhcpState;
+  /** NAT: a router that shares its outside address with the devices behind it (see nat.ts). */
+  nat?: NatState;
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +286,8 @@ export interface IpPacket {
   app: AppData;
   /** What the packet stands for: bytes its connection moved, and when replayed traffic first happened (see src/sim/ids.ts). */
   flow?: FlowInfo;
+  /** Set when a NAT router rewrote the addresses: what they were before (see nat.ts). */
+  nat?: NatNote;
 }
 
 export interface ArpPayload {
@@ -299,6 +311,8 @@ export interface Frame {
   arp?: ArpPayload;
   ip?: IpPacket;
   bgp?: RouteUpdate;
+  /** A DHCP message (see dhcp.ts). The simulation carries it in the frame without the UDP and IP around it. */
+  dhcp?: DhcpMessage;
   /** Device that built this frame (for the teacher's eyes only; real frames carry no such label). */
   origin: string;
   /** Set when an attacker forged this frame. Drawn in red so students can follow it. */
@@ -322,6 +336,8 @@ export interface Link {
    * effectively unlimited. See src/sim/congestion.ts.
    */
   capacityPps?: number;
+  /** A cable built into one box (a home router's switch and its router part). Students can't unplug it, and the map draws no port tags on it. */
+  fixed?: boolean;
 }
 
 export interface InFlight {
@@ -364,7 +380,9 @@ export type DropReason =
   /** A flood filled the link, so there was no room for this packet (see congestion.ts). */
   | 'congestion'
   /** A router refused to forward a packet aimed at a network's broadcast address (directed broadcast off; see broadcast.ts). */
-  | 'no-broadcast';
+  | 'no-broadcast'
+  /** A NAT router dropped a packet from outside that no device inside asked for (see nat.ts). */
+  | 'unsolicited';
 
 export type SimEvent = (
   | { t: number; type: 'captured'; device: string; no: number; frame: Frame }
@@ -424,7 +442,18 @@ export type SimEvent = (
   /** The outbreak that started on `device` has nowhere left to go. `infected` lists every infected device. */
   | { t: number; type: 'malware-done'; device: string; infected: string[] }
   /** A sensor raised an alert, or (prevention on) shut a switch port or blocked an address. `device` is the sensor. See src/sim/ids.ts. */
-  | ({ t: number; type: 'ids' } & IdsEventBody)) & {
+  | ({ t: number; type: 'ids' } & IdsEventBody)
+  /**
+   * A DHCP message was sent (see dhcp.ts). `device` sent it; `client` is the
+   * device asking for an address, `mac` its MAC. `ip` is the address offered,
+   * requested, or confirmed.
+   */
+  | { t: number; type: 'dhcp'; device: string; what: DhcpMessage['op']; client: string; mac: Mac; ip?: Ip }
+  /**
+   * A NAT router rewrote a packet (see nat.ts): 'out' gave it the shared
+   * address, 'in' put back the inside address. `who` is the inside device's id.
+   */
+  | { t: number; type: 'nat'; device: string; what: 'out' | 'in'; entry: NatEntry; publicIp: Ip; who?: string; pkt: IpPacket }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */
   quiet?: boolean;
 };
