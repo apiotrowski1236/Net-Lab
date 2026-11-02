@@ -1,5 +1,5 @@
 import type { Sim } from '../sim/sim';
-import type { Frame, LogEntry, SimEvent } from '../sim/types';
+import type { Device, Frame, LogEntry, SimEvent } from '../sim/types';
 import type { FwMode } from '../sim/firewall';
 import type { ZoneLevel } from '../sim/zones';
 
@@ -89,8 +89,11 @@ export type ToolSpec =
   | { kind: 'bgp-validate'; devices: string[] }
   /** Lock ARP entries on `device`. The student types the IP and the correct MAC. */
   | { kind: 'static-arp'; device: string }
-  /** Plug cables between devices and unplug them. */
-  | { kind: 'cable' }
+  /**
+   * Plug cables between devices and unplug them. `refuse` turns away cables
+   * the lesson doesn't want, with its own words (see CableRefusal).
+   */
+  | { kind: 'cable'; refuse?: CableRefusal[] }
   /** Send a ping from any computer or router. The student types the address. */
   | { kind: 'ping' }
   /**
@@ -114,8 +117,12 @@ export type ToolSpec =
   | { kind: 'mac-change'; device: string }
   /** Port security and shutting ports on switch `device`, in the inspector. The card points there. */
   | { kind: 'port-security'; device: string }
-  /** Change an access point's Wi-Fi settings in the inspector (wireless lab). */
-  | { kind: 'wifi-config'; device: string }
+  /**
+   * Change an access point's Wi-Fi settings in the inspector (wireless lab).
+   * `basic` shows a home router's setup page instead (home-network): the
+   * network's name, a password, and on or off.
+   */
+  | { kind: 'wifi-config'; device: string; basic?: boolean }
   /** Scan the air from one of these devices to see nearby networks (wireless lab). */
   | { kind: 'wifi-scan'; devices: string[] }
   /** Try to break into a network the attacker can hear (wireless lab). */
@@ -172,6 +179,17 @@ export type ToolSpec =
 
 export type IdsControl = 'signatures' | 'anomaly' | 'prevention';
 
+/**
+ * A cable the cable tool turns away (home-network). `between` names the two
+ * devices, either order; '*' matches any device. `text` replaces the usual
+ * message; `{a}` and `{b}` stand for the two devices' names, `{a}` being the
+ * one matched by `between[0]`. The first match wins.
+ */
+export interface CableRefusal {
+  between: [string, string];
+  text: string;
+}
+
 /** What the firewall placement tool says about one choice of cable. */
 export interface PlacementFeedback {
   /** Which firewall this is about (leave out: any of them). */
@@ -198,6 +216,18 @@ export interface ActionDef {
   id: string;
   label: string;
   run: (sim: Sim) => void;
+  /**
+   * The lines under the button after it runs, instead of the usual ones (ping
+   * replies, browser pages, connections). `since` is when it was pressed.
+   * Recomputed as the network changes, so it can say "on its way" then "done".
+   */
+  outcome?: (sim: Sim, since: number) => ActionLine[];
+}
+
+/** One line of a button's result. */
+export interface ActionLine {
+  tone: 'good' | 'bad' | 'wait';
+  text: string;
 }
 
 export interface StepDef {
@@ -249,7 +279,8 @@ export interface LabDef {
    */
   map?: {
     ports?: boolean;
-    addresses?: boolean;
+    /** True for every computer and router, or pick devices (home-network leaves out the internet provider). */
+    addresses?: boolean | ((d: Device) => boolean);
     /** Shapes drawn behind the devices: a building's walls, a Wi-Fi signal's reach, a DMZ or VLAN. Recomputed as the network changes. */
     zones?: (sim: Sim) => MapZone[];
   };

@@ -1985,3 +1985,27 @@
 .zzdebug {
   color: red;
 }
+
+/* ---------------------------------------------------------------------------
+   home-network: the DHCP layer in the capture viewer, Connected devices,
+   Address sharing (NAT), Wi-Fi setup
+   --------------------------------------------------------------------------- */
+:root[data-theme='dark'] {
+  --layer-dhcp: #a5b4fc;
+}
+:root[data-theme='light'] {
+  --layer-dhcp: #4338ca;
+}
+.nat-table .pill.tiny {
+  margin-left: 6px;
+}
+/* Wi-Fi setup: each Save sits beside its box instead of across the panel. */
+.wifi-setup .tool-row {
+  justify-content: flex-start;
+  padding: 0;
+  border-top: 0;
+}
+.wifi-setup .tool-row input {
+  flex: 0 1 18rem;
+  min-width: 0;
+}

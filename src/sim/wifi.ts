@@ -66,6 +66,8 @@ export interface WifiClient {
   antennaBoost?: number;
   /** The AP it is currently associated with (set by the simulator; do not set by hand). */
   joinedAp?: string;
+  /** Not part of the household (a neighbor): never handed the network's password when it changes. */
+  outsider?: boolean;
 }
 
 /** One signal reading for triangulation: a point on the map and the distance it implies. */

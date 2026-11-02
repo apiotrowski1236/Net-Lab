@@ -3,6 +3,7 @@ import type { Sim } from '../sim/sim';
 import type { Device, Iface } from '../sim/types';
 import { passphraseStrength, STRONG_PASSPHRASE_LEN } from '../sim/wifi';
 import { sameVlan, vlanOf } from '../sim/vlan';
+import type { CableRefusal } from '../labs/types';
 
 // Checks for what students type into the Toolkit. Each returns either the
 // cleaned-up value or a short message that says what's wrong and where to look.
@@ -121,8 +122,9 @@ export function checkStaticArp(sim: Sim, deviceId: string, rawIp: string, rawMac
 // Building a network: cables, addresses, gateways, routes, and ping
 // ---------------------------------------------------------------------------
 
-/** "p1" reads as "port 1". Other port names stay as they are. */
+/** "p1" reads as "port 1", and an access point's Wi-Fi side ("w:laptop") as "Wi-Fi". Other port names stay as they are. */
 export function portName(ifaceId: string): string {
+  if (ifaceId.startsWith('w:')) return 'Wi-Fi';
   const m = /^p(\d+)$/.exec(ifaceId);
   return m ? `port ${m[1]}` : ifaceId;
 }
@@ -160,10 +162,29 @@ function ownerOf(sim: Sim, ip: Ip): { dev: Device; iface: Iface } | undefined {
 
 const CIDR_FORMAT = 'Type an IP address and a prefix length, like 192.168.10.11/24: four numbers from 0 to 255 with dots between them, a slash, and the length.';
 
-/** Cable tool: two devices, each with a port (or the first free one). */
-export function checkCable(sim: Sim, a: string, aPort: string | undefined, b: string, bPort: string | undefined): Checked<object> {
+/** The lesson's own reason to turn away a cable between `a` and `b` (the cable tool's `refuse`), if one matches. */
+export function cableRefusal(sim: Sim, a: string, b: string, refuse: CableRefusal[] | undefined): string | undefined {
+  const is = (want: string, id: string) => want === '*' || want === id;
+  for (const r of refuse ?? []) {
+    const [x, y] = is(r.between[0], a) && is(r.between[1], b) ? [a, b] : is(r.between[0], b) && is(r.between[1], a) ? [b, a] : [];
+    if (x && y) return r.text.replace(/\{a\}/g, sim.dev(x).label).replace(/\{b\}/g, sim.dev(y).label);
+  }
+  return undefined;
+}
+
+/** Cable tool: two devices, each with a port (or the first free one). `refuse` is the lesson's list of cables to turn away. */
+export function checkCable(
+  sim: Sim,
+  a: string,
+  aPort: string | undefined,
+  b: string,
+  bPort: string | undefined,
+  refuse?: CableRefusal[],
+): Checked<object> {
   if (!a || !b) return { ok: false, msg: 'Choose a device for each end of the cable.' };
   if (a === b) return { ok: false, msg: 'A cable connects two different devices.' };
+  const no = cableRefusal(sim, a, b, refuse);
+  if (no) return { ok: false, msg: no };
   const A = sim.dev(a);
   const B = sim.dev(b);
   if (sim.linkBetween(a, b)) return { ok: false, msg: `${A.label} and ${B.label} are already connected.` };
@@ -440,3 +461,38 @@ export function checkWifiPassphrase(_sim: Sim, _apId: string, raw: string): Chec
   return { ok: true, passphrase: pass, note };
 }
 
+
+// ---------------------------------------------------------------------------
+// Wi-Fi setup on a home router (home-network: the wifi-config tool with `basic`)
+// ---------------------------------------------------------------------------
+
+/** Network name (SSID): 1 to 32 letters, numbers, spaces, dashes, and underscores. */
+export function checkWifiSsid(sim: Sim, apId: string, raw: string): Checked<{ ssid: string }> {
+  const ssid = raw.trim().replace(/\s+/g, ' ');
+  if (!ssid) return { ok: false, msg: 'Type a name for the network.' };
+  if (ssid.length > 32) return { ok: false, msg: 'A network name can be up to 32 characters. Make it shorter.' };
+  if (!/^[A-Za-z0-9 _-]+$/.test(ssid)) return { ok: false, msg: 'Use letters, numbers, spaces, dashes, and underscores.' };
+  if (sim.dev(apId).wifi?.ssid === ssid) return { ok: false, msg: `The network is already named ${ssid}.` };
+  return { ok: true, ssid };
+}
+
+/** Wi-Fi password: the passphrase rules (checkWifiPassphrase), in a home's words. */
+export function checkWifiPassword(sim: Sim, apId: string, raw: string): Checked<{ passphrase: string; note?: string }> {
+  const r = checkWifiPassphrase(sim, apId, raw);
+  if (!r.ok) {
+    const pass = raw.trim();
+    if (!pass) return { ok: false, msg: 'Type a password for the family to join with.' };
+    if (/\s/.test(pass)) return { ok: false, msg: 'A Wi-Fi password has no spaces. Join the words together or use dashes.' };
+    return { ok: false, msg: 'A Wi-Fi password needs at least 8 characters. Make it longer.' };
+  }
+  const note = r.note ? `Saved. ${r.passphrase.length} characters is short, so it's quicker to guess. ${STRONG_PASSPHRASE_LEN} or more is safer.` : undefined;
+  return { ok: true, passphrase: r.passphrase, note };
+}
+
+/** Turning the Wi-Fi on: a home router won't start a network without a password. */
+export function checkWifiTurnOn(sim: Sim, apId: string): Checked<object> {
+  const ap = sim.dev(apId).wifi;
+  if (!ap) return { ok: false, msg: `${sim.dev(apId).label} has no Wi-Fi.` };
+  if (ap.security === 'open' || !ap.passphrase) return { ok: false, msg: "Save a password first. The box won't start a Wi-Fi network that anyone can join." };
+  return { ok: true };
+}

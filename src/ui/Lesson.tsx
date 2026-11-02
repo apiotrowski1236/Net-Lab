@@ -223,19 +223,12 @@ function outbreakLines(sim: Sim, since: number): { tone: 'good' | 'bad' | 'wait'
   return lines;
 }
 
-function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }) {
-  // Shows live network state: re-render whenever the network changes.
-  void session.simRev.value;
-  const run = session.lastRun.value;
-  const list = useRef<HTMLUListElement>(null);
-  // Bring a new result into view: the button may sit near the bottom of the panel.
-  useEffect(() => list.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), [run?.t, run?.action]);
-  if (!run || run.step !== step.id) return null;
-  const sim = session.sim;
+/** The usual lines under a lesson button: ping replies, browser pages, connections, outbreaks, alerts since `t`. */
+function usualOutcomeLines(sim: Sim, t: number): { tone: 'good' | 'bad' | 'wait'; text: string }[] {
   const lines: { tone: 'good' | 'bad' | 'wait'; text: string }[] = [];
   const sent: Extract<SimEvent, { type: 'ping-sent' }>[] = [];
   const drops: Drop[] = [];
-  for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= run.t; i--) {
+  for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= t; i--) {
     const e = sim.events[i];
     if (e.type === 'ping-sent') sent.unshift(e);
     else if (e.type === 'drop') drops.unshift(e);
@@ -248,7 +241,7 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
   }
   for (const d of Object.values(sim.devices)) {
     const b = d.browser;
-    if (!b || b.startedAt < run.t) continue;
+    if (!b || b.startedAt < t) continue;
     const who = `${d.label}'s browser:`;
     // A request or reply lost on the way: say where, or the browser just looks slow.
     const lost = drops.find((e) => e.device !== d.id && webTraffic(e, b.reqId, d.ifaces.map((i) => i.ip)));
@@ -257,11 +250,26 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
     else if (b.status === 'loaded') lines.push({ tone: 'good', text: `${who} loaded "${b.title}".` });
     else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost && (lost.reason === 'firewall' || lost.reason === 'congestion') ? ` ${dropText(sim, lost)}` : ''}` });
   }
-  lines.push(...connOutcomeLines(sim, run.t));
-  lines.push(...outbreakLines(sim, run.t));
-  lines.push(...idsOutcomeLines(sim, run.t));
+  lines.push(...connOutcomeLines(sim, t));
+  lines.push(...outbreakLines(sim, t));
+  lines.push(...idsOutcomeLines(sim, t));
+  return lines;
+}
+
+function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }) {
+  // Shows live network state: re-render whenever the network changes.
+  void session.simRev.value;
+  const run = session.lastRun.value;
+  const list = useRef<HTMLUListElement>(null);
+  // Bring a new result into view: the button may sit near the bottom of the panel.
+  useEffect(() => list.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), [run?.t, run?.action]);
+  if (!run || run.step !== step.id) return null;
+  const sim = session.sim;
+  const def = step.actions?.find((a) => a.id === run.action);
+  // A button with its own result lines (home-network) says only those.
+  const lines = def?.outcome ? def.outcome(sim, run.t) : usualOutcomeLines(sim, run.t);
   if (!lines.length) return null;
-  const label = step.actions?.find((a) => a.id === run.action)?.label;
+  const label = def?.label;
   return (
     <ul class="action-outcome" aria-live="polite" ref={list}>
       {label && <li class="outcome-head">{label}</li>}

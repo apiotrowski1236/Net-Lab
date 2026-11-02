@@ -1,3 +1,4 @@
+import { homeNetworkLab } from './home-network';
 import { buildNetworkLab } from './build-network';
 import { dnsSpoofLab } from './dns-spoof';
 import { macFloodLab } from './mac-flood';
@@ -12,7 +13,7 @@ import { logsLab } from './logs';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab];
+export const LABS: LabDef[] = [homeNetworkLab, buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the

@@ -5,6 +5,8 @@ import type { Device, DeviceIcon, DeviceKind, Iface, WebSite } from './types';
 import type { WifiAp, WifiClient } from './wifi';
 import { newFirewall, type FwMode, type FwRuleInput } from './firewall';
 import type { Service } from './services';
+import { newDhcpClient, newDhcpServer } from './dhcp';
+import { newNat, type NatForward } from './nat';
 
 /**
  * Friendly builder for lab scenarios.
@@ -42,6 +44,8 @@ export interface HostOpts extends Placed {
   wifiClient?: WifiClient;
   /** Programs answering on ports (SSH on 22, file sharing on 445, ...). See services.ts. */
   services?: Service[];
+  /** Gets its address automatically (a DHCP client; see dhcp.ts). Leave out `ip` and `gateway`. */
+  dhcp?: boolean;
 }
 
 export interface FirewallOpts extends Placed {
@@ -62,11 +66,17 @@ export interface RouterOpts extends Placed {
   firewall?: { outside: string; mode?: FwMode; rules?: FwRuleInput[]; guardSelf?: boolean };
   /** Programs answering on the router's own addresses (Telnet or SSH for management). See services.ts and hardening.ts. */
   services?: Service[];
+  /** A DHCP server on port `iface`, handing out `from` to `to` (see dhcp.ts). */
+  dhcp?: { iface: string; from: Ip; to: Ip };
+  /** NAT: share port `outside`'s address with everything behind the router (see nat.ts). */
+  nat?: { outside: string; forwards?: NatForward[] };
 }
 
 export interface L2Opts extends Placed {
   /** Make this many empty ports up front (p1, p2, ...). Without it, ports appear as cables are linked. */
   ports?: number;
+  /** Named ports made before the numbered ones, like a home Wi-Fi router's built-in 'inside' port (home-network). */
+  named?: string[];
   /** Makes this an access point (wireless lab). Open Wi-Fi is a hub; encrypted is a switch. */
   wifi?: WifiAp;
 }
@@ -125,6 +135,7 @@ export class NetBuilder {
     if (o.resolver) d.resolver = newResolver(o.resolver.upstream, o.resolver.ttl ?? 60_000);
     d.wifiClient = o.wifiClient;
     if (o.services) d.services = o.services.map((x) => ({ ...x }));
+    if (o.dhcp) d.dhcp = { client: newDhcpClient('eth0') };
     if (o.gateway) (this.staticRoutes[id] ??= []).push({ prefix: '0.0.0.0/0', via: o.gateway, iface: 'eth0' });
     this.sim.devices[id] = d;
     return this;
@@ -142,6 +153,8 @@ export class NetBuilder {
     if (o.firewall) d.firewall = newFirewall(o.firewall.outside, o.firewall.mode, o.firewall.rules);
     if (o.firewall?.guardSelf) d.firewall!.guardSelf = true;
     if (o.services) d.services = o.services.map((x) => ({ ...x }));
+    if (o.dhcp) d.dhcp = { server: newDhcpServer(o.dhcp.iface, o.dhcp.from, o.dhcp.to) };
+    if (o.nat) d.nat = newNat(o.nat.outside, o.nat.forwards);
     if (o.routes) (this.staticRoutes[id] ??= []).push(...o.routes);
     if (o.asn !== undefined) {
       d.bgp = { asn: o.asn, origins: o.origins ?? [], neighbors: [], adjIn: {}, best: {}, sentTo: {}, validate: false };
@@ -151,14 +164,14 @@ export class NetBuilder {
   }
 
   switch(id: string, o: L2Opts): this {
-    const d = this.ports(blank(id, 'switch', o, 'switch'), o.ports);
+    const d = this.ports(blank(id, 'switch', o, 'switch'), o.ports, o.named);
     d.wifi = o.wifi;
     this.sim.devices[id] = d;
     return this;
   }
 
   hub(id: string, o: L2Opts): this {
-    const d = this.ports(blank(id, 'hub', o, 'hub'), o.ports);
+    const d = this.ports(blank(id, 'hub', o, 'hub'), o.ports, o.named);
     d.wifi = o.wifi;
     this.sim.devices[id] = d;
     return this;
@@ -177,18 +190,23 @@ export class NetBuilder {
     return this;
   }
 
-  private ports(dev: Device, n = 0): Device {
+  private ports(dev: Device, n = 0, named: string[] = []): Device {
+    for (const p of named) dev.ifaces.push({ id: p, mac: hashMac(`${dev.id}/${p}`) });
     for (let i = 1; i <= n; i++) dev.ifaces.push({ id: `p${i}`, mac: hashMac(`${dev.id}/p${i}`) });
     return dev;
   }
 
-  /** `tunnel` marks a VPN tunnel (drawn dashed and labeled; see vpn.ts) instead of a cable. `capacity` is the link's packets per second (see congestion.ts). */
-  link(a: End, b: End, opts: { wireless?: boolean; tunnel?: boolean; capacity?: number } = {}): this {
+  /**
+   * `tunnel` marks a VPN tunnel (drawn dashed and labeled; see vpn.ts) instead of a cable. `capacity` is the link's
+   * packets per second (see congestion.ts). `fixed` is a cable built into one box: students can't unplug it.
+   */
+  link(a: End, b: End, opts: { wireless?: boolean; tunnel?: boolean; capacity?: number; fixed?: boolean } = {}): this {
     const id = `L${this.linkSeq++}`;
     const ea = this.endpoint(a, id);
     const eb = this.endpoint(b, id);
     this.sim.links[id] = { id, a: ea, b: eb, wireless: opts.wireless, capacityPps: opts.capacity };
     if (opts.tunnel) this.sim.links[id].tunnel = true;
+    if (opts.fixed) this.sim.links[id].fixed = true;
     return this;
   }
 
@@ -240,6 +258,8 @@ export class NetBuilder {
       sim.bgpStart();
       sim.runUntilIdle();
     }
+    // DHCP clients plugged in from the start already have their addresses.
+    for (const dev of Object.values(sim.devices)) if (dev.dhcp?.client) sim.dhcpBindNow(dev.id);
     sim.events = [];
     return sim;
   }

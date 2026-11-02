@@ -1,5 +1,20 @@
 import type { SimAction } from '../runtime/actions';
-import { checkAddress, checkCable, checkEcho, checkForge, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp, checkWifiPassphrase, type Checked } from '../runtime/toolInput';
+import {
+  checkAddress,
+  checkCable,
+  checkEcho,
+  checkForge,
+  checkGateway,
+  checkPing,
+  checkPrefix,
+  checkRoute,
+  checkSpoofClaim,
+  checkStaticArp,
+  checkWifiPassphrase,
+  checkWifiSsid,
+  checkWifiTurnOn,
+  type Checked,
+} from '../runtime/toolInput';
 import { checkNewMac, checkPortSecurity } from '../runtime/switchInput';
 import type { LabSession } from '../runtime/session';
 import { checkRule, checkScanTarget, ruleDraft } from '../runtime/firewallInput';
@@ -108,6 +123,8 @@ const TOOL_FOR: Partial<Record<SimAction['type'], (t: ToolSpec, a: SimAction) =>
   'wifi-wps': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
   'wifi-auth': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
   'wifi-macfilter': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-off': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
+  'wifi-ssid': (t, a) => t.kind === 'wifi-config' && on(t, dev(a)),
   'wifi-crack': (t, a) => t.kind === 'wifi-crack' && on(t, dev(a)),
   'wifi-scan': (t, a) => t.kind === 'wifi-scan' && on(t, dev(a)),
   'wifi-measure': (t, a) => t.kind === 'triangulate' && on(t, dev(a)),
@@ -165,9 +182,16 @@ function assertTypable(s: LabSession, a: SimAction): void {
     case 'announce':
       r = checkPrefix(sim, a.device, a.prefix);
       break;
-    case 'cable':
-      r = checkCable(sim, a.a, a.aPort, a.b, a.bPort);
+    case 'cable': {
+      const tool = s.tools.find((t) => t.kind === 'cable');
+      r = checkCable(sim, a.a, a.aPort, a.b, a.bPort, tool?.kind === 'cable' ? tool.refuse : undefined);
       break;
+    }
+    case 'unplug': {
+      const iface = sim.dev(a.device).ifaces.find((i) => i.id === a.iface);
+      r = iface?.linkId && sim.links[iface.linkId]?.fixed ? { ok: false, msg: 'That cable is built in. The interface offers no Unplug for it.' } : { ok: true };
+      break;
+    }
     case 'set-ip': {
       const fixed = s.tools.flatMap((t) => (t.kind === 'ip-config' ? (t.fixed ?? []) : []));
       r = checkAddress(sim, a.device, a.iface, a.cidr ?? '', fixed);
@@ -202,6 +226,15 @@ function assertTypable(s: LabSession, a: SimAction): void {
     case 'wifi-passphrase':
       r = checkWifiPassphrase(sim, a.device, a.passphrase);
       break;
+    case 'wifi-ssid':
+      r = checkWifiSsid(sim, a.device, a.ssid);
+      break;
+    case 'wifi-off': {
+      // The basic Wi-Fi setup (home-network) won't turn on a network without a password.
+      const basic = s.tools.some((t) => t.kind === 'wifi-config' && t.device === a.device && t.basic);
+      r = basic && !a.off ? checkWifiTurnOn(sim, a.device) : { ok: true };
+      break;
+    }
     case 'fw-add-rule':
       r = checkRule(sim, a.device, ruleDraft(a.rule));
       break;

@@ -89,14 +89,16 @@ import {
   type TriageAction,
   type Verdict,
 } from './ids';
+import { canGrant, fromClient, grant, newDhcpClient, newDhcpServer, offer, pickAddress, type DhcpMessage } from './dhcp';
+import { addEntry, allocPort, endText, findIn, findOut, forwardFor, natPorts, newNat, type NatForward } from './nat';
 
 /**
  * A deliberately simplified network simulator.
  *
  * It models just enough to make the Unit 3 attacks real: Ethernet frames with
  * MAC addresses, IPv4 packets with TTLs, ARP, hubs vs. switches, routers with
- * routing tables, a toy BGP, DNS, and HTTP/HTTPS. It skips everything that
- * doesn't teach (TCP handshakes, NAT, checksums, retransmission, ...).
+ * routing tables, a toy BGP, DNS, HTTP/HTTPS, DHCP, and NAT. It skips everything
+ * that doesn't teach (TCP handshakes, checksums, retransmission, ...).
  *
  * Time is simulated in milliseconds and the simulator is event-driven and
  * fully deterministic: the same actions at the same times always produce the
@@ -459,7 +461,8 @@ export class Sim {
       this.emit({ t: this.t, type: 'ignored', device: dev.id, frame });
       return;
     }
-    if (frame.arp) this.onArp(dev, iface, frame);
+    if (frame.dhcp) this.onDhcp(dev, iface, frame);
+    else if (frame.arp) this.onArp(dev, iface, frame);
     else if (frame.bgp) this.onBgp(dev, iface, frame);
     else if (frame.ip) this.onIp(dev, frame, iface);
   }
@@ -532,6 +535,8 @@ export class Sim {
   }
 
   private onIp(dev: Device, frame: Frame, iface?: Iface): void {
+    // A NAT router puts back the inside address on an answer, or drops what nobody asked for (nat.ts).
+    if (dev.nat && iface?.id === dev.nat.outside && this.natInbound(dev, frame)) return;
     const pkt = frame.ip!;
     if (dev.vpn?.client && iface && this.vpnRelay(dev, frame, iface)) return;
     if (this.isLocal(dev, pkt.dst) || (dev.impersonate && this.hijacked(dev, pkt.dst))) {
@@ -630,6 +635,8 @@ export class Sim {
       this.drop(dev, mine ? 'gateway-off-net' : 'no-route', pkt, frame, r.via);
       return;
     }
+    // A NAT router gives what it forwards out its outside port the shared address (nat.ts).
+    if (frame && dev.nat && iface === dev.nat.outside) pkt = this.natOutbound(dev, pkt, iface);
     this.sendIp(dev, pkt, r.via ?? pkt.dst, iface, forged, burst);
   }
 
@@ -753,8 +760,9 @@ export class Sim {
       return;
     }
 
-    let title = site.title;
-    let body = site.page ?? 'Please sign in to continue.';
+    const page = site.pages?.[req.path];
+    let title = page?.title ?? site.title;
+    let body = page?.page ?? site.page ?? 'Please sign in to continue.';
     if (req.method === 'POST') {
       const creds = parseForm(req.body ?? '');
       const user = creds.user ?? creds.username ?? 'friend';
@@ -1024,6 +1032,8 @@ export class Sim {
     this.emit({ t: this.t, type: 'config', device: b.device, what: 'cable', on: true, detail: `${ib.id} to ${la} ${ia.id}` });
     switchLinkChanged(this, a.device, ia.id, true);
     switchLinkChanged(this, b.device, ib.id, true);
+    this.dhcpLinkChanged(a.device, ia.id, true);
+    this.dhcpLinkChanged(b.device, ib.id, true);
     return id;
   }
 
@@ -1042,6 +1052,7 @@ export class Sim {
       for (const [mac, p] of Object.entries(dev.macTable)) if (p === end.iface) delete dev.macTable[mac];
       this.emit({ t: this.t, type: 'config', device: end.device, what: 'cable', on: false, detail: end.iface });
       switchLinkChanged(this, end.device, end.iface, false);
+      this.dhcpLinkChanged(end.device, end.iface, false);
     }
   }
 
@@ -1790,6 +1801,7 @@ export class Sim {
       msg: `${client.label} (${client.ifaces[0].mac}) joined ${ap.wifi?.ssid ?? ap.label}`,
       fields: { ssid: ap.wifi?.ssid ?? '', bssid: ap.wifi?.bssid ?? '', mac: client.ifaces[0].mac, action: 'joined' },
     });
+    this.dhcpLinkChanged(clientId, client.ifaces[0].id, true);
   }
 
   /** Drop a client's Wi-Fi association. */
@@ -1818,6 +1830,7 @@ export class Sim {
       msg: `${client.label} (${client.ifaces[0].mac}) left ${ap?.wifi?.ssid ?? ap?.label ?? ''}`,
       fields: { ssid: ap?.wifi?.ssid ?? '', bssid: ap?.wifi?.bssid ?? '', mac: client.ifaces[0].mac, action: 'left' },
     });
+    this.dhcpLinkChanged(clientId, client.ifaces[0].id, false);
   }
 
   /** Set an AP's security mode (and passphrase). Open runs as a hub (everyone hears everyone); encrypted as a switch. */
@@ -1842,11 +1855,34 @@ export class Sim {
     this.recomputeWifi();
   }
 
+  /** Rename an AP's network. Clients that knew the old name drop off until they're told the new one (setWifiClient). */
+  setWifiSsid(apId: string, ssid: string): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi || ap.wifi.ssid === ssid) return;
+    ap.wifi.ssid = ssid;
+    this.emit({ t: this.t, type: 'config', device: apId, what: 'wifi-ssid', detail: ssid });
+    this.recomputeWifi();
+  }
+
+  /**
+   * Tell a Wi-Fi client which network to join and the password it holds, as
+   * if someone typed them on the device. An empty `ssid` leaves Wi-Fi. A
+   * `passphrase` left out keeps the one it has.
+   */
+  setWifiClient(devId: string, ssid: string, passphrase?: string): void {
+    const wc = this.dev(devId).wifiClient;
+    if (!wc) return;
+    wc.ssid = ssid;
+    if (passphrase !== undefined) wc.passphrase = passphrase;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'wifi-client', detail: ssid });
+    this.recomputeWifi();
+  }
+
   /** Hand the shelter's own devices the current passphrase (staff tell the families). Attackers are never told. */
   private shareWifiKey(ap: Device): void {
     if (!ap.wifi) return;
     for (const d of Object.values(this.devices)) {
-      if (d.wifiClient && !d.attacker && d.wifiClient.ssid === ap.wifi.ssid) d.wifiClient.passphrase = ap.wifi.passphrase;
+      if (d.wifiClient && !d.attacker && !d.wifiClient.outsider && d.wifiClient.ssid === ap.wifi.ssid) d.wifiClient.passphrase = ap.wifi.passphrase;
     }
   }
 
@@ -2696,10 +2732,299 @@ export class Sim {
     q.threshold = v;
     this.emit({ t: this.t, type: 'config', device: devId, what: 'ai-threshold', detail: v.toFixed(2) });
   }
+
+  // -------------------------------------------------------------------------
+  // --- DHCP and NAT (home-network) ---
+  // A router port hands out addresses (dhcp.ts), and a router shares its
+  // outside address with every device behind it (nat.ts).
+  // -------------------------------------------------------------------------
+
+  private nextXid = 1;
+
+  /** Make `devId`'s port `iface` hand out `from` to `to` (its own address is the gateway it gives). */
+  configureDhcpServer(devId: string, iface: string, from: Ip, to: Ip): void {
+    const dev = this.dev(devId);
+    (dev.dhcp ??= {}).server = newDhcpServer(iface, from, to);
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'dhcp-server', detail: `${iface} ${from}-${to}` });
+  }
+
+  /** Make a computer get its address automatically on `iface` (its first port by default). */
+  configureDhcpClient(devId: string, iface?: string): void {
+    const dev = this.dev(devId);
+    (dev.dhcp ??= {}).client = newDhcpClient(iface ?? dev.ifaces[0].id);
+  }
+
+  /** A DHCP client asks for an address now: a Discover, broadcast. It also happens by itself when the client's link comes up. */
+  dhcpStart(devId: string): void {
+    const dev = this.dev(devId);
+    const c = dev.dhcp?.client;
+    const iface = c && dev.ifaces.find((i) => i.id === c.iface);
+    if (!c || !iface?.linkId) return;
+    c.state = 'selecting';
+    c.xid = this.nextXid++;
+    delete c.ip;
+    this.dhcpSend(dev, iface, BROADCAST_MAC, { op: 'discover', xid: c.xid, client: iface.mac, name: dev.label });
+  }
+
+  /**
+   * A link came up or went down on a port. A DHCP client asks for an address
+   * shortly after its link comes up, and drops its address and gateway when the
+   * link goes down. While a lesson setup arranges the network (Sim.quiet), it
+   * gets its address at once, with no messages, so the map stays calm.
+   */
+  private dhcpLinkChanged(devId: string, ifaceId: string, up: boolean): void {
+    const dev = this.devices[devId];
+    const c = dev?.dhcp?.client;
+    if (!c || c.iface !== ifaceId) return;
+    const iface = dev.ifaces.find((i) => i.id === ifaceId);
+    if (!iface) return;
+    if (!up) {
+      c.state = 'idle';
+      delete c.xid;
+      delete c.ip;
+      if (iface.ip) this.setIp(devId, ifaceId, null);
+      if (dev.gateway) this.setGateway(devId, null);
+      return;
+    }
+    if (this.quiet) {
+      this.dhcpBindNow(devId);
+      return;
+    }
+    const linkId = iface.linkId;
+    this.schedule(DHCP_START_MS, () => {
+      if (!linkId || iface.linkId !== linkId) return;
+      if (c.state === 'bound' && iface.ip) return;
+      this.dhcpStart(devId);
+    });
+  }
+
+  /**
+   * Give a DHCP client its address right away, without the four messages: the
+   * one the server already holds for its MAC, or the next free one. For lesson
+   * setup and for networks built with clients already plugged in.
+   */
+  dhcpBindNow(devId: string): void {
+    const dev = this.dev(devId);
+    const c = dev.dhcp?.client;
+    const iface = c && dev.ifaces.find((i) => i.id === c.iface);
+    if (!c || !iface?.linkId) return;
+    const at = this.dhcpServerFor(devId, iface.id);
+    const s = at?.dev.dhcp?.server;
+    if (!at || !s || !at.iface.ip || at.iface.prefix === undefined) return;
+    const ip = pickAddress(s, iface.mac, this.dhcpUsed(at.iface, devId));
+    if (!ip) return;
+    grant(s, { mac: iface.mac, ip, name: dev.label, t: this.t });
+    c.state = 'bound';
+    c.ip = ip;
+    delete c.xid;
+    this.setIp(devId, iface.id, ip, at.iface.prefix);
+    this.setGateway(devId, at.iface.ip);
+  }
+
+  /** The leases a router's DHCP server has handed out, oldest first. */
+  dhcpLeases(devId: string) {
+    return this.dev(devId).dhcp?.server?.leases ?? [];
+  }
+
+  /** The DHCP server port a client's broadcast would reach: across cables, switches, hubs, and Wi-Fi, to the first router port that serves. */
+  private dhcpServerFor(devId: string, ifaceId: string): { dev: Device; iface: Iface } | undefined {
+    const seen = new Set<string>([`${devId}/${ifaceId}`]);
+    const queue: { device: string; iface: string }[] = [];
+    const step = (d: string, i: string) => {
+      const p = this.peer(d, i);
+      if (p && !seen.has(`${p.device}/${p.iface}`)) {
+        seen.add(`${p.device}/${p.iface}`);
+        queue.push(p);
+      }
+    };
+    step(devId, ifaceId);
+    while (queue.length) {
+      const at = queue.shift()!;
+      const dev = this.devices[at.device];
+      if (!dev) continue;
+      if (dev.kind === 'switch' || dev.kind === 'hub') {
+        for (const i of dev.ifaces) if (i.linkId && i.id !== at.iface && portUp(dev, i.id) && sameVlan(dev, at.iface, i.id)) step(dev.id, i.id);
+        continue;
+      }
+      if (dev.dhcp?.server?.iface === at.iface) return { dev, iface: dev.ifaces.find((i) => i.id === at.iface)! };
+    }
+    return undefined;
+  }
+
+  /** Addresses on a server port's network that devices already use (other than `except`). */
+  private dhcpUsed(serverIface: Iface, except?: string): Set<Ip> {
+    return new Set(usedAddresses(Object.values(this.devices), networkOf(serverIface.ip!, serverIface.prefix!), except));
+  }
+
+  private dhcpSend(dev: Device, iface: Iface, dst: Mac, msg: DhcpMessage): void {
+    this.transmit(dev.id, iface.id, this.frame(dev.id, iface.mac, dst, { dhcp: msg }));
+    const client = fromClient(msg) ? dev.id : (this.deviceByMac(msg.client)?.id ?? '');
+    this.emit({ t: this.t, type: 'dhcp', device: dev.id, what: msg.op, client, mac: msg.client, ip: msg.ip });
+  }
+
+  private onDhcp(dev: Device, iface: Iface, frame: Frame): void {
+    const m = frame.dhcp!;
+    const s = dev.dhcp?.server;
+    if (s && s.iface === iface.id && fromClient(m)) {
+      this.dhcpServe(dev, iface, m);
+      return;
+    }
+    const c = dev.dhcp?.client;
+    if (!c || c.iface !== iface.id || fromClient(m) || m.client !== iface.mac || m.xid !== c.xid) return;
+    if (m.op === 'offer' && c.state === 'selecting' && m.ip) {
+      c.state = 'requesting';
+      c.ip = m.ip;
+      this.dhcpSend(dev, iface, BROADCAST_MAC, { op: 'request', xid: m.xid, client: iface.mac, name: dev.label, ip: m.ip, server: m.server });
+    } else if (m.op === 'ack' && c.state === 'requesting' && m.ip && m.ip === c.ip) {
+      c.state = 'bound';
+      delete c.xid;
+      this.setIp(dev.id, iface.id, m.ip, m.prefix ?? 24);
+      if (m.gateway) this.setGateway(dev.id, m.gateway);
+    }
+  }
+
+  /** The server side: answer a Discover with an Offer, and a Request with an Ack. */
+  private dhcpServe(dev: Device, iface: Iface, m: DhcpMessage): void {
+    const s = dev.dhcp!.server!;
+    if (!iface.ip || iface.prefix === undefined) return;
+    const tag = `(${iface.id})`;
+    const name = m.name ?? '';
+    if (m.op === 'discover') {
+      this.log(dev.id, { source: 'dhcp', level: 'info', msg: `DHCPDISCOVER${tag} ${m.client}`, fields: { mac: m.client, name } });
+      const ip = pickAddress(s, m.client, this.dhcpUsed(iface, this.deviceByMac(m.client)?.id));
+      if (!ip) {
+        this.log(dev.id, { source: 'dhcp', level: 'warn', msg: `DHCPDISCOVER${tag} ${m.client}: no free address`, fields: { mac: m.client, name } });
+        return;
+      }
+      offer(s, m.client, ip);
+      this.log(dev.id, { source: 'dhcp', level: 'info', msg: `DHCPOFFER${tag} ${ip} ${m.client}`, fields: { mac: m.client, ip, name } });
+      this.dhcpSend(dev, iface, m.client, { op: 'offer', xid: m.xid, client: m.client, name: m.name, ip, prefix: iface.prefix, gateway: iface.ip, server: iface.ip });
+      return;
+    }
+    // A Request: grant it if it names this server and the address is free for that MAC. (No NAK otherwise.)
+    if (!m.ip || (m.server && m.server !== iface.ip) || !canGrant(s, m.client, m.ip)) return;
+    this.log(dev.id, { source: 'dhcp', level: 'info', msg: `DHCPREQUEST${tag} ${m.ip} ${m.client}`, fields: { mac: m.client, ip: m.ip, name } });
+    grant(s, { mac: m.client, ip: m.ip, name: name || m.client, t: this.t });
+    this.log(dev.id, { source: 'dhcp', level: 'info', msg: `DHCPACK${tag} ${m.ip} ${m.client} ${name}`.trimEnd(), fields: { mac: m.client, ip: m.ip, name } });
+    this.dhcpSend(dev, iface, m.client, { op: 'ack', xid: m.xid, client: m.client, name: m.name, ip: m.ip, prefix: iface.prefix, gateway: iface.ip, server: iface.ip });
+  }
+
+  /** Make a router share its `outside` port's address with everything behind it. `forwards` opens ports on purpose. */
+  configureNat(devId: string, outside: string, forwards: NatForward[] = []): void {
+    const dev = this.dev(devId);
+    if (!dev.ifaces.some((i) => i.id === outside)) throw new Error(`${devId} has no port ${outside}`);
+    dev.nat = newNat(outside, forwards);
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'nat', on: true, detail: outside });
+  }
+
+  /** Port forwarding: send inbound `proto` packets for public `port` to an inside address and port. Replaces a rule for the same port. */
+  addNatForward(devId: string, fwd: NatForward): void {
+    const nat = this.dev(devId).nat;
+    if (!nat) return;
+    nat.forwards = [...nat.forwards.filter((f) => !(f.proto === fwd.proto && f.port === fwd.port)), { ...fwd, to: { ...fwd.to } }];
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'nat-forward', on: true, detail: `${fwd.proto} ${fwd.port} -> ${fwd.to.ip}:${fwd.to.port}` });
+  }
+
+  removeNatForward(devId: string, proto: 'tcp' | 'udp', port: number): void {
+    const nat = this.dev(devId).nat;
+    if (!nat) return;
+    nat.forwards = nat.forwards.filter((f) => !(f.proto === proto && f.port === port));
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'nat-forward', on: false, detail: `${proto} ${port}` });
+  }
+
+  /** Empty a NAT router's table (answers to conversations already started then drop). */
+  clearNat(devId: string): void {
+    const nat = this.dev(devId).nat;
+    if (!nat) return;
+    nat.table = [];
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'nat-clear' });
+  }
+
+  /** The shared outside address of a NAT router, if it has one. */
+  natPublicIp(devId: string): Ip | undefined {
+    const dev = this.dev(devId);
+    return dev.nat ? dev.ifaces.find((i) => i.id === dev.nat!.outside)?.ip : undefined;
+  }
+
+  /**
+   * A packet arrived on a NAT router's outside port. An answer (or a packet for
+   * a forwarded port) gets its inside address back in `frame.ip` and carries on;
+   * returns true when the router dropped it because nobody inside asked.
+   */
+  private natInbound(dev: Device, frame: Frame): boolean {
+    const nat = dev.nat!;
+    const pkt = frame.ip!;
+    const outside = dev.ifaces.find((i) => i.id === nat.outside);
+    if (!outside?.ip || pkt.dst !== outside.ip) return false;
+    const ports = natPorts(pkt);
+    let e = findIn(nat, pkt);
+    if (!e && ports) {
+      const fwd = forwardFor(nat, pkt);
+      if (fwd) {
+        e = addEntry(nat, {
+          proto: pkt.proto,
+          inside: { ...fwd.to },
+          public: fwd.port,
+          remote: { ip: pkt.src, port: ports.src },
+          t: this.t,
+          used: this.t,
+          forwarded: true,
+        });
+      }
+    }
+    if (e) {
+      e.used = this.t;
+      const back: IpPacket = { ...pkt, dst: e.inside.ip, nat: { by: dev.id, was: { dst: pkt.dst, dstPort: pkt.dstPort } } };
+      if (pkt.proto !== 'icmp') back.dstPort = e.inside.port;
+      frame.ip = back;
+      const entry = { ...e, inside: { ...e.inside }, remote: { ...e.remote } };
+      this.emit({ t: this.t, type: 'nat', device: dev.id, what: 'in', entry, publicIp: outside.ip, who: this.deviceByIp(e.inside.ip)?.id, pkt: back });
+      return false;
+    }
+    // An answer to the router's own traffic (its own ping, say) is the router's to read.
+    if (isReply(pkt)) return false;
+    const proto = pkt.proto.toUpperCase();
+    const from = endText(pkt.src, pkt.srcPort, pkt.proto);
+    const to = endText(pkt.dst, pkt.dstPort, pkt.proto);
+    const fields: Record<string, string | number> = { src: pkt.src, dst: pkt.dst, proto: pkt.proto, action: 'drop' };
+    if (pkt.srcPort !== undefined) fields.sport = pkt.srcPort;
+    if (pkt.dstPort !== undefined) fields.dport = pkt.dstPort;
+    this.log(dev.id, { source: 'nat', level: 'notice', msg: `Blocked incoming ${proto} ${from} -> ${to}, no matching connection`, fields });
+    this.drop(dev, 'unsolicited', pkt, frame);
+    return true;
+  }
+
+  /** A packet leaving a NAT router's outside port: give it the shared address and a public port, and write it in the table. */
+  private natOutbound(dev: Device, pkt: IpPacket, ifaceId: string): IpPacket {
+    const nat = dev.nat!;
+    const out = dev.ifaces.find((i) => i.id === ifaceId);
+    if (!out?.ip || out.prefix === undefined || sameSubnet(pkt.src, out.ip, out.prefix)) return pkt;
+    const ports = natPorts(pkt);
+    if (!ports) return { ...pkt, src: out.ip, nat: { by: dev.id, was: { src: pkt.src } } };
+    let e = findOut(nat, pkt);
+    if (!e) {
+      e = addEntry(nat, {
+        proto: pkt.proto,
+        inside: { ip: pkt.src, port: ports.src },
+        public: pkt.proto === 'icmp' ? ports.src : allocPort(nat),
+        remote: { ip: pkt.dst, port: ports.dst },
+        t: this.t,
+        used: this.t,
+      });
+    }
+    e.used = this.t;
+    const moved: IpPacket = { ...pkt, src: out.ip, nat: { by: dev.id, was: { src: pkt.src, srcPort: pkt.srcPort } } };
+    if (pkt.proto !== 'icmp') moved.srcPort = e.public;
+    const entry = { ...e, inside: { ...e.inside }, remote: { ...e.remote } };
+    this.emit({ t: this.t, type: 'nat', device: dev.id, what: 'out', entry, publicIp: out.ip, who: this.deviceByIp(pkt.src)?.id, pkt: moved });
+    return moved;
+  }
 }
 
 /** Time between one scan probe and the next. */
 const SCAN_GAP_MS = 80;
+/** How long a DHCP client waits after its link comes up before it asks for an address. */
+const DHCP_START_MS = 400;
 
 /** A stable, locally administered MAC address for a port, from the device and port names. */
 export function portMac(dev: Device, ifaceId: string): Mac {

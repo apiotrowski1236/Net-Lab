@@ -86,6 +86,8 @@ export const buildNetworkLab: LabDef = {
         Your job: get Alice's browser to load the page on the web server. You will plug in the cables, give each device an address, and teach the routers the way.
 
         Click [[alice]], then [[office]]. Compare their ports. A computer's port is often named **eth0**, short for its first Ethernet port. Router and switch ports are numbered.
+
+        In the first lab, the Wi-Fi router handed out addresses. Here you'll type them yourself.
       `,
       focus: ['alice', 'office'],
       goals: [

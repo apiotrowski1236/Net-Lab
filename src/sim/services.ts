@@ -68,6 +68,7 @@ export const WELL_KNOWN: WellKnownPort[] = [
   { port: 143, proto: 'tcp', app: 'imap', name: 'IMAP', what: 'Reading email on a server' },
   { port: 443, proto: 'tcp', app: 'https', name: 'HTTPS', what: 'Web pages, encrypted' },
   { port: 445, proto: 'tcp', app: 'smb', name: 'SMB', what: 'Windows file sharing' },
+  { port: 631, proto: 'tcp', app: 'ipp', name: 'IPP', what: 'Printing over the network' },
   { port: 3389, proto: 'tcp', app: 'rdp', name: 'RDP', what: 'Remote desktop' },
 ];
 
