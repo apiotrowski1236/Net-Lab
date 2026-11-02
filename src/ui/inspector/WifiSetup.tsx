@@ -161,4 +161,15 @@ function WifiSetupSection({ session, sim, dev, replaying, has }: InspectorSectio
   );
 }
 
-export const wifiSetupSection: InspectorSection = { id: 'wifi-setup', slot: 'settings', Section: WifiSetupSection };
+/** While the step hands out Wi-Fi setup, it's near the top, ready to edit. */
+function WifiSetupEditing(p: InspectorSectionProps) {
+  return p.has('wifi-config') ? <WifiSetupSection {...p} /> : null;
+}
+
+/** In other steps it's a summary at the bottom, out of the way of the step's own work. */
+function WifiSetupSummary(p: InspectorSectionProps) {
+  return p.has('wifi-config') ? null : <WifiSetupSection {...p} />;
+}
+
+export const wifiSetupSection: InspectorSection = { id: 'wifi-setup', slot: 'settings', Section: WifiSetupEditing };
+export const wifiSetupSummary: InspectorSection = { id: 'wifi-setup-summary', slot: 'end', Section: WifiSetupSummary };

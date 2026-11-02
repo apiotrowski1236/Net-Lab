@@ -1661,7 +1661,7 @@ label.check {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 32%, 420px);
   gap: 12px;
 }
 .capture-list {
@@ -1682,11 +1682,11 @@ label.check {
 .capture-table tr.forged td:first-child {
   box-shadow: inset 3px 0 0 var(--danger);
 }
+/* Info wraps instead of running off the edge: it's the column that says what the packet is. */
 .capture-table td.info {
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 150px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .capture-detail {
   min-height: 0;

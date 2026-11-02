@@ -111,6 +111,8 @@ interface Marker {
   t: number;
   /** How long it stays up (sim ms). */
   life: number;
+  /** Tags with the same key on one device show as one, so they don't stack up over the map. */
+  merge?: { key: string; many: (n: number) => string };
 }
 
 /** `macName`: when set, a switch shows what it learns ("learned Alice: port 1"). `devName` names a device by id. */
@@ -190,8 +192,11 @@ function markerFor(
       return e.reason === 'timeout' ? { device: e.device, text: 'no reply', tone: 'bad' } : null;
     case 'config':
       if (e.what === 'cable') return { device: e.device, text: e.on ? 'plugged in' : 'unplugged', tone: e.on ? 'info' : 'warn' };
-      if (e.what === 'ip') return { device: e.device, text: e.on ? 'address set' : 'address removed', tone: e.on ? 'info' : 'warn' };
-      if (e.what === 'gateway') return { device: e.device, text: e.on ? 'gateway set' : 'gateway removed', tone: e.on ? 'info' : 'warn' };
+      if (e.what === 'ip' || e.what === 'gateway') {
+        const what = e.what === 'ip' ? 'address' : 'gateway';
+        if (!e.on) return { device: e.device, text: `${what} removed`, tone: 'warn' };
+        return { device: e.device, text: `${what} set`, tone: 'info', merge: { key: 'addr', many: () => 'address and gateway set' } };
+      }
       if (e.what === 'port') return { device: e.device, text: `${portName(e.detail ?? '')} ${e.on ? 'turned on' : 'shut down'}`, tone: e.on ? 'info' : 'warn' };
       if (e.what === 'port-security') return { device: e.device, text: e.on ? 'port security on' : 'port security off', tone: 'info' };
       if (e.what === 'mac') return { device: e.device, text: e.on ? 'MAC address changed' : 'factory MAC back', tone: e.on ? 'warn' : 'info' };
@@ -204,7 +209,9 @@ function markerFor(
     // home-network: DHCP messages (dhcp.ts) and NAT translations (nat.ts)
     case 'dhcp': {
       const text = { discover: 'asks for an address', offer: `offers ${e.ip}`, request: `takes ${e.ip}`, ack: `gives ${e.ip}` }[e.what];
-      return { device: e.device, text, tone: 'info' };
+      // The router answering several devices at once: one tag, not a stack.
+      const verb = e.what === 'offer' ? 'offers' : e.what === 'ack' ? 'gives' : '';
+      return { device: e.device, text, tone: 'info', merge: verb ? { key: verb, many: (n) => `${verb} ${n} addresses` } : undefined };
     }
     case 'nat':
       return e.what === 'out'
@@ -246,6 +253,7 @@ function recentMarkers(sim: Sim, since = 0, learn = false): Marker[] {
     if (e.type === 'captured') captured.add(`${e.device}@${e.t}`);
     if (!e.quiet && (e.type === 'config' || e.type === 'route-change') && !changed.has(e.device)) changed.set(e.device, e.t);
   }
+  const merged = new Map<string, { at: number; texts: Set<string> }>();
   for (let i = evs.length - 1; i >= 0; i--) {
     const e = evs[i];
     const age = sim.t - e.t;
@@ -255,9 +263,35 @@ function recentMarkers(sim: Sim, since = 0, learn = false): Marker[] {
     if (age > life) continue;
     const m = markerFor(e, captured, macName, (id) => sim.devices[id]?.label);
     if (m && fail && (changed.get(m.device) ?? -1) > e.t) continue;
-    if (m && !out.some((o) => o.device === m.device && o.text === m.text)) out.push({ ...m, t: e.t, life });
+    const group = m?.merge && merged.get(`${m.device}|${m.merge.key}`);
+    if (m?.merge && group) {
+      group.texts.add(m.text);
+      if (group.texts.size > 1) out[group.at] = { ...out[group.at], text: m.merge.many(group.texts.size) };
+      continue;
+    }
+    if (m && !out.some((o) => o.device === m.device && o.text === m.text)) {
+      if (m.merge) merged.set(`${m.device}|${m.merge.key}`, { at: out.length, texts: new Set([m.text]) });
+      out.push({ ...m, t: e.t, life });
+    }
   }
   return out;
+}
+
+/**
+ * Where a Wi-Fi line leaves a device: the edge of the box around its card, name,
+ * and address lines, on the side facing the other end. Radio has no port to
+ * plug into, so the dashed line stops short instead of crossing the text.
+ */
+function wifiEnd(d: Device, other: Device, lines: { text: string }[]): { x: number; y: number } {
+  const dx = other.x - d.x;
+  const dy = other.y - d.y;
+  const textW = Math.max(d.label.length * 8.6, ...lines.map((l) => l.text.length * 7.6));
+  const half = Math.max(40, textW / 2 + 4);
+  const bottom = (lines.length ? 70 + (lines.length - 1) * 16 : 52) + 7;
+  const tx = dx ? half / Math.abs(dx) : Infinity;
+  const ty = dy > 0 ? bottom / dy : dy < 0 ? 38 / -dy : Infinity;
+  const t = Math.min(tx, ty, 0.45);
+  return { x: d.x + dx * t, y: d.y + dy * t };
 }
 
 /** Device pairs joined by more than one cable, with how many. */
@@ -688,9 +722,11 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
           const a = sim.devices[l.a.device];
           const b = sim.devices[l.b.device];
           const congested = l.capacityPps !== undefined && sim.linkPps(l.id) > l.capacityPps;
+          const p = l.wireless ? wifiEnd(a, b, lines.get(a.id) ?? []) : a;
+          const q = l.wireless ? wifiEnd(b, a, lines.get(b.id) ?? []) : b;
           return (
             <g key={l.id} class={`link-group ${picked === l.id ? 'picked' : ''}`}>
-              <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} class={`link ${l.wireless ? 'wireless' : ''}${l.tunnel ? ' tunnel' : ''}${congested ? ' congested' : ''}`} />
+              <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} class={`link ${l.wireless ? 'wireless' : ''}${l.tunnel ? ' tunnel' : ''}${congested ? ' congested' : ''}`} />
               {l.tunnel && (
                 <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 8} class="link-label" text-anchor="middle">
                   VPN tunnel
@@ -699,10 +735,10 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
               {/* A built-in cable (Link.fixed) can't be unplugged. */}
               {cabling && !l.fixed && (
                 <line
-                  x1={a.x}
-                  y1={a.y}
-                  x2={b.x}
-                  y2={b.y}
+                  x1={p.x}
+                  y1={p.y}
+                  x2={q.x}
+                  y2={q.y}
                   class="link-hit"
                   onClick={(e) => {
                     e.stopPropagation();

@@ -18,7 +18,7 @@ import { SiemConsole } from './SiemConsole';
 import { routerPanelSection } from './TrafficMeter';
 import { dhcpLeasesSection } from './DhcpLeases';
 import { natTableSection } from './NatTable';
-import { wifiSetupSection } from './WifiSetup';
+import { wifiSetupSection, wifiSetupSummary } from './WifiSetup';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -70,6 +70,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { ...routerPanelSection, tools: ['directed-broadcast'] },
   // home-network
   { ...wifiSetupSection, tools: ['wifi-config'] },
+  wifiSetupSummary,
   dhcpLeasesSection,
   natTableSection,
 ];
