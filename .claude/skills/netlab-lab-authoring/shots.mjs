@@ -2,10 +2,13 @@
 // the finished network). Run from the repo root after `npm run build`:
 //
 //   LAB=home-network node .claude/skills/netlab-lab-authoring/shots.mjs
-//   LAB=home-network THEME=light SIZE=small node .claude/skills/netlab-lab-authoring/shots.mjs
+//   LAB=home-network THEME=dark SIZE=small node .claude/skills/netlab-lab-authoring/shots.mjs
 //
-// SHOTS (JSON) picks the screenshots: [stepId, playThatStep, deviceLabelToClick|null, tabName|null].
+// SHOTS (JSON) picks the screenshots: [stepId, playThatStep, click|null, tabName|null].
+// click is a device label to click on the map, or "chip:<deviceId>" to click that
+// device's chip in the lesson text. ROW=<n> then opens the nth captured packet.
 // The default is every step twice: as it opens, and after its answer-key moves.
+// THEME defaults to light, the app's default.
 // Saves to /tmp/netlab-shots/<lab>/<theme>-<size>/.
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -21,7 +24,7 @@ if (!LAB) throw new Error('Set LAB=<lab id>');
 const THEME = process.env.THEME ?? '';
 const SMALL = process.env.SIZE === 'small';
 const VIEW = { viewport: SMALL ? { width: 1366, height: 768 } : { width: 1440, height: 800 } };
-const OUT = join('/tmp/netlab-shots', LAB, `${THEME || 'dark'}-${SMALL ? 'small' : 'big'}`);
+const OUT = join('/tmp/netlab-shots', LAB, `${THEME || 'light'}-${SMALL ? 'small' : 'big'}`);
 mkdirSync(OUT, { recursive: true });
 
 class MemoryStorage {
@@ -100,7 +103,11 @@ try {
     await page.goto(`${url}#/lab/${lab.id}`);
     await page.waitForSelector(`text=Step ${index + 1} of ${lab.steps.length}`);
     await page.waitForTimeout(400);
-    if (click) {
+    if (click?.startsWith('chip:')) {
+      // A device chip in the lesson text.
+      await page.locator(`.lesson .chip[data-device="${click.slice(5)}"]`).first().click();
+      await page.waitForTimeout(650);
+    } else if (click) {
       const dev = page.locator('g.device').filter({ has: page.locator('text.device-label', { hasText: new RegExp(`^${click}$`) }) });
       // Spotlighted devices pulse, so Playwright never sees them as stable.
       await dev.locator('rect.device-card').click({ force: true });
@@ -108,6 +115,11 @@ try {
     }
     if (tab) {
       await page.locator('[role=tab], .dock-tabs button').filter({ hasText: tab }).first().click();
+      await page.waitForTimeout(200);
+    }
+    if (process.env.ROW) {
+      // Open a captured packet: ROW counts from the top of the capture list.
+      await page.locator('.capture-table tbody tr').nth(Number(process.env.ROW)).click();
       await page.waitForTimeout(200);
     }
     const name = [String(index + 1).padStart(2, '0'), stepId, playIt ? 'done' : 'start', click, tab].filter(Boolean).join('-').replace(/\s+/g, '_');

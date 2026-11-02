@@ -49,6 +49,8 @@ Register the lab in `src/labs/index.ts`: import it, put it in `LABS` in CED orde
 - **Bold** a term the first time it appears, and define it in that sentence or the next. An everyday comparison only where it helps.
 - No em dashes. Use a period, comma, or colon. No emoji. Never write "simply", "just", "easy", or "obviously".
 - Name devices with chips: `[[deviceId]]`. Name buttons in bold, exactly as labeled.
+  - A chip goes straight to the tool the step hands out for that device (`src/ui/jump.ts`): its inspector section, scrolled into view with a ring, or its Toolkit card. So "Click [[wifi]] and find **Wi-Fi setup**" lands on Wi-Fi setup.
+- Animations run at 1× = a third of real time (`RATE` in `LabPlayer.tsx`). Don't tell students to slow down to 0.5×.
 - Where the sim simplifies, say so once, in one sentence. Example: "(The map draws this print job as one packet, to keep it clear.)"
 - Attack labs say once, early: "Everything in this lab happens inside a simulation. ... on a real network without permission is illegal."
 - Scan before committing. Grep student text for `—`, ` just `, `simply`, `easy`, `obviously`, `easier`, and emoji.
@@ -111,12 +113,13 @@ Register the lab in `src/labs/index.ts`: import it, put it in `LABS` in CED orde
 - **Toolkit card**: add a `ToolSpec` kind in `types.ts`, write `src/ui/tools/<Name>.tsx`, list it in `TOOL_CARDS` (`src/ui/tools/registry.ts`), and add `TOOL_NAME` in `src/ui/Guide.tsx`.
   - Settings tools (`SETTING_TOOLS`: ip-config, gateway, static-route, wifi-config) don't get their own card. They show in the Dock's "Device settings" card and are edited in the inspector.
 - **Inspector section**: write `src/ui/inspector/<Name>.tsx` and list it in `INSPECTOR_SECTIONS` (`registry.ts`) under a `// <lab>` comment.
+  - Set `tools` on the entry to the tool kinds students use in it, so lesson chips jump there.
   - Return null for devices it doesn't apply to. Read from the `sim` prop, which may be a replay.
-  - Edit only when `has(kind)` and not `replaying`.
-  - Outside its step, render a short read-only summary so the sections below it stay in view.
+  - Edit only when `has(kind)` (false during a replay).
+  - Outside its step, keep it out of the way: a short read-only summary, or a second entry in the `'end'` slot that shows only when the tool isn't offered (see `wifiSetupSummary` in `WifiSetup.tsx`).
 - **Redraws**: read `void session.simRev.value` in any component that must redraw when the network changes.
 - **Parts**: `Toggle`, `ToolMsg`, `useDraft`, and `recentlyChanged` are in `src/ui/tools/parts.tsx`. Reuse the classes `tool-card`, `table`, `table kv`, `pill`, `callout`, `btn tiny`, `seg`, and `tool-row`.
-- **CSS**: append to `src/features.css` under a comment naming the lab. Count `{` against `}` afterward. Check dark, light, and 1366x768.
+- **CSS**: append to `src/features.css` under a comment naming the lab. Count `{` against `}` afterward. Check light (the default), dark, and 1366x768.
   - `.tool-row` spreads its children to opposite ends. Scope an override if a Save button should sit beside its input.
 
 ## Tools per step and the answer key
@@ -133,7 +136,7 @@ Register the lab in `src/labs/index.ts`: import it, put it in `LABS` in CED orde
 ```
 npm run -s typecheck && npm test
 npm run e2e                                   # needs CHROME_PATH=/usr/bin/google-chrome-stable here
-LAB=<id> npm run playthrough                  # plus THEME=light SIZE=small
+LAB=<id> npm run playthrough                  # plus THEME=dark SIZE=small
 ```
 
 - `walkthrough.test.ts` plays every answer key, then checks reload replay, reset, version change, and tool offers.
@@ -145,8 +148,8 @@ LAB=<id> npm run playthrough                  # plus THEME=light SIZE=small
   - that a quiet setup emits nothing. Set `sim.quiet = true` around setup helpers when you assert that.
 - **The playthrough only shows the final network.** It loads finished progress and pages through steps in review mode, so its screenshots never show a step mid-lesson.
   - To review real step states, run `.claude/skills/netlab-lab-authoring/shots.mjs` from the repo root after `npm run build`.
-  - It plays the answer key up to a step, opens the app there, clicks a device or tab, and saves to `/tmp/netlab-shots/<lab>/`.
-  - Read every screenshot in dark, light, and small. Look for overlaps.
+  - It plays the answer key up to a step, opens the app there, clicks a device, lesson chip, tab, or captured packet, and saves to `/tmp/netlab-shots/<lab>/`.
+  - Read every screenshot in light, dark, and small. Look for overlaps.
 
 ## Map layout gotchas
 
@@ -159,8 +162,9 @@ LAB=<id> npm run playthrough                  # plus THEME=light SIZE=small
   - A chip sits at the device's label line: to the right if the device is left of the map's center, otherwise to the left.
   - It covers any device beside it at the same height. Put browsing devices where that side is empty, or stagger them by more than 70 units.
 - **Port tags** collide on short links. Keep a tagged link at least about 190 units long.
-- The **cable hint** (shown all step whenever `cable` is offered) covers the bottom-center 45 to 65 px. Bottom-row labels there are hidden during cabling steps.
-- Dashed Wi-Fi lines run through address text under devices above the access point. Markers ("address set", "plugged in") pop above devices.
+- The **cable hint** shows all step whenever `cable` is offered. `fitBox` leaves 48 units under the map for it, so cabling steps draw slightly smaller.
+- Dashed Wi-Fi lines stop at the edge of each device's name and address box (`wifiEnd`).
+- Markers ("address set", "plugged in") pop above devices and can cover a zone label for a few seconds. Tags of one kind on a device merge into one (`Marker.merge`), so they don't stack: give new event tags a `merge` key when several can fire at once.
 - Keep device centers at least about 130 units apart.
 - Zone labels sit at a rect's top-left, or at the top of a circle.
 
