@@ -159,9 +159,9 @@ const REFUSALS: CableRefusal[] = [
 function zones(sim: Sim): MapZone[] {
   const out: MapZone[] = [
     { id: 'home', shape: { kind: 'rect', x: 165, y: 35, w: 535, h: 490 }, label: "The Nguyens' home", tone: 'neutral' },
-    { id: 'box', shape: { kind: 'rect', x: 265, y: 215, w: 345, h: 182 }, label: 'Wi-Fi router (one box)', tone: 'info' },
+    { id: 'box', shape: { kind: 'rect', x: 265, y: 215, w: 395, h: 182 }, label: 'Wi-Fi router (one box)', tone: 'info' },
     { id: 'next-door', shape: { kind: 'rect', x: 15, y: 195, w: 140, h: 200 }, label: 'Next door', tone: 'neutral', dashed: true },
-    { id: 'internet', shape: { kind: 'rect', x: 720, y: 35, w: 270, h: 500 }, label: 'The internet', tone: 'neutral', dashed: true },
+    { id: 'internet', shape: { kind: 'rect', x: 740, y: 35, w: 290, h: 500 }, label: 'The internet', tone: 'neutral', dashed: true },
   ];
   const w = ap(sim);
   if (!w.off) out.push({ id: 'reach', shape: { kind: 'circle', cx: WIFI_POS.x, cy: WIFI_POS.y, r: reach(w) }, label: 'Wi-Fi reach', tone: 'info', dashed: true });

@@ -1,6 +1,6 @@
 # Who Gets the Packet? (`home-network`)
 
-Status: planned
+Status: built. Code: `index.ts` (steps), `scenario.ts` (network and buttons), `solution.ts` (answer key), `lab.test.ts`; script in `SCRIPT.md`.
 
 Tagline: Set up a family's Wi-Fi router, connect their devices, and watch the router deliver every message to the right one.
 

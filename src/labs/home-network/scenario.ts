@@ -63,7 +63,7 @@ export function buildHome(): Sim {
     .router('router', {
       label: 'Router',
       icon: 'router',
-      x: 500,
+      x: 545,
       y: 290,
       ifaces: [
         { id: 'home', ip: `${IP.router}/24`, mac: MAC.routerHome },
@@ -82,14 +82,14 @@ export function buildHome(): Sim {
       // Power 1 (the lowest) still reaches next door. Off until the student sets it up.
       wifi: { ssid: FACTORY_SSID, bssid: MAC.bssid, security: 'wpa2', wps: false, auth: 'psk', beacon: true, power: 1, channel: 6, off: true },
     })
-    .host('laptop', { label: 'Laptop', icon: 'laptop', x: 220, y: 120, mac: MAC.laptop, dhcp: true, wifiClient: { ssid: '' } })
-    .host('phone', { label: 'Phone', icon: 'phone', x: 370, y: 100, mac: MAC.phone, dhcp: true, wifiClient: { ssid: '' } })
-    .host('tv', { label: 'Smart TV', icon: 'tv', x: 520, y: 120, mac: MAC.tv, dhcp: true, wifiClient: { ssid: '' } })
-    .host('console', { label: 'Game console', icon: 'console', x: 250, y: 440, mac: MAC.console, dhcp: true })
+    .host('laptop', { label: 'Laptop', icon: 'laptop', x: 420, y: 110, mac: MAC.laptop, dhcp: true, wifiClient: { ssid: '' } })
+    .host('phone', { label: 'Phone', icon: 'phone', x: 495, y: 445, mac: MAC.phone, dhcp: true, wifiClient: { ssid: '' } })
+    .host('tv', { label: 'Smart TV', icon: 'tv', x: 230, y: 115, mac: MAC.tv, dhcp: true, wifiClient: { ssid: '' } })
+    .host('console', { label: 'Game console', icon: 'console', x: 240, y: 440, mac: MAC.console, dhcp: true })
     .host('printer', {
       label: 'Printer',
       icon: 'printer',
-      x: 410,
+      x: 375,
       y: 440,
       mac: MAC.printer,
       dhcp: true,
@@ -99,7 +99,7 @@ export function buildHome(): Sim {
     .router('isp', {
       label: 'Internet provider',
       icon: 'isp',
-      x: 770,
+      x: 815,
       y: 290,
       ifaces: [
         { id: 'customer', ip: `${IP.isp}/24` },
@@ -111,7 +111,7 @@ export function buildHome(): Sim {
     .host('video', {
       label: 'Video site',
       icon: 'server',
-      x: 920,
+      x: 960,
       y: 130,
       ip: `${IP.video}/25`,
       gateway: '198.51.100.1',
@@ -129,13 +129,13 @@ export function buildHome(): Sim {
     .host('school', {
       label: 'School website',
       icon: 'server',
-      x: 920,
+      x: 960,
       y: 290,
       ip: `${IP.school}/24`,
       gateway: '192.0.2.1',
       web: { name: 'school.example', title: 'Lincoln High School', https: false, page: 'Homework is posted for this week.' },
     })
-    .host('stranger', { label: 'Stranger', icon: 'desktop', x: 920, y: 450, ip: `${IP.stranger}/25`, gateway: '198.51.100.129' })
+    .host('stranger', { label: 'Stranger', icon: 'desktop', x: 960, y: 450, ip: `${IP.stranger}/25`, gateway: '198.51.100.129' })
     // The router and the switch are one box: their cable is built in.
     .link(['router', 'home'], ['wifi', 'inside'], { fixed: true })
     // The internet is already wired: students only plug in the home's own cable.

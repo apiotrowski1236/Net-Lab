@@ -45,7 +45,6 @@ function WifiSetupSection({ session, sim, dev, replaying, has }: InspectorSectio
     pass.clear();
   };
   const power = (on: boolean) => {
-    if (!edit) return;
     if (on) {
       const r = checkWifiTurnOn(sim, dev.id);
       if (!r.ok) return say('power', { tone: 'bad', text: r.msg });
@@ -55,12 +54,51 @@ function WifiSetupSection({ session, sim, dev, replaying, has }: InspectorSectio
   };
   const mode = MODES.find((m) => m.id === ap.security);
   const strength = passphraseStrength(ap.passphrase);
+  const status = ap.off
+    ? 'Nothing can join while the Wi-Fi is off.'
+    : joined.length
+      ? `Joined: ${joined.map((d) => d.label).join(', ')}.`
+      : 'On. No devices have joined yet.';
+  const head = (
+    <h4>
+      Wi-Fi setup <span class="muted">the home's wireless network</span>
+    </h4>
+  );
+
+  // Without the tool, a short summary, so the sections below stay in view.
+  if (!edit) {
+    return (
+      <section class="wifi-settings wifi-setup">
+        {head}
+        <table class="table kv">
+          <tbody>
+            <tr>
+              <th>Network name (SSID)</th>
+              <td class="mono">{ap.ssid}</td>
+            </tr>
+            <tr>
+              <th>Security</th>
+              <td>{mode?.label ?? ap.security.toUpperCase()}</td>
+            </tr>
+            <tr>
+              <th>Password</th>
+              <td>{ap.passphrase ? `Saved, ${ap.passphrase.length} characters` : 'None'}</td>
+            </tr>
+            <tr>
+              <th>Wi-Fi</th>
+              <td>
+                <span class={`pill ${ap.off ? '' : 'good'}`}>{ap.off ? 'Off' : 'On'}</span> {ap.off ? '' : status}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    );
+  }
 
   return (
     <section class="wifi-settings wifi-setup">
-      <h4>
-        Wi-Fi setup <span class="muted">the home's wireless network</span>
-      </h4>
+      {head}
 
       <div class="wifi-field">
         <label for={`ssid-${dev.id}`}>Network name (SSID)</label>
@@ -68,16 +106,13 @@ function WifiSetupSection({ session, sim, dev, replaying, has }: InspectorSectio
           <input
             id={`ssid-${dev.id}`}
             value={name.value}
-            disabled={!edit}
             maxLength={40}
             onInput={(e) => name.set((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => e.key === 'Enter' && name.edited && saveName()}
           />
-          {edit && (
-            <button class="btn tiny" disabled={!name.edited} onClick={saveName}>
-              Save
-            </button>
-          )}
+          <button class="btn tiny" disabled={!name.edited} onClick={saveName}>
+            Save
+          </button>
         </div>
         {msg?.field === 'name' && <ToolMsg msg={msg.msg} />}
       </div>
@@ -89,7 +124,6 @@ function WifiSetupSection({ session, sim, dev, replaying, has }: InspectorSectio
             <button
               key={m.id}
               class={`btn tiny ${ap.security === m.id ? 'on' : ''}`}
-              disabled={!edit}
               onClick={() => ap.security !== m.id && session.dispatch({ type: 'wifi-security', device: dev.id, security: m.id })}
             >
               {m.label}
@@ -106,35 +140,22 @@ function WifiSetupSection({ session, sim, dev, replaying, has }: InspectorSectio
             id={`pass-${dev.id}`}
             class="mono"
             value={pass.value}
-            disabled={!edit}
             placeholder="at least 8 characters"
             onInput={(e) => pass.set((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => e.key === 'Enter' && pass.edited && savePass()}
           />
-          {edit && (
-            <button class="btn tiny" disabled={!pass.edited} onClick={savePass}>
-              Save
-            </button>
-          )}
+          <button class="btn tiny" disabled={!pass.edited} onClick={savePass}>
+            Save
+          </button>
         </div>
         <p class="small muted">{ap.passphrase ? `${ap.passphrase.length} characters${strength === 'weak' ? ', short' : ''}.` : 'No password saved yet.'}</p>
         {msg?.field === 'pass' && <ToolMsg msg={msg.msg} />}
       </div>
 
       <div class="wifi-field">
-        {edit ? (
-          <Toggle on={!ap.off} label={ap.off ? 'Wi-Fi off' : 'Wi-Fi on'} onChange={power} />
-        ) : (
-          <span class={`pill ${ap.off ? '' : 'good'}`}>{ap.off ? 'Wi-Fi off' : 'Wi-Fi on'}</span>
-        )}
+        <Toggle on={!ap.off} label={ap.off ? 'Wi-Fi off' : 'Wi-Fi on'} onChange={power} />
         {msg?.field === 'power' && <ToolMsg msg={msg.msg} />}
-        <p class="small muted">
-          {ap.off
-            ? 'Nothing can join while the Wi-Fi is off.'
-            : joined.length
-              ? `Joined: ${joined.map((d) => d.label).join(', ')}.`
-              : 'On. No devices have joined yet.'}
-        </p>
+        <p class="small muted">{status}</p>
       </div>
     </section>
   );

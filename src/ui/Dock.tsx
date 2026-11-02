@@ -1134,8 +1134,10 @@ function SettingsCard({
   basicWifi?: boolean;
   onSelect: (id: string) => void;
 }) {
+  // Basic Wi-Fi setup alone only changes the access point, so list just that.
+  const wifiOnly = basicWifi && kinds.size === 1;
   const devices = Object.values(session.sim.devices).filter(
-    (d) => d.kind === 'host' || d.kind === 'router' || (kinds.has('wifi-config') && !!d.wifi),
+    (d) => (!wifiOnly && (d.kind === 'host' || d.kind === 'router')) || (kinds.has('wifi-config') && !!d.wifi),
   );
   return (
     <div class="tool-card">
