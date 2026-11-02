@@ -4,7 +4,7 @@ import { hasEndpoint } from '../store/outbox';
 import { profile } from '../store/profile';
 import { buildReport } from '../store/report';
 import { Icon } from './icons';
-import { gradeText, SubmitBox } from './Submit';
+import { gradeText, handInWhere, SubmitBox } from './Submit';
 
 const CONFETTI = ['var(--brand)', 'var(--good)', 'var(--warn)', 'var(--info)', 'var(--bad)'];
 
@@ -68,8 +68,8 @@ export function Summary({ session }: { session: LabSession }) {
   const endpoint = hasEndpoint();
   const title = p.submittedAt ? (endpoint ? 'Submitted. Nice work!' : 'Nice work! Now hand in your report.') : allDone ? 'Lab complete!' : 'Almost there';
   const message = allDone
-    ? `You finished every step of ${lab.title}. ${p.submittedAt && !endpoint ? 'Upload the report file you downloaded, the way your teacher asked.' : endpoint ? 'Submit it to your teacher below.' : 'Submit it below to download your report.'}`
-    : `${unfinished.length} step${unfinished.length > 1 ? 's' : ''} still ${unfinished.length > 1 ? 'have' : 'has'} unfinished work. Go back and finish, or submit what you have.`;
+    ? `You finished every step of ${lab.title}. ${p.submittedAt && !endpoint ? `Take the report file you downloaded and ${handInWhere()}.` : endpoint ? 'Submit it to your teacher below.' : `Download your report below, then ${handInWhere()}.`}`
+    : `${unfinished.length} step${unfinished.length > 1 ? 's' : ''} still ${unfinished.length > 1 ? 'have' : 'has'} unfinished work. Go back and finish, or ${endpoint ? 'submit' : 'download'} what you have.`;
 
   let qn = 0;
   return (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
 import { hasEndpoint, outbox, synced } from '../store/outbox';
-import { online, profile } from '../store/profile';
+import { config, online, profile } from '../store/profile';
 import { saveState } from '../store/storage';
 import { Icon } from './icons';
 import { openProfile } from './ProfileDialog';
@@ -54,9 +54,10 @@ export function SaveStatus({ syncKey }: { syncKey?: string }) {
 
 export function StudentChip() {
   const p = profile.value;
+  const periods = config.value.periods.length > 0;
   return (
-    <button class="student-chip" onClick={openProfile} title="Change your name or class period">
-      <Icon name="user" /> {p.name ? `${p.name}${p.period ? ` · ${p.period}` : ''}` : 'Add your name'}
+    <button class="student-chip" onClick={openProfile} title={periods ? 'Change your name or class period' : 'Change your name'}>
+      <Icon name="user" /> {p.name ? `${p.name}${periods && p.period ? ` · ${p.period}` : ''}` : 'Add your name'}
     </button>
   );
 }

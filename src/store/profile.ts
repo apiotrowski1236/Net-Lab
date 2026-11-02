@@ -12,9 +12,12 @@ export interface Profile {
 export interface AppConfig {
   courseTitle: string;
   teacherName: string;
+  /** Class periods to pick from when signing in. Empty: one section, so no period is asked for. */
   periods: string[];
-  /** Where submissions go. Empty = students download/print their report instead. */
+  /** Where submissions go. Empty = students download their report and hand it in themselves. */
   submitEndpoint: string;
+  /** Where students hand in the downloaded report when there's no endpoint, e.g. "PowerSchool". Empty = "the way your teacher asked". */
+  handInTo: string;
   /** Send an in-progress copy to the teacher this often (minutes). 0 = only on submit. */
   autoSyncMinutes: number;
   /** Salted SHA-256 of the teacher override password (see store/override.ts). Empty = no override. */
@@ -26,6 +29,7 @@ const DEFAULT_CONFIG: AppConfig = {
   teacherName: '',
   periods: [],
   submitEndpoint: '',
+  handInTo: '',
   autoSyncMinutes: 2,
   teacherPasswordHash: '',
 };

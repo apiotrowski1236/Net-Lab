@@ -89,7 +89,7 @@ async function run(theme) {
   const tab = (name) => page.getByRole('tab', { name }).click();
 
   await page.goto(url);
-  if (theme !== 'dark') {
+  if (theme !== 'light') {
     await page.evaluate(([k, t]) => localStorage.setItem(k, t), [THEME_KEY, theme]);
     await page.reload();
   }

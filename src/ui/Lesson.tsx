@@ -12,6 +12,7 @@ import { renderMarkdown } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
 import { hoverDevice } from './NetworkCanvas';
 import { overrideEnabled } from '../store/override';
+import { hasEndpoint } from '../store/outbox';
 import { OverrideDialog } from './Override';
 
 // ---------------------------------------------------------------------------
@@ -496,7 +497,7 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
 
         {step.kind === 'submit' && (
           <div class="callout info small">
-            <Icon name="trophy" size={14} /> Your summary is on the right. Submit or download it from there.
+            <Icon name="trophy" size={14} /> Your summary is on the right. {hasEndpoint() ? 'Submit or download it from there.' : 'Download your report from there.'}
           </div>
         )}
 

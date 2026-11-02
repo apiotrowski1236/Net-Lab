@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Open the address it prints (usually http://localhost:5173). The first visit asks for a name and class period.
+Open the address it prints (usually http://localhost:5173). The first visit asks for the student's name.
 
 To try it from a student laptop on the same Wi-Fi, run `npm run dev -- --host` and open the `Network:` address it prints. Offline mode is off over plain `http://` on another machine (browsers only allow it on `https://` or `localhost`), but saving still works.
 
@@ -121,7 +121,7 @@ If you set up the sheet before these columns existed, paste the new `Code.gs` ov
 
 ### Option 2: Report file
 
-With no `submitEndpoint` set, one button, **Submit and download my report**, marks the lab finished and downloads the report. Students hand in that file themselves, for example by uploading it to Schoology. The summary reminds them that their teacher doesn't have it until they do. The report is one HTML file. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, the Work ID, any teacher overrides, and any restores. The same file restores the student's work if their browser loses it.
+With no `submitEndpoint` set, one button, **Download my report**, marks the lab finished and downloads the report. Students hand in that file themselves, where `handInTo` says (PowerSchool). The summary names the file and reminds them that their teacher doesn't have it until they do. The report is one HTML file. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, the Work ID, any teacher overrides, and any restores. The same file restores the student's work if their browser loses it.
 
 ## Settings
 
@@ -131,8 +131,9 @@ With no `submitEndpoint` set, one button, **Submit and download my report**, mar
 {
   "courseTitle": "AP Cybersecurity",
   "teacherName": "",
-  "periods": ["Period 1", "Period 2", "Period 3", "Period 4", "Period 5", "Period 6", "Period 7"],
+  "periods": [],
   "submitEndpoint": "",
+  "handInTo": "PowerSchool",
   "autoSyncMinutes": 2,
   "teacherPasswordHash": ""
 }
@@ -142,8 +143,9 @@ With no `submitEndpoint` set, one button, **Submit and download my report**, mar
 |---|---|
 | `courseTitle` | Shown on the home page. |
 | `teacherName` | Used in "Delivered to ..." after a submit. |
-| `periods` | Choices in the name dialog. Use `[]` for a free-text box. |
-| `submitEndpoint` | Google Apps Script URL (see above). Empty means download/print only. |
+| `periods` | Class periods to choose from in the name dialog, such as `["Period 1", "Period 3"]`. Leave it `[]` for one section: the dialog asks only for a name. |
+| `submitEndpoint` | Google Apps Script URL (see above). Empty means students download their report and hand it in. |
+| `handInTo` | Where students upload the downloaded report, such as `"PowerSchool"`. Empty says "the way your teacher asked". |
 | `autoSyncMinutes` | How often in-progress copies go to the sheet. `0` turns that off (submits still send). |
 | `teacherPasswordHash` | Turns on the teacher override (see above). Empty means no override. |
 

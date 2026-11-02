@@ -25,7 +25,7 @@ export function ProfileDialog() {
   const save = (e: Event) => {
     e.preventDefault();
     if (!name.trim()) return;
-    updateProfile({ name: name.trim(), period: period.trim() });
+    updateProfile({ name: name.trim(), period: periods.length ? period.trim() : '' });
     open.value = false;
   };
   return (
@@ -37,19 +37,17 @@ export function ProfileDialog() {
           <span>First and last name</span>
           <input ref={ref} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} autocomplete="name" required />
         </label>
-        <label class="field">
-          <span>Class period</span>
-          {periods.length ? (
+        {periods.length > 0 && (
+          <label class="field">
+            <span>Class period</span>
             <select value={period} onChange={(e) => setPeriod((e.target as HTMLSelectElement).value)}>
               <option value="">Choose…</option>
               {periods.map((x) => (
                 <option value={x}>{x}</option>
               ))}
             </select>
-          ) : (
-            <input value={period} onInput={(e) => setPeriod((e.target as HTMLInputElement).value)} placeholder="e.g. Period 3" />
-          )}
-        </label>
+          </label>
+        )}
         <div class="row between">
           {!mustAsk ? (
             <button

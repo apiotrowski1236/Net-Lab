@@ -85,7 +85,7 @@ ul{padding-left:0;list-style:none;margin:6px 0}li{margin:3px 0}li.todo{color:#b9
 .foot{font-size:12px;color:#64748b;margin-top:24px}
 </style></head><body>
 <h1>${esc(r.lab.title)}</h1>
-<div class="meta">${esc(r.student.name || '(no name)')} &middot; ${esc(r.student.period || '(no period)')}<br>
+<div class="meta">${esc(r.student.name || '(no name)')}${r.student.period ? ` &middot; ${esc(r.student.period)}` : ''}<br>
 Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(when(r.submittedAt))}` : `Last saved ${esc(when(r.updatedAt))} (not submitted)`} &middot; Work ID ${esc(r.workId)}</div>
 <div class="stats">
 <div class="stat"><b>${r.score.auto} / ${r.score.autoMax}</b>auto-checked points</div>
@@ -103,15 +103,26 @@ ${backup ? backupScript(backup) : ''}
 </body></html>`;
 }
 
+/** The downloaded report's file name. */
+export function reportFileName(name: string, labTitle: string): string {
+  const who = name.replace(/[^\w -]+/g, '').trim() || 'student';
+  return `${who} - ${labTitle}.html`;
+}
+
+/** Where the downloaded report goes, for "Then ___." (config.handInTo). */
+export function handInWhere(): string {
+  const to = config.value.handInTo.trim();
+  return to ? `upload it to the assignment in ${to}` : 'hand it in the way your teacher asked';
+}
+
 /** Save the report as an .html file. Works in Chrome, Edge, Firefox, and Safari 14+. */
 export function downloadReport(lab: LabDef, r: Report, backup?: BackupBlock): void {
   const blob = new Blob([reportHtml(lab, r, backup)], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const who = (r.student.name || 'student').replace(/[^\w -]+/g, '').trim() || 'student';
   const a = document.createElement('a');
   if ('download' in a) {
     a.href = url;
-    a.download = `${who} - ${r.lab.title}.html`;
+    a.download = reportFileName(r.student.name, r.lab.title);
     a.rel = 'noopener';
     a.style.display = 'none';
     document.body.appendChild(a);
@@ -162,7 +173,7 @@ export function SubmitBox({ session }: { session: LabSession }) {
           </>
         ) : (
           <button class="btn primary big" disabled={!who.name.trim()} onClick={submit}>
-            <Icon name="download" /> {p.submittedAt ? 'Download again with my latest work' : 'Submit and download my report'}
+            <Icon name="download" /> {p.submittedAt ? 'Download again with my latest work' : 'Download my report'}
           </button>
         )}
       </div>
@@ -183,15 +194,15 @@ export function SubmitBox({ session }: { session: LabSession }) {
             )
           ) : (
             <div class="callout info">
-              <Icon name="upload" /> <strong>One more step.</strong> Submitted {when(new Date(p.submittedAt).toISOString())}, and your report downloaded as a file. Hand in that
-              file the way your teacher asked, for example by uploading it to Schoology. Your teacher doesn't have it until you do.
+              <Icon name="upload" /> <strong>One more step.</strong> Your report downloaded {when(new Date(p.submittedAt).toISOString())} as{' '}
+              <strong>{reportFileName(who.name, lab.title)}</strong>, in your Downloads folder. Now {handInWhere()}. Your teacher doesn't have it until you do.
             </div>
           )
         ) : (
           <p class="muted small">
             {endpoint
               ? 'Submitting sends your goals and answers straight to your teacher. If you change anything later, submit again.'
-              : 'Your teacher collects this lab as a file. This button downloads your report. Then hand in that file the way your teacher asked.'}{' '}
+              : `Your teacher collects this lab as a file. This button downloads your report, ${reportFileName(who.name, lab.title)}. Then ${handInWhere()}.`}{' '}
             The report doubles as a backup: if your work ever goes missing, open it on the home page.
           </p>
         )}

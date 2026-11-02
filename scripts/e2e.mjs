@@ -15,7 +15,7 @@
 // that engine: `npx playwright-core install --with-deps webkit` first. WebKit
 // needs Ubuntu or macOS; the GitHub workflow in .github/workflows runs it.
 //
-// THEME=light runs it in the light theme (dark is the default).
+// THEME=dark runs it in the dark theme (light is the default).
 // The window is a 13-inch MacBook Air (1440x800), what most students use.
 // SIZE=small uses a 1366x768 laptop instead. SCALE=2 takes retina screenshots.
 
@@ -146,7 +146,7 @@ try {
   await page.waitForSelector('.modal');
   await shot('welcome');
   await page.fill('input[autocomplete=name]', 'Test Student');
-  await page.selectOption('.modal select', 'Period 3');
+  await expectCount('.modal select', 0, 'Class period choice with one section');
   await page.getByRole('button', { name: 'Start' }).click();
   await page.waitForSelector('.lab-card');
   await shot('home');
@@ -290,7 +290,7 @@ try {
     await page.waitForTimeout(1100); // let the entrance animation finish
     await shot('summary');
     // With no server to send to, one button marks the work submitted and downloads the report to hand in.
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Submit and download my report' }).click()]);
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download my report' }).click()]);
     await page.waitForSelector('text=One more step');
     const name = dl.suggestedFilename();
     // Playwright's WebKit on Linux turns spaces into underscores; browsers on Macs and PCs keep them.

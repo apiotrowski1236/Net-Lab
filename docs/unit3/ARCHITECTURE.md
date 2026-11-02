@@ -73,7 +73,7 @@ Shared pieces built for these labs (wave 0):
 
 Typed inputs: the student types addresses, prefixes, MACs, ports, SSIDs. A check function (like those in `src/runtime/toolInput.ts`) returns `{ ok: false, msg, suggest? }` with a message that explains the mistake in this lab's terms ("That's Mallory's MAC, the one from the forged ARP replies."). The answer key goes through the same checks.
 
-Look and feel: use existing classes (`tool-card attack` or `defend`, `table`, `pill`, `callout`, `btn`) and CSS variables. Append new CSS to `src/features.css` under a comment naming your lab, and check that every rule you add closes. Check both themes (dark is the default; the theme button is in the top bar) and a 1366x768 window, where the dock is short.
+Look and feel: use existing classes (`tool-card attack` or `defend`, `table`, `pill`, `callout`, `btn`) and CSS variables. Append new CSS to `src/features.css` under a comment naming your lab, and check that every rule you add closes. Check both themes (light is the default; the theme button is in the top bar) and a 1366x768 window, where the dock is short.
 
 Map coordinates are a 1000 x 600 canvas. Keep device centers at least about 130 apart so names and tags fit.
 

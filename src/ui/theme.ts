@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals';
 
 /**
- * Dark or light colors. Dark is the default. The choice lives in localStorage and
+ * Light or dark colors. Light is the default. The choice lives in localStorage and
  * shows up as data-theme on <html>; styles.css keys every color off that attribute.
  *
  * index.html runs a copy of the startup logic inline, before any CSS loads, so the
@@ -10,7 +10,7 @@ import { signal } from '@preact/signals';
 export type Theme = 'dark' | 'light';
 
 export const THEME_KEY = 'netlab:v1:theme';
-const DEFAULT_THEME: Theme = 'dark';
+const DEFAULT_THEME: Theme = 'light';
 
 const isTheme = (v: unknown): v is Theme => v === 'dark' || v === 'light';
 
