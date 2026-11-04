@@ -6,6 +6,7 @@ import { renderMarkdown } from './markdown';
 
 const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   sniffer: 'Packet capture',
+  capture: 'Packet capture: Start, Stop, and filters (in the Capture tab)',
   'arp-spoof': 'ARP spoofer',
   forwarding: 'IP forwarding',
   'bgp-announce': 'Route announcer',

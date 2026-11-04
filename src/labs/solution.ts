@@ -19,6 +19,7 @@ import { checkNewMac, checkPortSecurity } from '../runtime/switchInput';
 import type { LabSession } from '../runtime/session';
 import { checkRule, checkScanTarget, ruleDraft } from '../runtime/firewallInput';
 import type { Frame, LogEntry } from '../sim/types';
+import { parseFilter } from '../sim/displayFilter';
 import { isEncrypted, isPlainLogin, isTelnetLogin } from './helpers';
 import { RISK_LEVELS } from '../sim/audit';
 import { HARDEN_SETTINGS } from '../sim/hardening';
@@ -42,7 +43,9 @@ export type Move =
   /** Click a finding in the vulnerability scanner's newest report on `openFinding` (the auditor). */
   | { openFinding: string; id: string }
   /** Click the newest line in `openLog`'s log that matches `where`, in the Logs tab. */
-  | { openLog: string; where: (e: LogEntry) => boolean };
+  | { openLog: string; where: (e: LogEntry) => boolean }
+  /** Type a display filter into `filter`'s Capture tab and apply it (packet-capture). It must be valid. */
+  | { filter: string; text: string };
 
 export interface StepSolution {
   /** What to do, in order. The network runs until it is quiet after each move. */
@@ -63,7 +66,14 @@ export function playMove(s: LabSession, m: Move): void {
     assertTypable(s, m.tool);
     s.dispatch(m.tool);
   }
-  else if ('openFinding' in m) {
+  else if ('filter' in m) {
+    if (!s.tools.some((t) => t.kind === 'capture' && t.device === m.filter && t.filter)) {
+      throw new Error(`Step "${s.step.id}" offers no display filter on ${m.filter}. List { kind: 'capture', device: '${m.filter}', filter: true } in its tools.`);
+    }
+    const p = parseFilter(m.text);
+    if (!p.ok) throw new Error(`The filter "${m.text}" is invalid: ${p.msg}`);
+    s.ui({ type: 'ui:filter', device: m.filter, filter: m.text });
+  } else if ('openFinding' in m) {
     const a = s.sim.dev(m.openFinding).audit;
     const hit = a?.reports[a.reports.length - 1]?.findings.find((f) => f.id === m.id);
     if (!hit) throw new Error(`No ${m.id} finding in ${m.openFinding}'s newest report`);
@@ -93,6 +103,7 @@ function on(t: ToolSpec, d: string): boolean {
 /** Which tool lets a student take each action, the way the interface wires them. */
 const TOOL_FOR: Partial<Record<SimAction['type'], (t: ToolSpec, a: SimAction) => boolean>> = {
   sniff: (t, a) => t.kind === 'sniffer' && on(t, dev(a)),
+  capture: (t, a) => t.kind === 'capture' && on(t, dev(a)),
   forward: (t, a) => t.kind === 'forwarding' && on(t, dev(a)),
   'arp-spoof': (t, a) => t.kind === 'arp-spoof' && on(t, dev(a)),
   'static-arp': (t, a) => t.kind === 'static-arp' && on(t, dev(a)),

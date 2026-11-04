@@ -18,6 +18,8 @@ export type SimAction =
   | { type: 'setup'; step: string }
   | { type: 'step-action'; step: string; action: string }
   | { type: 'sniff'; device: string; on: boolean }
+  /** Start a new, empty capture on `device` (on), or stop it (off), like Wireshark's Start and Stop (packet-capture). */
+  | { type: 'capture'; device: string; on: boolean }
   | { type: 'forward'; device: string; on: boolean }
   | { type: 'arp-spoof'; device: string; victim: string; claimIp: string }
   | { type: 'static-arp'; device: string; ip: string; mac: string }
@@ -126,6 +128,10 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'sniff':
       sim.setSniffing(a.device, a.on);
+      return;
+    case 'capture':
+      if (a.on) sim.startCapture(a.device);
+      else sim.stopCapture(a.device);
       return;
     case 'forward':
       sim.setForwarding(a.device, a.on);

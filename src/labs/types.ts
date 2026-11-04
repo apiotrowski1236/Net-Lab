@@ -11,7 +11,9 @@ export type UiEvent =
   | { type: 'ui:open-log'; device: string; entry: LogEntry }
   | { type: 'ui:enter-step'; step: string }
   /** The student opened a finding in the vulnerability scanner's report (net-audit). */
-  | { type: 'ui:open-finding'; device: string; finding: string };
+  | { type: 'ui:open-finding'; device: string; finding: string }
+  /** The student applied a display filter in the Capture tab (packet-capture). Only valid filters; '' clears it. See src/sim/displayFilter.ts. */
+  | { type: 'ui:filter'; device: string; filter: string };
 
 export type AnyEvent = SimEvent | UiEvent;
 
@@ -81,6 +83,12 @@ export type QuestionDef = (ChoiceQuestion | TextQuestion) & {
  */
 export type ToolSpec =
   | { kind: 'sniffer'; device: string }
+  /**
+   * Wireshark-style capture on `device`, in the Capture tab's toolbar (not the
+   * Toolkit): Start (a new, empty capture) and Stop. `filter` adds the display
+   * filter bar (packet-capture).
+   */
+  | { kind: 'capture'; device: string; filter?: boolean }
   /** Send forged ARP replies from `device` to one of `victims`. The student types the IP to claim. */
   | { kind: 'arp-spoof'; device: string; victims: string[] }
   | { kind: 'forwarding'; device: string }
@@ -205,6 +213,9 @@ export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route', 'wifi-conf
 /** Tools that unlock a dock tab instead of a Toolkit card. Unlike other tools, a tab stays once a step opens it. */
 export const TAB_TOOLS = ['logs'] as const;
 
+/** Tools that live in the Capture tab's toolbar instead of the Toolkit. Like other tools, only the steps that list them offer them. */
+export const CAPTURE_TOOLS = ['capture'] as const;
+
 /** Identifies a tool across steps: its kind and the device (or devices) it works on. */
 export function toolKey(t: ToolSpec): string {
   const who = 'device' in t ? t.device : 'devices' in t ? t.devices.join(',') : 'attacker' in t ? t.attacker : 'scanner' in t ? t.scanner : '';
@@ -271,6 +282,12 @@ export interface LabDef {
   steps: StepDef[];
   /** Device whose packet capture appears in the Capture tab. */
   captureDevice?: string;
+  /**
+   * Make the Capture tab look more like Wireshark, for a lab that gets students
+   * ready for it (packet-capture): Wireshark's name under each packet layer,
+   * and no "Hide ARP" shortcut, since students filter instead.
+   */
+  wireshark?: boolean;
   /** Annotate MAC addresses with the owning device's name in the inspector. */
   labelMacs?: boolean;
   /**

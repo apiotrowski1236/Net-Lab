@@ -151,6 +151,8 @@ export function Icon({ name, size = 16 }: { name: string; size?: number }) {
     reset: <path d="M4 12 A8 8 0 1 0 7 6 M4 3 V8 H9" {...p} />,
     check: <path d="M5 12 L10 17 L19 7" {...p} />,
     x: <path d="M6 6 L18 18 M18 6 L6 18" {...p} />,
+    stop: <rect x={6} y={6} width={12} height={12} rx={1.5} fill="currentColor" stroke="none" />,
+    filter: <path d="M4 5 H20 L14 12 V18 L10 20 V12 Z" {...p} />,
     chevronLeft: <path d="M15 5 L8 12 L15 19" {...p} />,
     chevronRight: <path d="M9 5 L16 12 L9 19" {...p} />,
     chevronDown: <path d="M5 9 L12 16 L19 9" {...p} />,

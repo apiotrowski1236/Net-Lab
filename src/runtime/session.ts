@@ -39,6 +39,8 @@ export class LabSession {
   readonly repeat = signal(false);
   /** The lesson button pressed last, and when (sim time), so the lesson can show what it did. */
   readonly lastRun = signal<{ step: string; action: string; t: number } | null>(null);
+  /** The display filter applied in the Capture tab (packet-capture). What the student sees, not the network: never saved or replayed. */
+  readonly captureFilter = signal('');
   replayWarning = '';
 
   private unsub?: () => void;

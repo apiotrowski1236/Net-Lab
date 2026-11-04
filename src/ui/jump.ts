@@ -1,14 +1,14 @@
-import { TAB_TOOLS, toolKey, type ToolSpec } from '../labs/types';
+import { CAPTURE_TOOLS, TAB_TOOLS, toolKey, type ToolSpec } from '../labs/types';
 import type { Device } from '../sim/types';
 import { INSPECTOR_SECTIONS } from './inspector/registry';
 
 /**
  * Where a click on a device chip in the lesson lands. If the step hands out a
  * tool for that device, the student goes straight to it: the tool's section
- * in the Inspect tab, or its card in the Toolkit.
+ * in the Inspect tab, its card in the Toolkit, or the Capture tab's toolbar.
  */
 export interface Jump {
-  tab: 'inspect' | 'tools';
+  tab: 'inspect' | 'tools' | 'capture';
   device: string;
   /** One selector per tool, in the step's order: scroll to the first that's on screen, highlight them all. */
   selectors: string[];
@@ -43,6 +43,8 @@ export function jumpFor(tools: ToolSpec[], dev: Device, toolkit: boolean, n: num
   const mine = tools.filter((t) => !(TAB_TOOLS as readonly string[]).includes(t.kind) && usedOn(t, dev));
   const inspect = [...new Set(mine.filter((t) => INSPECTOR_TOOLS.has(t.kind)).map((t) => t.kind))];
   if (inspect.length) return { tab: 'inspect', device: dev.id, selectors: inspect.map((k) => `[data-tools~="${k}"]`), n };
+  const capture = toolkit && mine.some((t) => (CAPTURE_TOOLS as readonly string[]).includes(t.kind));
+  if (capture) return { tab: 'capture', device: dev.id, selectors: ['[data-capture-tools]'], n };
   const cards = mine.filter((t) => !INSPECTOR_TOOLS.has(t.kind));
   if (toolkit && cards.length) return { tab: 'tools', device: dev.id, selectors: cards.map((t) => `[data-tool-key="${toolKey(t)}"]`), n };
   return null;

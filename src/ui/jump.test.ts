@@ -39,6 +39,13 @@ describe('jumpFor', () => {
     expect(jumpFor(tools, dev('sw', 'switch'), true, 1)).toBeNull();
   });
 
+  it("opens the Capture tab's toolbar for the capture device (packet-capture)", () => {
+    const tools: ToolSpec[] = [{ kind: 'capture', device: 'laptop', filter: true }, { kind: 'ping' }];
+    expect(jumpFor(tools, dev('laptop'), true, 1)).toMatchObject({ tab: 'capture', device: 'laptop', selectors: ['[data-capture-tools]'] });
+    expect(jumpFor(tools, dev('laptop'), false, 1)).toBeNull();
+    expect(jumpFor(tools, dev('phone'), true, 1)).toBeNull();
+  });
+
   it('leaves other devices and the Logs tab alone', () => {
     const tools: ToolSpec[] = [
       { kind: 'sniffer', device: 'mallory' },

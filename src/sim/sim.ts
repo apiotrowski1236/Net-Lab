@@ -91,6 +91,7 @@ import {
 } from './ids';
 import { canGrant, fromClient, grant, newDhcpClient, newDhcpServer, offer, pickAddress, type DhcpMessage } from './dhcp';
 import { addEntry, allocPort, endText, findIn, findOut, forwardFor, natPorts, newNat, type NatForward } from './nat';
+import { newCaptureRun } from './capture';
 
 /**
  * A deliberately simplified network simulator.
@@ -468,7 +469,8 @@ export class Sim {
   }
 
   private capture(dev: Device, frame: Frame): void {
-    const no = this.nextCaptureNo++;
+    // A capture started with startCapture numbers its own packets from 1, as Wireshark does (capture.ts).
+    const no = dev.captureRun ? dev.captureRun.next++ : this.nextCaptureNo++;
     dev.capture.push({ no, t: this.t, frame: cloneFrame(frame) });
     if (dev.capture.length > MAX_CAPTURE) dev.capture.splice(0, dev.capture.length - MAX_CAPTURE);
     this.emit({ t: this.t, type: 'captured', device: dev.id, no, frame });
@@ -3018,6 +3020,32 @@ export class Sim {
     const entry = { ...e, inside: { ...e.inside }, remote: { ...e.remote } };
     this.emit({ t: this.t, type: 'nat', device: dev.id, what: 'out', entry, publicIp: out.ip, who: this.deviceByIp(pkt.src)?.id, pkt: moved });
     return moved;
+  }
+
+  // --- capture runs (packet-capture) ---
+
+  /**
+   * Start a new capture on a device, as Wireshark's Start button does: the old
+   * list is cleared, and the new one is numbered from 1 and timed from now.
+   * The device records its own frames too (captureOwn), like Wireshark on your
+   * own computer. See capture.ts.
+   */
+  startCapture(devId: string): void {
+    const dev = this.dev(devId);
+    dev.capture = [];
+    dev.captureRun = newCaptureRun(this.t);
+    dev.captureOwn = true;
+    dev.sniffing = true;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'capture', on: true });
+  }
+
+  /** Stop recording. The packets stay in the list to read. */
+  stopCapture(devId: string): void {
+    const dev = this.dev(devId);
+    if (!dev.sniffing) return;
+    dev.sniffing = false;
+    if (dev.captureRun) dev.captureRun.stoppedAt = this.t;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'capture', on: false });
   }
 }
 

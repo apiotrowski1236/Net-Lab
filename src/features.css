@@ -2028,3 +2028,80 @@
     outline: 3px solid transparent;
   }
 }
+
+/* packet-capture: Wireshark's toolbar, cut down. Start and Stop, then the
+   display filter bar, which turns green when the filter works and red when it
+   doesn't, as Wireshark's does. */
+.capture-tools {
+  flex: none;
+  margin-bottom: 8px;
+}
+.capture-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.capture-filter {
+  flex: 1 1 18rem;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--muted);
+}
+.capture-filter:focus-within {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+.capture-filter input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.capture-filter input:focus-visible {
+  outline: 0;
+}
+.capture-filter.valid {
+  border-color: var(--good-line);
+  background: var(--good-soft);
+}
+.capture-filter.invalid {
+  border-color: var(--bad-line);
+  background: var(--bad-soft);
+}
+.filter-msg {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--bad-ink);
+}
+.filter-msg.muted {
+  color: var(--muted);
+}
+.layer-ws {
+  margin: -2px 0 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.capture-none {
+  margin: 0;
+  padding: 10px 12px;
+}
+/* Filters are typed character by character: show == as two equals signs, not one joined glyph. */
+.capture-filter input,
+.lesson code {
+  font-variant-ligatures: none;
+}
+/* The packet list is the lesson: on a wide screen the Capture tab takes half the column. */
+@media (min-width: 901px) {
+  .dock.dock-tall {
+    flex-basis: 50%;
+  }
+}

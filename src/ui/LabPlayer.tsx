@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { TAB_TOOLS, toolKey, type LabDef } from '../labs/types';
+import { CAPTURE_TOOLS, TAB_TOOLS, toolKey, type LabDef } from '../labs/types';
 import { LabSession } from '../runtime/session';
 import { checkCable } from '../runtime/toolInput';
 import { beacon, enqueue, hasEndpoint } from '../store/outbox';
@@ -234,8 +234,9 @@ function Dock({
   void session.simRev.value;
   void session.rev.value;
   const lab = session.lab;
-  // Tools that open their own tab (Logs) don't count as new Toolkit cards.
-  const tools = session.tools.filter((t) => !(TAB_TOOLS as readonly string[]).includes(t.kind));
+  // Tools that open their own tab (Logs) or live in the Capture tab don't count as new Toolkit cards.
+  const tools = session.tools.filter((t) => !(TAB_TOOLS as readonly string[]).includes(t.kind) && !(CAPTURE_TOOLS as readonly string[]).includes(t.kind));
+  const captureTools = session.tools.some((t) => (CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const capDev = lab.captureDevice ? session.sim.devices[lab.captureDevice] : undefined;
   const logIds = logDevices(session);
   const logLines = logIds.reduce((n, id) => n + session.sim.devices[id].logs.length, 0);
@@ -283,7 +284,8 @@ function Dock({
   const newTools = tab !== 'tools' && keys.some((k) => !seenTools.current!.has(k));
   if (tab === 'tools') for (const k of keys) seenTools.current.add(k);
   return (
-    <div class="dock">
+    // A Wireshark-style lab (packet-capture) lives in the Capture tab: give its packet list more room.
+    <div class={`dock ${lab.wireshark && tab === 'capture' ? 'dock-tall' : ''}`}>
       <div class="dock-tabs" role="tablist">
         <button
           role="tab"
@@ -314,7 +316,7 @@ function Dock({
       <div class="dock-body" ref={body} onScroll={measure}>
         {tab === 'inspect' && <Inspector session={session} deviceId={selected} />}
         {tab === 'capture' && capDev && <CaptureView session={session} deviceId={capDev.id} />}
-        {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} />}
+        {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} inCapture={captureTools} />}
         {tab === 'logs' && <LogsView session={session} />}
       </div>
       {more && (

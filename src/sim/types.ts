@@ -13,6 +13,7 @@ import type { VpnState } from './vpn';
 import type { FlowInfo, IdsEventBody, IdsState } from './ids';
 import type { DhcpMessage, DhcpState } from './dhcp';
 import type { NatEntry, NatNote, NatState } from './nat';
+import type { CaptureRun } from './capture';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -221,6 +222,8 @@ export interface Device {
   dhcp?: DhcpState;
   /** NAT: a router that shares its outside address with the devices behind it (see nat.ts). */
   nat?: NatState;
+  /** The capture started with Sim.startCapture: numbered from 1, timed from Start (see capture.ts). */
+  captureRun?: CaptureRun;
 }
 
 // ---------------------------------------------------------------------------

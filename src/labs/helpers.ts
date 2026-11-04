@@ -1,6 +1,7 @@
 import type { Sim } from '../sim/sim';
 import type { Frame, LogEntry, SimEvent } from '../sim/types';
 import type { CheckCtx } from './types';
+import { matchFilter, parseFilter } from '../sim/displayFilter';
 
 /**
  * Small building blocks for goal checks. A goal's check runs on every network
@@ -70,3 +71,25 @@ export function pageSince(sim: Sim, device: string, since: number, pred: (b: Non
 export function asPathTo(sim: Sim, device: string, ip: string): number[] | undefined {
   return sim.lookup(sim.dev(device), ip)?.asPath;
 }
+
+/**
+ * The student applied a display filter on `device` that shows exactly the
+ * captured frames matching `want`: at least one, all of them, and nothing else
+ * (packet-capture). Any filter that does that counts, so "dns" and
+ * "udp.port == 53" both pass for DNS.
+ */
+export const filtered =
+  (device: string, want: (f: Frame) => boolean) =>
+  ({ sim, ev }: CheckCtx): boolean => {
+    if (ev?.type !== 'ui:filter' || ev.device !== device) return false;
+    const p = parseFilter(ev.filter);
+    if (!p.ok || !p.node) return false;
+    const cap = sim.dev(device).capture;
+    let shown = 0;
+    for (const c of cap) {
+      const hit = matchFilter(p.node, c.frame);
+      if (hit !== want(c.frame)) return false;
+      if (hit) shown++;
+    }
+    return shown > 0;
+  };

@@ -4,6 +4,8 @@ import type { LabSession } from '../runtime/session';
 import type { Sim } from '../sim/sim';
 import type { Captured, Device, Route } from '../sim/types';
 import { SETTING_TOOLS, toolKey, type CableRefusal, type ToolSpec } from '../labs/types';
+import { matchFilter, parseFilter } from '../sim/displayFilter';
+import { captureSeconds } from '../sim/capture';
 import { PROTO_COLOR, endpoints, fmtTime, infoOf, layersOf, nameForMac, pingFailText, protoOf } from './describe';
 import { Icon } from './icons';
 import { INSPECTOR_SECTIONS, type InspectorSectionProps } from './inspector/registry';
@@ -595,41 +597,64 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 export function CaptureView({ session, deviceId }: { session: LabSession; deviceId: string }) {
   // New frames arrive while the tab is open: re-render whenever the network changes.
   void session.simRev.value;
+  // The step decides whether the capture controls and the filter are offered.
+  void session.rev.value;
   const sim = session.sim;
+  const lab = session.lab;
   const dev = sim.devices[deviceId];
   const [selected, setSelected] = useState<number | null>(null);
   const [hideArp, setHideArp] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
-  const rows: Captured[] = (dev?.capture ?? []).filter((c) => !(hideArp && (c.frame.arp || c.frame.bgp)));
+  const tool = session.tools.find((t): t is Extract<ToolSpec, { kind: 'capture' }> => t.kind === 'capture' && t.device === deviceId);
+  // The filter is only in effect in steps that offer it (packet-capture).
+  const applied = tool?.filter ? session.captureFilter.value : '';
+  const parsed = parseFilter(applied);
+  const node = parsed.ok ? parsed.node : null;
+  const all = dev?.capture ?? [];
+  const rows: Captured[] = all.filter((c) => !(hideArp && (c.frame.arp || c.frame.bgp)) && matchFilter(node, c.frame));
+  const runStart = dev?.captureRun?.start;
 
   useEffect(() => {
     const el = listRef.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [rows.length]);
+  // A new capture renumbers from 1: forget the packet that was open.
+  useEffect(() => setSelected(null), [runStart]);
 
   if (!dev) return null;
   const sel = rows.find((r) => r.no === selected) ?? dev.capture.find((r) => r.no === selected);
+  const time = (c: Captured) => (dev.captureRun ? captureSeconds(dev, c).toFixed(3) : fmtTime(c.t));
+  const stopped = tool
+    ? 'Press Start to capture.'
+    : lab.wireshark
+      ? dev.captureRun
+        ? 'The capture is stopped.'
+        : 'No capture yet.'
+      : `${dev.label}'s capture is off. Turn it on in the Toolkit tab.`;
 
   return (
     <div class="capture">
+      {tool && <CaptureTools session={session} dev={dev} filter={!!tool.filter} />}
       <div class="capture-bar">
         <span>
           <strong>{dev.label}'s packet capture</strong>{' '}
           <span class="muted">
-            {dev.capture.length} packet{dev.capture.length === 1 ? '' : 's'}
-            {dev.sniffing ? '' : ' · capture is off'}
+            {node ? `showing ${rows.length} of ${all.length} packet${all.length === 1 ? '' : 's'}` : `${all.length} packet${all.length === 1 ? '' : 's'}`}
+            {dev.sniffing ? (tool ? ' · capturing' : '') : dev.captureRun ? ' · stopped' : ' · capture is off'}
           </span>
         </span>
-        <label class="check">
-          <input type="checkbox" checked={hideArp} onChange={(e) => setHideArp((e.target as HTMLInputElement).checked)} /> Hide
-          ARP and route chatter
-        </label>
+        {!lab.wireshark && (
+          <label class="check">
+            <input type="checkbox" checked={hideArp} onChange={(e) => setHideArp((e.target as HTMLInputElement).checked)} /> Hide
+            ARP and route chatter
+          </label>
+        )}
       </div>
       {dev.capture.length === 0 ? (
         <div class="dock-empty">
           <Icon name="eye" size={28} />
-          <p>{dev.sniffing ? 'Listening… nothing captured yet.' : `${dev.label}'s capture is off. Turn it on in the Toolkit tab.`}</p>
+          <p>{dev.sniffing ? 'Listening… nothing captured yet.' : stopped}</p>
         </div>
       ) : (
         <div class="capture-split">
@@ -666,7 +691,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                       }}
                     >
                       <td>{c.no}</td>
-                      <td class="mono">{fmtTime(c.t)}</td>
+                      <td class="mono">{time(c)}</td>
                       <td class="mono">{src}</td>
                       <td class="mono">{dst}</td>
                       <td>
@@ -680,6 +705,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                 })}
               </tbody>
             </table>
+            {rows.length === 0 && <p class="muted capture-none">No packets match this filter.</p>}
           </div>
           <div class="capture-detail">
             {sel ? (
@@ -688,6 +714,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                   <div class="layer-title" style={{ color: l.color }}>
                     {l.locked && <Icon name="lock" size={14} />} {l.title}
                   </div>
+                  {lab.wireshark && l.ws && <div class="layer-ws">Wireshark: {l.ws}</div>}
                   <table>
                     <tbody>
                       {l.rows.map(([k, v, note]) => (
@@ -711,6 +738,83 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Wireshark's toolbar, cut down (packet-capture): Start (a new, empty
+ * capture), or Restart while one runs; Stop; and the display filter bar.
+ */
+function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Device; filter: boolean }) {
+  // Start/Restart and Stop follow dev.sniffing, which changes in place: re-render whenever the network changes.
+  void session.simRev.value;
+  const [draft, setDraft] = useState(session.captureFilter.value);
+  const [tried, setTried] = useState(false);
+  const check = parseFilter(draft);
+  const applied = session.captureFilter.value;
+  const apply = (text: string) => {
+    const r = parseFilter(text);
+    if (!r.ok) return setTried(true);
+    setTried(false);
+    session.captureFilter.value = text.trim();
+    session.ui({ type: 'ui:filter', device: dev.id, filter: text.trim() });
+  };
+  // Like Wireshark's filter bar: green while what's typed works, red while it doesn't.
+  const state = !draft.trim() ? '' : check.ok ? 'valid' : 'invalid';
+  return (
+    <div class="capture-tools" data-capture-tools>
+      <div class="capture-buttons">
+        <button class="btn small primary" onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: true })}>
+          <Icon name={dev.sniffing ? 'replay' : 'play'} size={14} /> {dev.sniffing ? 'Restart' : 'Start'}
+        </button>
+        <button class="btn small" disabled={!dev.sniffing} onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: false })}>
+          <Icon name="stop" size={14} /> Stop
+        </button>
+        {filter && (
+          <form
+            class={`capture-filter ${state}`}
+            onSubmit={(e) => {
+              e.preventDefault();
+              apply(draft);
+            }}
+          >
+            <Icon name="filter" size={14} />
+            <input
+              class="mono"
+              value={draft}
+              placeholder="Apply a display filter, like dns"
+              aria-label="Display filter"
+              aria-invalid={state === 'invalid'}
+              autoComplete="off"
+              autoCapitalize="off"
+              spellcheck={false}
+              onInput={(e) => {
+                setDraft((e.target as HTMLInputElement).value);
+                setTried(false);
+              }}
+            />
+            <button type="submit" class="btn tiny">
+              Apply
+            </button>
+            {(applied || draft) && (
+              <button
+                type="button"
+                class="btn tiny"
+                aria-label="Clear the filter"
+                onClick={() => {
+                  setDraft('');
+                  apply('');
+                }}
+              >
+                <Icon name="x" size={12} /> Clear
+              </button>
+            )}
+          </form>
+        )}
+      </div>
+      {filter && tried && !check.ok && <div class="filter-msg">{check.msg}</div>}
+      {filter && applied && applied !== draft.trim() && check.ok && <div class="filter-msg muted">Press Enter to apply. Still showing: {applied}</div>}
     </div>
   );
 }
@@ -1198,14 +1302,25 @@ function SettingsCard({
   );
 }
 
-export function Toolkit({ session, tools, onSelect }: { session: LabSession; tools: ToolSpec[]; onSelect: (id: string) => void }) {
+export function Toolkit({
+  session,
+  tools,
+  onSelect,
+  inCapture,
+}: {
+  session: LabSession;
+  tools: ToolSpec[];
+  onSelect: (id: string) => void;
+  /** This step's capture controls are in the Capture tab (CAPTURE_TOOLS). */
+  inCapture?: boolean;
+}) {
   const sim = session.sim;
   const settingKinds = new Set<string>(tools.filter((t) => (SETTING_TOOLS as readonly string[]).includes(t.kind)).map((t) => t.kind));
   if (!tools.length) {
     return (
       <div class="dock-empty">
         <Icon name="bolt" size={28} />
-        <p>No tools in this step. Each step hands you the tools it needs.</p>
+        <p>{inCapture ? 'This step’s tools are in the Capture tab: Start, Stop, and the filter.' : 'No tools in this step. Each step hands you the tools it needs.'}</p>
       </div>
     );
   }

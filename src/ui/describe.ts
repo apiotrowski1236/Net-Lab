@@ -166,7 +166,30 @@ export interface Layer {
   rows: [string, string, string?][];
   note?: string;
   locked?: boolean;
+  /** Wireshark's name for this layer ("Ethernet II"), shown when the lab asks for it (LabDef.wireshark). */
+  ws?: string;
 }
+
+const WS = {
+  eth: 'Ethernet II',
+  ip: 'Internet Protocol Version 4',
+  tcp: 'Transmission Control Protocol',
+  udp: 'User Datagram Protocol',
+  tls: 'Transport Layer Security',
+  icmp: 'Internet Control Message Protocol',
+  http: 'Hypertext Transfer Protocol',
+} as const;
+
+/** Wireshark's name for the program inside a service connection (services.ts). */
+const WS_SVC: Record<string, string> = {
+  https: WS.tls,
+  http: WS.http,
+  ssh: 'SSH Protocol',
+  telnet: 'Telnet',
+  smb: 'SMB2 (Server Message Block Protocol version 2)',
+  ipp: 'Internet Printing Protocol',
+  dns: 'Domain Name System',
+};
 
 /** Packet details, layer by layer, for the capture viewer and packet inspector. */
 export function layersOf(sim: Sim, f: Frame): Layer[] {
@@ -175,6 +198,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
     {
       title: 'Ethernet frame (delivery on this local network)',
       color: LAYER_COLOR.ethernet,
+      ws: WS.eth,
       rows: [
         ['From MAC', f.src, tag(nameForMac(sim, f.src))],
         ['To MAC', f.dst, tag(nameForMac(sim, f.dst))],
@@ -195,6 +219,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       {
         title: 'IP packet (delivery across networks)',
         color: LAYER_COLOR.ip,
+        ws: WS.ip,
         rows: [
           ['From IP', ips.src, asks ? '(no address yet)' : tag(nameForIp(sim, ips.src))],
           ['To IP', ips.dst, ips.dst === '255.255.255.255' ? '(everyone on this network)' : '(the address being handed out)'],
@@ -204,6 +229,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       {
         title: 'UDP',
         color: LAYER_COLOR.transport,
+        ws: WS.udp,
         rows: [
           ['From port', asks ? '68' : '67', asks ? '(DHCP client)' : '(DHCP server)'],
           ['To port', asks ? '67' : '68', asks ? '(DHCP server)' : '(DHCP client)'],
@@ -212,6 +238,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       {
         title: `DHCP ${DHCP_OP_LABEL[m.op]}`,
         color: LAYER_COLOR.DHCP,
+        ws: `Dynamic Host Configuration Protocol (${DHCP_OP_LABEL[m.op]})`,
         rows: [
           ['Message', dhcpSays(m)],
           ['Device name', m.name ?? '-'],
@@ -232,6 +259,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
     layers.push({
       title: `ARP ${a.op}`,
       color: LAYER_COLOR.ARP,
+      ws: `Address Resolution Protocol (${a.op})`,
       rows:
         a.op === 'request'
           ? [
@@ -250,6 +278,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
     layers.push({
       title: `Route ${f.bgp.kind}`,
       color: LAYER_COLOR.ROUTE,
+      ws: 'Border Gateway Protocol',
       rows: [
         ['Prefix', f.bgp.prefix],
         ['AS path', f.bgp.path.join(' → ') || '(withdrawn)'],
@@ -263,6 +292,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
   layers.push({
     title: 'IP packet (delivery across networks)',
     color: LAYER_COLOR.ip,
+    ws: WS.ip,
     rows: [
       ['From IP', ip.src, tag(nameForIp(sim, ip.src))],
       ['To IP', ip.dst, tag(nameForIp(sim, ip.dst))],
@@ -274,6 +304,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
     layers.push({
       title: ip.proto === 'tcp' ? 'TCP' : 'UDP',
       color: LAYER_COLOR.transport,
+      ws: ip.proto === 'tcp' ? WS.tcp : WS.udp,
       rows: [
         ['From port', String(ip.srcPort)],
         ['To port', String(ip.dstPort), ip.dstPort === 443 ? '(HTTPS)' : ip.dstPort === 80 ? '(HTTP)' : ip.dstPort === 53 ? '(DNS)' : undefined],
@@ -285,20 +316,22 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
     layers.push({
       title: 'TLS (encrypted)',
       color: LAYER_COLOR.HTTPS,
+      ws: WS.tls,
       rows: [['Data', gibberish(f.id)]],
       locked: true,
-      note: 'Only Alice’s browser and the real server have the keys to read this.',
+      note: 'Only the browser and the real server have the keys to read this.',
     });
     return layers;
   }
   switch (app.kind) {
     case 'ping':
-      layers.push({ title: 'Ping', color: LAYER_COLOR.PING, rows: [['Type', app.reply ? 'Echo reply' : 'Echo request']] });
+      layers.push({ title: 'Ping', color: LAYER_COLOR.PING, ws: WS.icmp, rows: [['Type', app.reply ? 'Echo reply' : 'Echo request']] });
       break;
     case 'http-req':
       layers.push({
         title: 'HTTP request',
         color: LAYER_COLOR.HTTP,
+        ws: WS.http,
         rows: [
           ['Method', app.method],
           ['Host', app.host],
@@ -311,6 +344,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       layers.push({
         title: 'HTTP response',
         color: LAYER_COLOR.HTTP,
+        ws: WS.http,
         rows: [
           ['Status', String(app.status)],
           ['Page title', app.title],
@@ -319,15 +353,16 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       });
       break;
     case 'dns-query':
-      layers.push({ title: 'DNS query', color: LAYER_COLOR.DNS, rows: [['Name', app.name]] });
+      layers.push({ title: 'DNS query', color: LAYER_COLOR.DNS, ws: 'Domain Name System (query)', rows: [['Name', app.name]] });
       break;
     case 'dns-answer':
-      layers.push({ title: 'DNS answer', color: LAYER_COLOR.DNS, rows: [['Name', app.name], ['IP address', app.ip ?? 'not found']] });
+      layers.push({ title: 'DNS answer', color: LAYER_COLOR.DNS, ws: 'Domain Name System (response)', rows: [['Name', app.name], ['IP address', app.ip ?? 'not found']] });
       break;
     case 'svc':
       layers.push({
         title: `${appName(app.app)} ${app.reply ? 'reply' : 'request'}`,
         color: LAYER_COLOR.transport,
+        ws: app.reply && app.status === 'closed' ? undefined : WS_SVC[app.app],
         rows: [
           ['Program', appName(app.app)],
           ...(app.reply ? ([['Answer', app.status === 'closed' ? 'Nothing listens on this port' : 'Service answered']] as [string, string][]) : []),
