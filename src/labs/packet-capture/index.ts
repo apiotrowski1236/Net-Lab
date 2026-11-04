@@ -175,7 +175,7 @@ export const packetCaptureLab: LabDef = {
   id: 'packet-capture',
   version: 1,
   title: "What's in a Packet?",
-  tagline: "Capture the family laptop's traffic, open packets layer by layer, learn the common kinds, and cut through the noise with filters, so Wireshark feels familiar.",
+  tagline: "Capture the family laptop's traffic, open packets layer by layer, learn the common kinds, and use filters to find the packets you want, so Wireshark feels familiar.",
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves'],
   ced: ['3.1.A', '3.2.B'],
@@ -338,7 +338,7 @@ export const packetCaptureLab: LabDef = {
           options: [
             { id: 'hop', text: 'Ethernet only carries a packet to the next device: the router', correct: true },
             { id: 'none', text: 'The school website has no MAC address', feedback: "Every network card has a MAC address. The school website's is far away, on another network." },
-            { id: 'hide', text: "The router hides the school's MAC address to keep it private", feedback: 'Nothing is hidden. An Ethernet address only works on its own local network.' },
+            { id: 'hide', text: "The router hides the school's MAC address to keep it private", feedback: "The router isn't hiding it. An Ethernet address only works on its own local network." },
             { id: 'wrong', text: 'The laptop put the wrong MAC address in it', feedback: "It's right on purpose. Look at the To IP: that's still the school website." },
           ],
           explain: 'The MAC addresses change at every hop. The IP addresses stay the same from one end to the other.',
@@ -736,7 +736,7 @@ export const packetCaptureLab: LabDef = {
       id: 'wireshark',
       title: 'Get ready for Wireshark',
       body: md`
-        Wireshark looks busier than this, but the idea is the same. Here's what carries over, and what's new:
+        Wireshark looks busier than this, but it works the same way. Some things carry over, and some are new:
 
         - **Pick an interface first.** Wireshark lists your computer's network connections. Pick Wi-Fi (or Ethernet, if you use a cable): the one with a moving line next to it.
         - **Start** is a blue shark fin. **Stop** is a red square.
@@ -785,7 +785,7 @@ export const packetCaptureLab: LabDef = {
       id: 'reflect',
       title: 'Reflect',
       body: md`
-        You've captured packets, opened their layers, and filtered a busy list down to what matters. Next is Part 2: Wireshark on a real computer.
+        You've captured packets, opened their layers, and filtered a busy list down to the packets you wanted. Next is Part 2: Wireshark on a real computer.
       `,
       questions: [
         {

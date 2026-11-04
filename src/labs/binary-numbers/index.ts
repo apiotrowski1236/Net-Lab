@@ -95,7 +95,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         > **How this lesson works.** Read each step here on the left. Try the activity on the right. (On a narrow screen, like a tablet held upright, the activity is below the lesson.) Goals check themselves off when you finish them. Answer the questions, then press **Continue**. Your work saves on this computer as you go.
 
-        A computer is built from billions of tiny switches. Each one is off or on, and that's all it can do. So how does a computer store a number, a word, or a song? It uses **patterns** of switches.
+        A computer is built from billions of tiny switches. Each one is either off or on. To store a number, a word, or a song, a computer uses **patterns** of switches.
 
         Think of a porch light. One switch can send two messages: off means "nobody's home," and on means "come in."
 
@@ -446,7 +446,7 @@ export const binaryNumbersLab: LabDef = {
 
         Why does that work? One place is worth more than all the places to its right put together. 64 is more than 32 + 16 + 8 + 4 + 2 + 1 = 63.
 
-        Lining up matters. 1001 and 110 both start with 1, but 1001 is 9 and 110 is 6. Compare their first digits and you learn nothing.
+        Line the numbers up before you compare. 1001 and 110 both start with 1, but 1001 is 9 and 110 is 6, so comparing their first digits doesn't tell you which is bigger.
 
         Try all three pairs on the right.
       `,
@@ -481,7 +481,7 @@ export const binaryNumbersLab: LabDef = {
             { id: 'swap', text: '00111111, 01011010, 01010111, 10000000', feedback: '01011010 and 01010111 first differ in the 8s place. Which one has the 1 there?' },
             { id: 'mixed', text: '01010111, 01011010, 00111111, 10000000', feedback: '00111111 has a 0 in the 64s place, and the next two have a 1 there. That makes it the smallest of those three.' },
           ],
-          explain: "In decimal they're 63, 87, 90, and 128. Scanning from the left was enough. You didn't need to convert them.",
+          explain: "In decimal they're 63, 87, 90, and 128. Scanning from the left put them in order without converting any of them.",
         },
         {
           id: 'shortcut',
@@ -531,7 +531,7 @@ export const binaryNumbersLab: LabDef = {
             { match: /^\s*(?:0\s*){0,3}1\s*$/, text: 'Count it out one step at a time: 1110, then 1111, then one more.' },
           ],
           expectHint: 'Count up one at a time: 1110, then 1111, then one more. You can try it on the 4-bit counter.',
-          explain: '1110 is 14, and 14 + 2 = 16, which is 10000. That needs 5 bits, so a 4-bit counter keeps only 0000. Overflow.',
+          explain: "1110 is 14, and 14 + 2 = 16, which is 10000. That needs 5 bits, so a 4-bit counter keeps only 0000. That's an overflow.",
         },
         {
           id: 'meaning',
