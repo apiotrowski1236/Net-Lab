@@ -33,6 +33,8 @@ export const reversed = (bits: string) => [...bits].reverse().join('');
 
 /** Fewer than `n` binary digits. */
 export const shortBits = (n: number) => new RegExp(`^\\s*(?:[01]\\s*){1,${n - 1}}$`);
+/** Exactly `n` binary digits. */
+export const exactBits = (n: number) => new RegExp(`^\\s*(?:[01]\\s*){${n}}$`);
 /** More than `n` binary digits. */
 export const longBits = (n: number) => new RegExp(`^\\s*(?:[01]\\s*){${n + 1},}$`);
 /** Any digit that isn't 0 or 1. */

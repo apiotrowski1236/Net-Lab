@@ -24,7 +24,7 @@ export function RoundingView({ spec, state: s, send }: DemoViewProps<RoundingSpe
           <tr>
             <th>1 ÷ 3</th>
             <td>
-              <code>0.3333333333…</code> <span class="muted small">(the 3s never end)</span>
+              <code>0.3333333333…</code> <span class="round-aside">(the 3s never end)</span>
             </td>
           </tr>
           <tr>
@@ -36,7 +36,7 @@ export function RoundingView({ spec, state: s, send }: DemoViewProps<RoundingSpe
           <tr>
             <th>Stored × 3</th>
             <td>
-              <code>{t.times3}</code> <span class="muted small">(should be 1)</span>
+              <code>{t.times3}</code> <span class="round-aside">(should be 1)</span>
             </td>
           </tr>
           <tr>

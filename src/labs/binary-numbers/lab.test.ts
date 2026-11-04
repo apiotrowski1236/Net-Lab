@@ -413,7 +413,9 @@ describe('binary-numbers: typed answers', () => {
     expect(fb('w6', '10110000')).toMatch(/reverse order/);
     expect(fb('w9', '00010011')).toMatch(/reverse order/);
     expect(fb('w6', '13')).toMatch(/only the digits 0 and 1/);
-    expect(fb('w8', '0100110')).toMatch(/exactly 8 bits/);
+    expect(fb('w8', '0100110')).toMatch(/You wrote 7 bits\./);
+    // Seven 1s for 255: don't tell them to add a 0.
+    expect(fb('w10', '1111111')).not.toMatch(/0s in front/);
     expect(fb('w8', '001001101')).toMatch(/exactly 8 bits/);
     expect(fb('w10', '100000000')).toMatch(/That's 256/);
     // Any other byte: say what it makes.

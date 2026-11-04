@@ -70,7 +70,7 @@ export function ExtraCreditBanner({ session }: { session: LabSession }) {
     text = "You've done extra credit since you last handed in. Hand in your report again so your teacher sees it.";
     label = endpoint ? 'Submit again with my extra credit' : 'Download my updated report';
   } else {
-    text = `${extras.length > 1 ? 'These steps are' : 'This step is'} optional. When you finish, hand in your report again so it shows your extra credit.`;
+    text = `${extras.length > 1 ? 'These steps are' : 'This step is'} optional. Your last report has all your work so far. If you do more here, hand in your report again.`;
     label = endpoint ? 'Submit again' : 'Download my report again';
   }
   return (

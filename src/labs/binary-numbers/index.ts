@@ -3,7 +3,7 @@ import type { BitsSpec } from '../../demos/types';
 import { demoFact } from '../helpers';
 import { md } from '../md';
 import type { LabDef, TextQuestion } from '../types';
-import { bitsRe, count, longBits, notBinary, num, rangeRe, reversed, shortBits } from './answers';
+import { bitsRe, count, exactBits, longBits, notBinary, num, rangeRe, reversed } from './answers';
 
 /**
  * Binary Numbers (AP CSP, topic 2.1). A lesson with no network: every step's
@@ -64,7 +64,7 @@ function toDecimal(id: string, n: number, bits: string, ones: number): TextQuest
     id,
     kind: 'text',
     prompt: `Turn **${bits}** into decimal.`,
-    placeholder: 'Type a number',
+    placeholder: 'Type a number or your work',
     // The number, or the work: the right place values added up, with or without "= n".
     expect: sum ? new RegExp(`${num(n).source}|^\\s*${sum}\\s*(?:=\\s*${n})?\\s*\\.?$`, 'i') : num(n),
     wrong,
@@ -81,7 +81,8 @@ function toBinary(id: string, n: number, bits: string, extra: TextQuestion['wron
   if (reversed(bits) !== bits) wrong.push({ match: bitsRe(reversed(bits)), text: 'Those bits are in reverse order. The 128s place is on the left, and the 1s place is on the right.' });
   wrong.push(
     { match: notBinary, text: 'Binary uses only the digits 0 and 1.' },
-    { match: shortBits(8), text: 'Write exactly 8 bits. Put 0s in front if you need them.' },
+    // Too few bits: say how many, without guessing whether a 0 or a 1 is missing.
+    ...[1, 2, 3, 4, 5, 6, 7].map((k) => ({ match: exactBits(k), text: `You wrote ${k} bit${k === 1 ? '' : 's'}. A byte has 8 places, from 128 down to 1. Write a bit for each one.` })),
     { match: longBits(8), text: 'Write exactly 8 bits. One byte has 8 places, from 128 down to 1.' },
   );
   // Any other byte: say what it makes, so the student can find the slip.
@@ -584,7 +585,7 @@ export const binaryNumbersLab: LabDef = {
       id: 'overflow',
       title: 'Overflow',
       body: md`
-        A car's **odometer** counts miles with a fixed number of digits: the number of digits is set and never changes. Press **+1** on the odometer until it passes 999. What happens?
+        A car's **odometer** is the counter that shows how many miles the car has gone. It has a fixed number of digits: the number of digits is set and never changes. Press **+1** on the odometer until it passes 999. What happens?
 
         Many programming languages store each whole number in a fixed number of bits, so the same thing happens there. A 4-bit number goes from 0000 to 1111 (0 to 15). Press **+1** on the 4-bit counter until it passes 1111.
 
@@ -709,7 +710,7 @@ export const binaryNumbersLab: LabDef = {
           kind: 'choice',
           prompt: 'A school district has 1,200 students. What is the minimum number of bits needed to give every student a unique ID number?',
           options: [
-            { id: '10', text: '10', feedback: "2¹⁰ = 1,024 IDs. That's too few for 1,200 students." },
+            { id: '10', text: '10', feedback: "2¹⁰ = 1,024 IDs. That's too few for 1,200 students. Double once more." },
             { id: '11', text: '11', correct: true },
             { id: '12', text: '12', feedback: '12 bits work (4,096 IDs), but 11 bits already give 2,048, and the question asks for the fewest.' },
             { id: '1200', text: '1,200', feedback: "You don't need one bit per student. Each bit doubles the number of IDs." },
@@ -844,7 +845,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         Text is stored as numbers too. **ASCII** is a code that gives each letter, digit, and symbol a number from 0 to 127. Capital A is 65, B is 66, and the rest of the capital letters follow in order. Lowercase letters start at 97, so a is 97.
 
-        Each character takes one byte. (ASCII needs only 7 bits, because 2⁷ = 128, so the first bit of each byte is 0.) Letters with accents, like é, aren't in ASCII.
+        Each character takes one byte. (ASCII needs only 7 bits, because 2⁷ = 128, so the first bit of each byte is 0.) Letters with accents, like é, aren't in ASCII. Computers today use **Unicode**, which starts with the same codes as ASCII and adds é, emoji, and every alphabet. Those extra characters take more than one byte.
 
         Type a word in the **ASCII** card to see its bytes.
       `,

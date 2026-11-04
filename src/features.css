@@ -2517,7 +2517,7 @@ button.pv-bit:hover {
 .pv-add {
   min-height: 20px;
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 750;
   color: var(--good-ink);
 }
@@ -3565,6 +3565,10 @@ button.pl-tile:active {
   }
 }
 .bits-hint {
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.round-aside {
   color: var(--ink-2);
   font-size: 14px;
 }
