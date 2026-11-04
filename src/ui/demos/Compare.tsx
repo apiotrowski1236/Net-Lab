@@ -3,7 +3,7 @@ import { firstDifference, fromBits, placeValues } from '../../demos/binary';
 import { comparePair, type CompareState } from '../../demos/compare';
 import type { CompareSpec } from '../../demos/types';
 import { Icon } from '../icons';
-import { placeName, type DemoViewProps } from './parts';
+import { focusInto, placeName, type DemoViewProps } from './parts';
 
 /** Compare two binary numbers: line them up, find the first place they differ, say which is bigger. */
 export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec, CompareState>) {
@@ -15,6 +15,7 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
   const note = s.note;
   const big = fromBits(a) > fromBits(b) ? a : b;
   const small = big === a ? b : a;
+  const root = useRef<HTMLDivElement>(null);
 
   // The pair as given, before any 0s: which row is shorter, and by how much.
   const [oa, ob] = spec.pairs[s.pair];
@@ -53,12 +54,12 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
   };
 
   return (
-    <div class="cmp">
+    <div class="cmp" ref={root}>
       <div class="walk-top">
         <span class="pill info">
           Pair {s.pair + 1} of {spec.pairs.length}
         </span>
-        <span>{s.found ? 'Which one is bigger?' : 'Tap the first place, from the left, where the two numbers differ.'}</span>
+        <span>{s.found ? 'Which one is bigger?' : 'Tap the first place, from the left, where the two numbers are different.'}</span>
       </div>
 
       <p class="cmp-nums">
@@ -110,7 +111,7 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
         <p class={`walk-note ${note.kind === 'wrong-pick' ? 'bad' : ''}`} role="status">
           {note.kind === 'unpadded' && 'Line them up first. Comparing from the left only works when the places match.'}
           {note.kind === 'same' && `Both have ${a[note.col]} in ${placeName(pv[note.col])}. Keep looking to the right.`}
-          {note.kind === 'later' && `They differ here, but they already differ further left. The leftmost difference decides.`}
+          {note.kind === 'later' && `They are different here, but they are already different further left. The leftmost difference decides.`}
           {note.kind === 'wrong-pick' &&
             `${note.pick === 0 ? a : b} has a 0 in ${placeName(pv[first])}, and the other has a 1. That 1 is worth more than all the places to its right put together.`}
         </p>
@@ -133,7 +134,13 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
             <Icon name="check" size={14} /> <code>{big}</code> is bigger. Check: {fromBits(big)} is more than {fromBits(small)}.
           </span>
           {more ? (
-            <button class="btn primary small" onClick={() => send({ next: true })}>
+            <button
+              class="btn primary small"
+              onClick={() => {
+                send({ next: true });
+                focusInto(root.current, '.cmp-pad .btn, .cmp-col');
+              }}
+            >
               Next pair <Icon name="chevronRight" size={14} />
             </button>
           ) : (

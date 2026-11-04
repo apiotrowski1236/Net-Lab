@@ -1,8 +1,9 @@
+import { useRef } from 'preact/hooks';
 import { placeValues } from '../../demos/binary';
 import { fitDone, fitLeft, fitPlaces, type FitWalkState } from '../../demos/fitWalk';
 import type { FitWalkSpec } from '../../demos/types';
 import { Icon } from '../icons';
-import { placeName, type DemoViewProps } from './parts';
+import { focusInto, placeName, type DemoViewProps } from './parts';
 
 /** Decimal to binary with "does it fit?": one place at a time, from the left. */
 export function FitWalkView({ spec, state: s, send }: DemoViewProps<FitWalkSpec, FitWalkState>) {
@@ -21,8 +22,9 @@ export function FitWalkView({ spec, state: s, send }: DemoViewProps<FitWalkSpec,
     if (s.bits[i] === '1') rest -= pv[i];
   }
   const miss = s.miss && s.miss.col === col ? s.miss : undefined;
+  const root = useRef<HTMLDivElement>(null);
   return (
-    <div class="walk">
+    <div class="walk" ref={root}>
       <div class="walk-top">
         <span class="pill info">
           Example {s.ex + 1} of {spec.examples.length}
@@ -91,7 +93,13 @@ export function FitWalkView({ spec, state: s, send }: DemoViewProps<FitWalkSpec,
             <Icon name="check" size={14} /> {n} is <code>{s.bits}</code> in binary. Nothing is left over.
           </span>
           {more ? (
-            <button class="btn primary small" onClick={() => send({ next: true })}>
+            <button
+              class="btn primary small"
+              onClick={() => {
+                send({ next: true });
+                focusInto(root.current, '.fit-ask .btn');
+              }}
+            >
               Next example <Icon name="chevronRight" size={14} />
             </button>
           ) : (

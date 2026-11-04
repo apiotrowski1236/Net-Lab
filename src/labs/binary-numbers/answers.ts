@@ -7,6 +7,20 @@
 /** A whole number, alone or at the end of worked-out math ("8 + 2 = 10"), with an optional word after it ("64 values"). */
 export const num = (n: number) => new RegExp(`^\\s*(?:[^=]*=\\s*)?${n}(?:\\s*[a-z][a-z ]*)?\\s*\\.?$`, 'i');
 
+const SUPERSCRIPT = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+/**
+ * A count of patterns: the number, or the same number as a power of 2 ("2^8",
+ * "2**8", "2⁸", "2^8 = 256"), since the lesson writes counts that way too.
+ */
+export const count = (n: number) => {
+  const k = Math.log2(n);
+  if (!Number.isInteger(k)) return num(n);
+  const sup = [...String(k)].map((d) => SUPERSCRIPT[Number(d)]).join('');
+  const pow = `2\\s*(?:\\^|\\*\\*)\\s*${k}|2${sup}`;
+  return new RegExp(`^\\s*(?:(?:${pow})(?:\\s*=\\s*${n})?|(?:[^=]*=\\s*)?${n})(?:\\s*[a-z][a-z ]*)?\\s*\\.?$`, 'i');
+};
+
 /** Exactly these bits, spaces allowed between them ("0000 1101"). */
 export const bitsRe = (bits: string) => new RegExp(`^\\s*${[...bits].join('\\s*')}\\s*$`);
 

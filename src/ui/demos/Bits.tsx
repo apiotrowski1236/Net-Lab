@@ -81,6 +81,9 @@ function Cards({ spec, state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
           const up = s.bits[i] === '1';
           return (
             <button key={v} class={`bcard ${up ? 'up' : 'down'}`} aria-pressed={up} aria-label={`${v} card, ${up ? 'face up' : 'face down'}`} onClick={() => send({ flip: i })}>
+              <span class="bcard-place" aria-hidden="true">
+                {v}
+              </span>
               <span class="bcard-inner">
                 <span class="bcard-face bcard-front">
                   <Dots n={v} />
@@ -354,10 +357,7 @@ function Meaning({ state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
         <div class="mean-card">
           <span class="mean-label">As a number</span>
           <strong class="mean-val">{v}</strong>
-        </div>
-        <div class="mean-card">
-          <span class="mean-label">As hex</span>
-          <strong class="mean-val">{gray}</strong>
+          <span class="mean-sub">{gray} in hex</span>
         </div>
         <div class="mean-card">
           <span class="mean-label">As a letter (ASCII)</span>

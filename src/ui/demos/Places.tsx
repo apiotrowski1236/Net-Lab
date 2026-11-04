@@ -68,7 +68,7 @@ export function PlacesView({ spec, state: s, send }: DemoViewProps<PlacesSpec, P
         </div>
       </div>
       <p class="visually-hidden" aria-live="polite">
-        {s.digits.join('')} = {sum} = {total}
+        {two ? 'Binary' : 'Decimal'} {s.digits.join('')} = {sum} = {total}
       </p>
     </div>
   );

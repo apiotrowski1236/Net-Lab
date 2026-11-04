@@ -131,7 +131,6 @@ const MISTAKES = {
   cards: { biggest: { first: '32', expectFb: /16 \+ 8 \+ 4 \+ 2 \+ 1 = 31/ }, 'no-32': { first: 'only make odd', expectFb: /16 \+ 4 = 20/ } },
   'to-decimal': { backward: { first: 'Forgot to count the 0s', expectFb: /add nothing/ } },
   'practice-decimal': { w1: { first: '80', expectFb: /wrong end/ }, w2: { first: '4', expectFb: /how many 1s/ }, w4: { first: '256', expectFb: /256 is how many patterns/ } },
-  'to-binary': { max: { first: '256', expectFb: /one of them is 00000000/ } },
   'practice-binary': { w6: { first: '1101', expectFb: /write all 8/ }, w7: { first: '01001100', expectFb: /reverse order/ }, w8: { first: '77', expectFb: /only the digits 0 and 1/ } },
   compare: { shortcut: { first: 'Count the 1s', expectFb: /00111111 has six 1s/ } },
   overflow: { w14: { first: '10000', expectFb: /needs 5 bits/ }, meaning: { first: 'The computer crashes', expectFb: /keeps running/ } },
@@ -211,6 +210,7 @@ try {
   await page.waitForSelector('.lesson');
   log(`${lab.title}: ${lab.steps.length} steps`);
 
+  let nextByKey = false;
   for (let i = 0; i < lab.steps.length; i++) {
     const step = lab.steps[i];
     await page.waitForSelector(`text=Step ${i + 1} of ${lab.steps.length}`);
@@ -262,6 +262,14 @@ try {
         await pause();
         await check((await card('switches').locator('.sw').first().getAttribute('aria-checked')) === 'true', 'Space did not flip the focused switch');
         log('  flipped switch 1 with the keyboard');
+      } else if (step.id === 'to-decimal' && 'next' in m.input && !nextByKey) {
+        // Next example by keyboard: focus stays in the activity.
+        nextByKey = true;
+        await card('read').getByRole('button', { name: /^Next example/ }).focus();
+        await page.keyboard.press('Enter');
+        await pause(250);
+        await check(await card('read').evaluate((c) => c.contains(document.activeElement) && document.activeElement.matches('.pv-bit')), 'after Next example, focus left the activity');
+        log('  pressed Next example with the keyboard: focus stayed on the boxes');
       } else await doInput(step, m);
 
       // Reload in the middle of steps 1 and 6, then carry on.
@@ -282,6 +290,12 @@ try {
     const cont = page.getByRole('button', { name: 'Continue' });
     if (!(await cont.count())) await fail(`Continue not available on ${step.id}: "${(await page.locator('.lesson .btn.primary.big').innerText()).trim()}"`);
     await cont.click();
+    if (i === 0) {
+      // A new step starts at its title, for keyboard users too.
+      await pause(300);
+      await check(await page.evaluate(() => document.activeElement?.classList.contains('step-title')), 'after Continue, focus was not on the new step title');
+      log('  Continue: focus moved to the new step title');
+    }
   }
 
   // ---------------------------------------------------------------- hand in

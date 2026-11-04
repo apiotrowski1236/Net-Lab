@@ -214,7 +214,7 @@ export function SubmitBox({ session }: { session: LabSession }) {
             {endpoint
               ? 'Submitting sends your goals and answers straight to your teacher. If you change anything later, submit again.'
               : `Your teacher collects this lab as a file. This button downloads your report, ${reportFileName(who.name, lab.title)}. Then ${handInWhere()}.`}{' '}
-            The report doubles as a backup: if your work ever goes missing, open it on the home page.
+            The report is also a backup: if your work ever goes missing, open it on the home page.
           </p>
         )}
       </div>

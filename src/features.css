@@ -2434,6 +2434,11 @@
 .bcard.up .bcard-bit {
   color: var(--brand-ink);
 }
+.bcard-place {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--ink-2);
+}
 .bits-readout {
   display: flex;
   align-items: center;
@@ -2869,6 +2874,14 @@ button.pv-bit:hover {
   .demo-stage {
     overflow: visible;
   }
+}
+/* On a narrow screen the activities sit inside the step, between the goals and the questions. */
+.demo-stage.inline {
+  margin: 16px 0;
+}
+.demo-stage.inline .demo-list {
+  max-width: none;
+  padding: 0;
 }
 @media (max-width: 560px) {
   .demo-list {
@@ -3489,10 +3502,10 @@ button.pl-tile:active {
   }
 }
 
-/* ---------- meaning: one byte read four ways ---------- */
+/* ---------- meaning: one byte read three ways ---------- */
 .mean-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
@@ -3526,6 +3539,11 @@ button.pl-tile:active {
   font-size: 13px;
   color: var(--muted);
 }
+.mean-sub {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--ink-2);
+}
 .mean-swatch {
   width: 100%;
   max-width: 96px;
@@ -3535,7 +3553,7 @@ button.pl-tile:active {
 }
 @media (max-width: 600px) {
   .mean-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
