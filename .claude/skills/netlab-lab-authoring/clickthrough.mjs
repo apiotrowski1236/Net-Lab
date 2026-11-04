@@ -65,7 +65,8 @@ const mod = await vite.ssrLoadModule(`/src/labs/${LAB}/solution.ts`);
 const sol = Object.entries(mod).find(([n]) => n.endsWith('Solution'))?.[1];
 const lab = LABS.find((l) => l.id === LAB);
 if (!lab || !sol) throw new Error(`No lab or solution for ${LAB}`);
-const labels = Object.fromEntries(Object.values(lab.build().devices).map((d) => [d.id, d.label]));
+// A lesson (no `build`) has no network, so no devices and no speed button.
+const labels = lab.build ? Object.fromEntries(Object.values(lab.build().devices).map((d) => [d.id, d.label])) : {};
 const MATCH = { login: isPlainLogin, encrypted: isEncrypted, telnet: isTelnetLogin };
 
 // Play the key in a model session alongside the browser, to know which captured row each openFrame move means.
@@ -186,7 +187,7 @@ async function doMove(i, step, m) {
 async function answer(i, step) {
   const key = sol[step.id] ?? {};
   for (const q of step.questions ?? []) {
-    const card = page.locator('.qcard').filter({ hasText: q.prompt.replace(/\*\*/g, '').slice(0, 40) }).first();
+    const card = page.locator('.qcard').filter({ hasText: q.prompt.replace(/\*\*|`/g, '').slice(0, 40) }).first();
     if ((await card.count()) === 0) await fail(i, `question "${q.id}" isn't on screen (still locked?)`);
     if (q.kind === 'choice') {
       for (const o of q.options.filter((o) => o.correct)) await card.locator('.option', { hasText: o.text }).first().click();
@@ -205,12 +206,15 @@ async function answer(i, step) {
 try {
   await page.goto(`${url}#/lab/${lab.id}`);
   await page.waitForSelector('.lesson');
-  await page.getByRole('button', { name: `${SPEED}×`, exact: true }).click();
-  log(`${lab.title}: ${lab.steps.length} steps at ${SPEED}×`);
+  if (lab.build) await page.getByRole('button', { name: `${SPEED}×`, exact: true }).click();
+  log(`${lab.title}: ${lab.steps.length} steps${lab.build ? ` at ${SPEED}×` : ''}`);
   for (let i = 0; i <= lastIndex; i++) {
     const step = lab.steps[i];
     await page.waitForSelector(`text=Step ${i + 1} of ${lab.steps.length}`);
     log(`step ${i + 1} ${step.id}`);
+    // A new step's question cards reset their text after the first paint. A
+    // lesson step has no moves to wait on, so give them that moment.
+    await page.waitForTimeout(300);
     if (step.kind === 'submit') break;
     // The model session plays each move too, so openFrame knows its row.
     for (const m of sol[step.id]?.moves ?? []) {
@@ -228,7 +232,8 @@ try {
         await fail(i, `goals not done after the answer key's moves: ${left.join('; ')}`);
       }
     }
-    await answer(i, step);
+    // A click that times out still gets a screenshot and the step's name.
+    await answer(i, step).catch((e) => fail(i, String(e.message ?? e).split('\n')[0]));
     playStep(model, { text: sol[step.id]?.text });
     const cont = page.getByRole('button', { name: 'Continue' });
     if (!(await cont.count())) {

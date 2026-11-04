@@ -208,7 +208,7 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
       )}
       {wrong && (
         <div class="qfeedback bad" ref={fb} tabIndex={-1}>
-          {wrongFeedback(q, a?.value ?? '')}
+          {wrongFeedback(q, a?.value ?? '', session.answerText)}
         </div>
       )}
       {auto && done && (

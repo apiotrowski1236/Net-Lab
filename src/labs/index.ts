@@ -1,5 +1,6 @@
 import { homeNetworkLab } from './home-network';
 import { packetCaptureLab } from './packet-capture';
+import { wiresharkLab } from './wireshark';
 import { buildNetworkLab } from './build-network';
 import { dnsSpoofLab } from './dns-spoof';
 import { macFloodLab } from './mac-flood';
@@ -15,7 +16,7 @@ import { binaryNumbersLab } from './binary-numbers';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [homeNetworkLab, packetCaptureLab, buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab, binaryNumbersLab];
+export const LABS: LabDef[] = [homeNetworkLab, packetCaptureLab, wiresharkLab, buildNetworkLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab, binaryNumbersLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the

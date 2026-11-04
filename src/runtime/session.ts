@@ -16,6 +16,7 @@ import {
   type StepDef,
   type ToolSpec,
   type UiEvent,
+  textCorrect,
   wrongMatch,
 } from '../labs/types';
 import { touch, type Answer, type LabProgress } from '../store/progress';
@@ -321,6 +322,9 @@ export class LabSession {
     return this.progress.answers[answerKey(stepId, qId)];
   }
 
+  /** Another answer's current text, for a question's `verify`. */
+  readonly answerText = (stepId: string, qId: string): string => this.answer(stepId, qId)?.value.trim() ?? '';
+
   /** Save a draft without grading (typing in a text box). */
   setDraft(stepId: string, q: QuestionDef, value: string): void {
     const key = answerKey(stepId, q.id);
@@ -344,7 +348,7 @@ export class LabSession {
       const right = new Set(q.options.filter((o) => o.correct).map((o) => o.id));
       correct = picked.size === right.size && [...picked].every((id) => right.has(id));
     } else if (q.expect) {
-      correct = q.expect.test(a.value.trim());
+      correct = textCorrect(q, a.value, this.answerText);
     } else {
       correct = a.value.trim().length > 0;
     }
