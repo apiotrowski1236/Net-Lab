@@ -215,8 +215,14 @@ function markerFor(
     }
     case 'nat':
       return e.what === 'out'
-        ? { device: e.device, text: `sent as ${e.entry.proto === 'icmp' ? e.publicIp : `${e.publicIp}:${e.entry.public}`}`, tone: 'info' }
-        : { device: e.device, text: `answer for ${(e.who && devName?.(e.who)) ?? e.entry.inside.ip}`, tone: 'info' };
+        ? {
+            device: e.device,
+            text: `sent as ${e.entry.proto === 'icmp' ? e.publicIp : `${e.publicIp}:${e.entry.public}`}`,
+            tone: 'info',
+            // A busy minute sends many at once: one tag, not a stack over the map.
+            merge: { key: 'nat-out', many: (n) => `sent ${n} as ${e.publicIp}` },
+          }
+        : { device: e.device, text: `answer for ${(e.who && devName?.(e.who)) ?? e.entry.inside.ip}`, tone: 'info', merge: { key: 'nat-in', many: (n) => `${n} answers back` } };
     case 'wifi':
       switch (e.what) {
         case 'join':

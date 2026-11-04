@@ -81,7 +81,8 @@ export function protocolsOf(f: Frame): string[] {
 /** Other names Wireshark accepts for the same protocol. */
 const ALIAS: Record<string, string> = { bootp: 'dhcp', ssl: 'tls', smb: 'smb2' };
 
-const PROTOCOLS = new Set(['eth', 'arp', 'ip', 'icmp', 'udp', 'tcp', 'dns', 'dhcp', 'http', 'tls', 'ipp', 'ssh', 'smb2', 'telnet', 'bgp']);
+// quic and ipv6 are real Wireshark filters that no simulated packet matches (packet-capture names them for Part 2).
+const PROTOCOLS = new Set(['eth', 'arp', 'ip', 'icmp', 'udp', 'tcp', 'dns', 'dhcp', 'http', 'tls', 'ipp', 'ssh', 'smb2', 'telnet', 'bgp', 'quic', 'ipv6']);
 
 type FieldType = 'ip' | 'mac' | 'num' | 'str' | 'flag';
 
@@ -440,8 +441,13 @@ export function parseFilter(text: string): FilterResult {
   try {
     return { ok: true, node: new Parser(tokenize(src)).parse() };
   } catch (e) {
-    if (e instanceof FilterError) return { ok: false, msg: e.message };
-    throw e;
+    if (!(e instanceof FilterError)) throw e;
+    // Suggest the whole filter in lowercase, so "!ARP" gets "!arp", not "arp".
+    const lower = src.toLowerCase();
+    if (lower !== src && e.message.startsWith('Filters are lowercase.') && parseFilter(lower).ok) {
+      return { ok: false, msg: `Filters are lowercase. Try: ${lower}` };
+    }
+    return { ok: false, msg: e.message };
   }
 }
 

@@ -87,12 +87,18 @@ describe('display filters', () => {
     expect(shows('dns.a == 192.0.2.80')).toEqual(['dnsA']);
     expect(shows('http.request.method == GET')).toEqual(['get']);
     expect(shows('http.host == "video.example"')).toEqual([]);
+    // Real Wireshark filters for traffic this network never has: valid, and empty.
+    expect(shows('quic')).toEqual([]);
+    expect(shows('ipv6')).toEqual([]);
   });
 
   it('explains mistakes in plain words', () => {
     expect(msg('ping')).toBe('Wireshark calls ping packets icmp. Try: icmp');
     expect(msg('https')).toBe('Wireshark calls encrypted web traffic tls. Try: tls');
     expect(msg('DNS')).toBe('Filters are lowercase. Try: dns');
+    // The suggestion is the whole filter, so it keeps the "!".
+    expect(msg('!ARP')).toBe('Filters are lowercase. Try: !arp');
+    expect(msg('ip.addr == 192.0.2.80 && HTTP')).toBe('Filters are lowercase. Try: ip.addr == 192.0.2.80 && http');
     expect(msg('ip == 192.0.2.80')).toBe('Say which address: ip.addr (either end), ip.src (from), or ip.dst (to). Try: ip.addr == 192.0.2.80');
     expect(msg('ip.addr = 192.0.2.80')).toBe('Use two equals signs (==) to compare.');
     expect(msg('ip.addr ==')).toBe('Type a value after ==.');

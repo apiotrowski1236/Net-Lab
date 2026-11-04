@@ -239,7 +239,13 @@ describe('lesson buttons', () => {
     s.sim.runUntilIdle();
     // One load only: the second press didn't start another.
     expect(s.sim.dev('laptop').browser?.startedAt).toBe(t1);
-    expect(lines()).toEqual([{ tone: 'good', text: 'The homework page loaded.' }, late]);
+    expect(lines()).toEqual([
+      { tone: 'good', text: 'The homework page loaded.' },
+      {
+        tone: 'bad',
+        text: 'The capture started after you pressed Open the school website, so it missed the first packets. Press Restart, then press Open the school website again.',
+      },
+    ]);
     expect(s.goalDone('first-capture', 'page')).toBe(false);
 
     // A whole load after the leftovers: the list isn't one page load yet.
@@ -273,6 +279,54 @@ describe('lesson buttons', () => {
     s.sim.runUntilIdle();
     expect(s.sim.dev('laptop').capture).toHaveLength(44);
     expect(lines()).toEqual([{ tone: 'good', text: 'The minute is over. The capture recorded 44 packets.' }]);
+  });
+
+  it('Leave the laptop alone, started late: says when the minute is over, and the goal waits', () => {
+    const s = playTo('https');
+    s.goTo(index('busy'));
+    const lines = press(s, 'busy-minute');
+    s.sim.advance(2000);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    const late = 'The capture started after you pressed Leave the laptop alone for a minute, so it missed the first packets.';
+    expect(lines()).toEqual([{ tone: 'bad', text: `${late} When this finishes, press Restart, then press Leave the laptop alone for a minute again.` }]);
+    s.sim.runUntilIdle();
+    s.sim.advance(5000); // the minute keeps running a little after its last packet
+    expect(lines()).toEqual([
+      { tone: 'good', text: 'The minute is over.' },
+      { tone: 'bad', text: `${late} Press Restart, then press Leave the laptop alone for a minute again.` },
+    ]);
+    expect(s.goalDone('busy', 'busy')).toBe(false);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    press(s, 'busy-minute');
+    s.sim.runUntilIdle();
+    expect(s.goalDone('busy', 'busy')).toBe(true);
+  });
+
+  it('Open the video site and The TV plays a show, started late: the goal waits for a capture that was running first', () => {
+    const s = playTo('more-kinds');
+    s.goTo(index('https'));
+    press(s, 'open-video');
+    s.sim.advance(1500);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    s.sim.runUntilIdle();
+    expect(s.goalDone('https', 'captured')).toBe(false);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    press(s, 'open-video');
+    s.sim.runUntilIdle();
+    expect(s.goalDone('https', 'captured')).toBe(true);
+
+    const t = playTo('address-filter');
+    const tv = press(t, 'tv-show');
+    t.sim.advance(1500);
+    t.dispatch({ type: 'capture', device: 'laptop', on: true });
+    t.sim.runUntilIdle();
+    expect(tv()[0]).toEqual({ tone: 'good', text: 'The TV is playing the show.' });
+    expect(tv()[1].text).toMatch(/^The capture started after you pressed The TV plays a show, so it missed the first packets\. Press Restart/);
+    expect(t.goalDone('cant-see', 'show')).toBe(false);
+    t.dispatch({ type: 'capture', device: 'laptop', on: true });
+    press(t, 'tv-show');
+    t.sim.runUntilIdle();
+    expect(t.goalDone('cant-see', 'show')).toBe(true);
   });
 
   it('Leave the laptop alone: a running count, then the total', () => {

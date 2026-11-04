@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
-import { goalKey, isLesson, wrongFeedback, type ChoiceQuestion, type QuestionDef, type StepDef, type TextQuestion } from '../labs/types';
+import { goalKey, isLesson, wrongFeedback, type ChoiceQuestion, type QuestionDef, type StepDef, type TextQuestion, type ToolSpec } from '../labs/types';
 import type { SimEvent } from '../sim/types';
 import type { Sim } from '../sim/sim';
 import { targetsFor } from '../sim/malware';
@@ -371,6 +371,7 @@ export function LessonPanel({
   const just = session.justCompleted.value;
   const p = session.progress;
   const step = session.step;
+  const captureTool = session.tools.find((t): t is Extract<ToolSpec, { kind: 'capture' }> => t.kind === 'capture');
   const total = session.lab.steps.length;
   const [outline, setOutline] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
@@ -494,6 +495,19 @@ export function LessonPanel({
         {step.extra && <ExtraCreditBanner session={session} />}
         <Prose src={step.body} labels={labels} onDevice={onDevice} />
 
+        {captureTool && (
+          // Keyboard users: the capture controls are many Tab presses away, past the map.
+          <button
+            type="button"
+            class="btn small skip-link"
+            onClick={() => {
+              onDevice(captureTool.device);
+              requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-capture-tools] button:not(.skip-link)')?.focus());
+            }}
+          >
+            Go to the capture controls
+          </button>
+        )}
         {step.actions && step.actions.length > 0 && (
           <div class="actions">
             {step.actions.map((a) => (

@@ -1340,6 +1340,12 @@ h4 {
   stroke: var(--focus);
   stroke-width: 3;
 }
+/* Keyboard focus looks different from "selected": dark and dashed. */
+.device:focus-visible .device-card {
+  stroke: var(--ink);
+  stroke-width: 3.5;
+  stroke-dasharray: 7 4;
+}
 .focus-ring {
   fill: var(--ring-fill);
   stroke: var(--ring-line);

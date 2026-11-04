@@ -3620,13 +3620,14 @@ button.pl-tile:active {
 /* packet-capture: a drawing of Wireshark's window (step 11). It stays light
    in the dark theme, like a picture of the real program. */
 .ws-window {
+  container-type: inline-size;
   margin: 12px 0;
   border: 1px solid #94a3b8;
   border-radius: 8px;
   overflow: hidden;
   background: #f8fafc;
   color: #0f172a;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.35;
 }
 .ws-part {
@@ -3678,21 +3679,46 @@ button.pl-tile:active {
   min-width: 0;
   overflow-x: auto;
 }
+/* The Info column gets its own line under each row, so nothing is cut off in
+   the lesson's narrow column. A wide column (an iPad, or 200% zoom) fits it
+   on the row, as Wireshark does. */
 .ws-row {
   display: grid;
-  grid-template-columns: 3ch 5ch 13ch 13ch 6ch 5ch minmax(16ch, 1fr);
-  gap: 0 6px;
-  padding: 1px 3px;
+  grid-template-columns: 3ch 5ch 13ch 13ch 8ch 6ch;
+  gap: 0 4px;
+  padding: 2px 3px;
   white-space: nowrap;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 10px;
+  font-size: 10.5px;
+}
+.ws-list {
+  padding-left: 27px;
+}
+.ws-row > span:last-child {
+  grid-column: 2 / -1;
 }
 .ws-row span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+@container (min-width: 460px) {
+  .ws-part {
+    font-size: 13px;
+  }
+  .ws-row,
+  .ws-bytes {
+    font-size: 12.5px;
+  }
+}
+@container (min-width: 760px) {
+  .ws-row {
+    grid-template-columns: 3ch 5ch 13ch 13ch 8ch 6ch auto;
+  }
+  .ws-row > span:last-child {
+    grid-column: auto;
+  }
+}
 .ws-row.ws-head {
-  font-family: inherit;
   font-weight: 700;
   border-bottom: 1px solid #cbd5e1;
 }
@@ -3715,7 +3741,38 @@ button.pl-tile:active {
 }
 .ws-bytes {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 10px;
+  font-size: 11px;
   color: #475569;
   overflow-wrap: anywhere;
+}
+
+/* Skip links between the lesson and the capture controls (packet-capture):
+   hidden until a keyboard user tabs onto one. */
+.skip-link:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.lesson .skip-link:focus,
+.capture-tools > .skip-link:focus {
+  margin: 4px 0 8px;
+}
+
+/* A row reached with Tab scrolls clear of the list's sticky header. */
+.capture-table tbody tr {
+  scroll-margin-top: 36px;
+}
+
+/* packet-capture: the same cue inside the packet's layers box, pinned to its bottom. */
+.capture-detail .detail-more {
+  position: sticky;
+  right: auto;
+  bottom: 6px;
+  margin: 6px 0 0 auto;
+  width: max-content;
 }

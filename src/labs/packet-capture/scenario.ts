@@ -373,7 +373,12 @@ export const SHOW_PIECES = 3;
  * up the video site (DNS), then loads the show in pieces (HTTPS). Only the ARP
  * request reaches the laptop: the switch sends the rest to the TV alone.
  */
+const showStarts = new WeakMap<Sim, number>();
+/** When the TV last started a show (a goal needs the capture running by then). */
+export const showStart = (sim: Sim): number | undefined => showStarts.get(sim);
+
 export function tvShow(sim: Sim): void {
+  showStarts.set(sim, sim.t);
   sim.clearArp('tv');
   lookup(sim, 'tv', NAME.video);
   for (let i = 0; i < SHOW_PIECES; i++) {

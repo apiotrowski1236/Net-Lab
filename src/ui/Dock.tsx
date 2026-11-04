@@ -597,6 +597,11 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 /** Wireshark's Protocol column names, where they differ from NetLab's (LabDef.wireshark). */
 const WIRESHARK_PROTO: Partial<Record<string, string>> = { PING: 'ICMP', HTTPS: 'TLS' };
 
+/** Whether a filter names an IP address no device on the map has (a likely typo). */
+function unknownAddress(sim: Sim, filter: string): boolean {
+  return (filter.match(/\d+\.\d+\.\d+\.\d+/g) ?? []).some((ip) => !sim.deviceByIp(ip));
+}
+
 export function CaptureView({ session, deviceId }: { session: LabSession; deviceId: string }) {
   // New frames arrive while the tab is open: re-render whenever the network changes.
   void session.simRev.value;
@@ -625,14 +630,30 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
   }, [rows.length]);
   // A Wireshark-style list (packet-capture) follows new packets only while capturing. A stopped
   // capture, or a new filter, starts at the top, so the first packets aren't hidden above.
+  // A new step starts there too. Set stick even while the list is empty, so the first packets
+  // of a new capture are followed.
   useLayoutEffect(() => {
-    const el = listRef.current;
-    if (!lab.wireshark || !el) return;
+    if (!lab.wireshark) return;
     stick.current = live;
-    if (!live) el.scrollTop = 0;
-  }, [applied, live, runStart]);
-  // A new capture renumbers from 1: forget the packet that was open.
-  useEffect(() => setSelected(null), [runStart]);
+    const el = listRef.current;
+    if (el && !live) el.scrollTop = 0;
+  }, [applied, live, runStart, session.step.id]);
+  // The layers box is short on a laptop screen: say when there's more to scroll to (as the
+  // dock does), and start each packet at its top.
+  const detailRef = useRef<HTMLDivElement>(null);
+  const [detailMore, setDetailMore] = useState(false);
+  const measureDetail = () => {
+    const el = detailRef.current;
+    const m = !!lab.wireshark && !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 12;
+    if (m !== detailMore) setDetailMore(m);
+  };
+  useLayoutEffect(measureDetail);
+  useLayoutEffect(() => {
+    if (detailRef.current) detailRef.current.scrollTop = 0;
+  }, [selected]);
+  // A new capture renumbers from 1: forget the packet that was open. So does a new step in a
+  // Wireshark-style lab, so the step's list starts with nothing open.
+  useEffect(() => setSelected(null), [runStart, lab.wireshark ? session.step.id : '']);
 
   if (!dev) return null;
   // A packet the filter hides isn't open any more.
@@ -728,11 +749,12 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
             </table>
             {rows.length === 0 && (
               <p class="muted capture-none">
-                No packets match this filter.{lab.wireshark && /\d+\.\d+\.\d+\.\d+/.test(applied) ? ' If you typed an address, check each number against the map.' : ''}
+                No packets match this filter.
+                {lab.wireshark && unknownAddress(sim, applied) ? ' If you typed an address, check each number against the map.' : ''}
               </p>
             )}
           </div>
-          <div class="capture-detail">
+          <div class="capture-detail" ref={detailRef} onScroll={measureDetail}>
             {sel ? (
               layersOf(sim, sel.frame).map((l) => (
                 <div class={`layer ${l.locked ? 'locked' : ''}`} style={{ borderLeftColor: l.color }}>
@@ -757,8 +779,17 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
               ))
             ) : (
               <div class="dock-empty small">
-                <p>Click a packet to open it up.</p>
+                <p>Click a packet, or Tab to it and press Enter, to open it up.</p>
               </div>
+            )}
+            {sel && detailMore && (
+              <button
+                type="button"
+                class="more-below detail-more"
+                onClick={() => detailRef.current?.scrollBy({ top: detailRef.current.clientHeight * 0.7, behavior: 'smooth' })}
+              >
+                More below <Icon name="chevronDown" size={13} />
+              </button>
             )}
           </div>
         </div>
@@ -776,9 +807,20 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
   void session.simRev.value;
   const [draft, setDraft] = useState(session.captureFilter.value);
   const [tried, setTried] = useState(false);
+  const [entered, setEntered] = useState(0);
+  const toolsRef = useRef<HTMLDivElement>(null);
   const check = parseFilter(draft);
   const applied = session.captureFilter.value;
+  // At high zoom the bar can sit at the bottom of the screen: after Enter, scroll its message,
+  // or else the list, into view. Nothing moves when they are already on screen.
+  useEffect(() => {
+    if (!entered) return;
+    const box = toolsRef.current?.parentElement;
+    const target = box?.querySelector<HTMLElement>('.filter-msg') ?? box?.querySelector<HTMLElement>('.capture-split, .dock-empty');
+    target?.scrollIntoView({ block: 'nearest' });
+  }, [entered]);
   const apply = (text: string) => {
+    setEntered((n) => n + 1);
     const r = parseFilter(text);
     if (!r.ok) return setTried(true);
     setTried(false);
@@ -788,7 +830,14 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
   // Like Wireshark's filter bar: green while what's typed works, red while it doesn't.
   const state = !draft.trim() ? '' : check.ok ? 'valid' : 'invalid';
   return (
-    <div class="capture-tools" data-capture-tools>
+    <div class="capture-tools" data-capture-tools ref={toolsRef}>
+      <button
+        type="button"
+        class="btn small skip-link"
+        onClick={() => document.querySelector<HTMLElement>('.lesson .actions .btn.action, .lesson .step-title')?.focus()}
+      >
+        Back to the lesson
+      </button>
       <div class="capture-buttons">
         <button class="btn small primary" onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: true })}>
           <Icon name={dev.sniffing ? 'replay' : 'play'} size={14} /> {dev.sniffing ? 'Restart' : 'Start'}
@@ -845,8 +894,8 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
       </div>
       {filter && tried && !check.ok && (
         <div class="filter-msg">
-          {check.msg}
-          {applied ? ` The list still shows your last filter that worked: ${applied}` : ''}
+          <div>{check.msg}</div>
+          {applied && <div>The list still shows your last filter that worked: {applied}</div>}
         </div>
       )}
       {filter && applied && applied !== draft.trim() && check.ok && <div class="filter-msg muted">Press Enter to apply. Still showing: {applied}</div>}
