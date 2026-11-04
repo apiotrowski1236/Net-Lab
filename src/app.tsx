@@ -1,54 +1,55 @@
 import { signal } from '@preact/signals';
-import { findLab } from './labs';
+import { isLabRoute, pageHref, parseRoute } from './routes';
+import { profile } from './store/profile';
+import { Guide } from './ui/Guide';
 import { Home } from './ui/Home';
 import { LabPlayer } from './ui/LabPlayer';
 import { ProfileDialog } from './ui/ProfileDialog';
-import { Guide } from './ui/Guide';
 import { TeacherPage } from './ui/TeacherPage';
 
 const route = signal(location.hash || '#/');
-window.addEventListener('hashchange', () => (route.value = location.hash || '#/'));
 
 const LAST_KEY = 'netlab:v1:last-route';
 
-export function App() {
-  const r = route.value;
+/** Show a route, correcting old addresses (#/lab/<id>) in place so Back doesn't bounce. */
+function setRoute(hash: string): void {
+  const h = hash || '#/';
+  const target = pageHref(parseRoute(h, profile.value), h);
+  if (target !== location.hash) history.replaceState(history.state, '', location.href.split('#')[0] + target);
+  route.value = target;
   try {
-    localStorage.setItem(LAST_KEY, r);
+    localStorage.setItem(LAST_KEY, target);
   } catch {
     /* ignore */
   }
-  let page;
-  const lab = /^#\/lab\/([\w-]+)/.exec(r);
-  const guide = /^#\/guide\/([\w-]+)/.exec(r);
-  if (lab) {
-    const def = findLab(lab[1]);
-    page = def ? <LabPlayer key={def.id} lab={def} /> : <Home />;
-  } else if (guide) {
-    const def = findLab(guide[1]);
-    // The guide is reading material: no name needed, so it prints cleanly for a teacher.
-    if (def) return <Guide lab={def} />;
-    page = <Home />;
-  } else if (r.startsWith('#/teacher')) return <TeacherPage />;
-  else page = <Home />;
+}
+window.addEventListener('hashchange', () => setRoute(location.hash));
+
+export function App() {
+  const page = parseRoute(route.value, profile.value);
+  document.title =
+    page.kind === 'lab' || page.kind === 'guide' ? `${page.lab.title} · NetLab` : page.kind === 'home' && page.cur ? `NetLab · ${page.cur.title}` : 'NetLab';
+  if (page.kind === 'teacher') return <TeacherPage />;
+  // The guide is reading material: no name needed, so it prints cleanly for a teacher.
+  if (page.kind === 'guide') return <Guide lab={page.lab} />;
   return (
     <>
-      {page}
-      <ProfileDialog />
+      {page.kind === 'lab' ? <LabPlayer key={page.lab.id} lab={page.lab} /> : <Home cur={page.cur} />}
+      <ProfileDialog suggest={page.cur?.id} onHome={page.kind === 'home'} />
     </>
   );
 }
 
-/** Reopen the lab the student was last in (e.g. after the laptop lid was closed). */
+/** Reopen the lab the student was last in (e.g. after the laptop lid was closed). Call once, before the first render. */
 export function restoreLastRoute(): void {
-  if (location.hash && location.hash !== '#/') return;
-  try {
-    const last = localStorage.getItem(LAST_KEY);
-    if (last && last.startsWith('#/lab/')) {
-      location.hash = last;
-      route.value = last;
+  let h = location.hash;
+  if (!h || h === '#/') {
+    try {
+      const last = localStorage.getItem(LAST_KEY);
+      if (last && isLabRoute(last)) h = last;
+    } catch {
+      /* ignore */
     }
-  } catch {
-    /* ignore */
   }
+  setRoute(h);
 }

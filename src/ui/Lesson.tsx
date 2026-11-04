@@ -14,6 +14,7 @@ import { hoverDevice } from './NetworkCanvas';
 import { overrideEnabled } from '../store/override';
 import { hasEndpoint } from '../store/outbox';
 import { OverrideDialog } from './Override';
+import { guideHref } from '../routes';
 
 // ---------------------------------------------------------------------------
 // Markdown body with device chips
@@ -402,7 +403,7 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
             <span key={s.id} class={`sdot ${i === p.step ? 'cur' : i < p.maxStep || (i === p.maxStep && session.stepComplete(i)) ? 'done' : i <= p.maxStep ? 'open' : ''}`} />
           ))}
         </div>
-        <a class="btn ghost small guide-link" href={`#/guide/${session.lab.id}`} target="_blank" rel="noopener" title="Every step on one page, for notes or printing">
+        <a class="btn ghost small guide-link" href={guideHref(session.lab.id)} target="_blank" rel="noopener" title="Every step on one page, for notes or printing">
           <Icon name="book" size={14} /> Guide
         </a>
         {outline && <Outline session={session} onClose={() => setOutline(false)} />}

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { classOf, CURRICULA, curriculumOfLab } from '../curricula';
+import { homeHref } from '../routes';
 import type { LabSession } from '../runtime/session';
 import { hasEndpoint, outbox, synced } from '../store/outbox';
-import { config, online, profile } from '../store/profile';
+import { config, online, profile, updateProfile } from '../store/profile';
 import { saveState } from '../store/storage';
 import { Icon } from './icons';
-import { openProfile } from './ProfileDialog';
+import { openProfile, switchStudent } from './ProfileDialog';
 import { theme, toggleTheme } from './theme';
 
 function ago(ms: number): string {
@@ -52,13 +54,125 @@ export function SaveStatus({ syncKey }: { syncKey?: string }) {
   );
 }
 
+/**
+ * The student's name, top right. Opens a menu: switch class, change name, or
+ * sign in as a different student. Keyboard: Enter, Space, or Down opens it;
+ * Up/Down/Home/End move; Escape closes it and returns to the name.
+ */
 export function StudentChip() {
   const p = profile.value;
   const periods = config.value.periods.length > 0;
+  const mine = classOf(p);
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const chip = useRef<HTMLButtonElement>(null);
+  const items = () => Array.from(wrap.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? []);
+  const close = (refocus = true) => {
+    setOpen(false);
+    if (refocus) chip.current?.focus();
+  };
+
+  // A layout effect, so focus is in the menu by the time it shows.
+  useLayoutEffect(() => {
+    if (!open) return;
+    // Start on the student's class, like a select.
+    (items().find((el) => el.getAttribute('aria-checked') === 'true') ?? items()[0])?.focus();
+    const outside = (e: PointerEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', outside, true);
+    return () => document.removeEventListener('pointerdown', outside, true);
+  }, [open]);
+
+  if (!p.name.trim()) {
+    return (
+      <button class="student-chip" onClick={openProfile} title="Add your name">
+        <Icon name="user" /> Add your name
+      </button>
+    );
+  }
+
+  const onKey = (e: KeyboardEvent) => {
+    if (!open) {
+      if (e.key === 'ArrowDown' && e.target === chip.current) (e.preventDefault(), setOpen(true));
+      return;
+    }
+    const list = items();
+    const i = list.indexOf(document.activeElement as HTMLElement);
+    const to = (n: number) => (e.preventDefault(), list[(n + list.length) % list.length]?.focus());
+    if (e.key === 'Escape') (e.preventDefault(), close());
+    else if (e.key === 'ArrowDown') to(i + 1);
+    else if (e.key === 'ArrowUp') to(i < 0 ? list.length - 1 : i - 1);
+    else if (e.key === 'Home') to(0);
+    else if (e.key === 'End') to(list.length - 1);
+    else if (e.key === 'Tab') setOpen(false);
+  };
+  const choose = (id: string) => {
+    if (id !== mine?.id) updateProfile({ curriculum: id });
+    close();
+    location.hash = homeHref(id);
+  };
+
   return (
-    <button class="student-chip" onClick={openProfile} title={periods ? 'Change your name or class period' : 'Change your name'}>
-      <Icon name="user" /> {p.name ? `${p.name}${periods && p.period ? ` · ${p.period}` : ''}` : 'Add your name'}
-    </button>
+    <div class="student-menu" ref={wrap} onKeyDown={onKey}>
+      <button
+        ref={chip}
+        class="student-chip"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? 'student-menu-list' : undefined}
+        onClick={() => setOpen(!open)}
+      >
+        <Icon name="user" /> <span class="student-chip-name">{`${p.name}${periods && p.period ? ` · ${p.period}` : ''}`}</span>
+        <Icon name="chevronDown" size={14} />
+      </button>
+      {open && (
+        <div class="menu" role="menu" id="student-menu-list" aria-label={`${p.name}: class and name`}>
+          <div class="menu-label" role="presentation">
+            Your class
+          </div>
+          {CURRICULA.map((c) => (
+            <button key={c.id} type="button" role="menuitemradio" aria-checked={c.id === mine?.id} tabIndex={-1} class="menu-item" onClick={() => choose(c.id)}>
+              <span class="menu-check" aria-hidden="true">
+                {c.id === mine?.id && <Icon name="check" size={14} />}
+              </span>
+              {c.title}
+            </button>
+          ))}
+          <div class="menu-sep" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            class="menu-item"
+            onClick={() => {
+              close(false);
+              openProfile();
+            }}
+          >
+            <span class="menu-check" aria-hidden="true">
+              <Icon name="edit" size={14} />
+            </span>
+            Change name
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            class="menu-item"
+            onClick={() => {
+              close();
+              switchStudent();
+            }}
+          >
+            <span class="menu-check" aria-hidden="true">
+              <Icon name="users" size={14} />
+            </span>
+            I'm a different student
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -78,9 +192,10 @@ export function TopBar({ session }: { session: LabSession }) {
   const p = session.progress;
   const total = session.lab.steps.length;
   const done = Array.from({ length: total }, (_, i) => i).filter((i) => i < p.maxStep || (i === p.maxStep && session.stepComplete(i))).length;
+  const cur = curriculumOfLab(session.lab.id);
   return (
     <header class="topbar">
-      <a class="brand" href="#/" title="All labs">
+      <a class="brand" href={homeHref(cur.id)} title={`All ${cur.title} ${cur.noun}s`}>
         <img src="./icon.svg" alt="" width={28} height={28} />
         <span>NetLab</span>
       </a>

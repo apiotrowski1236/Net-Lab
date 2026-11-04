@@ -56,7 +56,7 @@ function sheetFor(report) {
   var sh = ss.getSheetByName(name);
   if (!sh) {
     sh = ss.insertSheet(name);
-    sh.appendRow(['Key', 'Name', 'Period', 'Status'].concat(TEACHER_COLUMNS));
+    sh.appendRow(['Key', 'Name', 'Period', 'Course', 'Status'].concat(TEACHER_COLUMNS));
     sh.setFrozenRows(1);
     sh.setFrozenColumns(2);
     sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold');
@@ -81,6 +81,7 @@ function upsert(r) {
     Key: r.key,
     Name: r.student.name,
     Period: r.student.period,
+    Course: r.course ? r.course.title : '',
     Status: r.status,
     'Auto-checked score': r.score.auto + ' / ' + r.score.autoMax,
     'Written answers (pts)': r.score.teacherMax,

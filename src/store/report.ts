@@ -1,3 +1,4 @@
+import { curriculumOfLab } from '../curricula';
 import { answerKey, defaultPoints, goalKey, type LabDef } from '../labs/types';
 import { sameName, workIdOf } from './backup';
 import type { Profile } from './profile';
@@ -14,6 +15,8 @@ export interface Report {
   key: string;
   status: 'in-progress' | 'submitted';
   student: { id: string; name: string; period: string };
+  /** The lab's course (src/curricula.ts). Missing from reports made before NetLab had more than one course. */
+  course?: { id: string; title: string };
   lab: { id: string; title: string; version: number; steps: number };
   startedAt: string;
   updatedAt: string;
@@ -68,6 +71,7 @@ function plain(text: string, labels: Record<string, string>): string {
 
 export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: Report['status']): Report {
   const labels = deviceLabels(lab);
+  const course = curriculumOfLab(lab.id);
   const goals: Report['goals'] = [];
   const questions: Report['questions'] = [];
   let auto = 0;
@@ -126,6 +130,7 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
     key: `${who.id}:${lab.id}`,
     status,
     student: { id: who.id, name: who.name, period: who.period },
+    course: { id: course.id, title: course.title },
     lab: { id: lab.id, title: lab.title, version: lab.version, steps: lab.steps.length },
     startedAt: iso(p.startedAt)!,
     updatedAt: iso(p.updatedAt)!,

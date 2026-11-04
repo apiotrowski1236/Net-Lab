@@ -6,7 +6,9 @@
 // then checks replay, the lab guide, typed tool inputs, the teacher override,
 // the summary page with its download, and restoring work from that download
 // (plus refusing another student's file or an edited one), and opens every lab and
-// its guide. Saves screenshots to ./screenshots.
+// its guide. Also checks the courses: picking a class at sign-in, the class menu
+// under the student's name, and old #/lab/<id> addresses. Saves screenshots to
+// ./screenshots.
 //
 // Needs a Chromium for Playwright: `npx playwright-core install chromium`,
 // or set CHROME_PATH to any Chrome or Chromium binary.
@@ -92,6 +94,14 @@ const expectCount = async (selector, n, what) => {
   const got = await page.locator(selector).count();
   if (got !== n) throw new Error(`${what}: expected ${n}, found ${got}`);
 };
+/** The address after the #, once the app has settled on it. */
+const expectHash = async (hash, what) => {
+  await page.waitForFunction((h) => location.hash === h, hash, { timeout: 5_000 }).catch(() => {});
+  const got = await page.evaluate(() => location.hash);
+  if (got !== hash) throw new Error(`${what}: expected ${hash}, got ${got || '(none)'}`);
+};
+const savedProfile = () => page.evaluate(() => JSON.parse(localStorage.getItem('netlab:v1:profile')));
+const COURSES = ['Intro to Computer Science', 'AP Computer Science Principles', 'AP Computer Science A', 'AP Cybersecurity'];
 
 // A teacher override password for the tests. Keep the salt in sync with src/store/override.ts.
 const TEACHER_PASSWORD = 'e2e teacher password';
@@ -141,26 +151,35 @@ async function seeded(progress, who = {}) {
 }
 
 try {
-  step('first visit asks for a name');
+  step('first visit asks for a name and a class');
   await page.goto(url);
   await page.waitForSelector('.modal');
-  await shot('welcome');
+  const offered = await page.locator('.modal .class-option').allInnerTexts();
+  if (offered.join('|') !== COURSES.join('|')) throw new Error(`Class choices: ${offered.join(', ')}`);
   await page.fill('input[autocomplete=name]', 'Test Student');
+  if (await page.getByRole('button', { name: 'Start' }).isEnabled()) throw new Error('Start should wait for a class');
+  await shot('welcome');
   await expectCount('.modal select', 0, 'Class period choice with one section');
+  await page.getByRole('radio', { name: 'AP Cybersecurity' }).check();
   await page.getByRole('button', { name: 'Start' }).click();
   await page.waitForSelector('.lab-card');
+  await expectHash('#/cyber', 'Home after choosing AP Cybersecurity');
+  if ((await page.locator('.topbar .tb-lab').innerText()) !== 'AP Cybersecurity') throw new Error('Home top bar should name the course');
   await shot('home');
 
   step('home: the Lab guide link opens the guide in a new tab');
-  const [guideTab] = await Promise.all([context.waitForEvent('page'), page.click('a.lab-card-guide[href="#/guide/on-path"]')]);
+  const [guideTab] = await Promise.all([context.waitForEvent('page'), page.click('a.lab-card-guide[href="#/cyber/guide/on-path"]')]);
   await guideTab.waitForSelector('.guide-step');
   await guideTab.close();
-  if (page.url().includes('#/lab/')) throw new Error('Clicking Lab guide also opened the lab');
+  if (page.url().includes('/lab/')) throw new Error('Clicking Lab guide also opened the lab');
 
   step('lab step 1: inspect devices and answer');
   await page.click('.lab-card h2 >> text=Traffic in the Wrong Hands');
   await page.waitForSelector('.lesson');
+  await expectHash('#/cyber/lab/on-path', 'Lab address');
+  if ((await page.locator('.topbar a.brand').getAttribute('href')) !== '#/cyber') throw new Error('The lab’s NetLab link should go to its course home');
   await page.goto(`${url}#/`);
+  await expectHash('#/cyber', '#/ for an AP Cybersecurity student');
   // Anywhere on the card opens the lab, not just the title.
   const box = await page.locator('.lab-card', { hasText: 'Traffic in the Wrong Hands' }).locator('p').first().boundingBox();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
@@ -231,8 +250,14 @@ try {
   await shot('offline');
   await context.setOffline(false);
 
-  step('lab guide: every step on one page');
+  step('lab guide: every step on one page (from its old address)');
   await page.goto(`${url}#/guide/on-path`);
+  await page.waitForSelector('.guide-step');
+  await expectHash('#/cyber/guide/on-path', 'Old guide address');
+  await page.locator('.guide-bar a', { hasText: 'Open the lab' }).click();
+  await page.waitForSelector('.lesson');
+  await expectHash('#/cyber/lab/on-path', 'Guide’s Open the lab link');
+  await page.goto(`${url}#/cyber/guide/on-path`);
   await page.waitForSelector('.guide-step');
   await expectCount('.guide-step', 12, 'Guide steps');
   await shot('guide');
@@ -245,8 +270,10 @@ try {
     const { ctx, pg } = await seeded({ step: 6, maxStep: 6 });
     const p = page;
     page = pg;
+    // An old address: redirects to the lab's course.
     await page.goto(`${url}#/lab/on-path`);
     await page.waitForSelector('.tool-card');
+    await expectHash('#/cyber/lab/on-path', 'Old lab address');
     const ip = page.getByRole('textbox', { name: 'IP address to claim' });
     await ip.fill('10.0.0.1');
     await page.getByRole('button', { name: 'Send fake ARP reply' }).click();
@@ -285,7 +312,7 @@ try {
     const { ctx, pg } = await seeded({ step: 12, maxStep: 12, answers, overrides: { broken: { at: Date.now(), note: 'Packets never arrived' } }, overrideFailures: 1 });
     const p = page;
     page = pg;
-    await page.goto(`${url}#/lab/on-path`);
+    await page.goto(`${url}#/cyber/lab/on-path`);
     await page.waitForSelector('.summary-hero');
     await page.waitForTimeout(1100); // let the entrance animation finish
     await shot('summary');
@@ -296,7 +323,7 @@ try {
     // Playwright's WebKit on Linux turns spaces into underscores; browsers on Macs and PCs keep them.
     if (!/^Riley[ _]Seeded[ _]-[ _].+\.html$/.test(name)) throw new Error(`Unexpected download name "${name}"`);
     const html = readFileSync(await dl.path(), 'utf8');
-    for (const must of ['Teacher override', 'Packets never arrived', 'Wrong teacher override passwords typed']) {
+    for (const must of ['Teacher override', 'Packets never arrived', 'Wrong teacher override passwords typed', 'Riley Seeded &middot; Period 2 &middot; AP Cybersecurity']) {
       if (!html.includes(must)) throw new Error(`Downloaded report is missing "${must}"`);
     }
     await page.setContent(html);
@@ -345,7 +372,7 @@ try {
 
   step('build-network lab: drag cables on the map, unplug one, see the ping result under the button');
   {
-    await page.goto(`${url}#/lab/build-network`);
+    await page.goto(`${url}#/cyber/lab/build-network`);
     await page.waitForSelector('.lesson');
     // The device on the map, not the lesson's chip with the same name.
     const device = (name) => page.locator('g.device').filter({ has: page.locator('text.device-label', { hasText: new RegExp(`^${name}$`) }) });
@@ -402,12 +429,12 @@ try {
   {
     await page.goto(`${url}#/`);
     await page.waitForSelector('.lab-card');
-    const ids = await page.$$eval('.lab-card.open a.lab-card-link', (as) => as.map((a) => a.getAttribute('href').replace('#/lab/', '')));
+    const ids = await page.$$eval('.lab-card.open a.lab-card-link', (as) => as.map((a) => a.getAttribute('href').replace('#/cyber/lab/', '')));
     if (ids.length < 3) throw new Error(`Expected at least 3 open labs on the home page, found ${ids.length}`);
     for (const id of ids) {
-      await page.goto(`${url}#/guide/${id}`);
+      await page.goto(`${url}#/cyber/guide/${id}`);
       await page.waitForSelector('.guide-head');
-      await page.goto(`${url}#/lab/${id}`);
+      await page.goto(`${url}#/cyber/lab/${id}`);
       await page.waitForSelector('.lesson');
       for (const tab of await page.getByRole('tab').all()) {
         await tab.click();
@@ -420,11 +447,139 @@ try {
   }
 
   step('route hijack lab opens');
-  await page.goto(`${url}#/lab/route-hijack`);
+  await page.goto(`${url}#/cyber/lab/route-hijack`);
   await page.waitForSelector('.lesson');
   await page.getByRole('button', { name: /^HomeNet ISP,/ }).click({ force: true });
   await page.waitForTimeout(400);
   await shot('route-hijack');
+
+  step('courses: a new student who follows a link to #/csp has AP CSP picked, and stays there');
+  {
+    const ctx = await browser.newContext({ ...VIEW, serviceWorkers: 'block' });
+    await setTheme(ctx);
+    const p = page;
+    page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(String(e)));
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    await page.goto(`${url}#/csp`);
+    await page.waitForSelector('.modal');
+    if (!(await page.getByRole('radio', { name: 'AP Computer Science Principles' }).isChecked())) throw new Error('#/csp should pick AP CSP for a new student');
+    await page.fill('input[autocomplete=name]', 'Casey New');
+    await page.getByRole('button', { name: 'Start' }).click();
+    await page.waitForSelector('.home-main h1');
+    await expectHash('#/csp', 'Home after signing in on #/csp');
+    if ((await page.locator('.topbar .tb-lab').innerText()) !== 'AP Computer Science Principles') throw new Error('CSP home top bar');
+    await expectCount('.footnote', 0, 'Cybersecurity footnote on the CSP home');
+    if ((await savedProfile()).curriculum !== 'csp') throw new Error('Class was not saved with the profile');
+    await shot('csp-home');
+    await page.reload();
+    await page.waitForSelector('.home-main h1');
+    await expectCount('.modal', 0, 'Sign-in dialog after a reload');
+    await expectHash('#/csp', 'CSP home after a reload');
+    await page.goto(`${url}#/`);
+    await expectHash('#/csp', '#/ for a CSP student');
+
+    step('courses: the class menu opens from the keyboard, closes on Escape, and switches classes');
+    const chip = page.locator('.student-chip');
+    await chip.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.menu[role=menu]');
+    const listed = await page.getByRole('menuitemradio').allInnerTexts();
+    if (listed.map((t) => t.trim()).join('|') !== COURSES.join('|')) throw new Error(`Class menu lists: ${listed.join(', ')}`);
+    const focused = await page.evaluate(() => document.activeElement?.textContent?.trim());
+    if (focused !== 'AP Computer Science Principles') throw new Error(`Menu should open on the student's class, focused "${focused}"`);
+    await shot('class-menu');
+    await page.keyboard.press('Escape');
+    await expectCount('.menu', 0, 'Menu after Escape');
+    if (!(await page.evaluate(() => document.activeElement?.classList.contains('student-chip')))) throw new Error('Escape should return focus to the name');
+    await page.keyboard.press('ArrowDown');
+    await page.waitForSelector('.menu[role=menu]');
+    await page.keyboard.press('ArrowUp'); // from AP CSP up to Intro CS
+    const up = await page.evaluate(() => document.activeElement?.textContent?.trim());
+    if (up !== 'Intro to Computer Science') throw new Error(`ArrowUp moved to "${up}"`);
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.home-main h1');
+    await expectHash('#/intro', 'After switching to Intro CS');
+    await expectCount('.menu', 0, 'Menu after choosing a class');
+    if ((await savedProfile()).curriculum !== 'intro') throw new Error('Switching class did not save it');
+    // A course with nothing in it yet says so.
+    if (!(await page.locator('.lab-card').count())) await expectCount('.home-empty', 1, 'Coming-soon note on an empty course');
+    await page.reload();
+    await page.goto(`${url}#/`);
+    await expectHash('#/intro', '#/ after switching to Intro CS and reloading');
+    // Click outside closes it.
+    await chip.click();
+    await page.waitForSelector('.menu');
+    await page.mouse.click(40, 400);
+    await expectCount('.menu', 0, 'Menu after clicking outside');
+
+    step('courses: Change name keeps the class; a different student starts with that class picked');
+    await chip.click();
+    await page.getByRole('menuitem', { name: 'Change name' }).click();
+    await page.waitForSelector('.modal');
+    await expectCount('.modal .class-option', 0, 'Class choices in Change name');
+    await page.fill('input[autocomplete=name]', 'Casey Renamed');
+    await page.getByRole('button', { name: 'Save' }).click();
+    if ((await chip.innerText()).trim() !== 'Casey Renamed') throw new Error('Name chip did not update');
+    if ((await savedProfile()).curriculum !== 'intro') throw new Error('Change name lost the class');
+    page.once('dialog', (d) => d.accept());
+    await chip.click();
+    await page.getByRole('menuitem', { name: "I'm a different student" }).click();
+    await page.waitForSelector('.modal');
+    if (!(await page.getByRole('radio', { name: 'Intro to Computer Science' }).isChecked())) throw new Error('A different student should start with the same class picked');
+    await ctx.close();
+    page = p;
+  }
+
+  step('courses: on a phone, tap the name to switch classes, tap outside to close');
+  {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' });
+    await setTheme(ctx);
+    await ctx.addInitScript(() => {
+      if (!localStorage.getItem('netlab:v1:profile'))
+        localStorage.setItem('netlab:v1:profile', JSON.stringify({ id: 'e2e-phone', name: 'Pat Phone', period: '', createdAt: 0, curriculum: 'csp' }));
+    });
+    const p = page;
+    page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await page.goto(url);
+    await page.waitForSelector('.home-main h1');
+    await expectHash('#/csp', 'Phone home');
+    const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    if (wide) throw new Error('The phone home page scrolls sideways');
+    await page.tap('.student-chip');
+    await page.waitForSelector('.menu');
+    await page.tap('.menu-item >> text=AP Computer Science A');
+    await expectHash('#/csa', 'After tapping AP CSA');
+    await expectCount('.menu', 0, 'Menu after tapping a class');
+    await page.tap('.student-chip');
+    await page.waitForSelector('.menu');
+    await page.touchscreen.tap(20, 800); // below the open menu
+    await expectCount('.menu', 0, 'Menu after tapping outside');
+    if ((await savedProfile()).curriculum !== 'csa') throw new Error('Tapped class was not saved');
+    await ctx.close();
+    page = p;
+  }
+
+  step('courses: a student from before courses lands back in their lab, with no questions');
+  {
+    const { ctx, pg } = await seeded({ step: 2, maxStep: 2 }, { name: 'Jordan Returning', period: '' });
+    await ctx.addInitScript(() => {
+      if (!sessionStorage.getItem('last-seeded')) localStorage.setItem('netlab:v1:last-route', '#/lab/on-path');
+      sessionStorage.setItem('last-seeded', '1');
+    });
+    const p = page;
+    page = pg;
+    await page.goto(url);
+    await page.waitForSelector('.lesson');
+    await expectHash('#/cyber/lab/on-path', 'Restored last lab');
+    await expectCount('.modal', 0, 'Sign-in dialog for a returning student');
+    if ((await savedProfile()).curriculum !== 'cyber') throw new Error('Returning student should be in AP Cybersecurity');
+    await page.goto(`${url}#/`);
+    await expectHash('#/cyber', '#/ for a returning student');
+    await ctx.close();
+    page = p;
+  }
 
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
   console.log('\nEnd-to-end check passed.');

@@ -1,3 +1,4 @@
+import { guideHref } from '../routes';
 import { useMemo } from 'preact/hooks';
 import { shuffledOptions } from '../labs/shuffle';
 import { isLesson, type LabDef, type StepDef, type ToolSpec } from '../labs/types';
@@ -100,7 +101,7 @@ export function Guide({ lab }: { lab: LabDef }) {
           <ol>
             {steps.map((s) => (
               <li key={s.id}>
-                <a href={`#/guide/${lab.id}`} onClick={(e) => (e.preventDefault(), document.getElementById(`g-${s.id}`)?.scrollIntoView({ behavior: 'smooth' }))}>
+                <a href={guideHref(lab.id)} onClick={(e) => (e.preventDefault(), document.getElementById(`g-${s.id}`)?.scrollIntoView({ behavior: 'smooth' }))}>
                   {s.title}
                 </a>
               </li>

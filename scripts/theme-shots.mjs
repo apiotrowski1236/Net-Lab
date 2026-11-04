@@ -3,13 +3,16 @@
 //   node scripts/theme-shots.mjs              # both themes
 //   node scripts/theme-shots.mjs light        # one theme
 //   SIZE=small node scripts/theme-shots.mjs   # 1366x768 laptop at 1x
+//   SIZE=phone node scripts/theme-shots.mjs   # 390x844 phone at 2x: sign-in and home pages only
 //   SCALE=1 node scripts/theme-shots.mjs      # override the pixel density
 //
 // Starts the Vite dev server (no build needed) and drives the app in headless
 // Chromium. The default size is a maximized browser on a 13-inch MacBook Air:
 // 1440x800 at 2x (retina), written to screenshots/theme/. SIZE=small is a
 // 1366x768 Windows, Linux or Chromebook laptop at 1x, written to
-// screenshots/theme/small/.
+// screenshots/theme/small/. SIZE=phone is a phone, in screenshots/theme/phone/.
+//
+// Also shoots every course's home page and the class menu under the student's name.
 //
 // Also checks that the theme toggle switches themes and that the choice survives
 // a reload. Needs a Chromium for Playwright (see scripts/e2e.mjs) or CHROME_PATH.
@@ -23,6 +26,7 @@ import { createServer } from 'vite';
 const SIZES = {
   default: { width: 1440, height: 800, scale: 2 }, // 13" MacBook Air, maximized
   small: { width: 1366, height: 768, scale: 1 }, // common 1366x768 laptop
+  phone: { width: 390, height: 844, scale: 2 }, // iPhone 12-15
 };
 const SIZE_NAME = process.env.SIZE ?? 'default';
 const SIZE = SIZES[SIZE_NAME];
@@ -100,16 +104,36 @@ async function run(theme) {
     await page.waitForSelector('.modal');
     await shot('welcome');
     await page.fill('input[autocomplete=name]', 'Test Student');
+    await page.getByRole('radio', { name: 'AP Cybersecurity' }).check();
     const sel = page.locator('.modal select');
     if (await sel.count()) await sel.selectOption({ index: 3 });
+    await shot('welcome-filled');
     await page.getByRole('button', { name: 'Start' }).click();
     await page.waitForSelector('.lab-card');
-    await page.mouse.move(5, 760);
+    await page.mouse.move(5, SIZE.height - 8);
     await shot('home');
   });
 
+  await attempt('course-homes', async () => {
+    for (const id of ['intro', 'csp', 'csa', 'cyber']) {
+      await page.goto(`${url}#/${id}`);
+      await page.waitForSelector('.home-main h1');
+      await page.mouse.move(5, SIZE.height - 8);
+      await shot(`home-${id}`);
+      if (id === 'cyber') await page.screenshot({ path: join(OUT, `${theme}-${String(++n).padStart(2, '0')}-home-cyber-full.png`), fullPage: true });
+    }
+    await page.locator('.student-chip').click();
+    await page.waitForSelector('.menu');
+    await page.locator('.menu-item', { hasText: 'AP Computer Science A' }).hover();
+    await shot('class-menu');
+    await page.keyboard.press('Escape');
+  });
+
+  // The labs are built for laptops; on a phone, check sign-in and the home pages only.
+  if (SIZE_NAME === 'phone') return context.close();
+
   await attempt('lab-step1', async () => {
-    await page.click('a[href="#/lab/on-path"]');
+    await page.click('a[href="#/cyber/lab/on-path"]');
     await page.waitForSelector('.lesson');
     await page.waitForTimeout(400);
     await shot('lab-step1');
@@ -180,7 +204,7 @@ async function run(theme) {
   });
 
   await attempt('route-hijack', async () => {
-    await page.goto(`${url}#/lab/route-hijack`);
+    await page.goto(`${url}#/cyber/lab/route-hijack`);
     await page.waitForSelector('.lesson');
     await page.getByRole('button', { name: /^HomeNet ISP,/ }).click({ force: true });
     await page.waitForTimeout(400);

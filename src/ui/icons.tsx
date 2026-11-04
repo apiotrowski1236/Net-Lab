@@ -209,6 +209,13 @@ export function Icon({ name, size = 16 }: { name: string; size?: number }) {
       </g>
     ),
     home: <path d="M3 11 L12 3 L21 11 M6 9 V21 H18 V9" {...p} />,
+    edit: <path d="M4 20 H8 L19 9 L15 5 L4 16 Z M13 7 L17 11" {...p} />,
+    users: (
+      <g {...p}>
+        <circle cx={9} cy={8} r={3.5} />
+        <path d="M2.5 20 C3.5 15.5 14.5 15.5 15.5 20 M15 4.8 A3.5 3.5 0 0 1 15 11.2 M18 15 C20 15.8 21 17.5 21.5 20" />
+      </g>
+    ),
     hint: (
       <g {...p}>
         <path d="M9 18 H15 M10 21 H14 M12 3 A6 6 0 0 0 8 14 V16 H16 V14 A6 6 0 0 0 12 3 Z" />
