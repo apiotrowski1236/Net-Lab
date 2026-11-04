@@ -462,6 +462,9 @@ export function LessonPanel({
     const i = step.questions?.findIndex((q) => q.afterGoals && unlocked(q)) ?? -1;
     const el = scroller.current;
     if (i < 0 || !el) return;
+    // On a narrow screen the page scrolls, not the lesson: if the student is down at the
+    // map and tools, don't pull the page away from the result they're reading.
+    if (matchMedia('(max-width: 900px)').matches && el.getBoundingClientRect().bottom < innerHeight * 0.5) return;
     const result = el.querySelector('.action-outcome');
     if (result) result.scrollIntoView({ block: 'start', behavior: 'smooth' });
     else el.querySelectorAll('.qcard')[i]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

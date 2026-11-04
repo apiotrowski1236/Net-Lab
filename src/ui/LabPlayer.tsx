@@ -255,6 +255,8 @@ function Dock({
   const tools = session.tools.filter((t) => !(TAB_TOOLS as readonly string[]).includes(t.kind) && !(CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const captureTools = session.tools.some((t) => (CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const capDev = lab.captureDevice ? session.sim.devices[lab.captureDevice] : undefined;
+  // A terminal command is running: Bigger gives the map its room back until it finishes.
+  const termBusy = Object.values(session.sim.devices).some((d) => d.term?.length && d.term[d.term.length - 1].doneAt === undefined);
   const logIds = logDevices(session);
   const logLines = logIds.reduce((n, id) => n + session.sim.devices[id].logs.length, 0);
   const seenLogs = useRef(logLines);
@@ -303,7 +305,7 @@ function Dock({
   return (
     // A Wireshark-style lab (packet-capture) lives in the Capture tab: give its packet list more room.
     // So does a terminal in the Toolkit (net-tools): its output needs the lines.
-    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${tab === 'tools' && termBig.value && tools.some((t) => t.kind === 'terminal') ? 'dock-max' : ''}`}>
+    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${tab === 'tools' && termBig.value && tools.some((t) => t.kind === 'terminal') ? `dock-max ${termBusy ? 'dock-busy' : ''}` : ''}`}>
       <div class="dock-tabs" role="tablist">
         <button
           role="tab"

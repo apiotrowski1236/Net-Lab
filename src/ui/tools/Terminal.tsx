@@ -102,16 +102,37 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
   // Keep the newest output in view, the way a terminal scrolls. A finished result
   // taller than the screen shows from its first line, so nothing scrolls past unread.
   const size = entries.reduce((n, e) => n + e.out.length + 1, 0);
-  useLayoutEffect(() => {
+  const lastDone = last?.run?.doneAt !== undefined;
+  const settle = useRef(() => {});
+  settle.current = () => {
     const el = screen.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
     const nodes = el.querySelectorAll<HTMLElement>('.term-entry');
     const entry = nodes[nodes.length - 1];
-    if (last?.run?.doneAt !== undefined && entry && entry.offsetHeight > el.clientHeight - 40) {
+    if (lastDone && entry && entry.offsetHeight > el.clientHeight - 40) {
       el.scrollTop += entry.getBoundingClientRect().top - el.getBoundingClientRect().top - 6;
     }
-  }, [size, at, meaning]);
+  };
+  useLayoutEffect(() => settle.current(), [size, at, meaning]);
+  // Bigger, Smaller, and the dock making room for the map while a command runs all
+  // resize the screen: settle again, so the newest output stays in view.
+  useEffect(() => {
+    const el = screen.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let h = el.clientHeight;
+    const ro = new ResizeObserver(() => {
+      if (el.clientHeight === h) return;
+      h = el.clientHeight;
+      settle.current();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // On a narrow screen the lesson sits above the map: one tap goes back up to it.
+  const backToStep = () =>
+    document.querySelector('.lesson')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 
   const addLocal = (line: string, out: TermLine[]) => {
     ds.local.push({ n: st.n++, t: sim.t, after: newest?.id ?? 0, line, out });
@@ -201,8 +222,17 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
             <b>{dev?.label ?? at}</b>
           )}
         </label>
-        <button type="button" class="btn tiny term-size" title="Make the terminal taller, or put it back" aria-pressed={termBig.value} onClick={() => (termBig.value = !termBig.value)}>
+        <button
+          type="button"
+          class="btn tiny term-size"
+          title="Make the terminal taller for reading. It makes room for the map while a command runs."
+          aria-pressed={termBig.value}
+          onClick={() => (termBig.value = !termBig.value)}
+        >
           {termBig.value ? 'Smaller' : 'Bigger'}
+        </button>
+        <button type="button" class="btn tiny term-up" onClick={backToStep}>
+          Back to the step
         </button>
       </div>
       <div class="term-screen" ref={screen} onClick={focusInput} role="log" aria-live="polite" aria-label={`Terminal on ${dev?.label ?? at}`}>

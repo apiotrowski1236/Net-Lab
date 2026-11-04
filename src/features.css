@@ -4496,9 +4496,38 @@ button.pl-tile:active {
 .term-head .term-at {
   margin-left: auto;
 }
+/* While a command runs, the map gets its room back so the packets can be watched. */
 @media (min-width: 901px) {
-  .dock.dock-tall.dock-max {
+  .dock.dock-tall {
+    transition: flex-basis 0.25s ease;
+  }
+  .dock.dock-tall.dock-max:not(.dock-busy) {
     flex-basis: 74%;
+  }
+}
+@media (min-width: 901px) and (prefers-reduced-motion: reduce) {
+  .dock.dock-tall {
+    transition: none;
+  }
+}
+/* The typing line stays in view, even when a long result shows from its first line. */
+.term-input-row {
+  position: sticky;
+  bottom: -8px;
+  margin-bottom: -8px;
+  padding: 4px 0 8px;
+  background: #0f172a;
+}
+[data-theme='dark'] .term-input-row {
+  background: #05070d;
+}
+/* Back up to the lesson: only where the lesson sits above the map. */
+.term-up {
+  display: none;
+}
+@media (max-width: 900px) {
+  .term-up {
+    display: inline-flex;
   }
 }
 @media (max-width: 900px) {
