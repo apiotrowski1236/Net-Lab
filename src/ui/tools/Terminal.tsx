@@ -38,6 +38,8 @@ const STATE = new WeakMap<LabSession, { at?: string; devs: Map<string, DevState>
 
 /** The student made the terminal bigger: the Dock grows and the map shrinks, for long output like an nmap report. */
 export const termBig = signal(false);
+/** Set by the Dock: Bigger is on, but the map has the room while packets move. */
+export const termHeld = signal(false);
 
 function stateOf(session: LabSession) {
   let s = STATE.get(session);
@@ -99,9 +101,9 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
     return () => clearInterval(id);
   }, [busy]);
 
-  // Keep the newest output in view, the way a terminal scrolls. A finished result much
-  // taller than the screen (a scan report) shows from its first line, so nothing scrolls
-  // past unread. A shorter one shows its end, where ping and traceroute sum up.
+  // Keep the newest output in view, the way a terminal scrolls. A finished scan report that
+  // doesn't fit shows from its first line, so nothing scrolls past unread. Other results show
+  // their end, where ping and traceroute sum up, unless they're far taller than the screen.
   const size = entries.reduce((n, e) => n + e.out.length + 1, 0);
   const lastDone = last?.run?.doneAt !== undefined;
   const settle = useRef(() => {});
@@ -111,21 +113,24 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
     el.scrollTop = el.scrollHeight;
     const nodes = el.querySelectorAll<HTMLElement>('.term-entry');
     const entry = nodes[nodes.length - 1];
-    if (lastDone && entry && entry.offsetHeight > el.clientHeight * 2.5) {
+    if (lastDone && entry && entry.offsetHeight > el.clientHeight * (last?.run?.kind === 'nmap' ? 1 : 2.5)) {
       el.scrollTop += entry.getBoundingClientRect().top - el.getBoundingClientRect().top - 6;
     }
     check();
   };
-  // A result that starts at its first line has more below it: say so, with a button that goes there.
+  // A result that starts at its first line has more below it: say so, with a button that pages down.
   const [below, setBelow] = useState(false);
   const check = () => {
     const el = screen.current;
     if (el) setBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 8);
   };
-  const toEnd = (e: MouseEvent) => {
+  // One screen at a time, keeping two lines from the last screen, so no block in the middle is skipped.
+  const pageDown = (e: MouseEvent) => {
     e.stopPropagation();
     const el = screen.current;
-    el?.scrollTo({ top: el.scrollHeight, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    if (!el) return;
+    const line = parseFloat(getComputedStyle(el).lineHeight) || 19;
+    el.scrollBy({ top: Math.max(line * 2, el.clientHeight - line * 2), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
   useLayoutEffect(() => settle.current(), [size, at, meaning]);
   // Bigger, Smaller, and the dock making room for the map while a command runs all
@@ -239,6 +244,7 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
             <b>{dev?.label ?? at}</b>
           )}
         </label>
+        {termBig.value && termHeld.value && <span class="term-held">Map first while packets move</span>}
         <button
           type="button"
           class="btn tiny term-size"
@@ -298,7 +304,7 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
             onKeyDown={onKey}
           />
           {below && (
-            <button type="button" class="btn tiny term-more" onClick={toEnd}>
+            <button type="button" class="btn tiny term-more" onClick={pageDown}>
               More below <Icon name="chevronDown" size={12} />
             </button>
           )}

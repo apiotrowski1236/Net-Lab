@@ -17,7 +17,7 @@ import { logDevices, LogsView } from './LogsView';
 import { type Cabling, NetworkCanvas } from './NetworkCanvas';
 import { Summary } from './Summary';
 import { TopBar } from './TopBar';
-import { termBig } from './tools/Terminal';
+import { termBig, termHeld } from './tools/Terminal';
 
 type Tab = 'inspect' | 'capture' | 'tools' | 'logs';
 
@@ -283,10 +283,16 @@ function Dock({
     const id = setInterval(() => recheck((n) => n + 1), 300);
     return () => clearInterval(id);
   }, [cmdBusy || btnBusy]);
-  // Bigger is for reading one long result: each step starts at the usual size.
+  const held = termMax && (cmdBusy || btnBusy || hold);
+  useEffect(() => {
+    termHeld.value = held;
+  }, [held]);
+  // Bigger stays on through steps at the same Terminal (a scan, then a closer look at it), and
+  // goes back to the usual size when the Terminal moves to another computer or another lab.
+  const termAt = tools.flatMap((t) => (t.kind === 'terminal' ? t.devices : [])).join();
   useEffect(() => {
     termBig.value = false;
-  }, [session.step.id]);
+  }, [lab.id, termAt]);
   const logIds = logDevices(session);
   const logLines = logIds.reduce((n, id) => n + session.sim.devices[id].logs.length, 0);
   const seenLogs = useRef(logLines);
@@ -335,7 +341,7 @@ function Dock({
   return (
     // A Wireshark-style lab (packet-capture) lives in the Capture tab: give its packet list more room.
     // So does a terminal in the Toolkit (net-tools): its output needs the lines.
-    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${termMax ? `dock-max ${cmdBusy || btnBusy || hold ? 'dock-busy' : ''}` : ''}`}>
+    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${termMax ? `dock-max ${held ? 'dock-busy' : ''}` : ''}`}>
       <div class="dock-tabs" role="tablist">
         <button
           role="tab"

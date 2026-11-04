@@ -61,6 +61,7 @@ const NMAP: ToolSpec = { kind: 'terminal', devices: ['laptop'], commands: [...LO
 const sawWrongRecord = (sim: Sim, since: number) => lookups(sim, 'pc1', since).some((r) => r.name === NAME.catalog && r.answer === IP.wrongCatalog);
 const brokenTrace = (sim: Sim, since: number) => traces(sim, 'pc1', since).some((r) => r.ip === IP.ebooks && r.end === 'silent');
 const tracing = (sim: Sim) => (sim.dev('pc1').term ?? []).some((r) => r.kind === 'traceroute' && r.doneAt === undefined);
+const scanning = (sim: Sim) => (sim.dev('laptop').term ?? []).some((r) => r.kind === 'nmap' && r.doneAt === undefined);
 const showsRat = (r: NetstatRun) => r.programs && r.rows.some((x) => x.foreign === `${IP.remote}:${RAT.port}`);
 /** Once: these buttons check what the student found first, the way the person on the other end would ask. */
 const ever = 0;
@@ -147,8 +148,14 @@ const unplugButton: ActionDef = {
 const closeButton: ActionDef = {
   id: 'close-risky',
   label: 'Ask the IT contractor to turn off FTP and Telnet',
-  run: closeRisky,
-  outcome: (): ActionLine[] => [{ tone: 'good', text: 'The IT contractor says FTP is off on the catalog server and Telnet is off on the printer. Scan again to check.' }],
+  // A scan still running would report some doors before the change and some after: the contractor waits for it.
+  run: (sim) => {
+    if (!scanning(sim)) closeRisky(sim);
+  },
+  outcome: (sim): ActionLine[] =>
+    riskyClosed(sim)
+      ? [{ tone: 'good', text: 'The IT contractor says FTP is off on the catalog server and Telnet is off on the printer. Scan again to check.' }]
+      : [{ tone: 'wait', text: 'The IT contractor will wait until your scan finishes, so its report isn’t half old and half new. Press the button again after "Nmap done".' }],
 };
 
 // ---------------------------------------------------------------------------
@@ -166,7 +173,7 @@ const scanned = ({ sim, since }: CheckCtx) => nmaps(sim, 'laptop', since).some(w
 
 export const netToolsLab: LabDef = {
   id: 'net-tools',
-  version: 4,
+  version: 5,
   title: 'Clues from the Command Line',
   tagline:
     'Solve three help desk tickets at a public library with ping, traceroute, nslookup, and netstat. Then, with written permission, map the network with nmap and find services that should be turned off.',
@@ -203,7 +210,7 @@ export const netToolsLab: LabDef = {
         | netstat | What is this computer connected to right now? |
         | nmap | Which computers are on this network, and which of their ports are open? |
 
-        A **port** is a numbered door into a computer, one for each service. Secure websites use port 443, for example. (The **Port** column in a device's details, like eth0 or lan, means something else: the jack a cable plugs into.)
+        A **port** is a numbered door into a computer, one for each service. Secure websites use port 443, for example. (The **Port** column in a device's details, like eth0 or lan, is something else: the place where a cable plugs in.)
 
         **The rule: nmap only with written permission.** The first four look at your own computer or ask one simple question. nmap knocks on the doors of other people's computers. Scanning a network without its owner's written permission can be a crime, even if you mean no harm. Everything in this lab happens inside a simulation.
 
@@ -250,9 +257,9 @@ export const netToolsLab: LabDef = {
 
         **ping** sends a tiny "are you there?" message, and the other computer sends one back.
 
-        1. Open the **Toolkit** tab. The **Terminal** is sitting at Public PC 1.
+        1. The **Terminal**, in the **Toolkit** tab, is sitting at [[pc1]].
         2. Type \`ping 10.0.0.1\` and press Enter. That's the library router.
-        3. Then ping [[catalog]] at 10.0.0.20. Watch the map: first, **ARP** asks the network "who has 10.0.0.20?" The **learned a MAC** tag means Public PC 1 now knows the catalog server's hardware address. Then the pings go.
+        3. Then ping [[catalog]] at 10.0.0.20. Watch the map, not the Terminal: first, **ARP** asks the network "who has 10.0.0.20?" The **learned a MAC** tag means Public PC 1 now knows the catalog server's hardware address. Then the pings go.
 
         Each reply line shows:
 
@@ -304,7 +311,7 @@ export const netToolsLab: LabDef = {
         People don't type addresses. The public computers open the catalog by its name. Try what they do.
 
         1. Type \`ping catalog.lakeside.example\`.
-        2. The address in square brackets is where the name led. Compare it with [[catalog]]'s address on the map.
+        2. The first line of the output shows, in square brackets, where the name led. Compare it with [[catalog]]'s address on the map.
 
         **Destination host unreachable** means nobody answered "who has this address?". The "Reply from" lines come from Public PC 1 itself, reporting that it gave up.
       `,
@@ -403,10 +410,10 @@ export const netToolsLab: LabDef = {
       body: md`
         Ticket 2: the e-book site, ebooks.example, won't load.
 
-        1. Type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. Something on the way is broken, but where?
-        2. Type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map. The blue tags at [[router]] are address sharing: your packets go out with the library's one internet address (**sent as**). The router passes the answers back to you (**answer for**).
+        1. Type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. The map shows where the ping stopped, but a real technician has no map. They use traceroute to find the spot.
+        2. Type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map.
 
-        traceroute sends pings with a small TTL. The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
+        traceroute sends pings with a small TTL. (Linux sends a different kind of packet, with the same TTL trick.) The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
 
         | Try | TTL sent | Where it hits 0 | Shows up as |
         |---|---|---|---|
@@ -414,7 +421,9 @@ export const netToolsLab: LabDef = {
         | 2 | 2 | 2nd router | line 2 |
         | 3 | 3 | 3rd router | line 3, and so on |
 
-        Each line is one **hop**: one router on the way (the internet provider's box is a router too). A \`*\` means nothing answered. Some routers ignore traceroute, so one \`*\` isn't proof. When the trace never gets past it and pings fail too, the path is broken there.
+        Each line is one **hop**: a stop on the way. Every stop is a router (the internet provider's box is one too), except the site itself: when the trace gets there, it's the last line. A \`*\` means nothing answered. Some routers ignore traceroute, so one \`*\` isn't proof. When the trace never gets past it and pings fail too, the path is broken there.
+
+        The blue tags at [[router]] are **address sharing**: every library computer goes out with the same internet address. This ticket doesn't need them.
 
         3. Answer **In the first trace, where is the problem?** below.
         4. Press [[button:call-isp]].
@@ -462,7 +471,7 @@ export const netToolsLab: LabDef = {
             { id: 'pc', text: 'In Public PC 1', feedback: 'Public PC 1 got answers from two routers, so its own connection works.' },
           ],
           explain:
-            'The last stop to answer was the internet provider. Past it, nothing answered, so the break is beyond the library. The library can’t fix that; the provider can. (The map shows the cut: no line between the provider and the internet router. A real technician can’t see that, so they use traceroute.) Next, if you haven’t yet, press the Call the internet provider button.',
+            'The last stop to answer was the internet provider. Past it, nothing answered, so the break is beyond the library. The library can’t fix that; the provider can. Next, if you haven’t yet, press the Call the internet provider button.',
         },
         {
           id: 'routers',
@@ -499,9 +508,11 @@ export const netToolsLab: LabDef = {
         Port 443 is the usual door for secure websites.
 
         1. Press [[button:watch-pc2]] and watch the map.
-        2. The Terminal is sitting at Public PC 2. Type \`netstat -b\`. (\`-b\` is the Windows option. Linux and macOS use others. Real Windows prints each program on its own line, in brackets; this lab puts it in a column.)
+        2. The Terminal is sitting at Public PC 2. Type \`netstat -b\`.
         3. Find the line that doesn't belong. The map shows where each Foreign Address is.
         4. Press [[button:unplug-pc2]] to cut it off until IT can check it.
+
+        Tip: \`-b\`, which adds the program, is a Windows option. Real Windows prints each program on its own line, in brackets.
       `,
       focus: ['pc2', 'remote'],
       open: 'tools',
@@ -601,7 +612,7 @@ export const netToolsLab: LabDef = {
 
         1. The Terminal is on [[laptop]], the only computer the letter lets you scan from. Type \`nmap 10.0.0.0/24\`.
         2. nmap asks for every address on the network, then knocks on 10 common ports at each computer it finds. (A real nmap checks 1,000.) A red **no ARP answer** tag on [[laptop]] means it asked for an empty address: no computer has it.
-        3. Read the report: one block for each computer that answered. Press **Bigger** on the Terminal to see more. **Host is up** means it answered. The **latency** is how long the answer took, in seconds. A number that starts with 0.000, like 0.00038s, is less than a millisecond.
+        3. Press **Bigger** on the Terminal, and read the report: one block for each computer that answered. **Host is up** means it answered. The **latency** is how long the answer took, in seconds: 0.00038s is less than a millisecond.
 
         | Service | Port | What it does |
         |---|---|---|
@@ -644,7 +655,7 @@ export const netToolsLab: LabDef = {
         An open port isn't the whole story. The program behind it might be an old version with a **vulnerability**: a known weakness an attacker can use. Researchers publish each one as a **CVE** (Common Vulnerabilities and Exposures) with an ID like CVE-2011-2523, so everyone can check for it.
 
         1. Type \`nmap -sV --script vuln 10.0.0.0/24\`. **-sV** asks each open port which program and version answers. **--script vuln** tests for known vulnerabilities. Some tests try the weakness for real, so the letter had to allow them.
-        2. Read the new **VERSION** column, and the lines that start with \`|\`. A **backdoor** is a secret way in that skips the password.
+        2. The report is long: use **Bigger** and **More below**. Read the new **VERSION** column, and the lines that start with a bar, \`|\`. A **backdoor** is a secret way in that skips the password.
       `,
       focus: ['laptop', 'catalog', 'printer'],
       open: 'tools',
@@ -681,7 +692,7 @@ export const netToolsLab: LabDef = {
             { id: 'dns', text: 'DNS (port 53) on the library router', feedback: 'Every computer in the library uses it to look up names. Without it, no site would load by name.' },
           ],
           explain:
-            'Turn off what has a known flaw or sends passwords as plain text, and keep what the library needs. The vuln script flagged the FTP backdoor. It didn’t flag Telnet: you spotted that one by knowing what Telnet does.',
+            'Turn off what has a known flaw or sends passwords as plain text, and keep what the library needs. The vuln script flagged the FTP backdoor. It didn’t flag Telnet: you spotted that one by knowing what Telnet does. A real scan often flags many more problems, and IT fixes the worst first.',
           afterGoals: true,
         },
       ],

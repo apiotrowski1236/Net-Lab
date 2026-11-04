@@ -4535,6 +4535,11 @@ button.pl-tile:active {
     transition: none;
   }
 }
+/* Bigger is on, but the map has the room until the packets land: say why the Terminal is small. */
+.term-held {
+  font-size: 12px;
+  color: var(--muted);
+}
 /* Back up to the lesson: only where the lesson sits above the map. */
 .term-up {
   display: none;

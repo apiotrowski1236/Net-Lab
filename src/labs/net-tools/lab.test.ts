@@ -205,6 +205,21 @@ describe('net-tools buttons', () => {
     expect(again.check({ sim: mixed, since: 0, ev: [] } as never)).toBe(true);
   });
 
+  it('the IT contractor waits for a running scan, so a report is never half old and half new', () => {
+    const sim = buildLibrary();
+    ensureTicketsDone(sim);
+    const close = action('close', 'close-risky');
+    sim.runCommand('laptop', 'nmap 10.0.0.0/24');
+    close.run(sim);
+    expect(riskyClosed(sim)).toBe(false);
+    expect(close.outcome!(sim, 0)).toEqual([
+      { tone: 'wait', text: 'The IT contractor will wait until your scan finishes, so its report isn’t half old and half new. Press the button again after "Nmap done".' },
+    ]);
+    sim.runUntilIdle();
+    close.run(sim);
+    expect(close.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'The IT contractor says FTP is off on the catalog server and Telnet is off on the printer. Scan again to check.' }]);
+  });
+
   it('Watch Public PC 2 shows its traffic to the unknown server', () => {
     const sim = buildLibrary();
     step('netstat').setup!(sim);
