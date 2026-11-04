@@ -31,6 +31,8 @@ export interface LabProgress {
   goals: Record<string, number>;
   answers: Record<string, Answer>;
   actions: { t: number; a: SimAction }[];
+  /** Each demo's state in a lesson with no network, by "stepId/demoId" (see src/demos). */
+  demos?: Record<string, unknown>;
   log: LogEntry[];
   submittedAt?: number;
   submitCount?: number;

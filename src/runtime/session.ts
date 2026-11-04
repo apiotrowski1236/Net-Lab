@@ -1,9 +1,13 @@
 import { signal } from '@preact/signals';
 import type { Sim } from '../sim/sim';
 import type { SimEvent } from '../sim/types';
+import { demoModel, isStatic } from '../demos/registry';
+import type { DemoInput, DemoSpec } from '../demos/types';
+import { buildNetwork } from '../labs/network';
 import {
   answerKey,
   goalKey,
+  isLesson,
   TAB_TOOLS,
   toolKey,
   type AnyEvent,
@@ -55,7 +59,10 @@ export class LabSession {
       // goals, but rebuild the network from step setups only.
       progress.actions = progress.actions.filter((x) => x.a.type === 'setup');
       progress.labVersion = lab.version;
-      this.replayWarning = 'This lab was updated, so the network was reset. Your answers are safe.';
+      this.replayWarning = isLesson(lab)
+        ? 'This lesson was updated, so its activities start fresh. Your answers and goals are safe.'
+        : 'This lab was updated, so the network was reset. Your answers are safe.';
+      if (progress.demos) progress.demos = {};
     }
     this.rebuild();
     progress.step = Math.min(progress.step, lab.steps.length - 1);
@@ -87,7 +94,7 @@ export class LabSession {
   }
 
   private rebuildFrom(actions: LabProgress['actions']): Sim {
-    const sim = this.lab.build();
+    const sim = buildNetwork(this.lab);
     for (const entry of actions) {
       sim.advanceTo(entry.t);
       applyAction(this.lab, sim, entry.a);
@@ -255,6 +262,50 @@ export class LabSession {
       }
     }
     if (changed) this.bump();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Demos (lessons with no network; see src/demos)
+  // ---------------------------------------------------------------------------
+
+  /** The demo `id` in step `stepId` (the step on screen by default). */
+  demoSpec(id: string, stepId = this.step.id): DemoSpec | undefined {
+    return this.lab.steps.find((s) => s.id === stepId)?.demos?.find((d) => d.id === id);
+  }
+
+  /** A demo's saved state, or its starting state if the student hasn't touched it. */
+  demoState<S = unknown>(spec: DemoSpec, stepId = this.step.id): S {
+    const saved = this.progress.demos?.[`${stepId}/${spec.id}`];
+    return (saved ?? demoModel(spec).init(spec)) as S;
+  }
+
+  /**
+   * The student did something to demo `id` on the step on screen. Saves the
+   * new state and checks the step's goals against the demo's facts.
+   */
+  demo(id: string, input: DemoInput): void {
+    const spec = this.demoSpec(id);
+    if (!spec) return;
+    const model = demoModel(spec);
+    const before = this.demoState(spec);
+    const after = model.apply(spec, before, input);
+    if (after === before) return;
+    this.saveDemo(spec, after);
+  }
+
+  /** Put demo `id` back the way the step starts it. Goals already reached stay reached. */
+  resetDemo(id: string): void {
+    const spec = this.demoSpec(id);
+    if (!spec || isStatic(spec) || !this.progress.demos?.[`${this.step.id}/${id}`]) return;
+    this.saveDemo(spec, demoModel(spec).init(spec));
+  }
+
+  private saveDemo(spec: DemoSpec, state: unknown): void {
+    const step = this.step;
+    (this.progress.demos ??= {})[`${step.id}/${spec.id}`] = state;
+    touch(this.progress);
+    this.checkGoals({ type: 'ui:demo', step: step.id, demo: spec.id, facts: demoModel(spec).facts(spec, state) });
+    this.bump();
   }
 
   // ---------------------------------------------------------------------------

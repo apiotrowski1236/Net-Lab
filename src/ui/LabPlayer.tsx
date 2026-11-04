@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { TAB_TOOLS, toolKey, type LabDef } from '../labs/types';
+import { isLesson, TAB_TOOLS, toolKey, type LabDef } from '../labs/types';
 import { LabSession } from '../runtime/session';
 import { checkCable } from '../runtime/toolInput';
 import { beacon, enqueue, hasEndpoint } from '../store/outbox';
@@ -8,6 +8,7 @@ import { getProgress } from '../store/progress';
 import { buildReport } from '../store/report';
 import { flushSaves } from '../store/storage';
 import { CaptureView, Inspector, Toolkit } from './Dock';
+import { DemoStage } from './demos/DemoStage';
 import { extraProtos, FORGED_COLOR, PROTO_BLURB, PROTO_COLOR, type Proto } from './describe';
 import { Icon } from './icons';
 import { jumpFor, type Jump } from './jump';
@@ -423,9 +424,12 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
       <TopBar session={session} />
       <div class="player-body">
         <LessonPanel session={session} onDevice={(id) => open(id, true)} />
-        <main class={`stage-col ${session.step.kind === 'submit' ? 'summary-col' : ''}`}>
+        <main class={`stage-col ${session.step.kind === 'submit' ? 'summary-col' : isLesson(lab) ? 'demo-col' : ''}`}>
           {session.step.kind === 'submit' ? (
             <Summary session={session} />
+          ) : isLesson(lab) ? (
+            // A lesson with no network: the step's demos take the map's place.
+            <DemoStage session={session} />
           ) : (
             <>
               <Stage session={session} selected={selected} onSelect={select} />

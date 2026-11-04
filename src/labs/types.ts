@@ -2,6 +2,7 @@ import type { Sim } from '../sim/sim';
 import type { Device, Frame, LogEntry, SimEvent } from '../sim/types';
 import type { FwMode } from '../sim/firewall';
 import type { ZoneLevel } from '../sim/zones';
+import type { DemoFacts, DemoSpec } from '../demos/types';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
@@ -11,7 +12,9 @@ export type UiEvent =
   | { type: 'ui:open-log'; device: string; entry: LogEntry }
   | { type: 'ui:enter-step'; step: string }
   /** The student opened a finding in the vulnerability scanner's report (net-audit). */
-  | { type: 'ui:open-finding'; device: string; finding: string };
+  | { type: 'ui:open-finding'; device: string; finding: string }
+  /** The student changed a demo on a lesson's stage (lessons with no network). `facts` is the demo's report after the change. */
+  | { type: 'ui:demo'; step: string; demo: string; facts: DemoFacts };
 
 export type AnyEvent = SimEvent | UiEvent;
 
@@ -64,6 +67,12 @@ export interface TextQuestion {
   expect?: RegExp;
   /** Shown after a wrong auto-checked answer. */
   expectHint?: string;
+  /**
+   * Feedback for particular wrong answers, checked in order after an
+   * auto-checked answer is marked wrong: the first `match` wins over
+   * `expectHint`. For answers that show a known mistake (bits read backward).
+   */
+  wrong?: { match: RegExp; text: string }[];
   explain?: string;
   /** Soft target shown under the box. */
   minWords?: number;
@@ -246,6 +255,11 @@ export interface StepDef {
   tools?: ToolSpec[];
   goals?: GoalDef[];
   questions?: QuestionDef[];
+  /**
+   * Interactive demos the stage shows in this step, top to bottom, in a lesson
+   * with no network (a LabDef without `build`). See src/demos/types.ts.
+   */
+  demos?: DemoSpec[];
   /** Devices to spotlight on the map. */
   focus?: string[];
   /** Open a dock tab when the step starts. */
@@ -267,7 +281,13 @@ export interface LabDef {
   ced: string[];
   minutes: number;
   objectives: string[];
-  build: () => Sim;
+  /**
+   * The simulated network. Leave it out for a lesson with no network: the
+   * stage then shows each step's `demos` instead of the map and dock, and
+   * everything else (steps, goals, questions, saving, report, guide) works
+   * the same. Call `buildNetwork(lab)` (src/labs/network.ts), not this.
+   */
+  build?: () => Sim;
   steps: StepDef[];
   /** Device whose packet capture appears in the Capture tab. */
   captureDevice?: string;
@@ -312,6 +332,15 @@ export interface LabStub {
   unit: number;
   codehs: string[];
   comingSoon: true;
+}
+
+/** A lesson with no network: its stage shows demos. */
+export const isLesson = (lab: LabDef): boolean => !lab.build;
+
+/** What a text question says after a wrong check: the first `wrong` pattern that matches, else `expectHint`. */
+export function wrongFeedback(q: TextQuestion, value: string): string {
+  const v = value.trim();
+  return q.wrong?.find((w) => w.match.test(v))?.text ?? q.expectHint ?? 'Not quite. Change your answer and check again.';
 }
 
 export const goalKey = (step: string, goal: string) => `${step}/${goal}`;

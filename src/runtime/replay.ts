@@ -1,3 +1,4 @@
+import { buildNetwork } from '../labs/network';
 import type { LabDef } from '../labs/types';
 import type { Sim } from '../sim/sim';
 import type { LabProgress } from '../store/progress';
@@ -48,7 +49,7 @@ export class Replay {
     this.from = window.from;
     this.to = window.to;
     // Rebuild the network as it was when the step opened.
-    const sim = lab.build();
+    const sim = buildNetwork(lab);
     for (const x of actions) {
       if (x.t >= window.from) continue;
       sim.advanceTo(x.t);

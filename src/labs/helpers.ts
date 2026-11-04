@@ -1,5 +1,6 @@
 import type { Sim } from '../sim/sim';
 import type { Frame, LogEntry, SimEvent } from '../sim/types';
+import type { DemoFacts } from '../demos/types';
 import type { CheckCtx } from './types';
 
 /**
@@ -70,3 +71,9 @@ export function pageSince(sim: Sim, device: string, since: number, pred: (b: Non
 export function asPathTo(sim: Sim, device: string, ip: string): number[] | undefined {
   return sim.lookup(sim.dev(device), ip)?.asPath;
 }
+
+/** Demo `demo` on the step's stage just reported facts matching `pred` (lessons with no network). */
+export const demoFact =
+  (demo: string, pred: (f: DemoFacts) => boolean) =>
+  ({ ev }: CheckCtx): boolean =>
+    ev?.type === 'ui:demo' && ev.demo === demo && pred(ev.facts);
