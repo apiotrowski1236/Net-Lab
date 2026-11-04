@@ -2,7 +2,7 @@ import { capturedAfter } from '../../sim/capture';
 import { matchFilter, parseFilter } from '../../sim/displayFilter';
 import type { Sim } from '../../sim/sim';
 import type { Frame } from '../../sim/types';
-import { capturedSince, filtered, inspected, openedFrame } from '../helpers';
+import { capturedSince, filtered as filteredOnApply, inspected, openedFrame } from '../helpers';
 import { md } from '../md';
 import type { ActionDef, ActionLine, CheckCtx, LabDef, MapZone, ToolSpec } from '../types';
 import {
@@ -200,6 +200,27 @@ const filteredForTv = ({ ev }: CheckCtx): boolean => {
   if (ev?.type !== 'ui:filter' || ev.device !== 'laptop') return false;
   const p = parseFilter(ev.filter);
   return p.ok && !!p.node && matchFilter(p.node, TV_PIECE) && !matchFilter(p.node, LAPTOP_PIECE);
+};
+
+/** The filter on screen in each sim's Capture tab. A step starts with none (LabSession clears it). */
+const shownFilter = new WeakMap<Sim, string>();
+/**
+ * `filtered` from helpers checks only when the student presses Enter. This also
+ * checks the filter still on screen as packets arrive, so a filter typed before
+ * the packets came in checks off once they show.
+ */
+const filtered = (device: string, want: (f: Frame) => boolean) => {
+  const onApply = filteredOnApply(device, want);
+  return (ctx: CheckCtx): boolean => {
+    const { sim, ev } = ctx;
+    if (ev?.type === 'ui:enter-step') shownFilter.delete(sim);
+    if (ev?.type === 'ui:filter') {
+      if (ev.device === device) shownFilter.set(sim, ev.filter);
+      return onApply(ctx);
+    }
+    const filter = shownFilter.get(sim);
+    return !!filter && onApply({ ...ctx, ev: { type: 'ui:filter', device, filter } });
+  };
 };
 
 const filteredArp = filtered('laptop', (f) => !!f.arp);
@@ -679,18 +700,6 @@ export const packetCaptureLab: LabDef = {
             { id: 'who', text: 'Who the family is chatting with', feedback: "The capture shows only the chat service's address. Who a message is for is inside the locked part." },
           ],
           explain: 'The chat app uses HTTPS. A capture shows when the laptop talked to the chat service and how often, but not what anyone said.',
-        },
-        {
-          id: 'weather-filter',
-          kind: 'choice',
-          prompt: 'Which filter shows only the packets to and from the weather service?',
-          options: [
-            { id: 'addr', text: 'ip.addr == 192.0.2.140', correct: true },
-            { id: 'word', text: 'weather', feedback: "Wireshark doesn't know the word weather. Try it in the filter bar to see its message." },
-            { id: 'one', text: 'ip.addr = 192.0.2.140', feedback: 'Wireshark needs two equals signs (==) to compare. With one, the bar turns red.' },
-            { id: 'http', text: 'http', feedback: "That also shows the school website's packets." },
-          ],
-          explain: "192.0.2.140 is the weather service's address. The DNS answer for weather.example says so.",
         },
       ],
     },

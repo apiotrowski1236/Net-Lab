@@ -438,6 +438,26 @@ describe('goals', () => {
     expect(done()).toBe(true);
   });
 
+  it('a filter applied before its packets arrive checks off when they show, and not after the step changes', () => {
+    const s = playTo('cant-see');
+    expect(s.step.id).toBe('wireshark');
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    s.ui({ type: 'ui:filter', device: 'laptop', filter: 'icmp' });
+    expect(s.goalDone('wireshark', 'icmp')).toBe(false);
+    s.dispatch({ type: 'ping', device: 'laptop', ip: '192.168.1.1' });
+    s.sim.runUntilIdle();
+    expect(s.goalDone('wireshark', 'icmp')).toBe(true);
+
+    // A new step clears the filter on screen, so an old one can't count there.
+    s.ui({ type: 'ui:filter', device: 'laptop', filter: 'tls' });
+    s.goTo(index('cant-see'));
+    s.goTo(index('wireshark'));
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    s.runStepAction('open-video');
+    s.sim.runUntilIdle();
+    expect(s.goalDone('wireshark', 'tls')).toBe(false);
+  });
+
   it('a filter that also shows other packets does not count', () => {
     const s = playTo('busy');
     expect(s.step.id).toBe('filter');
