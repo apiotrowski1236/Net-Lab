@@ -79,6 +79,7 @@ export const CURRICULA: Curriculum[] = [
       'packet-capture',
       'wireshark',
       'build-network',
+      'net-tools',
       'on-path',
       'mac-flood',
       'dns-spoof',

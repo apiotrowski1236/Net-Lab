@@ -1410,12 +1410,15 @@ export function Toolkit({
   tools,
   onSelect,
   inCapture,
+  selected,
 }: {
   session: LabSession;
   tools: ToolSpec[];
   onSelect: (id: string) => void;
   /** This step's capture controls are in the Capture tab (CAPTURE_TOOLS). */
   inCapture?: boolean;
+  /** The device selected on the map (a terminal sits down at it). */
+  selected?: string | null;
 }) {
   const sim = session.sim;
   const settingKinds = new Set<string>(tools.filter((t) => (SETTING_TOOLS as readonly string[]).includes(t.kind)).map((t) => t.kind));
@@ -1483,7 +1486,7 @@ export function Toolkit({
         return <PingTool session={session} />;
       default: {
         const Card = TOOL_CARDS[t.kind] as ComponentType<ToolCardProps> | undefined;
-        return Card ? <Card session={session} spec={t} onSelect={onSelect} /> : null;
+        return Card ? <Card session={session} spec={t} onSelect={onSelect} selected={selected} /> : null;
       }
     }
   };

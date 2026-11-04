@@ -254,6 +254,13 @@ export function Icon({ name, size = 16 }: { name: string; size?: number }) {
     ),
     /** A network cable's plug. */
     cable: <path d="M9 3 V7 M15 3 V7 M6 7 H18 V11 A6 6 0 0 1 12 17 A6 6 0 0 1 6 11 Z M12 17 V22" {...p} />,
+    /** A terminal window with a prompt (net-tools). */
+    terminal: (
+      <g {...p}>
+        <rect x={3} y={4} width={18} height={16} rx={2} />
+        <path d="M7 10 L10 12.5 L7 15 M12 15 H16" />
+      </g>
+    ),
     /** Ping: a pulse going out and coming back. */
     ping: <path d="M2 12 H7 L9.5 6 L14.5 18 L17 12 H22" {...p} />,
     /** Device settings. */

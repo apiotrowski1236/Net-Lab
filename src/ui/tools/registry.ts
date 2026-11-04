@@ -20,12 +20,15 @@ import { RiskRegisterTool } from './RiskRegister';
 import { HardeningCard } from './HardeningCard';
 import { AiThresholdCard, IdsCard, SiemCard } from './DetectionCards';
 import { EchoTool } from './EchoTool';
+import { TerminalTool } from './Terminal';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
   spec: Extract<ToolSpec, { kind: K }>;
   /** Select a device and show it in the Inspect tab. */
   onSelect: (id: string) => void;
+  /** The device selected on the map, if any. */
+  selected?: string | null;
 };
 
 /**
@@ -63,4 +66,6 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   'ai-threshold': AiThresholdCard,
   // smurf
   'echo-tool': EchoTool,
+  // net-tools
+  terminal: TerminalTool,
 };

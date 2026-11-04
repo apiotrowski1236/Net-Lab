@@ -3,6 +3,7 @@ import type { Device, Frame, LogEntry, SimEvent } from '../sim/types';
 import type { FwMode } from '../sim/firewall';
 import type { ZoneLevel } from '../sim/zones';
 import type { DemoFacts, DemoSpec } from '../demos/types';
+import type { TermCommand } from '../sim/terminal';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
@@ -45,6 +46,8 @@ export interface ChoiceOption {
   feedback?: string;
   /** Keep at the end when options are shuffled (for "Both" or "None of these"). */
   last?: boolean;
+  /** Select-all questions: a nudge shown when this right answer is the one left out. */
+  missed?: string;
 }
 
 export interface ChoiceQuestion {
@@ -93,8 +96,11 @@ export interface TextQuestion {
 }
 
 export type QuestionDef = (ChoiceQuestion | TextQuestion) & {
-  /** Hide until the step's goals are done: for questions about what the student is about to see. */
-  afterGoals?: boolean;
+  /**
+   * Hide until the step's goals are done: for questions about what the student
+   * is about to see. A list of goal ids waits for those goals only.
+   */
+  afterGoals?: boolean | string[];
 };
 
 /**
@@ -159,6 +165,13 @@ export type ToolSpec =
   | { kind: 'triangulate'; scanner: string; spots: { x: number; y: number; label: string }[] }
   /** Port scanner on `device`: ping sweep plus port scan of an address or network the student types, then connect to what's open. */
   | { kind: 'port-scan'; device: string }
+  /**
+   * A command line on one of `devices` (src/ui/tools/Terminal.tsx, net-tools).
+   * `commands` are the ones this step allows. nmap also needs `nmap`: the one
+   * computer it is installed on, and the networks the owner's written
+   * permission covers (`owner` signed it). Anything else is refused.
+   */
+  | { kind: 'terminal'; devices: string[]; commands: TermCommand[]; nmap?: { from: string; scope: string[]; owner: string } }
   /**
    * Put standalone firewalls into cables. The outside port faces `internet`.
    * `feedback` explains each placement (`between` is the two devices the cable joined).
@@ -354,6 +367,8 @@ export interface MapZone {
   shape: { kind: 'rect'; x: number; y: number; w: number; h: number } | { kind: 'circle'; cx: number; cy: number; r: number };
   /** Shown at the zone's top-left (rect) or top (circle). */
   label?: string;
+  /** Put the label at the bottom-left instead (rect only), clear of tags that pop up above a device. */
+  labelAt?: 'bottom';
   /** Colors the outline and fill: 'neutral' for a building, 'good' for a protected zone, 'bad' for hostile ground. */
   tone?: 'neutral' | 'info' | 'good' | 'warn' | 'bad';
   /** Dashed outline, e.g. for a radio signal's reach or a logical zone like a VLAN. */

@@ -94,7 +94,10 @@ function ChoiceCard({ session, step, q, labels, onDevice }: { session: LabSessio
           .filter((o) => o.feedback)
           .map((o) => (q.multi && wrongPicks.length > 1 ? `"${o.text}": ${o.feedback}` : o.feedback))
           .join(' ')
-      : 'Everything you picked is right, but something is missing. Pick every answer that applies.';
+      : q.options
+          .filter((o) => o.correct && !picked.has(o.id) && o.missed)
+          .map((o) => o.missed)
+          .join(' ') || 'Everything you picked is right, but something is missing. Pick every answer that applies.';
   const fb = useVerdictInView(a?.attempts);
   return (
     <div class={`qcard ${done ? 'correct' : wrong ? 'wrong' : ''}`}>
@@ -338,6 +341,19 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
   );
 }
 
+/** The notice that stands in for questions still locked behind goals. */
+function lockNotice(locked: QuestionDef[], step: StepDef, labels: Record<string, string>): string {
+  const ids = locked.flatMap((q) => (Array.isArray(q.afterGoals) ? q.afterGoals : []));
+  const waits = locked.every((q) => Array.isArray(q.afterGoals)) && ids.length > 0;
+  const what = locked.length > 1 ? `${locked.length} questions about what happens unlock` : 'A question about what happens unlocks';
+  if (!waits) return `${what} when you finish the goals above.`;
+  // Only some goals: name them, as plain text.
+  const names = (step.goals ?? [])
+    .filter((g) => ids.includes(g.id))
+    .map((g) => `“${g.label.replace(/`/g, '').replace(/\[\[([\w-]+)\]\]/g, (_, id: string) => labels[id] ?? id)}”`);
+  return `${what} when you finish ${names.join(' and ')}.`;
+}
+
 function QuestionCard(props: { session: LabSession; step: StepDef; q: QuestionDef; labels: Record<string, string>; onDevice: (id: string) => void }) {
   return props.q.kind === 'choice' ? <ChoiceCard {...props} q={props.q} /> : <TextCard {...props} q={props.q} />;
 }
@@ -411,6 +427,8 @@ export function LessonPanel({
     for (const d of Object.values(session.sim.devices)) out[d.id] = d.label;
     return out;
   }, [session.sim]);
+  // A button the instructions already show ([[button:id]]) isn't repeated under them.
+  const rowActions = (step.actions ?? []).filter((a) => !step.body.includes(`[[button:${a.id}]]`));
   const actionLabels = useMemo<MdActions>(() => ({ labels: Object.fromEntries((step.actions ?? []).map((a) => [a.id, a.label])), live: true }), [step]);
 
   useEffect(() => {
@@ -430,20 +448,34 @@ export function LessonPanel({
   const canContinue = session.stepComplete(p.step);
   // A teacher override opens the step's questions too.
   const goalsDone = !!overridden || (step.goals ?? []).every((g) => session.goalDone(step.id, g.id));
-  // When the goals finish, move toward the question they unlocked: it can sit below the fold.
+  const unlocked = (q: QuestionDef) =>
+    !q.afterGoals || !!overridden || (q.afterGoals === true ? goalsDone : q.afterGoals.every((id) => session.goalDone(step.id, id)));
+  const lockedQs = (step.questions ?? []).filter((q) => !unlocked(q));
+  const nUnlocked = (step.questions ?? []).filter((q) => q.afterGoals && unlocked(q)).length;
+  // When goals unlock a question, move toward it: it can sit below the fold.
   // Keep the action's result in view on the way, since the question asks about it.
-  const unlockedAt = useRef({ step: step.id, done: goalsDone });
+  const unlockedAt = useRef({ step: step.id, n: nUnlocked });
   useEffect(() => {
     const was = unlockedAt.current;
-    unlockedAt.current = { step: step.id, done: goalsDone };
-    if (was.step !== step.id || was.done || !goalsDone) return;
-    const i = step.questions?.findIndex((q) => q.afterGoals) ?? -1;
+    unlockedAt.current = { step: step.id, n: nUnlocked };
+    if (was.step !== step.id || nUnlocked <= was.n) return;
+    const i = step.questions?.findIndex((q) => q.afterGoals && unlocked(q)) ?? -1;
     const el = scroller.current;
     if (i < 0 || !el) return;
+    // On a narrow screen the page scrolls, not the lesson: if the student is down at the
+    // map and tools, don't pull the page away from the result they're reading.
+    if (matchMedia('(max-width: 900px)').matches && el.getBoundingClientRect().bottom < innerHeight * 0.5) return;
     const result = el.querySelector('.action-outcome');
-    if (result) result.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    else el.querySelectorAll('.qcard')[i]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [step.id, goalsDone]);
+    const target = result ?? el.querySelectorAll('.qcard')[i];
+    if (!target) return;
+    const block = result ? 'start' : 'nearest';
+    if (matchMedia('(max-width: 900px)').matches) return target.scrollIntoView({ block, behavior: 'smooth' });
+    // On a wide screen only the lesson scrolls: scrollIntoView would also nudge the page.
+    const r = target.getBoundingClientRect();
+    const b = el.getBoundingClientRect();
+    const d = block === 'start' || r.top < b.top ? r.top - b.top - 8 : r.bottom > b.bottom ? Math.min(r.bottom - b.bottom + 8, r.top - b.top - 8) : 0;
+    if (d) el.scrollBy({ top: d, behavior: 'smooth' });
+  }, [step.id, nUnlocked]);
   // The "Finish …" button shows what's left: the first unfinished goal or question, which may be below the fold.
   const showWhatsLeft = () => {
     const el = scroller.current;
@@ -456,6 +488,19 @@ export function LessonPanel({
     target.classList.remove('nudge');
     void (target as HTMLElement).offsetWidth;
     target.classList.add('nudge');
+  };
+  // On a narrow screen the map sits below the lesson: a button that sets packets moving
+  // brings the map up, so the student sees what it did.
+  const press = (id: string) => {
+    session.runStepAction(id);
+    if (!narrow || (session.sim.idle && !session.sim.inflight.length)) return;
+    requestAnimationFrame(() => {
+      const map = document.querySelector('.stage');
+      if (!map) return;
+      const r = map.getBoundingClientRect();
+      if (r.top < 0 || r.top + r.height / 2 > innerHeight)
+        map.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
   };
   const reviewing = p.step < p.maxStep;
   const isLast = p.step === total - 1;
@@ -522,7 +567,7 @@ export function LessonPanel({
           {step.title}
         </h2>
         {step.extra && <ExtraCreditBanner session={session} />}
-        <Prose src={step.body} labels={labels} onDevice={onDevice} actions={actionLabels} onAction={(id) => session.runStepAction(id)} />
+        <Prose src={step.body} labels={labels} onDevice={onDevice} actions={actionLabels} onAction={press} />
 
         {captureTool && (
           // Keyboard users: the capture controls are many Tab presses away, past the map.
@@ -537,10 +582,10 @@ export function LessonPanel({
             Go to the capture controls
           </button>
         )}
-        {step.actions && step.actions.length > 0 && (
+        {rowActions.length > 0 && (
           <div class="actions">
-            {step.actions.map((a) => (
-              <button key={a.id} class="btn action" onClick={() => session.runStepAction(a.id)}>
+            {rowActions.map((a) => (
+              <button key={a.id} class="btn action" onClick={() => press(a.id)}>
                 <Icon name="play" size={14} /> {a.label}
               </button>
             ))}
@@ -581,10 +626,13 @@ export function LessonPanel({
         {demos}
 
         {step.questions?.map((q) =>
-          q.afterGoals && !goalsDone ? (
-            <div key={`${step.id}/${q.id}`} class="qcard locked">
-              <Icon name="lock" size={14} /> A question about what happens unlocks when you finish the goals above.
-            </div>
+          !unlocked(q) ? (
+            // Several locked questions share one notice.
+            q === lockedQs[0] && (
+              <div key={`${step.id}/${q.id}`} class="qcard locked">
+                <Icon name="lock" size={14} /> {lockNotice(lockedQs, step, labels)}
+              </div>
+            )
           ) : (
             <QuestionCard key={`${step.id}/${q.id}`} session={session} step={step} q={q} labels={labels} onDevice={onDevice} />
           ),

@@ -118,6 +118,13 @@ export function findOut(nat: NatState, pkt: IpPacket): NatEntry | undefined {
 
 /** The line for a packet arriving from outside (matched on the public port and far end). */
 export function findIn(nat: NatState, pkt: IpPacket): NatEntry | undefined {
+  // An ICMP error (traceroute's "time exceeded") comes from a router along the
+  // way, not the far end. It carries the start of the packet that died, and
+  // that packet's ping ID and destination find the line, as on a real router.
+  if (pkt.app.kind === 'icmp-error') {
+    const { seq, orig } = pkt.app;
+    return nat.table.find((e) => e.proto === 'icmp' && e.public === seq && e.remote.ip === orig.dst);
+  }
   const p = natPorts(pkt);
   if (!p) return undefined;
   return nat.table.find((e) => e.proto === pkt.proto && e.public === p.dst && e.remote.ip === pkt.src && e.remote.port === p.src);
