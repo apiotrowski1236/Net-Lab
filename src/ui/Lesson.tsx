@@ -7,6 +7,7 @@ import { targetsFor } from '../sim/malware';
 import { pingFailText } from './describe';
 import { connOutcomeLines, fwDenyText } from './firewallText';
 import { idsOutcomeLines } from './idsText';
+import { ExtraCreditBanner, ExtraCreditDone } from './ExtraCredit';
 import { Icon } from './icons';
 import { renderMarkdown } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
@@ -431,7 +432,7 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
             <Icon name="unlock" size={14} /> Your teacher unlocked this step with an override. Your report shows that. You can still finish the goals and questions.
           </div>
         )}
-        {prev && !reviewing && step.kind !== 'submit' && (
+        {prev && !reviewing && step.kind !== 'submit' && prev.kind !== 'submit' && (
           <div class="refresher">
             <span class="refresher-text">
               Builds on step {p.step}: <strong>{prev.title}</strong>
@@ -449,6 +450,7 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
           </div>
         )}
         <h2 class="step-title">{step.title}</h2>
+        {step.extra && <ExtraCreditBanner session={session} />}
         <Prose src={step.body} labels={labels} onDevice={onDevice} />
 
         {step.actions && step.actions.length > 0 && (
@@ -508,6 +510,8 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
           </div>
         )}
 
+        {step.extra && isLast && session.stepComplete(p.step) && <ExtraCreditDone session={session} />}
+
         {!canContinue && step.kind !== 'submit' && overrideEnabled() && (
           <div class="override-row">
             <button class="link-btn" onClick={() => setOverrideOpen(true)}>
@@ -522,15 +526,22 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
         <button class="btn ghost" disabled={p.step === 0} onClick={() => session.goTo(p.step - 1)}>
           <Icon name="chevronLeft" /> Back
         </button>
-        {!isLast && (
-          <button
-            class={`btn primary big ${canContinue ? 'ready' : 'todo'}`}
-            aria-disabled={!canContinue}
-            onClick={() => (canContinue ? session.goTo(p.step + 1) : showWhatsLeft())}
-            title={canContinue ? '' : `Still to do: ${missing.join(', ')}. Click to see what's left.`}
-          >
-            {canContinue ? 'Continue' : `Finish ${missing.join(' and ')}`} {canContinue && <Icon name="chevronRight" />}
+        {!isLast && step.kind === 'submit' ? (
+          // Extra credit comes after handing in. Handing in stays the main button, on the right.
+          <button class="btn big" onClick={() => session.goTo(p.step + 1)}>
+            Extra credit <Icon name="chevronRight" />
           </button>
+        ) : (
+          !isLast && (
+            <button
+              class={`btn primary big ${canContinue ? 'ready' : 'todo'}`}
+              aria-disabled={!canContinue}
+              onClick={() => (canContinue ? session.goTo(p.step + 1) : showWhatsLeft())}
+              title={canContinue ? '' : `Still to do: ${missing.join(', ')}. Click to see what's left.`}
+            >
+              {canContinue ? 'Continue' : `Finish ${missing.join(' and ')}`} {canContinue && <Icon name="chevronRight" />}
+            </button>
+          )
         )}
       </div>
     </aside>

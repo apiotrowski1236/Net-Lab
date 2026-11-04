@@ -1,3 +1,4 @@
+import { useRef } from 'preact/hooks';
 import { firstDifference, fromBits, placeValues } from '../../demos/binary';
 import { comparePair, type CompareState } from '../../demos/compare';
 import type { CompareSpec } from '../../demos/types';
@@ -14,6 +15,43 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
   const note = s.note;
   const big = fromBits(a) > fromBits(b) ? a : b;
   const small = big === a ? b : a;
+
+  // The pair as given, before any 0s: which row is shorter, and by how much.
+  const [oa, ob] = spec.pairs[s.pair];
+  const shortRow: 0 | 1 | -1 = oa.length === ob.length ? -1 : oa.length < ob.length ? 0 : 1;
+  const short = shortRow === 0 ? oa : ob;
+  const added = shortRow === -1 ? 0 : width - short.length;
+  const padded = s.padded && added > 0;
+
+  // Animate only when the student presses Line them up, not on a reload or a new pair.
+  const prev = useRef({ pair: s.pair, padded: s.padded });
+  const anim = useRef(false);
+  if (prev.current.pair !== s.pair) anim.current = false;
+  else if (!prev.current.padded && s.padded) anim.current = true;
+  prev.current = { pair: s.pair, padded: s.padded };
+
+  /** One digit of row `row` in column `i`, with the classes for the added 0s and the digits that slid over. */
+  const digit = (row: 0 | 1, i: number) => {
+    const d = (row === 0 ? a : b)[i];
+    let cls = `cmp-digit ${d === '1' ? 'one' : ''}`;
+    let style: Record<string, number> | undefined;
+    if (padded && row === shortRow) {
+      if (i < added) cls += ' added';
+      if (anim.current && i < added) {
+        cls += ' drop';
+        style = { '--d': i };
+      } else if (anim.current) {
+        cls += ' slide';
+        style = { '--shift': added };
+      }
+    }
+    return (
+      <span class={cls} style={style}>
+        {d ?? ''}
+      </span>
+    );
+  };
+
   return (
     <div class="cmp">
       <div class="walk-top">
@@ -53,13 +91,20 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
               aria-label={s.padded ? `${placeName(pv[i])}: ${a[i]} and ${b[i]}` : `Digit ${i + 1}: ${a[i] ?? 'none'} and ${b[i] ?? 'none'}`}
               onClick={() => send({ tap: i })}
             >
-              <span class="cmp-head">{s.padded ? pv[i] : ''}</span>
-              <span class={`cmp-digit ${a[i] === '1' ? 'one' : ''}`}>{a[i] ?? ''}</span>
-              <span class={`cmp-digit ${b[i] === '1' ? 'one' : ''}`}>{b[i] ?? ''}</span>
+              <span class={`cmp-head ${anim.current ? 'appear' : ''}`}>{s.padded ? pv[i] : ''}</span>
+              {digit(0, i)}
+              {digit(1, i)}
             </button>
           );
         })}
       </div>
+
+      {padded && (
+        <p class={`cmp-padded ${anim.current ? 'appear' : ''}`} style={{ '--d': added }} role="status">
+          <code>{short}</code> became <code>{shortRow === 0 ? a : b}</code>. {added === 1 ? 'A 0 in front adds' : '0s in front add'} nothing, so it's still {fromBits(short)}. Now
+          the places line up.
+        </p>
+      )}
 
       {note && (
         <p class={`walk-note ${note.kind === 'wrong-pick' ? 'bad' : ''}`} role="status">

@@ -106,7 +106,11 @@ describe.each(LABS.map((l) => [l.id, l] as const))('lab %s', (_id, lab) => {
         expect(new Set(ids).size, `duplicate id in ${s.id}`).toBe(ids.length);
       }
     }
-    expect(lab.steps[lab.steps.length - 1].kind).toBe('submit');
+    // The submit step comes last, unless extra-credit steps follow it. Extra credit only goes after it.
+    const submitAt = lab.steps.findIndex((s) => s.kind === 'submit');
+    expect(submitAt).toBeGreaterThan(0);
+    expect(lab.steps.slice(submitAt + 1).every((s) => s.extra)).toBe(true);
+    expect(lab.steps.slice(0, submitAt).some((s) => s.extra)).toBe(false);
   });
 
   it('can be played start to finish, and every step completes', () => {
@@ -115,6 +119,7 @@ describe.each(LABS.map((l) => [l.id, l] as const))('lab %s', (_id, lab) => {
     const r = buildReport(lab, s.progress, { id: s.progress.studentId, name: 'Test Student', period: 'Period 1', createdAt: 0 }, 'submitted');
     expect(r.goals.every((g) => g.done)).toBe(true);
     expect(r.score.auto).toBe(r.score.autoMax);
+    expect(r.score.extra ?? 0).toBe(r.score.extraMax ?? 0);
     expect(r.questions.every((q) => q.answer.trim().length > 0)).toBe(true);
     for (const text of [...r.goals.map((g) => g.label), ...r.questions.map((q) => q.prompt)]) expect(text).not.toMatch(/\[\[|\*\*/);
   });

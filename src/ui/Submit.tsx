@@ -47,7 +47,8 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
       const flag = o
         ? `<div class="ovr">Teacher override: a teacher unlocked this step on ${esc(when(o.at))}${o.note ? `. Note: ${esc(o.note)}` : ''}. Unchecked goals earned no points.</div>`
         : '';
-      return `<section class="${o ? 'overridden' : ''}"><h2>Step ${i + 1}. ${esc(s.title)}${o ? ' <span class="tag">teacher override</span>' : ''}</h2>${flag}${goalHtml}${qHtml}</section>`;
+      const tags = `${s.extra ? ' <span class="tag extra">extra credit</span>' : ''}${o ? ' <span class="tag">teacher override</span>' : ''}`;
+      return `<section class="${o ? 'overridden' : ''}"><h2>Step ${i + 1}. ${esc(s.title)}${tags}</h2>${flag}${goalHtml}${qHtml}</section>`;
     })
     .join('');
   const overrideSummary = r.overrides.length
@@ -64,7 +65,9 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
         )}</b>${x.fromPeriod ? ` (${esc(x.fromPeriod)})` : ''}.${x.otherName ? ' <b>That is not the name on this report.</b>' : ''}</div>`,
     )
     .join('');
-  const goalsDone = r.goals.filter((g) => g.done).length;
+  const core = r.goals.filter((g) => !g.extra);
+  const goalsDone = core.filter((g) => g.done).length;
+  const written = r.questions.filter((q) => !q.autoGraded && !q.extra);
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(r.student.name)} - ${esc(r.lab.title)}</title>
 <style>
@@ -82,6 +85,7 @@ ul{padding-left:0;list-style:none;margin:6px 0}li{margin:3px 0}li.todo{color:#b9
 .ovr{background:#fef3c7;border:1px solid #f59e0b;color:#78350f;border-radius:8px;padding:8px 12px;margin:6px 0 10px}
 .ovr.alert{background:#fee2e2;border-color:#ef4444;color:#7f1d1d}
 .tag{font-size:11px;font-weight:600;background:#fde68a;color:#78350f;border-radius:999px;padding:2px 8px;vertical-align:middle}
+.tag.extra{background:#dbeafe;color:#1e3a8a}
 .foot{font-size:12px;color:#64748b;margin-top:24px}
 </style></head><body>
 <h1>${esc(r.lab.title)}</h1>
@@ -89,10 +93,11 @@ ul{padding-left:0;list-style:none;margin:6px 0}li{margin:3px 0}li.todo{color:#b9
 Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(when(r.submittedAt))}` : `Last saved ${esc(when(r.updatedAt))} (not submitted)`} &middot; Work ID ${esc(r.workId)}</div>
 <div class="stats">
 <div class="stat"><b>${r.score.auto} / ${r.score.autoMax}</b>auto-checked points</div>
-<div class="stat"><b>${goalsDone} / ${r.goals.length}</b>goals</div>
+<div class="stat"><b>${goalsDone} / ${core.length}</b>goals</div>
 <div class="stat"><b>${r.stepReached} / ${r.lab.steps}</b>steps reached</div>
 <div class="stat"><b>${r.activeMinutes}</b>active minutes</div>
-<div class="stat"><b>${r.questions.filter((q) => !q.autoGraded && q.answer.trim()).length} / ${r.questions.filter((q) => !q.autoGraded).length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>
+<div class="stat"><b>${written.filter((q) => q.answer.trim()).length} / ${written.length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>
+${r.score.extraMax ? `<div class="stat"><b>${r.score.extra} / ${r.score.extraMax}</b>extra credit points</div>` : ''}
 </div>
 ${overrideSummary}${failures}${restores}
 ${steps}
@@ -137,6 +142,20 @@ export function downloadReport(lab: LabDef, r: Report, backup?: BackupBlock): vo
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/** The report as it stands now, ready to save or send. */
+const currentReport = (session: LabSession) => buildReport(session.lab, session.progress, profile.value, session.progress.submittedAt ? 'submitted' : 'in-progress');
+
+/** Save the report file, with the backup block that lets it restore the work. */
+export const downloadCurrent = (session: LabSession) => downloadReport(session.lab, currentReport(session), makeBackup(session.progress, profile.value));
+
+/** Mark the work submitted and send it. With no server, downloading the report file is how it reaches the teacher. */
+export function handIn(session: LabSession): void {
+  session.markSubmitted();
+  flushSaves();
+  if (hasEndpoint()) enqueue(buildReport(session.lab, session.progress, profile.value, 'submitted'));
+  else downloadCurrent(session);
+}
+
 /** Submit and Download, plus where the submission stands. */
 export function SubmitBox({ session }: { session: LabSession }) {
   void session.rev.value;
@@ -147,16 +166,8 @@ export function SubmitBox({ session }: { session: LabSession }) {
   const pending = outbox.value.find((i) => i.key === key);
   const sent = synced.value[key];
   const endpoint = hasEndpoint();
-  const current = () => buildReport(lab, session.progress, profile.value, session.progress.submittedAt ? 'submitted' : 'in-progress');
-
-  const download = () => downloadReport(lab, current(), makeBackup(session.progress, profile.value));
-  const submit = () => {
-    session.markSubmitted();
-    flushSaves();
-    if (endpoint) enqueue(buildReport(lab, session.progress, profile.value, 'submitted'));
-    // Without a server, the downloaded file is how the work reaches the teacher: one button does both.
-    else download();
-  };
+  const download = () => downloadCurrent(session);
+  const submit = () => handIn(session);
 
   return (
     <div class="submit-box">

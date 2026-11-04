@@ -2718,8 +2718,12 @@ button.pv-bit:hover {
   border-color: var(--warn);
 }
 .ctr-digit {
+  --ctr-h: 44px;
+  position: relative;
   min-width: 42px;
+  height: calc(var(--ctr-h) + 8px);
   padding: 4px 8px;
+  overflow: hidden;
   border-radius: 6px;
   background: linear-gradient(#30343b, #121418 50%, #30343b);
   color: #f8fafc;
@@ -2727,6 +2731,35 @@ button.pv-bit:hover {
   font-family: var(--mono);
   font-size: 34px;
   font-weight: 800;
+  line-height: var(--ctr-h);
+}
+/* Shade the top and bottom of each wheel so it reads as a drum. */
+.ctr-digit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(rgb(0 0 0 / 0.5), transparent 32%, transparent 68%, rgb(0 0 0 / 0.5));
+  pointer-events: none;
+}
+.ctr-reel {
+  display: block;
+}
+.ctr-reel > span {
+  display: block;
+  height: var(--ctr-h);
+}
+/* Old digit above, new digit below: roll up by one digit. */
+.ctr-reel.roll {
+  animation: ctr-roll 0.5s cubic-bezier(0.45, 0.05, 0.3, 1) both;
+}
+@keyframes ctr-roll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
 }
 .ctr-carry {
   position: absolute;
@@ -2739,10 +2772,17 @@ button.pv-bit:hover {
   text-decoration: line-through;
   opacity: 0.6;
   transform: translateY(-50%);
-  animation: ctr-lost 0.9s ease-out;
+  animation: ctr-lost 1.3s ease-out both;
 }
+/* The carry shows up as the wheels finish rolling, then slides off the left end and is crossed out. */
 @keyframes ctr-lost {
-  from {
+  0%,
+  30% {
+    opacity: 0;
+    transform: translate(26px, -50%);
+    text-decoration-color: transparent;
+  }
+  42% {
     opacity: 1;
     transform: translate(26px, -50%);
     text-decoration-color: transparent;
@@ -2874,8 +2914,12 @@ button.pv-bit:hover {
   .volt-fill {
     transition: none;
   }
-  .ctr-carry {
+  .ctr-carry,
+  .ctr-reel.roll {
     animation: none;
+  }
+  .ctr-reel.roll {
+    transform: translateY(-50%);
   }
 }
 .cmp-nums {
@@ -3236,6 +3280,266 @@ button.pl-tile:active {
   .bc-log-row,
   .pl-tile {
     animation: none;
+    transition: none;
+  }
+}
+
+/* ---------- binary-numbers: "Line them up" in the compare demo ----------
+   The shorter number slides right until its last digit sits in the 1s
+   place, then its new 0s drop in one at a time, and stay marked. */
+.cmp-grid {
+  --cmp-gap: 6px;
+  gap: var(--cmp-gap);
+}
+.cmp-digit {
+  align-self: stretch;
+  text-align: center;
+}
+.cmp-digit.added {
+  margin: 0 6px;
+  border: 1px dashed var(--warn-line);
+  border-radius: 6px;
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+}
+/* Each column is 100% of a digit's width plus its 1px borders and the gap. */
+.cmp-digit.slide {
+  position: relative;
+  z-index: 1;
+  animation: cmp-slide 0.55s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+@keyframes cmp-slide {
+  from {
+    transform: translateX(calc(var(--shift) * -1 * (100% + 2px + var(--cmp-gap))));
+    color: var(--brand-ink);
+  }
+}
+.cmp-digit.drop {
+  animation: cmp-drop 0.4s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  animation-delay: calc(0.6s + var(--d) * 0.18s);
+}
+@keyframes cmp-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.6);
+  }
+}
+.cmp-head.appear {
+  animation: cmp-fade 0.4s ease-out 0.3s both;
+}
+.cmp-padded {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.cmp-padded code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+.cmp-padded.appear {
+  animation: cmp-fade 0.4s ease-out both;
+  animation-delay: calc(0.8s + var(--d) * 0.18s);
+}
+@keyframes cmp-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (max-width: 600px) {
+  .cmp-grid {
+    --cmp-gap: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmp-digit.slide,
+  .cmp-digit.drop,
+  .cmp-head.appear,
+  .cmp-padded.appear {
+    animation: none;
+  }
+}
+
+/* ---------- extra credit (StepDef.extra) ---------- */
+.callout.extra-credit p {
+  margin: 0;
+}
+.extra-hand-in {
+  margin-top: 8px;
+}
+.extra-status {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.summary-steps li.optional .sstep-missing {
+  color: var(--muted);
+}
+.extra-row {
+  align-items: center;
+}
+
+/* ---------- color: 24 bits as red, green, and blue ---------- */
+.clr-chip {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--line-strong);
+}
+.clr-targets .bc-target {
+  gap: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+.clr-targets code {
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.clr-swatch {
+  position: relative;
+  height: 76px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  transition: background-color 0.2s ease;
+}
+.clr-code {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.9);
+  color: #111;
+  font-size: 15px;
+  font-weight: 700;
+}
+.clr-grid {
+  display: grid;
+  grid-template-columns: auto repeat(8, minmax(0, 1fr)) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+.clr-col {
+  padding: 4px 6px;
+}
+.clr-name {
+  font-size: 14px;
+  font-weight: 750;
+}
+.clr-name.r,
+.clr-hex.r {
+  color: var(--bad-ink);
+}
+.clr-name.g,
+.clr-hex.g {
+  color: var(--good-ink);
+}
+.clr-name.b,
+.clr-hex.b {
+  color: var(--info-ink);
+}
+.clr-bit {
+  height: 42px;
+  font-size: 18px;
+}
+.clr-bit.r.one {
+  background: var(--bad-soft);
+  border-color: var(--bad-line);
+  color: var(--bad-ink);
+}
+.clr-bit.g.one {
+  background: var(--good-soft);
+  border-color: var(--good-line);
+  color: var(--good-ink);
+}
+.clr-bit.b.one {
+  background: var(--info-soft);
+  border-color: var(--info-line);
+  color: var(--info-ink);
+}
+.clr-val,
+.clr-hex {
+  min-width: 2.6em;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+}
+@media (max-width: 600px) {
+  .clr-grid {
+    gap: 3px;
+  }
+  .clr-bit {
+    height: 36px;
+    border-radius: 7px;
+    font-size: 15px;
+  }
+  .clr-grid .pv-head {
+    font-size: 11px;
+  }
+  .clr-name {
+    font-size: 12px;
+  }
+  .clr-val,
+  .clr-hex {
+    min-width: 2.2em;
+    font-size: 13px;
+  }
+}
+
+/* ---------- meaning: one byte read four ways ---------- */
+.mean-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.mean-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 104px;
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  text-align: center;
+}
+.mean-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.mean-val {
+  font-family: var(--mono);
+  font-size: 34px;
+  line-height: 1.1;
+}
+.mean-val.word {
+  font-size: 20px;
+}
+.mean-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+.mean-swatch {
+  width: 100%;
+  max-width: 96px;
+  height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+@media (max-width: 600px) {
+  .mean-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clr-swatch {
     transition: none;
   }
 }

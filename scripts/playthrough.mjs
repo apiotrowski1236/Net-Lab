@@ -162,7 +162,8 @@ try {
       if (wide) fail(i, 'the page scrolls sideways');
       await page.screenshot({ path: join(OUT, `${lab.id}-${String(i + 1).padStart(2, '0')}-${lab.steps[i].id}.png`) });
       if (i === lab.steps.length - 1) break;
-      const next = page.locator('.lesson-nav .btn.primary.ready');
+      // The submit step leads on to extra credit with a plain "Extra credit" button; every other step uses Continue.
+      const next = lab.steps[i].kind === 'submit' ? page.locator('.lesson-nav').getByRole('button', { name: 'Extra credit' }) : page.locator('.lesson-nav .btn.primary.ready');
       if (!(await next.count())) {
         fail(i, `Continue isn't ready: ${await page.locator('.lesson-nav .btn.primary').innerText().catch(() => 'no button')}`);
         break;

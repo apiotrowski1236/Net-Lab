@@ -24,7 +24,8 @@ export interface Report {
   activeMinutes: number;
   /** 1-based furthest step reached. */
   stepReached: number;
-  goals: { step: string; id: string; label: string; done: boolean; at?: string; points: number; overridden?: boolean }[];
+  /** `extra`: from an extra-credit step (StepDef.extra). Its points are in score.extra, not score.auto. */
+  goals: { step: string; id: string; label: string; done: boolean; at?: string; points: number; overridden?: boolean; extra?: true }[];
   questions: {
     step: string;
     id: string;
@@ -37,6 +38,8 @@ export interface Report {
     points: number;
     /** The question's step was unlocked with a teacher override. */
     overridden?: boolean;
+    /** From an extra-credit step. Auto-graded points go to score.extra; teacher-graded ones aren't in teacherMax. */
+    extra?: true;
   }[];
   /** Steps unlocked with the teacher override password. Goals in them still show as not done. */
   overrides: { step: string; number: number; title: string; at: string; note?: string }[];
@@ -46,7 +49,8 @@ export interface Report {
   workId: string;
   /** Times this work was restored from a report file. `otherName`: saved under a different name than this report's. */
   restores: { at: string; savedAt: string; fromName: string; fromPeriod: string; file: string; otherName: boolean }[];
-  score: { auto: number; autoMax: number; teacherMax: number };
+  /** `extra`/`extraMax`: auto-checked extra-credit points, only when the lab has an extra-credit step. */
+  score: { auto: number; autoMax: number; teacherMax: number; extra?: number; extraMax?: number };
   timeline: { at: string; kind: string; id: string }[];
 }
 
@@ -77,6 +81,9 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
   let auto = 0;
   let autoMax = 0;
   let teacherMax = 0;
+  let extra = 0;
+  let extraMax = 0;
+  const hasExtra = lab.steps.some((s) => s.extra);
 
   const overrides: Report['overrides'] = [];
   lab.steps.forEach((step, i) => {
@@ -86,12 +93,21 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
 
   for (const step of lab.steps) {
     const overridden = p.overrides?.[step.id] ? true : undefined;
+    const isExtra = step.extra;
+    const score = (pts: number, earned: boolean) => {
+      if (isExtra) {
+        extraMax += pts;
+        if (earned) extra += pts;
+      } else {
+        autoMax += pts;
+        if (earned) auto += pts;
+      }
+    };
     for (const g of step.goals ?? []) {
       const at = p.goals[goalKey(step.id, g.id)];
       const pts = g.points ?? 1;
-      autoMax += pts;
-      if (at) auto += pts;
-      goals.push({ step: step.id, id: g.id, label: plain(g.label, labels), done: !!at, at: iso(at), points: pts, overridden });
+      score(pts, !!at);
+      goals.push({ step: step.id, id: g.id, label: plain(g.label, labels), done: !!at, at: iso(at), points: pts, overridden, extra: isExtra });
     }
     for (const q of step.questions ?? []) {
       const a = p.answers[answerKey(step.id, q.id)];
@@ -105,10 +121,8 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
           .map((o) => o.text)
           .join(' | ');
       }
-      if (autoGraded) {
-        autoMax += pts;
-        if (a?.correct) auto += pts;
-      } else teacherMax += pts;
+      if (autoGraded) score(pts, !!a?.correct);
+      else if (!isExtra) teacherMax += pts;
       questions.push({
         step: step.id,
         id: q.id,
@@ -120,6 +134,7 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
         attempts: a?.attempts,
         points: pts,
         overridden,
+        extra: isExtra,
       });
     }
   }
@@ -139,7 +154,7 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
     stepReached: p.maxStep + 1,
     goals,
     questions,
-    score: { auto, autoMax, teacherMax },
+    score: hasExtra ? { auto, autoMax, teacherMax, extra, extraMax } : { auto, autoMax, teacherMax },
     overrides,
     overrideFailures: p.overrideFailures ?? 0,
     workId: workIdOf(p),

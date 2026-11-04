@@ -82,7 +82,7 @@ async function doInput(step, m, via = 'click') {
   };
   if ('use' in inp) await act(c.locator('.seg button', { hasText: new RegExp(`^${inp.use}$`) }));
   else if ('flip' in inp) {
-    const sel = { switches: '.sw', places: 'button.pl-tile', bits: { cards: '.bcard', board: 'button.pv-bit', wires: '.wire', hex: 'button.pv-bit' }[spec.style] }[spec.kind];
+    const sel = { switches: '.sw', places: 'button.pl-tile', bits: { cards: '.bcard', board: 'button.pv-bit', wires: '.wire', hex: 'button.pv-bit', color: 'button.pv-bit', meaning: 'button.pv-bit' }[spec.style] }[spec.kind];
     await act(c.locator(sel).nth(inp.flip));
   } else if ('view' in inp) await act(c.locator('.seg button', { hasText: { voltage: 'Voltage', light: 'Lights', bits: 'Bits' }[inp.view] }));
   else if ('bump' in inp) await act(c.locator('.pl-spin').nth(inp.bump).locator('.pl-step').nth(inp.by > 0 ? 0 : 1));
@@ -134,8 +134,11 @@ const MISTAKES = {
   'to-binary': { max: { first: '256', expectFb: /one of them is 00000000/ } },
   'practice-binary': { w6: { first: '1101', expectFb: /write all 8/ }, w7: { first: '01001100', expectFb: /reverse order/ }, w8: { first: '77', expectFb: /only the digits 0 and 1/ } },
   compare: { shortcut: { first: 'Count the 1s', expectFb: /00111111 has six 1s/ } },
-  overflow: { w14: { first: '10000', expectFb: /needs 5 bits/ }, meaning: { first: 'The computer crashes', expectFb: /nothing crashes/i } },
+  overflow: { w14: { first: '10000', expectFb: /needs 5 bits/ }, meaning: { first: 'The computer crashes', expectFb: /keeps running/ } },
   limits: { 'w12-range': { first: '0 to 64', expectFb: /65 numbers/ }, w13: { first: '6', expectFb: /too few/ } },
+  hex: { 'hex-4b': { first: '75', expectFb: /value in decimal/ } },
+  colors: { 'how-many-colors': { first: '768', expectFb: /256 × 256 × 256/ } },
+  meaning: { 'what-it-means': { first: 'The letter A', expectFb: /photo editor/ } },
 };
 
 async function shoot(i, step, tag) {
@@ -271,7 +274,7 @@ try {
     }
     if (step.id === 'overflow') {
       await check(/Overflow!/.test(await card('counter').innerText()), 'the 4-bit counter did not show overflow');
-      await check((await card('counter').locator('.ctr-digit').allInnerTexts()).join('') === '0000', 'the 4-bit counter did not show 0000');
+      await check((await card('counter').locator('.ctr-display').getAttribute('aria-label')) === 'Counter shows 0000', 'the 4-bit counter did not show 0000');
     }
     await goalsDone(step);
     for (const q of step.questions ?? []) await answer(step, q, MISTAKES[step.id]?.[q.id]);
@@ -297,6 +300,42 @@ try {
   await rp.screenshot({ path: join(OUT, 'report.png'), fullPage: true });
   shots.push(join(OUT, 'report.png'));
   await rp.close();
+
+  // ---------------------------------------------------------------- extra credit, after handing in
+  const submitAt = lab.steps.findIndex((x) => x.kind === 'submit');
+  await page.goto(`${url}#/csp/lab/${LAB}`);
+  await page.waitForSelector(`text=Step ${submitAt + 1} of ${lab.steps.length}`);
+  await page.locator('.lesson-nav').getByRole('button', { name: 'Extra credit' }).click();
+  for (let i = submitAt + 1; i < lab.steps.length; i++) {
+    const step = lab.steps[i];
+    await page.waitForSelector(`text=Step ${i + 1} of ${lab.steps.length}`);
+    log(`step ${i + 1} ${step.id} (extra credit)`);
+    await pause(1200);
+    const banner = await page.locator('.lesson .callout.extra-credit').first().innerText();
+    if (i === submitAt + 1) await check(/These steps are optional/.test(banner) && /hand in your report again/.test(banner), `first extra-credit banner: "${banner}"`);
+    else await check(/since you last handed in/.test(banner), `after extra work, the banner should ask to hand in again: "${banner}"`);
+    await shoot(i, step, 'start');
+    for (const m of sol[step.id]?.moves ?? []) await doInput(step, m);
+    await goalsDone(step);
+    for (const q of step.questions ?? []) await answer(step, q, MISTAKES[step.id]?.[q.id]);
+    await shootAll(i, step);
+    if (i < lab.steps.length - 1) await page.locator('.lesson-nav').getByRole('button', { name: 'Continue' }).click();
+  }
+  const finished = page.locator('.lesson .callout.extra-credit.good');
+  await check(/You finished the extra credit/.test(await finished.innerText()), 'no "hand in again" prompt after the last extra-credit step');
+  const dl2 = page.waitForEvent('download');
+  await finished.getByRole('button', { name: /Download my updated report|Submit again/ }).click();
+  const file2 = join(OUT, 'report-extra.html');
+  await (await dl2).saveAs(file2);
+  const html2 = readFileSync(file2, 'utf8');
+  for (const want of ['Extra credit: colors', 'Make orange, #FF8000.', 'tag extra']) await check(html2.includes(want), `the updated report is missing "${want}"`);
+  const ec = html2.match(/<b>(\d+) \/ (\d+)<\/b>extra credit points/);
+  await check(!!ec && ec[1] === ec[2], `the updated report's extra credit points: ${ec?.[0]}`);
+  await pause(400);
+  await check(/Your latest report includes it/.test(await finished.innerText()), 'after handing in again, the prompt did not say the report includes the extra credit');
+  log(`extra credit done; updated report downloaded with ${ec[1]} extra credit points: ${file2}`);
+  await page.screenshot({ path: join(OUT, 'extra-after-download.png') });
+  shots.push(join(OUT, 'extra-after-download.png'));
 
   // The lesson guide.
   await page.goto(`${url}#/guide/${LAB}`);

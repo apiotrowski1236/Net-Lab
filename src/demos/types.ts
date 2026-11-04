@@ -48,7 +48,12 @@ export interface SwitchesSpec extends DemoBase {
 export interface BitsSpec extends DemoBase {
   kind: 'bits';
   places: number;
-  style: 'cards' | 'board' | 'wires' | 'hex';
+  /**
+   * 'color': 24 bits as three bytes, red, green, and blue, mixed into one color
+   * with its hex code. 'meaning': one byte read four ways at once (number, hex,
+   * ASCII character, shade of gray).
+   */
+  style: 'cards' | 'board' | 'wires' | 'hex' | 'color' | 'meaning';
   /** Show the decimal value. Off for scratch boards during practice. */
   total?: boolean;
   /** Starting bits, e.g. "00000". Default all 0. */
@@ -59,6 +64,8 @@ export interface BitsSpec extends DemoBase {
    * bits below.
    */
   targets?: number[];
+  /** Names for the targets, in the same order ('color': "Yellow"). */
+  labels?: string[];
 }
 
 /**

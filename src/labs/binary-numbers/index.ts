@@ -358,7 +358,7 @@ export const binaryNumbersLab: LabDef = {
       id: 'practice-decimal',
       title: 'Practice: binary to decimal',
       body: md`
-        Worksheet problems 1 to 5. Turn each byte into decimal, then press **Check**.
+        Turn each byte into decimal, then press **Check**.
 
         Use the place-value board on the right or a piece of scratch paper. On the board, tap the boxes to copy a byte, then add the place values over each 1. You can type your work if you like, such as 8 + 2 = 10.
       `,
@@ -420,7 +420,7 @@ export const binaryNumbersLab: LabDef = {
       id: 'practice-binary',
       title: 'Practice: decimal to binary',
       body: md`
-        Worksheet problems 6 to 10. Turn each number into **8-bit** binary. Write all eight bits, with 0s in front if you need them. For example, 5 is 00000101.
+        Turn each number into **8-bit** binary. Write all eight bits, with 0s in front if you need them. For example, 5 is 00000101.
 
         Use the board on the right or a piece of scratch paper.
       `,
@@ -470,7 +470,7 @@ export const binaryNumbersLab: LabDef = {
         {
           id: 'order',
           kind: 'choice',
-          prompt: 'Worksheet problem 11. Put these in order from least to greatest: **01011010, 00111111, 01010111, 10000000**.',
+          prompt: 'Put these in order from least to greatest: **01011010, 00111111, 01010111, 10000000**.',
           options: [
             { id: 'right', text: '00111111, 01010111, 01011010, 10000000', correct: true },
             {
@@ -505,9 +505,9 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         A car's **odometer** counts miles with a fixed number of digits. Press **+1** on the odometer until it passes 999. What happens?
 
-        Computers store each number in a fixed number of bits, so they hit the same wall. A 4-bit number goes from 0000 to 1111 (0 to 15). Press **+1** on the 4-bit counter until it passes 1111.
+        Computers store each number in a fixed number of bits, so the same thing happens to them. A 4-bit number goes from 0000 to 1111 (0 to 15). Press **+1** on the 4-bit counter until it passes 1111.
 
-        When a result needs more bits than there are, the extra bit on the left is lost, and the stored value is wrong. That's an **overflow error**. The program usually keeps running with the wrong number. Nothing crashes, which is why overflow can go unnoticed.
+        When a result needs more bits than there are, the extra bit on the left is lost, and the stored value is wrong. That's an **overflow error**. The program usually keeps running with the wrong number, and no one may notice.
       `,
       demos: [
         { kind: 'counter', id: 'odometer', title: 'Odometer (3 digits)', base: 10, digits: 3, start: 995 },
@@ -521,11 +521,11 @@ export const binaryNumbersLab: LabDef = {
         {
           id: 'w14',
           kind: 'text',
-          prompt: 'Worksheet problem 14. A 4-bit counter shows **1110**. It counts up 2 more times. What does it show now? (Type 4 bits.)',
+          prompt: 'A 4-bit counter shows **1110**. It counts up 2 more times. What does it show now? (Type 4 bits.)',
           placeholder: 'Type 4 bits',
           expect: bitsRe('0000'),
           wrong: [
-            { match: bitsRe('10000'), text: '1110 + 2 is 10000, but that needs 5 bits. The counter has only 4, so the 1 on the left is lost.' },
+            { match: bitsRe('10000'), text: '1110 + 2 is 10000, but that needs 5 bits. The counter only has space for 4, so the 16s place is lost.' },
             { match: num(16), text: '16 is the true total, but the counter shows 4 bits. 16 is 10000 in binary. Which 4 bits are left?' },
             { match: bitsRe('1111'), text: "That's one count up. Count once more." },
             { match: /^\s*(?:0\s*){0,3}1\s*$/, text: 'Count it out one step at a time: 1110, then 1111, then one more.' },
@@ -539,7 +539,7 @@ export const binaryNumbersLab: LabDef = {
           prompt: 'What happens in an **overflow error**?',
           options: [
             { id: 'wrong', text: 'The result needs more bits than there are, so the stored value is wrong', correct: true },
-            { id: 'crash', text: 'The computer crashes and has to restart right away', feedback: 'Usually nothing crashes. The program keeps going with a wrong number, which is why overflow is hard to spot.' },
+            { id: 'crash', text: 'The computer crashes and has to restart right away', feedback: 'The computer usually keeps running. The program goes on using the wrong number.' },
             { id: 'grow', text: 'The computer adds another bit so that the number fits', feedback: 'The number of bits is fixed. The extra bit has nowhere to go, so it is lost.' },
             {
               id: 'round',
@@ -576,7 +576,7 @@ export const binaryNumbersLab: LabDef = {
         {
           id: 'w12-values',
           kind: 'text',
-          prompt: 'Worksheet problem 12. How many different values can **6 bits** represent?',
+          prompt: 'How many different values can **6 bits** represent?',
           placeholder: 'Type a number',
           expect: num(64),
           wrong: [
@@ -604,7 +604,7 @@ export const binaryNumbersLab: LabDef = {
         {
           id: 'w13',
           kind: 'text',
-          prompt: 'Worksheet problem 13. What is the fewest bits needed to give **100** items each a unique code?',
+          prompt: 'What is the fewest bits needed to give **100** items each a unique code?',
           placeholder: 'Type a number',
           expect: num(7),
           wrong: [
@@ -634,11 +634,11 @@ export const binaryNumbersLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'exit',
-      title: 'Exit ticket',
+      title: 'Review quiz',
       body: md`
-        Answer these four questions on your own, the way you would on the AP exam. Your teacher uses them to plan the next class.
+        Answer these four questions on your own, the way you would on the AP exam. Use the board on the right or a piece of scratch paper.
 
-        Think before you press **Check**. Your report shows how many tries each one took. Use the board on the right or a piece of scratch paper.
+        > **Think carefully before you answer.** You'll be able to change your wrong answers, but wrong guesses will show up on your results report.
       `,
       demos: [scratch],
       questions: [
@@ -690,29 +690,202 @@ export const binaryNumbersLab: LabDef = {
 
     // -----------------------------------------------------------------------
     {
-      id: 'extra',
-      title: 'If you finish early: hex and ASCII',
-      body: md`
-        **This step is optional.** If class is almost over, press **Continue** and hand in your work first. You can come back to this step after you hand in.
-
-        **Hexadecimal** is base 16. It uses 16 digits: 0 to 9, then A to F (A is 10 and F is 15). One hex digit stands for exactly 4 bits, because 2⁴ = 16. So any byte is two hex digits: 11111111 is FF. Flip the bits on the right and watch the hex digits change.
-
-        **ASCII** is a code that gives each letter, digit, and symbol a number from 0 to 127. Capital A is 65, which is 01000001 as a byte. Type a word to see its bytes.
-      `,
-      demos: [
-        { kind: 'bits', id: 'hex', title: 'Binary to hex', style: 'hex', places: 8, total: true, start: '10101111', intro: 'Each group of 4 bits is one hex digit.' },
-        { kind: 'ascii', id: 'ascii', title: 'ASCII', start: 'Hi', intro: 'Type a word of up to 10 characters.' },
-      ],
-    },
-
-    // -----------------------------------------------------------------------
-    {
       id: 'submit',
       title: 'Review and submit',
       kind: 'submit',
       body: md`
         Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+
+        Finished early? After you hand in, press **Extra credit** for four more steps. They show how the same bits can stand for hex, colors, and text.
       `,
+    },
+
+    // ----------------------------------------------------------------------- extra credit
+    {
+      id: 'hex',
+      title: 'Extra credit: hexadecimal',
+      extra: true,
+      body: md`
+        Long strings of bits are hard to read, so programmers often write them in **hexadecimal**, or hex for short. Hex is base 16.
+
+        Base 16 needs 16 digits. After 0 to 9, hex uses the letters A to F: A is 10, B is 11, and so on up to F, which is 15.
+
+        One hex digit stands for exactly 4 bits, because 2⁴ = 16. To write a byte in hex, split it into two groups of 4 bits and look up each group in the table on the right. 11111111 is FF, and 00001010 is 0A.
+      `,
+      demos: [{ kind: 'bits', id: 'hex', title: 'Binary to hex', style: 'hex', places: 8, total: true, start: '10101111', intro: 'Each group of 4 bits is one hex digit.' }],
+      goals: [
+        {
+          id: 'make-2a',
+          label: 'Make the byte whose hex is **2A**.',
+          hint: '2 is 0010, and A (10) is 1010. Put the two groups side by side.',
+          check: demoFact('hex', (f) => f.value === 0x2a),
+        },
+      ],
+      questions: [
+        {
+          id: 'hex-4b',
+          kind: 'choice',
+          prompt: 'What is the byte **01001011** in hex?',
+          options: [
+            { id: '4b', text: '4B', correct: true },
+            { id: '75', text: '75', feedback: '75 is its value in decimal. In hex, 0100 is 4 and 1011 is B.' },
+            { id: 'b4', text: 'B4', feedback: 'The groups stay in order. The left group, 0100, is the first hex digit.' },
+            { id: '411', text: '411', feedback: '1011 is eleven, and eleven is one hex digit: B. Each group of 4 bits becomes one digit.' },
+          ],
+          explain: '0100 is 4 and 1011 is 11, which is B. So 01001011 is 4B.',
+        },
+      ],
+    },
+
+    // -----------------------------------------------------------------------
+    {
+      id: 'colors',
+      title: 'Extra credit: colors',
+      extra: true,
+      body: md`
+        Every pixel on your screen mixes three colors of light: **red**, **green**, and **blue**. Each one gets its own byte, from 0 (off) to 255 (as bright as it goes). So one color takes 3 bytes, or 24 bits.
+
+        Web pages write a color as a **hex color code**: a # followed by two hex digits for red, two for green, and two for blue. #FF0000 is full red with no green or blue. #000000 is black, and #FFFFFF is white.
+
+        Flip the bits on the right and watch the color change. Then make the three colors listed at the top of the card.
+      `,
+      demos: [
+        {
+          kind: 'bits',
+          id: 'color',
+          title: 'Mix a color',
+          style: 'color',
+          places: 24,
+          start: '111111110000000000000000',
+          targets: [0xffff00, 0xff8000, 0x800080],
+          labels: ['Yellow', 'Orange', 'Purple'],
+          intro: 'Each row is one byte. Red, green, and blue light mix into the color at the top.',
+        },
+      ],
+      goals: [
+        {
+          id: 'yellow',
+          label: 'Make yellow, **#FFFF00**.',
+          hint: 'Red light plus green light looks yellow. Turn on all the red bits and all the green bits, and leave blue off.',
+          check: demoFact('color', (f) => f.value === 0xffff00),
+        },
+        {
+          id: 'orange',
+          label: 'Make orange, **#FF8000**.',
+          hint: 'Red is FF, so all its bits are on. Green is 80, which is 10000000. Blue is 00.',
+          check: demoFact('color', (f) => f.value === 0xff8000),
+        },
+        {
+          id: 'purple',
+          label: 'Make purple, **#800080**.',
+          hint: '80 is 10000000. Red and blue are each 80, and green is 00.',
+          check: demoFact('color', (f) => f.value === 0x800080),
+        },
+      ],
+      questions: [
+        {
+          id: 'how-many-colors',
+          kind: 'choice',
+          prompt: 'How many different colors can 24 bits show?',
+          options: [
+            { id: '24', text: '24', feedback: '24 is the number of bits. Each bit doubles the number of patterns.' },
+            { id: '768', text: '768 (256 × 3)', feedback: 'Each byte has 256 values, but every red goes with every green and every blue. That makes 256 × 256 × 256.' },
+            { id: 'millions', text: '2²⁴, about 16.8 million', correct: true },
+            { id: '255', text: '255', feedback: '255 is the biggest value one byte can hold. A color has three bytes.' },
+          ],
+          explain: '24 bits make 2²⁴ = 16,777,216 patterns, and each pattern is a different color.',
+        },
+      ],
+    },
+
+    // -----------------------------------------------------------------------
+    {
+      id: 'text',
+      title: 'Extra credit: text',
+      extra: true,
+      body: md`
+        Text is stored as numbers too. **ASCII** is a code that gives each letter, digit, and symbol a number from 0 to 127. Capital A is 65, B is 66, and the rest of the capital letters follow in order. Lowercase letters start at 97, so a is 97.
+
+        Each character takes one byte. Type a word on the right to see its bytes.
+      `,
+      demos: [{ kind: 'ascii', id: 'ascii', title: 'ASCII', start: 'Hi', intro: 'Type a word of up to 10 characters.' }],
+      questions: [
+        {
+          id: 'ascii-d',
+          kind: 'choice',
+          prompt: 'Capital A is 65. What number is capital **D**?',
+          options: [
+            { id: '66', text: '66', feedback: "66 is B. Count up from A: A is 65, B is 66, C is 67." },
+            { id: '67', text: '67', feedback: '67 is C. D is one more.' },
+            { id: '68', text: '68', correct: true },
+            { id: '100', text: '100', feedback: '100 is lowercase d. The capital letters start at 65.' },
+          ],
+          explain: 'The capital letters go in order from 65, so D is 65 + 3 = 68.',
+        },
+        {
+          id: 'hello-bytes',
+          kind: 'choice',
+          prompt: 'How many bytes does the word **Hello** take in ASCII?',
+          options: [
+            { id: '5', text: '5', correct: true },
+            { id: '1', text: '1', feedback: 'One byte holds one character. Hello has five.' },
+            { id: '8', text: '8', feedback: '8 is the number of bits in one byte. Each character takes one byte.' },
+            { id: '40', text: '40', feedback: '40 is the number of bits: 5 characters × 8 bits. The question asks for bytes.' },
+          ],
+          explain: 'Hello has 5 characters, and each one takes one byte.',
+        },
+      ],
+    },
+
+    // -----------------------------------------------------------------------
+    {
+      id: 'meaning',
+      title: 'Extra credit: same bits, different meanings',
+      extra: true,
+      body: md`
+        You've seen bytes stand for numbers, hex digits, colors, and letters. The bits themselves don't say which one they are. **The program decides what the bits mean.**
+
+        The byte on the right is read four ways at once. Flip its bits and watch all four change together.
+      `,
+      demos: [
+        {
+          kind: 'bits',
+          id: 'byte',
+          title: 'One byte, four meanings',
+          style: 'meaning',
+          places: 8,
+          start: '01000001',
+          intro: 'The same 8 bits, read as a number, as hex, as a letter, and as a shade of gray.',
+        },
+      ],
+      goals: [
+        {
+          id: 'make-k',
+          label: 'Make the byte that means the letter **K**.',
+          hint: 'A is 65, and K comes 10 letters after A, so K is 75. 75 = 64 + 8 + 2 + 1.',
+          check: demoFact('byte', (f) => f.value === 75),
+        },
+        {
+          id: 'make-white',
+          label: 'Make the byte that is the brightest gray: **white**.',
+          hint: 'White is as bright as a byte can go. Turn on all 8 bits.',
+          check: demoFact('byte', (f) => f.value === 255),
+        },
+      ],
+      questions: [
+        {
+          id: 'what-it-means',
+          kind: 'choice',
+          prompt: 'A file holds the byte **01000001**. What does it mean?',
+          options: [
+            { id: '65', text: '65', feedback: 'It is 65 if a program reads it as a number. A text editor would show the letter A instead.' },
+            { id: 'a', text: 'The letter A', feedback: 'It is A if a program reads it as text. A photo editor would show a dark gray instead.' },
+            { id: 'gray', text: 'A dark gray', feedback: 'It is a dark gray if a program reads it as a pixel. A calculator would show 65 instead.' },
+            { id: 'depends', text: 'It depends on how the program reads it', correct: true },
+          ],
+          explain: 'Bits have no meaning on their own. The same byte is 65, the letter A, or a dark gray, depending on the program reading it.',
+        },
+      ],
     },
   ],
 };

@@ -53,15 +53,20 @@ export function Summary({ session }: { session: LabSession }) {
   const p = session.progress;
   const report = buildReport(lab, p, profile.value, p.submittedAt ? 'submitted' : 'in-progress');
 
-  const steps = lab.steps.map((s, i) => ({ s, i, missing: session.missing(i), overridden: session.overridden(i) })).filter((x) => x.s.kind !== 'submit');
+  const all = lab.steps.map((s, i) => ({ s, i, missing: session.missing(i), overridden: session.overridden(i) })).filter((x) => x.s.kind !== 'submit');
+  // Extra-credit steps are listed, but never count as unfinished or toward the percent.
+  const steps = all.filter((x) => !x.s.extra);
+  const extraSteps = all.filter((x) => x.s.extra);
   const unfinished = steps.filter((x) => x.missing.length > 0);
   const allDone = unfinished.length === 0;
 
-  const goalsDone = report.goals.filter((g) => g.done).length;
-  const auto = report.questions.filter((q) => q.autoGraded);
-  const written = report.questions.filter((q) => !q.autoGraded);
+  const goals = report.goals.filter((g) => !g.extra);
+  const questions = report.questions.filter((q) => !q.extra);
+  const goalsDone = goals.filter((g) => g.done).length;
+  const auto = questions.filter((q) => q.autoGraded);
+  const written = questions.filter((q) => !q.autoGraded);
   const writtenDone = written.filter((q) => q.answer.trim()).length;
-  const totalItems = report.goals.length + report.questions.length;
+  const totalItems = goals.length + questions.length;
   const doneItems = goalsDone + auto.filter((q) => q.correct).length + writtenDone;
   const pct = totalItems ? Math.round((doneItems / totalItems) * 100) : 100;
 
@@ -90,7 +95,7 @@ export function Summary({ session }: { session: LabSession }) {
         <div class="sstat">
           <div class="sstat-num">
             {goalsDone}
-            <span>/{report.goals.length}</span>
+            <span>/{goals.length}</span>
           </div>
           <div class="sstat-label">goals reached</div>
         </div>
@@ -121,6 +126,27 @@ export function Summary({ session }: { session: LabSession }) {
         <SubmitBox session={session} />
       </section>
 
+      {extraSteps.length > 0 && (
+        <section class="summary-card">
+          <h3>
+            <Icon name="trophy" /> Extra credit
+          </h3>
+          <p class="muted small">
+            {extraSteps.length} optional step{extraSteps.length > 1 ? 's' : ''} after this one. Hand in your work first, then try {extraSteps.length > 1 ? 'them' : 'it'}. When you finish, hand in again so your teacher sees your extra credit.
+          </p>
+          <div class="row gap-sm wrap extra-row">
+            {report.score.extraMax ? (
+              <span class="pill">
+                {report.score.extra} / {report.score.extraMax} extra credit points
+              </span>
+            ) : null}
+            <button class="btn small" onClick={() => session.goTo(extraSteps[0].i)}>
+              Go to extra credit <Icon name="chevronRight" size={14} />
+            </button>
+          </div>
+        </section>
+      )}
+
       {lab.objectives.length > 0 && (
         <section class="summary-card">
           <h3>
@@ -141,14 +167,14 @@ export function Summary({ session }: { session: LabSession }) {
           <Icon name="list" /> Step by step
         </h3>
         <ol class="summary-steps">
-          {steps.map(({ s, i, missing, overridden }) => {
+          {all.map(({ s, i, missing, overridden }) => {
             const done = missing.length === 0;
             return (
-              <li key={s.id} class={done ? 'done' : overridden ? 'override' : 'todo'}>
+              <li key={s.id} class={done ? 'done' : overridden ? 'override' : s.extra ? 'optional' : 'todo'}>
                 <span class="sstep-dot">{done ? <Icon name="check" size={12} /> : overridden ? <Icon name="unlock" size={12} /> : i + 1}</span>
                 <span class="sstep-title">{s.title}</span>
                 {overridden && <span class="pill warn tiny">teacher override</span>}
-                {!done && <span class="sstep-missing">{missing.join(', ')} left</span>}
+                {!done && <span class="sstep-missing">{s.extra ? 'optional' : `${missing.join(', ')} left`}</span>}
                 {!done && i <= p.maxStep && (
                   <button class="btn tiny" onClick={() => session.goTo(i)}>
                     Go there
@@ -166,7 +192,7 @@ export function Summary({ session }: { session: LabSession }) {
             <Icon name="hint" /> Your answers
           </h3>
           <p class="muted small">Want to change one? Choose Change, fix it, then come back here and submit again.</p>
-          {steps.map(({ s, i }) => {
+          {all.map(({ s, i }) => {
             const qs = report.questions.filter((q) => q.step === s.id);
             if (!qs.length) return null;
             return (

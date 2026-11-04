@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { firstDifference, fromBits, lineUp, toBits } from '../../demos/binary';
+import { colorHex, firstDifference, fromBits, lineUp, toBits } from '../../demos/binary';
 import { bitsModel, type BitsState } from '../../demos/bits';
 import { asciiClean } from '../../demos/ascii';
 import { compareModel, type CompareState } from '../../demos/compare';
@@ -94,13 +94,18 @@ describe('binary-numbers: lesson shape', () => {
     for (const l of LABS) if (l.id !== lab.id) expect(isLesson(l), l.id).toBe(false);
   });
 
-  it('gives every step except the optional one and submit something to finish', () => {
+  it('gives every step except submit something to finish', () => {
     for (const s of lab.steps) {
-      if (s.id === 'extra' || s.kind === 'submit') continue;
+      if (s.kind === 'submit') continue;
       expect((s.goals?.length ?? 0) + (s.questions?.length ?? 0), s.id).toBeGreaterThan(0);
     }
-    expect(step('extra').goals ?? []).toEqual([]);
-    expect(step('extra').questions ?? []).toEqual([]);
+  });
+
+  it('puts the extra credit after the submit step: hex, colors, text, then what bits mean', () => {
+    const at = lab.steps.findIndex((s) => s.kind === 'submit');
+    expect(lab.steps.slice(at + 1).map((s) => s.id)).toEqual(['hex', 'colors', 'text', 'meaning']);
+    expect(lab.steps.slice(at + 1).every((s) => s.extra)).toBe(true);
+    expect(lab.steps.slice(0, at).some((s) => s.extra)).toBe(false);
   });
 
   it('keeps demo ids unique within a step', () => {
@@ -310,7 +315,7 @@ describe('binary-numbers: answer key arithmetic', () => {
     expect(choice('compare', 'order').prompt).toContain(list.join(', '));
   });
 
-  it('worksheet 12 to 14 and the exit ticket', () => {
+  it('worksheet 12 to 14 and the review quiz', () => {
     const fewestBits = (items: number) => Math.ceil(Math.log2(items));
     expect(2 ** 6).toBe(64);
     expect(text('limits', 'w12-values').expect!.test('64')).toBe(true);
@@ -396,7 +401,7 @@ describe('binary-numbers: typed answers', () => {
     expect(wrongFeedback(text('limits', 'w13'), '6')).toMatch(/too few/);
     const crash = choice('overflow', 'meaning').options.find((o) => o.id === 'crash')!;
     expect(crash.correct).toBeFalsy();
-    expect(crash.feedback).toMatch(/nothing crashes/i);
+    expect(crash.feedback).toMatch(/keeps running/);
     const count = choice('compare', 'shortcut').options.find((o) => o.id === 'count')!;
     expect(count.feedback).toMatch(/00111111 has six 1s but is the smallest/);
   });
@@ -493,5 +498,39 @@ describe('binary-numbers: saving and resuming', () => {
     expect(r.goals.every((g) => g.done)).toBe(true);
     expect(r.score.auto).toBe(r.score.autoMax);
     expect(r.questions.find((q) => q.id === 'e4')?.answer).toMatch(/overflow/i);
+    expect(r.score.extraMax).toBeGreaterThan(0);
+    expect(r.score.extra).toBe(r.score.extraMax);
+  });
+
+  it('keeps extra credit out of the main score, so skipping it costs nothing', () => {
+    const s = new LabSession(lab, fresh());
+    const submitAt = lab.steps.findIndex((x) => x.kind === 'submit');
+    for (let i = 0; i < submitAt; i++) {
+      playStep(s, key[s.step.id]);
+      s.goTo(i + 1);
+    }
+    const who = { id: 'x', name: 'Test Student', period: '', createdAt: 0 };
+    const skipped = buildReport(lab, s.progress, who, 'submitted');
+    expect(skipped.score.auto).toBe(skipped.score.autoMax);
+    expect(skipped.score.extra).toBe(0);
+    for (const x of [...skipped.goals, ...skipped.questions]) expect(!!x.extra, x.id).toBe(['hex', 'colors', 'text', 'meaning'].includes(x.step));
+
+    for (let i = submitAt; i < lab.steps.length; i++) {
+      playStep(s, key[s.step.id]);
+      if (i < lab.steps.length - 1) s.goTo(i + 1);
+    }
+    const all = buildReport(lab, s.progress, who, 'submitted');
+    expect(all.score.autoMax).toBe(skipped.score.autoMax);
+    expect(all.score.extra).toBe(all.score.extraMax);
+  });
+
+  it('reads the color and meaning demos the way the goals expect', () => {
+    expect(colorHex('111111111000000000000000')).toBe('FF8000');
+    expect(colorHex('100000000000000010000000')).toBe('800080');
+    const spec = step('colors').demos![0] as BitsSpec;
+    let st = bitsModel.init(spec);
+    for (const m of key.colors.moves ?? []) if ('demo' in m) st = bitsModel.apply(spec, st, m.input);
+    // Orange comes first: the first green bit on the way to yellow makes FF8000.
+    expect([...(st.found ?? [])].sort()).toEqual([0xffff00, 0xff8000, 0x800080].sort());
   });
 });

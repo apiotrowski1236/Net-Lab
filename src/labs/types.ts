@@ -275,8 +275,15 @@ export interface StepDef {
   focus?: string[];
   /** Open a dock tab when the step starts. */
   open?: 'capture' | 'tools' | 'logs' | { inspect: string };
-  /** The final "review and submit" step. */
+  /** The "review and submit" step. Last, unless extra-credit steps follow it. */
   kind?: 'submit';
+  /**
+   * Extra credit: an optional step after the submit step. It never counts as
+   * unfinished. Its goals and questions are flagged `extra` in the report and
+   * score into `score.extra`, not `auto`, so skipping it costs nothing. The
+   * lesson asks the student to hand in again once they've done it.
+   */
+  extra?: true;
 }
 
 export interface LabDef {

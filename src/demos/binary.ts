@@ -41,3 +41,9 @@ export function lineUp(a: string, b: string): [string, string] {
 
 /** The hex digit for 0 to 15. */
 export const hexDigit = (n: number): string => n.toString(16).toUpperCase();
+
+/** A byte as two hex digits: 10 is "0A". */
+export const hex2 = (n: number): string => n.toString(16).toUpperCase().padStart(2, '0');
+
+/** A color code for 24 bits, two hex digits each for red, green, and blue: "FF8000". */
+export const colorHex = (bits: string): string => [0, 8, 16].map((o) => hex2(fromBits(bits.slice(o, o + 8)))).join('');

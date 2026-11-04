@@ -1,4 +1,4 @@
-import { fromBits, hexDigit, placeValues, toBits } from '../../demos/binary';
+import { colorHex, fromBits, hex2, hexDigit, placeValues, toBits } from '../../demos/binary';
 import type { BitsState } from '../../demos/bits';
 import type { BitsSpec, WireView } from '../../demos/types';
 import { Icon } from '../icons';
@@ -243,6 +243,135 @@ function Hex({ spec, state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
   );
 }
 
+const CHANNELS = [
+  { name: 'Red', cls: 'r' },
+  { name: 'Green', cls: 'g' },
+  { name: 'Blue', cls: 'b' },
+] as const;
+
+/** Three bytes, red, green, and blue, mixed into one color with its hex code. */
+function Color({ spec, state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
+  const pv = placeValues(8);
+  const hex = colorHex(s.bits);
+  const found = s.found ?? [];
+  const value = fromBits(s.bits);
+  return (
+    <>
+      {spec.targets && (
+        <div class="bc-targets clr-targets" role="list" aria-label="Colors to make">
+          <span class="bc-targets-label" aria-hidden="true">
+            Make
+          </span>
+          {spec.targets.map((t, i) => {
+            const done = found.includes(t);
+            const code = hex2(t >> 16) + hex2((t >> 8) & 255) + hex2(t & 255);
+            return (
+              <span key={t} role="listitem" class={`bc-target ${done ? 'done' : ''} ${t === value ? 'now' : ''}`} aria-label={`${spec.labels?.[i] ?? ''} #${code}: ${done ? 'made' : 'not made yet'}`}>
+                {done ? <Icon name="check" size={13} /> : <span class="clr-chip" style={{ background: `#${code}` }} aria-hidden="true" />}
+                {spec.labels?.[i] && <span>{spec.labels[i]}</span>}
+                <code>#{code}</code>
+              </span>
+            );
+          })}
+        </div>
+      )}
+      <div class="clr-swatch" style={{ background: `#${hex}` }} role="img" aria-label={`The color #${hex}`}>
+        <code class="clr-code">#{hex}</code>
+      </div>
+      <div class="clr-grid">
+        <span aria-hidden="true" />
+        {pv.map((v) => (
+          <span key={`h${v}`} class="pv-head">
+            {v}
+          </span>
+        ))}
+        <span class="pv-head clr-col">Value</span>
+        <span class="pv-head clr-col">Hex</span>
+        {CHANNELS.map((c, ch) => {
+          const byte = s.bits.slice(ch * 8, ch * 8 + 8);
+          const v = fromBits(byte);
+          return [
+            <span key={`n${ch}`} class={`clr-name ${c.cls}`}>
+              {c.name}
+            </span>,
+            ...[...byte].map((b, i) => (
+              <button
+                key={`b${ch}-${i}`}
+                class={`pv-bit clr-bit ${c.cls} ${b === '1' ? 'one' : ''}`}
+                aria-pressed={b === '1'}
+                aria-label={`${c.name}, ${placeName(pv[i])}: ${b}`}
+                onClick={() => send({ flip: ch * 8 + i })}
+              >
+                {b}
+              </button>
+            )),
+            <span key={`v${ch}`} class="clr-val">
+              {v}
+            </span>,
+            <span key={`x${ch}`} class={`clr-hex ${c.cls}`}>
+              {hex2(v)}
+            </span>,
+          ];
+        })}
+      </div>
+      <p class="bits-readout" aria-live="polite">
+        <span>
+          Red {fromBits(s.bits.slice(0, 8))}, green {fromBits(s.bits.slice(8, 16))}, blue {fromBits(s.bits.slice(16))} = <code class="bits-code">#{hex}</code>
+        </span>
+      </p>
+    </>
+  );
+}
+
+/** What a byte means as an ASCII character, or why it isn't one. */
+function asText(v: number): { char?: string; note?: string } {
+  if (v === 32) return { char: 'space' };
+  if (v > 32 && v < 127) return { char: String.fromCharCode(v) };
+  return { note: v < 127 ? 'A hidden control code' : 'Not in ASCII' };
+}
+
+/** One byte read four ways at once: the bits mean whatever the program reads them as. */
+function Meaning({ state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
+  const pv = placeValues(8);
+  const v = fromBits(s.bits);
+  const gray = hex2(v);
+  const text = asText(v);
+  return (
+    <>
+      <div class="pv-grid" style={{ '--n': 8 }}>
+        {pv.map((p) => (
+          <div key={`h${p}`} class="pv-head">
+            {p}
+          </div>
+        ))}
+        {[...s.bits].map((c, i) => (
+          <button key={`b${i}`} class={`pv-bit ${c === '1' ? 'one' : ''}`} aria-pressed={c === '1'} aria-label={`${placeName(pv[i])}: ${c}`} onClick={() => send({ flip: i })}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <div class="mean-grid" aria-live="polite">
+        <div class="mean-card">
+          <span class="mean-label">As a number</span>
+          <strong class="mean-val">{v}</strong>
+        </div>
+        <div class="mean-card">
+          <span class="mean-label">As hex</span>
+          <strong class="mean-val">{gray}</strong>
+        </div>
+        <div class="mean-card">
+          <span class="mean-label">As a letter (ASCII)</span>
+          {text.char ? <strong class={`mean-val ${text.char === 'space' ? 'word' : ''}`}>{text.char}</strong> : <span class="mean-note">{text.note}</span>}
+        </div>
+        <div class="mean-card">
+          <span class="mean-label">As a shade of gray</span>
+          <span class="mean-swatch" style={{ background: `#${gray}${gray}${gray}` }} role="img" aria-label={`Gray #${gray}${gray}${gray}`} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function BitsView(props: DemoViewProps<BitsSpec, BitsState>) {
   switch (props.spec.style) {
     case 'cards':
@@ -253,5 +382,9 @@ export function BitsView(props: DemoViewProps<BitsSpec, BitsState>) {
       return <Wires {...props} />;
     case 'hex':
       return <Hex {...props} />;
+    case 'color':
+      return <Color {...props} />;
+    case 'meaning':
+      return <Meaning {...props} />;
   }
 }
