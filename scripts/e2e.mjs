@@ -254,7 +254,11 @@ try {
   await page.goto(`${url}#/guide/on-path`);
   await page.waitForSelector('.guide-step');
   await expectHash('#/cyber/guide/on-path', 'Old guide address');
-  if ((await page.locator('.guide-bar a').first().getAttribute('href')) !== '#/cyber/lab/on-path') throw new Error('Guide’s Open the lab link');
+  await page.locator('.guide-bar a', { hasText: 'Open the lab' }).click();
+  await page.waitForSelector('.lesson');
+  await expectHash('#/cyber/lab/on-path', 'Guide’s Open the lab link');
+  await page.goto(`${url}#/cyber/guide/on-path`);
+  await page.waitForSelector('.guide-step');
   await expectCount('.guide-step', 12, 'Guide steps');
   await shot('guide');
   await page.emulateMedia({ media: 'print' });
