@@ -321,6 +321,10 @@
   gap: 12px;
   margin: 16px 0;
 }
+/* A lesson has no goals, so three stats. */
+.summary-stats:not(:has(> :nth-child(4))) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .sstat {
   padding: 14px 16px;
   border: 1px solid var(--line);
@@ -2150,7 +2154,8 @@
 }
 /* Filters are typed character by character: show == as two equals signs, not one joined glyph. */
 .capture-filter input,
-.lesson code {
+.lesson code,
+.prose code {
   font-variant-ligatures: none;
 }
 /* The packet list is the lesson: on a wide screen the Capture tab takes half the column. */
@@ -3851,4 +3856,431 @@ button.pl-tile:active {
   line-height: 1.5;
   vertical-align: baseline;
   gap: 5px;
+}
+
+/* wireshark: drawings of Wireshark, a terminal, and settings windows on the
+   stage of "Wireshark for Real" (src/labs/wireshark/pictures.ts). They build
+   on packet-capture's .ws-window and stay light in the dark theme, like a
+   picture of a program. A ringed part (.ws-hi) carries a label (.ws-tag). */
+.ws-pic,
+.ws-term,
+.ws-settings,
+.ws-shake,
+.ws-split {
+  margin: 0 0 10px;
+  /* Draw == as two equals signs, the way students type them. */
+  font-variant-ligatures: none;
+}
+.ws-pic .ws-part {
+  padding-left: 8px;
+}
+.ws-pic .ws-list {
+  padding-left: 8px;
+}
+/* Room for a whole Time, and for addresses like 239.255.255.250. */
+.ws-pic .ws-row {
+  grid-template-columns: 3ch 9ch 15ch 15ch 8ch 6ch;
+}
+/* A stage card on a laptop fits Info as a column of its own, as in
+   Wireshark. Long Info wraps inside that column instead of under Time. */
+@container (min-width: 600px) {
+  .ws-pic .ws-row {
+    grid-template-columns: 3ch 9ch 15ch 15ch 8ch 6ch minmax(0, 1fr);
+    font-size: 11px;
+  }
+  .ws-pic .ws-row > span:last-child {
+    grid-column: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+.ws-pic .ws-toolbar {
+  gap: 14px;
+}
+.ws-pic .ws-input.ok {
+  border-color: #16a34a;
+  background: #dcfce7;
+  color: #14532d;
+  font-family: var(--mono, ui-monospace, monospace);
+}
+.ws-pic .ws-row.http {
+  background: #e4ffc7;
+}
+.ws-pic .ws-row.udp {
+  background: #daeeff;
+}
+.ws-pic .ws-row.arp {
+  background: #faf0d7;
+}
+.ws-pic .ws-row.icmp {
+  background: #fce0ff;
+}
+.ws-pic .ws-row.ws-hi {
+  position: relative;
+  overflow: visible;
+  outline-offset: -2px;
+}
+/* A ringed row makes room for its label inside the ring, above the row's text,
+   so the label covers neither this row nor the one before it. */
+.ws-pic .ws-row.ws-hi {
+  padding-top: calc(1.5em + 4px);
+}
+.ws-pic .ws-row.ws-hi > .ws-tag {
+  left: 4px;
+  right: auto;
+  top: 3px;
+}
+.ws-fog {
+  display: block;
+  height: 0.9em;
+  margin-top: 0.2em;
+  border-radius: 3px;
+  background: #cbd5e1;
+}
+.ws-pic .ws-row > .ws-fog:last-child {
+  width: 60%;
+}
+.ws-pic .ws-details {
+  align-items: flex-start;
+  gap: 12px;
+}
+.ws-tree {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+}
+.ws-line {
+  position: relative;
+  padding: 1px 3px;
+  overflow-wrap: anywhere;
+}
+/* A ringed line's label sits at its right end, inside the ring. */
+.ws-line > .ws-tag {
+  position: static;
+  float: right;
+  margin-left: 8px;
+}
+.ws-line.ws-hi {
+  margin: 3px 0;
+}
+.ws-line > i {
+  display: inline-block;
+  width: 1.2em;
+  font-style: normal;
+  color: #475569;
+}
+.ws-status {
+  font-size: 11px;
+  color: #334155;
+  background: #e2e8f0;
+}
+
+/* The ring: a dashed orange outline, with its label sitting on the top edge. */
+.ws-hi {
+  position: relative;
+  outline: 2px dashed #ea580c;
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+.ws-part.ws-hi {
+  outline-offset: -3px;
+}
+.ws-tag {
+  position: absolute;
+  right: 6px;
+  top: -0.8em;
+  z-index: 1;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #c2410c;
+  color: #fff;
+  font-family: var(--font, system-ui, sans-serif);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ws-part.ws-hi > .ws-tag {
+  top: 2px;
+}
+.ws-row.ws-head .ws-hi {
+  overflow: visible;
+}
+.ws-row.ws-head .ws-hi > .ws-tag {
+  top: auto;
+  bottom: calc(100% + 2px);
+  left: 0;
+  right: auto;
+}
+
+/* The right-click menu, beside the list or the details. */
+.ws-menu {
+  flex: none;
+  display: flex;
+  align-self: flex-start;
+  font-size: 11px;
+  filter: drop-shadow(0 2px 4px rgb(15 23 42 / 0.25));
+}
+.ws-menu-col {
+  min-width: 9.5em;
+  padding: 3px 0;
+  border: 1px solid #94a3b8;
+  background: #fff;
+}
+.ws-menu-col + .ws-menu-col {
+  margin-top: 3.4em;
+  margin-left: -1px;
+}
+.ws-menu-col > div {
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+.ws-menu-col > .on {
+  background: #dbeafe;
+}
+.ws-menu-col > .ws-hi {
+  outline-offset: -2px;
+}
+/* Under the packet list, so it doesn't cover the row it was opened on. */
+.ws-pic .ws-list:has(> .ws-menu) {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.ws-pic .ws-list > .ws-menu {
+  align-self: flex-end;
+}
+@container (max-width: 520px) {
+  .ws-pic .ws-details {
+    flex-direction: column;
+  }
+  .ws-menu {
+    align-self: flex-end;
+  }
+}
+
+/* The welcome screen's interface list, each with a small traffic graph. */
+.ws-iface-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 0;
+}
+.ws-iface {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 8px;
+}
+.ws-iface.ws-hi {
+  background: #e0e7ff;
+}
+.ws-spark {
+  flex: none;
+}
+
+/* A terminal (Command Prompt or Terminal), and a settings window. */
+.ws-term,
+.ws-settings {
+  border: 1px solid #475569;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+}
+.ws-term-bar {
+  padding: 4px 10px;
+  background: #cbd5e1;
+  color: #0f172a;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.ws-term pre {
+  margin: 0;
+  padding: 12px 10px 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ws-term pre .ws-hi {
+  display: inline-block;
+  margin: 2px 0;
+  padding: 0 4px;
+  outline-color: #fb923c;
+}
+.ws-term pre .ws-tag {
+  top: -1.45em;
+}
+.ws-settings {
+  background: #f8fafc;
+  color: #0f172a;
+}
+.ws-kv {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  gap: 4px;
+}
+.ws-kv > div {
+  display: flex;
+  gap: 1ch;
+  padding: 3px 4px;
+}
+.ws-kv > div > span:not(.ws-tag) {
+  min-width: 12ch;
+  color: #475569;
+}
+/* A ringed setting's label sits at the end of its row, inside the ring. */
+.ws-kv .ws-tag {
+  position: static;
+  order: 1;
+  align-self: center;
+  margin-left: auto;
+}
+.ws-kv > div > span:empty {
+  display: none;
+}
+.ws-kv b {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ws-dialog {
+  padding: 10px 14px 12px;
+}
+.ws-dialog p {
+  margin: 0 0 8px;
+}
+.ws-dialog-btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+.ws-dialog-btns > span {
+  padding: 3px 12px;
+  border: 1px solid #94a3b8;
+  border-radius: 5px;
+  background: #fff;
+}
+/* Above the button, not on its text. */
+.ws-dialog-btns .ws-tag {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+/* The TCP handshake: two computers, and arrows between them. */
+.ws-shake {
+  padding: 10px 14px 14px;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 12.5px;
+}
+.ws-shake-ends {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  grid-auto-flow: column;
+  margin-bottom: 6px;
+}
+.ws-shake-ends > :nth-child(n + 3) {
+  text-align: right;
+}
+.ws-shake-ends > span {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  color: #475569;
+}
+.ws-shake-arrow {
+  position: relative;
+  margin: 4px 8px 0;
+  padding-bottom: 3px;
+  border-bottom: 2px solid #4f46e5;
+  text-align: center;
+}
+.ws-shake-arrow::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  border: 5px solid transparent;
+}
+.ws-shake-arrow.right::after {
+  right: -6px;
+  border-left: 8px solid #4f46e5;
+}
+.ws-shake-arrow.left {
+  border-bottom-color: #0891b2;
+}
+.ws-shake-arrow.left::after {
+  left: -6px;
+  border-right: 8px solid #0891b2;
+}
+.ws-shake-arrow.get {
+  margin-top: 10px;
+  border-bottom-style: dashed;
+  border-bottom-color: #64748b;
+  color: #475569;
+}
+.ws-shake-arrow.get::after {
+  border-left-color: #64748b;
+}
+
+/* Step 9: one capture splits into two lists that add up to the whole. */
+.ws-split {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 12.5px;
+  text-align: center;
+}
+.ws-split small {
+  display: block;
+  color: #475569;
+  font-size: 11px;
+}
+.ws-split code {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.ws-split-all,
+.ws-split-parts > div {
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-weight: 650;
+}
+.ws-split-all {
+  background: #e2e8f0;
+}
+.ws-split-parts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ws-split-parts > div:first-child {
+  background: #dbeafe;
+}
+.ws-split-parts > div:last-child {
+  background: #fce7f3;
+}
+.ws-split-sum {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-weight: 700;
 }

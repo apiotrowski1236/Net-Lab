@@ -78,6 +78,14 @@ export interface TextQuestion {
    * doesn't count that check as a try.
    */
   wrong?: { match: RegExp; text: string; format?: boolean }[];
+  /**
+   * A second check, run only once `expect` passes: for an answer that has to
+   * agree with the student's other answers (wireshark: the DNS reply went to
+   * the address they gave in step 3). `answer(step, question)` reads another
+   * answer's current text ('' if there is none). Return what to tell the
+   * student to mark the answer wrong, or undefined to accept it.
+   */
+  verify?: (value: string, answer: AnswerLookup) => string | undefined;
   explain?: string;
   /** Soft target shown under the box. */
   minWords?: number;
@@ -364,9 +372,23 @@ export interface LabStub {
 /** A lesson with no network: its stage shows demos. */
 export const isLesson = (lab: LabDef): boolean => !lab.build;
 
-/** What a text question says after a wrong check: the first `wrong` pattern that matches, else `expectHint`. */
-export function wrongFeedback(q: TextQuestion, value: string): string {
-  return wrongMatch(q, value)?.text ?? q.expectHint ?? 'Not quite. Change your answer and check again.';
+/** Reads one of the student's other text answers ('' if there is none). */
+export type AnswerLookup = (step: string, question: string) => string;
+
+/** Whether a text answer passes `expect` and then `verify`. */
+export function textCorrect(q: TextQuestion, value: string, answer: AnswerLookup): boolean {
+  const v = value.trim();
+  return !!q.expect?.test(v) && !q.verify?.(v, answer);
+}
+
+/**
+ * What a text question says after a wrong check: `verify`'s message when only
+ * it failed, else the first `wrong` pattern that matches, else `expectHint`.
+ */
+export function wrongFeedback(q: TextQuestion, value: string, answer?: AnswerLookup): string {
+  const v = value.trim();
+  const disagree = answer && q.expect?.test(v) ? q.verify?.(v, answer) : undefined;
+  return disagree ?? wrongMatch(q, value)?.text ?? q.expectHint ?? 'Not quite. Change your answer and check again.';
 }
 
 /** The first `wrong` entry that matches a text answer. */

@@ -131,8 +131,9 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
         answer,
         autoGraded,
         correct: autoGraded ? !!a?.correct : undefined,
-        // Checks that only failed on format (a number in words, missing 0s in front) don't count as tries.
-        attempts: a ? a.attempts - (a.formatSlips ?? 0) : undefined,
+        // Checks that only failed on format (a number in words, missing 0s in front) don't count as tries,
+        // and neither do checks after the first right answer.
+        attempts: a ? (a.rightAfter ?? a.attempts - (a.formatSlips ?? 0)) : undefined,
         points: pts,
         overridden,
         extra: isExtra,

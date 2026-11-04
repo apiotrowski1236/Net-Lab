@@ -8,6 +8,8 @@ export interface Answer {
   attempts: number;
   /** Checks that only failed on format (TextQuestion `wrong` with `format`). The report leaves them out of the tries. */
   formatSlips?: number;
+  /** The tries it took to be right the first time. Checking again after that, to test another answer, doesn't add tries. */
+  rightAfter?: number;
   correct?: boolean;
 }
 

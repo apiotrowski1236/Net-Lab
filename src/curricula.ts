@@ -72,11 +72,12 @@ export const CURRICULA: Curriculum[] = [
     short: 'AP Cyber',
     heading: 'Unit 3: Securing Networks',
     intro:
-      'Hands-on labs where you watch packets move, then play attacker and defender on a simulated network. Nothing here touches a real network. Everything you do is saved on this computer as you go, even offline.',
+      'Hands-on labs where you watch packets move, then play attacker and defender on a simulated network. Only one lab touches a real network: in Wireshark for Real, you capture your own computer\'s traffic, with your teacher\'s permission. Everything you do is saved on this computer as you go, even offline.',
     noun: 'lab',
     labs: [
       'home-network',
       'packet-capture',
+      'wireshark',
       'build-network',
       'on-path',
       'mac-flood',
@@ -90,7 +91,7 @@ export const CURRICULA: Curriculum[] = [
       'logs',
     ],
     stubs: STUBS,
-    footnote: "Simulated networks only. The attacks you practice here are illegal against real networks you don't own or have written permission to test.",
+    footnote: "Simulated networks only, except the Wireshark lab's capture of your own computer. The attacks you practice here are illegal against real networks you don't own or have written permission to test.",
   },
 ];
 
