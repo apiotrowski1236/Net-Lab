@@ -117,7 +117,7 @@ async function run(theme) {
   await attempt('course-homes', async () => {
     for (const id of ['intro', 'csp', 'csa', 'cyber']) {
       await page.goto(`${url}#/${id}`);
-      await page.waitForSelector(id === 'cyber' ? '.lab-card' : '.home-empty');
+      await page.waitForSelector('.home-main h1');
       await page.mouse.move(5, SIZE.height - 8);
       await shot(`home-${id}`);
       if (id === 'cyber') await page.screenshot({ path: join(OUT, `${theme}-${String(++n).padStart(2, '0')}-home-cyber-full.png`), fullPage: true });

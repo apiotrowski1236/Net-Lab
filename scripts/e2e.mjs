@@ -466,14 +466,14 @@ try {
     if (!(await page.getByRole('radio', { name: 'AP Computer Science Principles' }).isChecked())) throw new Error('#/csp should pick AP CSP for a new student');
     await page.fill('input[autocomplete=name]', 'Casey New');
     await page.getByRole('button', { name: 'Start' }).click();
-    await page.waitForSelector('.home-empty');
+    await page.waitForSelector('.home-main h1');
     await expectHash('#/csp', 'Home after signing in on #/csp');
     if ((await page.locator('.topbar .tb-lab').innerText()) !== 'AP Computer Science Principles') throw new Error('CSP home top bar');
     await expectCount('.footnote', 0, 'Cybersecurity footnote on the CSP home');
     if ((await savedProfile()).curriculum !== 'csp') throw new Error('Class was not saved with the profile');
     await shot('csp-home');
     await page.reload();
-    await page.waitForSelector('.home-empty');
+    await page.waitForSelector('.home-main h1');
     await expectCount('.modal', 0, 'Sign-in dialog after a reload');
     await expectHash('#/csp', 'CSP home after a reload');
     await page.goto(`${url}#/`);
@@ -498,10 +498,12 @@ try {
     const up = await page.evaluate(() => document.activeElement?.textContent?.trim());
     if (up !== 'Intro to Computer Science') throw new Error(`ArrowUp moved to "${up}"`);
     await page.keyboard.press('Enter');
-    await page.waitForSelector('.home-empty');
+    await page.waitForSelector('.home-main h1');
     await expectHash('#/intro', 'After switching to Intro CS');
     await expectCount('.menu', 0, 'Menu after choosing a class');
     if ((await savedProfile()).curriculum !== 'intro') throw new Error('Switching class did not save it');
+    // A course with nothing in it yet says so.
+    if (!(await page.locator('.lab-card').count())) await expectCount('.home-empty', 1, 'Coming-soon note on an empty course');
     await page.reload();
     await page.goto(`${url}#/`);
     await expectHash('#/intro', '#/ after switching to Intro CS and reloading');
@@ -541,7 +543,7 @@ try {
     page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(String(e)));
     await page.goto(url);
-    await page.waitForSelector('.home-empty');
+    await page.waitForSelector('.home-main h1');
     await expectHash('#/csp', 'Phone home');
     const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     if (wide) throw new Error('The phone home page scrolls sideways');
@@ -552,7 +554,7 @@ try {
     await expectCount('.menu', 0, 'Menu after tapping a class');
     await page.tap('.student-chip');
     await page.waitForSelector('.menu');
-    await page.tap('.home-empty h2');
+    await page.touchscreen.tap(20, 800); // below the open menu
     await expectCount('.menu', 0, 'Menu after tapping outside');
     if ((await savedProfile()).curriculum !== 'csa') throw new Error('Tapped class was not saved');
     await ctx.close();
