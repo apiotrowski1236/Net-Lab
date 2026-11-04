@@ -283,7 +283,7 @@ try {
         await pause(250);
         await check(await card('fit').evaluate((c) => c.contains(document.activeElement)), 'after the last place in step 6, focus left the activity');
         log('  wrote the last place with the keyboard: focus stayed in the card');
-      } else if (step.id === 'compare' && ('pad' in m.input || ('pick' in m.input && !pickByKey))) {
+      } else if (step.id === 'compare' && ('pad' in m.input || ('pick' in m.input && (!pickByKey || k === moves.map((x) => 'pick' in x.input).lastIndexOf(true))))) {
         // By keyboard: the pressed button goes away, and focus must stay in the card.
         if ('pick' in m.input) pickByKey = true;
         const btn = 'pad' in m.input ? card('compare').getByRole('button', { name: 'Line them up' }) : card('compare').locator('.cmp-pick button').nth(m.input.pick);
@@ -292,6 +292,8 @@ try {
         await pause(250);
         const where = await card('compare').evaluate((c) => (c.contains(document.activeElement) ? document.activeElement.className || document.activeElement.tagName : 'outside'));
         await check(where !== 'outside', `after pressing ${'pad' in m.input ? 'Line them up' : 'a pick'} with the keyboard, focus left the compare card`);
+        // After the last pair there's no Next pair button: focus waits on the done box, not back on the board.
+        if ('pick' in m.input && k === moves.map((x) => 'pick' in x.input).lastIndexOf(true)) await check(/walk-done/.test(where), `after the last pick, focus went to ${where} instead of the done box`);
         log(`  ${'pad' in m.input ? 'Line them up' : 'picked the bigger number'} with the keyboard: focus stayed in the card (${where.trim()})`);
       } else await doInput(step, m);
 

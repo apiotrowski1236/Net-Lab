@@ -98,11 +98,11 @@ function toBinary(id: string, n: number, bits: string, extra: TextQuestion['wron
   const short = bits.replace(/^0+/, '');
   const wrong: TextQuestion['wrong'] = [...extra];
   if (short !== bits) {
-    wrong.push({ match: bitsRe(short), text: `Right bits, but write all 8. Put 0s in front: ${'0'.repeat(8 - short.length)} then your bits.` });
+    wrong.push({ match: bitsRe(short), text: `Right bits, but write all 8. Put 0s in front: ${'0'.repeat(8 - short.length)} then your bits.`, format: true });
     // Some of the 0s in front, but not all of them.
     for (let k = short.length + 1; k < 8; k++) {
       const more = 8 - k;
-      wrong.push({ match: bitsRe('0'.repeat(k - short.length) + short), text: `Right bits, but write all 8. Put ${more === 1 ? 'one more 0' : `${more} more 0s`} in front.` });
+      wrong.push({ match: bitsRe('0'.repeat(k - short.length) + short), text: `Right bits, but write all 8. Put ${more === 1 ? 'one more 0' : `${more} more 0s`} in front.`, format: true });
     }
   }
   if (reversed(bits) !== bits) wrong.push({ match: bitsRe(reversed(bits)), text: 'Those bits are in reverse order. The 128s place is on the left, and the 1s place is on the right.' });
@@ -127,7 +127,7 @@ function toBinary(id: string, n: number, bits: string, extra: TextQuestion['wron
     placeholder: 'Type 8 bits, like 00000101',
     expect: bitsRe(bits),
     wrong,
-    expectHint: "Not quite. Ask \"does it fit?\" at each place, starting at 128. When the place value fits in what's left, write 1 and subtract. When it's too big, write 0.",
+    expectHint: "Not quite. Ask \"does it fit?\" at each place, starting at 128. When the place value fits in the number still to place, write 1 and subtract. When it's too big, write 0.",
     explain: `${n} = ${sumOf(bits)}, so those places get a 1: ${bits}.`,
   };
 }
@@ -441,7 +441,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         To go from decimal to binary, ask **does it fit?** Start at the 128s place and move right, one place at a time:
 
-        1. Does the place value fit in what's left of your number? (It fits if it's the same or smaller.)
+        1. Does the place value fit in the number still to place? (It fits if it's the same or smaller.)
         2. If it fits, write **1** and subtract it.
         3. If it's too big, write **0**.
 
@@ -561,6 +561,8 @@ export const binaryNumbersLab: LabDef = {
             '| Bits | Patterns |',
             '| --- | --- |',
             ...Array.from({ length: 10 }, (_, i) => `| ${i + 1} | ${(2 ** (i + 1)).toLocaleString('en-US')} |`),
+            '',
+            'For more than 10 bits, keep doubling.',
           ].join('\n'),
         },
       ],

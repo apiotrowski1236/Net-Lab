@@ -178,14 +178,14 @@ describe('binary-numbers: demo models', () => {
     expect(s.found).toEqual([9, 21, 31]);
   });
 
-  it('places: base 10 digits wrap, base 2 bits flip, and the key makes 10', () => {
+  it('places: base 10 digits stop at 0 and 9, base 2 bits flip, and the key makes 10', () => {
     const b10 = demoSpec<PlacesSpec>('bits', 'base10');
     const b2 = demoSpec<PlacesSpec>('bits', 'base2');
     expect(placesModel.facts(b10, placesModel.init(b10))).toMatchObject({ value: 2305, changes: 0 });
     expect(placesModel.facts(b2, placesModel.init(b2))).toMatchObject({ value: 12, digits: '1100' });
     const up = run(placesModel, b10, [{ bump: 0, by: 1 }, { bump: 2, by: -1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }]);
-    // 2 -> 3 in the 1000s, 0 -> 9 in the 10s, 5 -> 0 after five raises.
-    expect(placesModel.facts(b10, up)).toMatchObject({ value: 3390, changes: 7 });
+    // 2 -> 3 in the 1000s; the 10s stays 0 (no lowering past 0); 5 -> 9 in the 1s, then stays 9.
+    expect(placesModel.facts(b10, up)).toMatchObject({ value: 3309, changes: 5 });
     // Flips don't apply to base 10, and bumps don't apply to base 2.
     expect(placesModel.apply(b10, up, { flip: 0 })).toBe(up);
     const two = placesModel.init(b2);
@@ -554,6 +554,28 @@ describe('binary-numbers: saving and resuming', () => {
     expect(again.progress.demos).toEqual({});
     expect(again.goalDone('switches', 'three')).toBe(true);
     expect(again.answer('switches', 'four')?.correct).toBe(true);
+  });
+
+  it('leaves format slips out of the tries on the report', () => {
+    const s = new LabSession(lab, fresh());
+    const who = { id: 'x', name: 'Test Student', period: '', createdAt: 0 };
+    const tries = (stepId: string, qId: string) => buildReport(lab, s.progress, who, 'submitted').questions.find((q) => q.step === stepId && q.id === qId)?.attempts;
+    const answer = (stepId: string, qId: string, v: string) => {
+      const q = text(stepId, qId);
+      s.setDraft(stepId, q, v);
+      return s.check(stepId, q);
+    };
+    // A number in words, then digits: one try.
+    expect(answer('switches', 'four', 'sixteen')).toBe(false);
+    expect(answer('switches', 'four', '16')).toBe(true);
+    expect(s.answer('switches', 'four')?.attempts).toBe(2);
+    expect(tries('switches', 'four')).toBe(1);
+    // Right bits with 0s missing in front, then all 8: one try. A real mistake still counts.
+    expect(answer('practice-binary', 'w6', '1101')).toBe(false);
+    expect(answer('practice-binary', 'w6', '0001101')).toBe(false);
+    expect(answer('practice-binary', 'w6', '00001100')).toBe(false);
+    expect(answer('practice-binary', 'w6', '00001101')).toBe(true);
+    expect(tries('practice-binary', 'w6')).toBe(2);
   });
 
   it('builds a report with no network', () => {

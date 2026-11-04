@@ -19,7 +19,7 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
   // A right pick removes the pick buttons: keep keyboard focus in the card.
   const pick = (i: 0 | 1) => {
     send({ pick: i });
-    keepFocus(root.current, '.walk-done .btn', '.cmp-col.hit');
+    keepFocus(root.current, '.walk-done .btn', '.walk-done');
   };
 
   // The pair as given, before any 0s: which row is shorter, and by how much.
@@ -140,7 +140,7 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
       )}
 
       {s.done && (
-        <div class="callout good small walk-done">
+        <div class="callout good small walk-done" tabIndex={-1}>
           <span>
             <Icon name="check" size={14} /> <code>{big}</code> is bigger. Check: {fromBits(big)} is more than {fromBits(small)}.
           </span>

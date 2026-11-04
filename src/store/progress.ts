@@ -6,6 +6,8 @@ export interface Answer {
   value: string;
   updatedAt: number;
   attempts: number;
+  /** Checks that only failed on format (TextQuestion `wrong` with `format`). The report leaves them out of the tries. */
+  formatSlips?: number;
   correct?: boolean;
 }
 

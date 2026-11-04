@@ -43,6 +43,7 @@ const NUMBER_WORDS =
 export const SPELLED = {
   match: new RegExp(`^[^\\d]*\\b(?:${NUMBER_WORDS})\\b[^\\d]*$`, 'i'),
   text: 'Write the number with digits, like 7 instead of seven.',
+  format: true,
 };
 /** Any digit that isn't 0 or 1. */
 export const notBinary = /[2-9]/;

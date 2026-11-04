@@ -73,8 +73,11 @@ export interface TextQuestion {
    * Feedback for particular wrong answers, checked in order after an
    * auto-checked answer is marked wrong: the first `match` wins over
    * `expectHint`. For answers that show a known mistake (bits read backward).
+   * `format`: the value is right but written the wrong way (a number in
+   * words, missing 0s in front). The student still fixes it, but the report
+   * doesn't count that check as a try.
    */
-  wrong?: { match: RegExp; text: string }[];
+  wrong?: { match: RegExp; text: string; format?: boolean }[];
   explain?: string;
   /** Soft target shown under the box. */
   minWords?: number;
@@ -363,8 +366,13 @@ export const isLesson = (lab: LabDef): boolean => !lab.build;
 
 /** What a text question says after a wrong check: the first `wrong` pattern that matches, else `expectHint`. */
 export function wrongFeedback(q: TextQuestion, value: string): string {
+  return wrongMatch(q, value)?.text ?? q.expectHint ?? 'Not quite. Change your answer and check again.';
+}
+
+/** The first `wrong` entry that matches a text answer. */
+export function wrongMatch(q: TextQuestion, value: string): NonNullable<TextQuestion['wrong']>[number] | undefined {
   const v = value.trim();
-  return q.wrong?.find((w) => w.match.test(v))?.text ?? q.expectHint ?? 'Not quite. Change your answer and check again.';
+  return q.wrong?.find((w) => w.match.test(v));
 }
 
 export const goalKey = (step: string, goal: string) => `${step}/${goal}`;

@@ -39,13 +39,13 @@ export function PlacesView({ spec, state: s, send }: DemoViewProps<PlacesSpec, P
             </div>
           ) : (
             <div key={`d${i}`} class="pl-cell pl-spin">
-              <button class="pl-step" aria-label={`Raise the ${pv[i]}s digit`} onClick={() => send({ bump: i, by: 1 })}>
+              <button class="pl-step" aria-label={`Raise the ${pv[i]}s digit`} aria-disabled={d === 9} onClick={() => send({ bump: i, by: 1 })}>
                 <Chevron up />
               </button>
               <span class={`pl-tile ${d ? 'on' : 'off'}`} aria-label={`The ${pv[i]}s place: ${d}`}>
                 {d}
               </span>
-              <button class="pl-step" aria-label={`Lower the ${pv[i]}s digit`} onClick={() => send({ bump: i, by: -1 })}>
+              <button class="pl-step" aria-label={`Lower the ${pv[i]}s digit`} aria-disabled={d === 0} onClick={() => send({ bump: i, by: -1 })}>
                 <Chevron />
               </button>
             </div>
