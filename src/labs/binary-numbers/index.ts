@@ -544,7 +544,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         With **n** bits there are 2ⁿ patterns. Counting from 0, they stand for the numbers **0 to 2ⁿ − 1**. For example, 4 bits make 16 patterns: the numbers 0 to 15.
 
-        To give every item its own code, you need at least as many patterns as items. Add one bit at a time, and each bit doubles the patterns. Stop when the patterns reach or pass the number of items. The number of bits you used is the answer.
+        To give every item its own code, you need at least as many patterns as items. Add bits one at a time until the patterns reach or pass the number of items. That number of bits is the answer.
 
         **Example:** 20 items. 4 bits make 16 patterns, which is too few. 5 bits make 32, which is enough. So 20 items need **5 bits**.
 
