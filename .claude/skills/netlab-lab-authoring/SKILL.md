@@ -183,7 +183,7 @@ LAB=<id> node .claude/skills/netlab-lab-authoring/clickthrough.mjs   # after npm
 - In Playwright, spotlighted devices pulse and never settle. Use `click({ force: true })` on `g.device rect.device-card`.
 - Don't edit `README.md`, `docs/unit3/COVERAGE.md`, `docs/unit3/ARCHITECTURE.md`, or other labs' folders, unless asked. Put what they should say in your report.
   - Keep shared edits additive: union members, optional fields, cases. No drive-by refactors.
-- Never commit the untracked `pnpm-lock.yaml`. Keep throwaway files in /tmp.
+- Keep throwaway files in /tmp.
 - The local `main` ref may be stale. Find the branch base with `git merge-base` before diffing.
 
 ## Final report checklist

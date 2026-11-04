@@ -5,3 +5,6 @@ screenshots/
 
 # Playwright MCP output
 .playwright-mcp/
+
+# The project uses npm; a local pnpm install leaves this behind
+pnpm-lock.yaml
