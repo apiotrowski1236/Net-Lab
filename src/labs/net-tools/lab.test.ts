@@ -5,7 +5,7 @@ import type { TermRun } from '../../sim/terminal';
 import { runLines, runMeaning } from '../../ui/termText';
 import type { ToolSpec } from '../types';
 import { netToolsLab } from '.';
-import { buildLibrary, dnsFixed, ensureTicketsDone, fixDns, internetFixed, IP, pc2Plugged, riskyClosed } from './scenario';
+import { buildLibrary, dnsFixed, ensureTicketsDone, fixDns, fixInternet, internetFixed, IP, pc2Plugged, riskyClosed } from './scenario';
 
 type Terminal = Extract<ToolSpec, { kind: 'terminal' }>;
 
@@ -61,6 +61,8 @@ describe('net-tools network', () => {
     action('traceroute', 'call-isp').run(sim);
     const fixed = run(sim, 'pc1', 'tracert ebooks.example');
     expect(fixed.kind === 'traceroute' && fixed.hops.map((h) => h.from)).toEqual([IP.router, IP.isp, IP.core, IP.ebooks]);
+    // Typed as tracert, it starts the way Windows' tracert does.
+    expect(text(sim, 'pc1', fixed).slice(0, 2)).toEqual(['Tracing route to ebooks.example [192.0.2.80]', 'over a maximum of 30 hops:']);
   });
 
   it('ticket 3: netstat -b shows the remote-control program until the cable comes out', () => {
@@ -141,7 +143,7 @@ describe('net-tools buttons', () => {
     expect(dnsFixed(sim)).toBe(false);
     expect(report.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'The IT contractor asks: what does the record say right now? Look it up with nslookup first.' }]);
     run(sim, 'pc1', 'nslookup catalog.lakeside.example');
-    expect(report.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'You have the lookup now. Press the button again to send it.' }]);
+    expect(report.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'You have the lookup now. Press the button again to send it.' }]);
     report.run(sim);
     expect(report.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'The IT contractor says the record is fixed. Check their work with nslookup.' }]);
 
@@ -163,7 +165,7 @@ describe('net-tools buttons', () => {
     sim.runCommand('pc1', 'traceroute ebooks.example');
     expect(call.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'The provider asks where the path stops. Wait for the trace to finish, then press the button again.' }]);
     sim.runUntilIdle();
-    expect(call.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'You have the trace now. Press the button again to call.' }]);
+    expect(call.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'You have the trace now. Press the button again to call.' }]);
     call.run(sim);
     expect(internetFixed(sim)).toBe(true);
 
@@ -172,9 +174,35 @@ describe('net-tools buttons', () => {
     expect(pc2Plugged(sim)).toBe(true);
     expect(unplug.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'Find the connection with netstat -b first, so you can tell IT what you cut off.' }]);
     run(sim, 'pc2', 'netstat -b');
-    expect(unplug.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'You found the connection. Press the button again to unplug Public PC 2.' }]);
+    expect(unplug.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'You found the connection. Press the button again to unplug Public PC 2.' }]);
     unplug.run(sim);
     expect(pc2Plugged(sim)).toBe(false);
+  });
+
+  it('the provider waits for a running trace, and only a whole trace after the repair counts', () => {
+    const sim = buildLibrary();
+    const call = action('traceroute', 'call-isp');
+    run(sim, 'pc1', 'traceroute ebooks.example');
+    sim.runCommand('pc1', 'traceroute ebooks.example');
+    call.run(sim);
+    expect(internetFixed(sim)).toBe(false);
+    expect(call.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'The provider asks where the path stops. Wait for the trace to finish, then press the button again.' }]);
+    sim.runUntilIdle();
+    call.run(sim);
+    expect(call.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'The provider found the break you traced: a cut cable. They replaced it. Run traceroute again to check.' }]);
+
+    // A trace that straddles a repair shows a * in the middle: it doesn't count as the clean trace.
+    const again = step('traceroute').goals!.find((g) => g.id === 'again')!;
+    const mixed = buildLibrary();
+    mixed.runCommand('pc1', 'traceroute ebooks.example');
+    mixed.advance(4000);
+    fixInternet(mixed);
+    mixed.runUntilIdle();
+    const r = mixed.dev('pc1').term!.at(-1)!;
+    expect(r.kind === 'traceroute' && r.end === 'reached' && r.hops.some((h) => h.status === 'timeout')).toBe(true);
+    expect(again.check({ sim: mixed, since: 0, ev: [] } as never)).toBe(false);
+    run(mixed, 'pc1', 'traceroute ebooks.example');
+    expect(again.check({ sim: mixed, since: 0, ev: [] } as never)).toBe(true);
   });
 
   it('Watch Public PC 2 shows its traffic to the unknown server', () => {

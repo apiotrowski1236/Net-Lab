@@ -4343,21 +4343,21 @@ button.pl-tile:active {
   border: 1px solid var(--line);
 }
 /* Output scrolls; the typing line below it never covers a line of it. */
-.term-scroll-wrap {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-}
 .term-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding: 8px 10px 4px;
 }
-.term-more {
-  right: 12px;
-  bottom: 6px;
+.term-screen .term-more {
+  flex: none;
+  gap: 3px;
+  background: #1e3a5f;
+  border-color: #3b82f6;
+  color: #e0f2fe;
+}
+.term-screen .term-more:hover {
+  background: #1e4976;
 }
 .term-entry + .term-entry {
   margin-top: 6px;
@@ -4545,7 +4545,7 @@ button.pl-tile:active {
   }
 }
 @media (max-width: 900px) {
-  .dock.dock-tall.dock-max {
+  .dock.dock-tall.dock-max:not(.dock-busy) {
     height: max(420px, 88vh);
   }
 }

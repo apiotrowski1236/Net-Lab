@@ -95,7 +95,10 @@ function traceLines(run: TraceRun): TermLine[] {
   const failed = nameFailed(run);
   if (failed) return failed;
   const ip = run.ip!;
-  const out = [L(`traceroute to ${run.target === ip ? ip : `${run.target} (${ip})`}, ${TRACE_MAX_HOPS} hops max`)];
+  // Windows' tracert announces itself its own way.
+  const out = run.line.startsWith('tracert')
+    ? [L(`Tracing route to ${run.target === ip ? ip : `${run.target} [${ip}]`}`), L(`over a maximum of ${TRACE_MAX_HOPS} hops:`)]
+    : [L(`traceroute to ${run.target === ip ? ip : `${run.target} (${ip})`}, ${TRACE_MAX_HOPS} hops max`)];
   for (const h of run.hops) {
     const n = String(h.ttl).padStart(2);
     if (h.status === 'answer') out.push(L(`${n}  ${pad(h.from ?? '', 16)}${fmtMs(h.ms ?? 0)}`, h.last ? 'good' : undefined));

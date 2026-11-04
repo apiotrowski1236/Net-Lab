@@ -489,6 +489,19 @@ export function LessonPanel({
     void (target as HTMLElement).offsetWidth;
     target.classList.add('nudge');
   };
+  // On a narrow screen the map sits below the lesson: a button that sets packets moving
+  // brings the map up, so the student sees what it did.
+  const press = (id: string) => {
+    session.runStepAction(id);
+    if (!narrow || (session.sim.idle && !session.sim.inflight.length)) return;
+    requestAnimationFrame(() => {
+      const map = document.querySelector('.stage');
+      if (!map) return;
+      const r = map.getBoundingClientRect();
+      if (r.top < 0 || r.top + r.height / 2 > innerHeight)
+        map.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+  };
   const reviewing = p.step < p.maxStep;
   const isLast = p.step === total - 1;
   const prev = p.step > 0 ? session.lab.steps[p.step - 1] : undefined;
@@ -554,7 +567,7 @@ export function LessonPanel({
           {step.title}
         </h2>
         {step.extra && <ExtraCreditBanner session={session} />}
-        <Prose src={step.body} labels={labels} onDevice={onDevice} actions={actionLabels} onAction={(id) => session.runStepAction(id)} />
+        <Prose src={step.body} labels={labels} onDevice={onDevice} actions={actionLabels} onAction={press} />
 
         {captureTool && (
           // Keyboard users: the capture controls are many Tab presses away, past the map.
@@ -572,7 +585,7 @@ export function LessonPanel({
         {rowActions.length > 0 && (
           <div class="actions">
             {rowActions.map((a) => (
-              <button key={a.id} class="btn action" onClick={() => session.runStepAction(a.id)}>
+              <button key={a.id} class="btn action" onClick={() => press(a.id)}>
                 <Icon name="play" size={14} /> {a.label}
               </button>
             ))}

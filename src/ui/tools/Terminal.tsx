@@ -99,8 +99,9 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
     return () => clearInterval(id);
   }, [busy]);
 
-  // Keep the newest output in view, the way a terminal scrolls. A finished result
-  // taller than the screen shows from its first line, so nothing scrolls past unread.
+  // Keep the newest output in view, the way a terminal scrolls. A finished result much
+  // taller than the screen (a scan report) shows from its first line, so nothing scrolls
+  // past unread. A shorter one shows its end, where ping and traceroute sum up.
   const size = entries.reduce((n, e) => n + e.out.length + 1, 0);
   const lastDone = last?.run?.doneAt !== undefined;
   const settle = useRef(() => {});
@@ -110,7 +111,7 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
     el.scrollTop = el.scrollHeight;
     const nodes = el.querySelectorAll<HTMLElement>('.term-entry');
     const entry = nodes[nodes.length - 1];
-    if (lastDone && entry && entry.offsetHeight > el.clientHeight - 24) {
+    if (lastDone && entry && entry.offsetHeight > el.clientHeight * 2.5) {
       el.scrollTop += entry.getBoundingClientRect().top - el.getBoundingClientRect().top - 6;
     }
     check();
@@ -252,33 +253,26 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
         </button>
       </div>
       <div class="term-screen" onClick={focusInput}>
-        <div class="term-scroll-wrap">
-          <div class="term-scroll" ref={screen} onScroll={check} role="log" aria-live="polite" aria-label={`Terminal on ${dev?.label ?? at}`}>
-            {older > 0 && (
-              <button class="btn tiny term-older" onClick={() => setShowOld(true)}>
-                Show {older} earlier command{older === 1 ? '' : 's'}
-              </button>
-            )}
-            {entries.length === 0 && <div class="term-line muted">Type a command and press Enter. Type help to see the commands.</div>}
-            {entries.map((e) => (
-              <div class="term-entry" key={e.key} data-local={e.run ? undefined : ''}>
-                <div class="term-cmd">
-                  <span class="term-prompt">{prompt}</span> {e.line}
-                </div>
-                {e.out.map((l, i) => (
-                  <div key={i} class={`term-line ${l.tone ?? ''}`}>
-                    {l.text || ' '}
-                  </div>
-                ))}
-                {e.run && e.run.doneAt === undefined && <div class="term-line muted term-wait">running…</div>}
-              </div>
-            ))}
-          </div>
-          {below && (
-            <button type="button" class="more-below term-more" onClick={toEnd}>
-              More below <Icon name="chevronDown" size={13} />
+        <div class="term-scroll" ref={screen} onScroll={check} role="log" aria-live="polite" aria-label={`Terminal on ${dev?.label ?? at}`}>
+          {older > 0 && (
+            <button class="btn tiny term-older" onClick={() => setShowOld(true)}>
+              Show {older} earlier command{older === 1 ? '' : 's'}
             </button>
           )}
+          {entries.length === 0 && <div class="term-line muted">Type a command and press Enter. Type help to see the commands.</div>}
+          {entries.map((e) => (
+            <div class="term-entry" key={e.key} data-local={e.run ? undefined : ''}>
+              <div class="term-cmd">
+                <span class="term-prompt">{prompt}</span> {e.line}
+              </div>
+              {e.out.map((l, i) => (
+                <div key={i} class={`term-line ${l.tone ?? ''}`}>
+                  {l.text || ' '}
+                </div>
+              ))}
+              {e.run && e.run.doneAt === undefined && <div class="term-line muted term-wait">running…</div>}
+            </div>
+          ))}
         </div>
         <div class="term-input-row">
           <label class="term-prompt" for={`term-in-${at}`}>
@@ -303,6 +297,11 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
             }}
             onKeyDown={onKey}
           />
+          {below && (
+            <button type="button" class="btn tiny term-more" onClick={toEnd}>
+              More below <Icon name="chevronDown" size={12} />
+            </button>
+          )}
           <button class="btn tiny term-run" onClick={run} disabled={busy || !draft.trim()}>
             Run
           </button>

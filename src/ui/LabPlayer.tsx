@@ -255,22 +255,38 @@ function Dock({
   const tools = session.tools.filter((t) => !(TAB_TOOLS as readonly string[]).includes(t.kind) && !(CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const captureTools = session.tools.some((t) => (CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const capDev = lab.captureDevice ? session.sim.devices[lab.captureDevice] : undefined;
-  // A terminal command is running, or a lesson button set packets moving: Bigger gives the map
-  // its room back until they finish, and a moment after, so the last packet can be seen landing.
+  // A terminal command is running, or a lesson button set the network moving: Bigger gives the map
+  // its room back until it's done. After a button, a moment more, so its last packet and tag can be
+  // seen landing. After a command, the output is what matters: the Terminal grows back at once.
+  const sim = session.sim;
   const termMax = tab === 'tools' && termBig.value && tools.some((t) => t.kind === 'terminal');
-  const netBusy = termMax && (!session.sim.idle || Object.values(session.sim.devices).some((d) => d.term?.length && d.term[d.term.length - 1].doneAt === undefined));
+  const lastRuns = Object.values(sim.devices).flatMap((d) => (d.term?.length ? [d.term[d.term.length - 1]] : []));
+  const cmdBusy = termMax && lastRuns.some((r) => r.doneAt === undefined);
+  const pressed = session.lastRun.value;
+  const btnBusy =
+    termMax &&
+    !cmdBusy &&
+    !!pressed &&
+    pressed.step === session.step.id &&
+    lastRuns.every((r) => r.t <= pressed.t) &&
+    (!sim.idle || sim.inflight.length > 0 || sim.t - pressed.t < 1500);
   const [hold, setHold] = useState(false);
+  useEffect(() => {
+    if (btnBusy) return setHold(true);
+    const id = setTimeout(() => setHold(false), 1500);
+    return () => clearTimeout(id);
+  }, [btnBusy]);
+  // The network's last quiet timer doesn't redraw anything: look again until it's done.
   const [, recheck] = useState(0);
   useEffect(() => {
-    if (!netBusy) {
-      const id = setTimeout(() => setHold(false), 1500);
-      return () => clearTimeout(id);
-    }
-    setHold(true);
-    // The network's last quiet timer doesn't redraw anything: look again until it's done.
+    if (!cmdBusy && !btnBusy) return;
     const id = setInterval(() => recheck((n) => n + 1), 300);
     return () => clearInterval(id);
-  }, [netBusy]);
+  }, [cmdBusy || btnBusy]);
+  // Bigger is for reading one long result: each step starts at the usual size.
+  useEffect(() => {
+    termBig.value = false;
+  }, [session.step.id]);
   const logIds = logDevices(session);
   const logLines = logIds.reduce((n, id) => n + session.sim.devices[id].logs.length, 0);
   const seenLogs = useRef(logLines);
@@ -319,7 +335,7 @@ function Dock({
   return (
     // A Wireshark-style lab (packet-capture) lives in the Capture tab: give its packet list more room.
     // So does a terminal in the Toolkit (net-tools): its output needs the lines.
-    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${termMax ? `dock-max ${netBusy || hold ? 'dock-busy' : ''}` : ''}`}>
+    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${termMax ? `dock-max ${cmdBusy || btnBusy || hold ? 'dock-busy' : ''}` : ''}`}>
       <div class="dock-tabs" role="tablist">
         <button
           role="tab"
