@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { shuffledOptions } from '../labs/shuffle';
+import { guideHref, labHref } from '../routes';
 import type { LabDef, StepDef, ToolSpec } from '../labs/types';
 import { Icon } from './icons';
 import { renderMarkdown } from './markdown';
@@ -67,7 +68,7 @@ export function Guide({ lab }: { lab: LabDef }) {
   return (
     <div class="guide">
       <div class="guide-bar no-print">
-        <a class="btn ghost small" href={`#/lab/${lab.id}`}>
+        <a class="btn ghost small" href={labHref(lab.id)}>
           <Icon name="chevronLeft" size={14} /> Open the lab
         </a>
         <button class="btn small" onClick={() => window.print()}>
@@ -96,7 +97,7 @@ export function Guide({ lab }: { lab: LabDef }) {
           <ol>
             {steps.map((s) => (
               <li key={s.id}>
-                <a href={`#/guide/${lab.id}`} onClick={(e) => (e.preventDefault(), document.getElementById(`g-${s.id}`)?.scrollIntoView({ behavior: 'smooth' }))}>
+                <a href={guideHref(lab.id)} onClick={(e) => (e.preventDefault(), document.getElementById(`g-${s.id}`)?.scrollIntoView({ behavior: 'smooth' }))}>
                   {s.title}
                 </a>
               </li>

@@ -614,6 +614,88 @@ h4 {
   border-color: var(--brand-line);
   background: var(--brand-soft);
 }
+.student-chip[aria-expanded='true'] {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+}
+.student-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.student-chip svg {
+  flex: none;
+}
+
+/* The menu under the student's name: switch class, change name, different student. */
+.student-menu {
+  position: relative;
+  flex: none;
+  min-width: 0;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  width: max-content;
+  min-width: 240px;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.menu-label {
+  padding: 6px 10px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px 8px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--hover);
+}
+.menu-item:focus-visible {
+  outline-offset: -2px;
+}
+.menu-item[aria-checked='true'] {
+  background: var(--brand-soft);
+  font-weight: 650;
+}
+.menu-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  color: var(--brand-ink);
+}
+.menu-item[role='menuitem'] .menu-check {
+  color: var(--muted);
+}
+.menu-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--line);
+}
 .theme-toggle {
   flex: none;
 }
@@ -1962,6 +2044,37 @@ a.lab-card:hover,
 .footnote {
   margin-top: 32px;
 }
+.home-empty {
+  max-width: 560px;
+  margin-top: 28px;
+  padding: 32px 28px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+  text-align: center;
+}
+.home-empty-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+.home-empty h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.home-empty p {
+  margin: 0 auto 8px;
+  max-width: 440px;
+  color: var(--ink-2);
+}
+.home-empty p.muted {
+  color: var(--muted);
+  margin-bottom: 0;
+}
 
 /* ---------- profile dialog ---------- */
 
@@ -2015,6 +2128,48 @@ a.lab-card:hover,
 }
 .modal .row {
   margin-top: 18px;
+}
+.class-pick {
+  margin: 14px 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.class-pick legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.class-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--input-bg);
+  font-size: 15px;
+  cursor: pointer;
+}
+.class-option + .class-option {
+  margin-top: 6px;
+}
+.class-option:hover {
+  border-color: var(--brand-line);
+}
+.class-option.on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  font-weight: 650;
+}
+.class-option input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--brand);
 }
 
 /* ---------- smaller screens ---------- */

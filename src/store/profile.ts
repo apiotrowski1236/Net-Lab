@@ -7,10 +7,11 @@ export interface Profile {
   name: string;
   period: string;
   createdAt: number;
+  /** The student's course ("class"), a Curriculum id from src/curricula.ts. Empty until they sign in. */
+  curriculum?: string;
 }
 
 export interface AppConfig {
-  courseTitle: string;
   teacherName: string;
   /** Class periods to pick from when signing in. Empty: one section, so no period is asked for. */
   periods: string[];
@@ -25,7 +26,6 @@ export interface AppConfig {
 }
 
 const DEFAULT_CONFIG: AppConfig = {
-  courseTitle: 'AP Cybersecurity',
   teacherName: '',
   periods: [],
   submitEndpoint: '',
@@ -40,9 +40,23 @@ function newId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Students who signed in before NetLab had more than one course are all AP
+ * Cybersecurity students: give them that course instead of asking again.
+ * Keep 'cyber' in sync with LEGACY_CURRICULUM in src/curricula.ts.
+ */
+export function migrateProfile(saved: Profile): Profile {
+  if (!saved.curriculum && saved.name?.trim()) return { ...saved, curriculum: 'cyber' };
+  return saved;
+}
+
 function initialProfile(): Profile {
   const saved = load<Profile>('profile');
-  if (saved?.id) return saved;
+  if (saved?.id) {
+    const p = migrateProfile(saved);
+    if (p !== saved) saveNow('profile', p);
+    return p;
+  }
   const fresh: Profile = { id: newId(), name: '', period: '', createdAt: Date.now() };
   saveNow('profile', fresh);
   return fresh;

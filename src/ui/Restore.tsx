@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { findLab, LABS } from '../labs';
 import { applyBackup, readBackup, type ReadResult } from '../store/backup';
+import { labHref } from '../routes';
 import { profile } from '../store/profile';
 import { peekProgress, type LabProgress } from '../store/progress';
 import { Icon } from './icons';
@@ -39,7 +40,7 @@ export function OpenSavedWork() {
   const restore = (found: Found) => {
     const p = applyBackup(found, profile.value);
     setState(null);
-    location.hash = `#/lab/${p.labId}`;
+    location.hash = labHref(p.labId);
   };
 
   return (

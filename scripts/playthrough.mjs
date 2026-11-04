@@ -69,6 +69,7 @@ globalThis.localStorage = new MemoryStorage();
 
 const vite = await createServer({ server: { middlewareMode: true, hmr: false }, appType: 'custom', logLevel: 'warn' });
 const { LABS } = await vite.ssrLoadModule('/src/labs/index.ts');
+const { labHref } = await vite.ssrLoadModule('/src/routes.ts');
 const { LabSession } = await vite.ssrLoadModule('/src/runtime/session.ts');
 const { playStep } = await vite.ssrLoadModule('/src/labs/solution.ts');
 const solutionFiles = readdirSync('src/labs').filter((d) => existsSync(join('src/labs', d, 'solution.ts')));
@@ -107,7 +108,7 @@ for (const lab of LABS) {
   // Start the browser at step 1 with every step unlocked.
   const saved = JSON.parse(JSON.stringify(s.progress));
   saved.step = 0;
-  finished.push({ lab: { id: lab.id, title: lab.title, steps: lab.steps.map((st) => ({ id: st.id, title: st.title, kind: st.kind })) }, progress: saved });
+  finished.push({ href: labHref(lab.id), lab: { id: lab.id, title: lab.title, steps: lab.steps.map((st) => ({ id: st.id, title: st.title, kind: st.kind })) }, progress: saved });
 }
 await vite.close();
 if (!finished.length) throw new Error(ONLY ? `No lab "${ONLY}"` : 'No labs found');
@@ -127,7 +128,7 @@ try {
 
 const failures = [];
 try {
-  for (const { lab, progress } of finished) {
+  for (const { href, lab, progress } of finished) {
     const ctx = await browser.newContext({ ...VIEW, serviceWorkers: 'block' });
     const profile = { id: STUDENT, name: 'Pat Playthrough', period: 'Period 1', createdAt: 0 };
     await ctx.addInitScript(
@@ -147,7 +148,7 @@ try {
     const fail = (i, msg) => failures.push(`${lab.id} step ${i + 1} "${lab.steps[i].id}": ${msg}`);
 
     process.stdout.write(`${lab.id}: `);
-    await page.goto(`${url}#/lab/${lab.id}`);
+    await page.goto(`${url}${href}`);
     await page.waitForSelector('.lesson');
     const warning = await page.locator('text=the network was reset').count();
     if (warning) fail(0, 'the app says the network was reset (replay failed in the browser)');

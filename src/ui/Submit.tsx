@@ -85,7 +85,7 @@ ul{padding-left:0;list-style:none;margin:6px 0}li{margin:3px 0}li.todo{color:#b9
 .foot{font-size:12px;color:#64748b;margin-top:24px}
 </style></head><body>
 <h1>${esc(r.lab.title)}</h1>
-<div class="meta">${esc(r.student.name || '(no name)')}${r.student.period ? ` &middot; ${esc(r.student.period)}` : ''}<br>
+<div class="meta">${esc(r.student.name || '(no name)')}${r.student.period ? ` &middot; ${esc(r.student.period)}` : ''}${r.course ? ` &middot; ${esc(r.course.title)}` : ''}<br>
 Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(when(r.submittedAt))}` : `Last saved ${esc(when(r.updatedAt))} (not submitted)`} &middot; Work ID ${esc(r.workId)}</div>
 <div class="stats">
 <div class="stat"><b>${r.score.auto} / ${r.score.autoMax}</b>auto-checked points</div>

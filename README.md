@@ -129,7 +129,6 @@ With no `submitEndpoint` set, one button, **Download my report**, marks the lab 
 
 ```json
 {
-  "courseTitle": "AP Cybersecurity",
   "teacherName": "",
   "periods": [],
   "submitEndpoint": "",
@@ -141,7 +140,6 @@ With no `submitEndpoint` set, one button, **Download my report**, marks the lab 
 
 | Setting | What it does |
 |---|---|
-| `courseTitle` | Shown on the home page. |
 | `teacherName` | Used in "Delivered to ..." after a submit. |
 | `periods` | Class periods to choose from in the name dialog, such as `["Period 1", "Period 3"]`. Leave it `[]` for one section: the dialog asks only for a name. |
 | `submitEndpoint` | Google Apps Script URL (see above). Empty means students download their report and hand it in. |
