@@ -194,7 +194,7 @@ function markerFor(
       if (e.what === 'cable') return { device: e.device, text: e.on ? 'plugged in' : 'unplugged', tone: e.on ? 'info' : 'warn' };
       if (e.what === 'ip' || e.what === 'gateway') {
         const what = e.what === 'ip' ? 'address' : 'gateway';
-        if (!e.on) return { device: e.device, text: `${what} removed`, tone: 'warn' };
+        if (!e.on) return { device: e.device, text: `${what} removed`, tone: 'warn', merge: { key: 'addr-off', many: () => 'address and gateway removed' } };
         return { device: e.device, text: `${what} set`, tone: 'info', merge: { key: 'addr', many: () => 'address and gateway set' } };
       }
       if (e.what === 'port') return { device: e.device, text: `${portName(e.detail ?? '')} ${e.on ? 'turned on' : 'shut down'}`, tone: e.on ? 'info' : 'warn' };

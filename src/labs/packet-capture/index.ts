@@ -58,7 +58,8 @@ function offLine(sim: Sim, since: number, label: string, done = false): ActionLi
     const then = done ? `Press ${button}` : `When this finishes, press ${button}`;
     return [{ tone: 'bad', text: `The capture started after you pressed ${label}, so it missed the first packets. ${then}, then press ${label} again.` }];
   }
-  return [{ tone: 'bad', text: `The capture was off, so it recorded none of this. Press Start, then press ${label} again.` }];
+  const then = done ? 'Press Start' : 'When this finishes, press Start';
+  return [{ tone: 'bad', text: `The capture was off, so it recorded none of this. ${then}, then press ${label} again.` }];
 }
 
 const packets = (n: number) => `${n} packet${n === 1 ? '' : 's'}`;
@@ -139,7 +140,9 @@ const busyButton: ActionDef = {
     if (off.length) return over ? [{ tone: 'good', text: 'The minute is over.' }, ...off] : off;
     const mine = capturedAfter(sim.dev('laptop'), from);
     const answers = mine.filter((c) => c.frame.ip?.app.kind === 'http-res' && c.frame.ip.dst === IP.laptop).length;
-    if (answers >= BUSY_ANSWERS) return [{ tone: 'good', text: `The minute is over. The capture recorded ${packets(mine.length)}.` }];
+    if (answers >= BUSY_ANSWERS) {
+      return [{ tone: 'good', text: `The minute is over. The capture recorded ${packets(mine.length)}.${capturing(sim) ? ' Press Stop.' : ''}` }];
+    }
     if (!capturing(sim)) return [{ tone: 'bad', text: `The capture stopped before the minute was over, with ${packets(mine.length)}. Press Start, then press ${BUSY_LABEL} again.` }];
     return [{ tone: 'wait', text: `The laptop's apps are at work: ${packets(mine.length)} so far…` }];
   },
@@ -153,7 +156,11 @@ const tvButton: ActionDef = {
   outcome: (sim, since) => {
     const c = showSince(sim, since);
     const off = offLine(sim, since, TV_LABEL, !!c && c.status !== 'pending');
-    if (c?.status === 'open') return [{ tone: 'good', text: 'The TV is playing the show.' }, ...off];
+    if (c?.status === 'open') {
+      // Say what's next only when the capture worked; otherwise the capture line says it.
+      const next = off.length ? '' : capturing(sim) ? " Press Stop, then filter for the TV's address." : " Filter for the TV's address.";
+      return [{ tone: 'good', text: `The TV is playing the show. You don't need to wait for it to end.${next}` }, ...off];
+    }
     if (c && c.status !== 'pending') return [{ tone: 'bad', text: "The show didn't load." }, ...off];
     return [...off, { tone: 'wait', text: 'The TV is loading the show…' }];
   },
@@ -289,7 +296,7 @@ export const packetCaptureLab: LabDef = {
         A capture takes three moves: **Start**, do something on the network, **Stop**. Wireshark works the same way.
 
         1. In the **Capture** tab under the map, press **Start**.
-        2. Press **Open the school website**. The laptop loads the homework page. Watch the list fill up.
+        2. Press **Open the school website**. The laptop loads the homework page. Watch the list fill up. (To make the network go faster, press **4×** above the map.)
         3. When the line under the button says the page loaded, press **Stop**.
 
         Each row in the list is one packet. The columns match Wireshark's:
@@ -397,7 +404,7 @@ export const packetCaptureLab: LabDef = {
             { id: 'hide', text: "The router hides the school's MAC address to keep it private", feedback: "The router isn't hiding it. An Ethernet address only works on its own local network." },
             { id: 'wrong', text: 'The laptop put the wrong MAC address in it', feedback: "It's right on purpose. Look at the To IP: that's still the school website." },
           ],
-          explain: "The MAC addresses change at every hop. The To IP stays the school website's address the whole way. (The router swaps the laptop's own address for the family's public one, going out and coming back. That's the note on the 200 OK.)",
+          explain: "The MAC addresses change at every hop. The To IP stays the school website's address the whole way. (One IP address does change: the router puts the family's public address in place of the laptop's address on the way out. It switches them back when the answer comes in. That's the note on the 200 OK.)",
         },
       ],
     },
@@ -414,7 +421,7 @@ export const packetCaptureLab: LabDef = {
 
         Open the ARP reply and the DNS answer.
 
-        (To keep the lesson clear, this laptop forgets the router's MAC address after every page. A real computer remembers it and its DNS answers for a while, so Wireshark won't show ARP and DNS before every page.)
+        (To keep the lesson clear, this laptop forgets the router's MAC address each time it opens a page, so every page starts with ARP. A real computer remembers it and its DNS answers for a while, so Wireshark won't show ARP and DNS before every page.)
       `,
       setup: ensurePageCapture,
       focus: ['laptop', 'router', 'dns', 'school'],
@@ -454,7 +461,10 @@ export const packetCaptureLab: LabDef = {
           prompt: 'What IP address did the DNS answer give for school.example?',
           expect: /\b192\.0\.2\.80\b/,
           expectHint: 'Open the DNS answer and read its IP address row.',
-          wrong: [{ match: /192\.0\.2\.(08|8|800)\b/, text: 'Close. Check the last number against the DNS answer, digit by digit.' }],
+          wrong: [
+            { match: /192\.0\.2\.(08|8|800)\b/, text: 'Close. Check the last number against the DNS answer, digit by digit.' },
+            { match: /\b192\.0\.2\.53\b/, text: "That's the name server's own address. Open the DNS answer and read the address it gave for school.example." },
+          ],
           explain: "192.0.2.80. The GET request's To IP is the same address.",
         },
       ],
@@ -563,7 +573,10 @@ export const packetCaptureLab: LabDef = {
           prompt: 'Which port number did the laptop send the HTTPS request to?',
           expect: /\b443\b/,
           expectHint: "Open the TLS packet the laptop sent and read the TCP layer's To port.",
-          wrong: [{ match: /\b(434|344|433)\b/, text: 'Close. Check the order of the digits against the TCP layer.' }],
+          wrong: [
+            { match: /\b(434|344|433)\b/, text: 'Close. Check the order of the digits against the TCP layer.' },
+            { match: /\b(49|5\d|6[0-5])\d{3}\b/, text: "That's the laptop's own port, the From port. The question asks for the port the request went to." },
+          ],
           explain: 'Port 443 means HTTPS. Plain HTTP uses port 80.',
         },
       ],
@@ -576,7 +589,7 @@ export const packetCaptureLab: LabDef = {
         Back to the blinking Wi-Fi light. Nobody is using the laptop, but its apps are working: the chat app checks for new messages, the video app loads the next video, the weather app gets today's forecast, and the browser reloads the homework page.
 
         1. Press **Start** for a new capture.
-        2. Press **Leave the laptop alone for a minute**. (A real laptop would spread these packets over a minute. The lesson packs them into about 16 seconds, so the Time column stops near 16. At 1× speed they take about a minute to play. 4× is faster.)
+        2. Press **Leave the laptop alone for a minute**. (The lesson squeezes the minute, so the Time column stops near 16 seconds. To make it go faster, press **4×** above the map.)
         3. Watch the list grow. When the line under the button says the minute is over, press **Stop**.
 
         A real computer is far busier. In Wireshark, hundreds of packets a minute is normal. The next steps show how to find the few you care about.
@@ -668,7 +681,7 @@ export const packetCaptureLab: LabDef = {
       body: md`
         A filter can pick packets by address, too. In Wireshark:
 
-        - \`ip.addr == 198.51.100.140\` shows packets to or from that address. Use two equals signs.
+        - \`ip.addr == 192.0.2.140\` shows packets to or from that address. Use two equals signs.
         - \`!\` means "not": \`!dns\` shows everything except DNS.
         - \`||\` means "or": \`dns || http\` shows both kinds.
 
@@ -712,10 +725,10 @@ export const packetCaptureLab: LabDef = {
 
         1. Press **Start** for a new capture.
         2. Press **The TV plays a show**. [[tv]] sends and receives lots of packets.
-        3. Filter for the TV's address: \`ip.addr == 192.168.1.12\`. The list comes up empty, and that's the point: none of the TV's video reached the laptop.
+        3. When the TV is playing, press **Stop**. Then filter for the TV's address: \`ip.addr == 192.168.1.12\`. The list comes up empty, and that's the point: none of the TV's video reached the laptop.
         4. Then filter \`arp\`. ARP packets have no IP layer, so \`ip.addr\` filters never show them.
 
-        The capture misses almost everything the TV did. [[wifi]] is a **switch**: it sends each packet only to the device it's for. The laptop gets its own packets, plus the few sent to everyone, like ARP requests. The Wi-Fi signal does reach the laptop, but its card ignores packets addressed to other devices, and each device's packets are locked with its own Wi-Fi key.
+        The capture misses almost everything the TV did. [[wifi]] is a **switch**: it sends each packet only to the device it's for. The laptop gets its own packets, plus the few sent to everyone, like ARP requests. (The Wi-Fi signal does reach the laptop. But its card ignores packets for other devices, and Wi-Fi encryption scrambles them.)
 
         So Wireshark on your computer shows your own traffic, not your family's or your classmates'. To see other devices' traffic, an attacker has to trick the switch. A later lab shows how, and how to stop it.
       `,
@@ -777,9 +790,15 @@ export const packetCaptureLab: LabDef = {
         4. **Packet details**: the layers of the packet you clicked. Click an arrow to open a layer.
         5. **Packet bytes**: the whole packet as the computer stores it, written in **hexadecimal** (the digits 0 to 9 and the letters a to f). You can ignore this part.
 
-        Wireshark also shows packets this lab left out. TCP starts each connection with three small packets, marked [SYN], [SYN, ACK], and [ACK], like rows 3 to 5 in the drawing. Many sites use **QUIC**, a newer way to carry web traffic. Wireshark lists it as QUIC, so the \`tls\` filter misses most of it: filter \`quic\` to see it. Some addresses are **IPv6**: longer, with colons.
+        To make Wireshark's text bigger, use **View > Zoom In**.
 
-        Practice two filters here. Press **Start**, ping [[router]] (192.168.1.1) from the laptop in the **Toolkit** tab, and press **Open the video site**. Then filter for the pings, and then for the encrypted web traffic, using Wireshark's names.
+        Practice two filters here. Press **Start**, ping [[router]] (192.168.1.1) from the laptop in the **Toolkit** tab, and press **Open the video site**. When the video site loads, press **Stop**. Then filter for the pings, and then for the encrypted web traffic, using Wireshark's names.
+
+        Wireshark also shows packets this lab left out:
+
+        - **TCP** starts each connection with three small packets, marked [SYN], [SYN, ACK], and [ACK], like rows 3 to 5 in the drawing.
+        - **QUIC** is a newer way to carry web traffic. Wireshark lists it as QUIC, so the \`tls\` filter misses most of it: filter \`quic\` to see it.
+        - **IPv6** addresses are longer, with colons.
       `,
       setup: readyToStart,
       focus: ['laptop', 'router', 'video'],

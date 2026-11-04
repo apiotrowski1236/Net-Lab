@@ -3685,7 +3685,7 @@ button.pl-tile:active {
 .ws-row {
   display: grid;
   grid-template-columns: 3ch 5ch 13ch 13ch 8ch 6ch;
-  gap: 0 4px;
+  gap: 0 1ch;
   padding: 2px 3px;
   white-space: nowrap;
   font-family: var(--mono, ui-monospace, monospace);
@@ -3693,6 +3693,9 @@ button.pl-tile:active {
 }
 .ws-list {
   padding-left: 27px;
+}
+.ws-bytes {
+  font-size: 10.5px;
 }
 .ws-row > span:last-child {
   grid-column: 2 / -1;
@@ -3741,15 +3744,17 @@ button.pl-tile:active {
 }
 .ws-bytes {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
   color: #475569;
   overflow-wrap: anywhere;
 }
 
 /* Skip links between the lesson and the capture controls (packet-capture):
-   hidden until a keyboard user tabs onto one. */
+   hidden until a keyboard user tabs onto one. Fixed, not absolute, so a hidden
+   link low in the lesson can't make the page taller than the window. */
 .skip-link:not(:focus) {
-  position: absolute;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   padding: 0;
@@ -3769,10 +3774,17 @@ button.pl-tile:active {
 }
 
 /* packet-capture: the same cue inside the packet's layers box, pinned to its bottom. */
-.capture-detail .detail-more {
-  position: sticky;
-  right: auto;
-  bottom: 6px;
-  margin: 6px 0 0 auto;
+.capture-detail-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.capture-detail-col > .capture-detail {
+  flex: 1 1 auto;
+}
+.capture-detail-col > .detail-more {
+  position: static;
+  flex: none;
+  margin: 4px 0 0 auto;
   width: max-content;
 }

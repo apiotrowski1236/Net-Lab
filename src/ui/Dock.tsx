@@ -614,6 +614,9 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
   const [hideArp, setHideArp] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  // Where the list last scrolled itself. A scroll event lands a frame later, after more rows
+  // may have arrived, so only a scroll above this point means the student scrolled away.
+  const autoTop = useRef(0);
   const tool = session.tools.find((t): t is Extract<ToolSpec, { kind: 'capture' }> => t.kind === 'capture' && t.device === deviceId);
   // The filter is only in effect in steps that offer it (packet-capture).
   const applied = tool?.filter ? session.captureFilter.value : '';
@@ -626,7 +629,10 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
 
   useEffect(() => {
     const el = listRef.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
+    if (el && stick.current) {
+      el.scrollTop = el.scrollHeight;
+      autoTop.current = el.scrollTop;
+    }
   }, [rows.length]);
   // A Wireshark-style list (packet-capture) follows new packets only while capturing. A stopped
   // capture, or a new filter, starts at the top, so the first packets aren't hidden above.
@@ -636,7 +642,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
     if (!lab.wireshark) return;
     stick.current = live;
     const el = listRef.current;
-    if (el && !live) el.scrollTop = 0;
+    if (el && !live) el.scrollTop = autoTop.current = 0;
   }, [applied, live, runStart, session.step.id]);
   // The layers box is short on a laptop screen: say when there's more to scroll to (as the
   // dock does), and start each packet at its top.
@@ -697,7 +703,8 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
             ref={listRef}
             onScroll={(e) => {
               const el = e.currentTarget as HTMLDivElement;
-              stick.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+              if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) stick.current = true;
+              else if (el.scrollTop < autoTop.current - 4) stick.current = false;
             }}
           >
             <table class="table capture-table">
@@ -754,39 +761,42 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
               </p>
             )}
           </div>
-          <div class="capture-detail" ref={detailRef} onScroll={measureDetail}>
-            {sel ? (
-              layersOf(sim, sel.frame).map((l) => (
-                <div class={`layer ${l.locked ? 'locked' : ''}`} style={{ borderLeftColor: l.color }}>
-                  <div class="layer-title" style={{ color: l.color }}>
-                    {l.locked && <Icon name="lock" size={14} />} {l.title}
+          <div class="capture-detail-col">
+            <div class="capture-detail" ref={detailRef} onScroll={measureDetail}>
+              {sel ? (
+                layersOf(sim, sel.frame).map((l) => (
+                  <div class={`layer ${l.locked ? 'locked' : ''}`} style={{ borderLeftColor: l.color }}>
+                    <div class="layer-title" style={{ color: l.color }}>
+                      {l.locked && <Icon name="lock" size={14} />} {l.title}
+                    </div>
+                    {lab.wireshark && l.ws && <div class="layer-ws">Wireshark: {l.ws}</div>}
+                    <table>
+                      <tbody>
+                        {l.rows.map(([k, v, note]) => (
+                          <tr>
+                            <td class="k">{k}</td>
+                            <td class={`v mono ${l.locked ? 'gib' : ''}`}>
+                              {v} {note && <span class="muted">{note}</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {l.note && <div class="layer-note">{l.note}</div>}
                   </div>
-                  {lab.wireshark && l.ws && <div class="layer-ws">Wireshark: {l.ws}</div>}
-                  <table>
-                    <tbody>
-                      {l.rows.map(([k, v, note]) => (
-                        <tr>
-                          <td class="k">{k}</td>
-                          <td class={`v mono ${l.locked ? 'gib' : ''}`}>
-                            {v} {note && <span class="muted">{note}</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {l.note && <div class="layer-note">{l.note}</div>}
+                ))
+              ) : (
+                <div class="dock-empty small">
+                  <p>Click a packet, or Tab to it and press Enter, to open it up.</p>
                 </div>
-              ))
-            ) : (
-              <div class="dock-empty small">
-                <p>Click a packet, or Tab to it and press Enter, to open it up.</p>
-              </div>
-            )}
+              )}
+            </div>
+            {/* Under the box, not over it, so it never covers a row. */}
             {sel && detailMore && (
               <button
                 type="button"
                 class="more-below detail-more"
-                onClick={() => detailRef.current?.scrollBy({ top: detailRef.current.clientHeight * 0.7, behavior: 'smooth' })}
+                onClick={() => detailRef.current?.scrollBy({ top: detailRef.current.clientHeight * 0.8, behavior: 'smooth' })}
               >
                 More below <Icon name="chevronDown" size={13} />
               </button>
@@ -834,7 +844,7 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
       <button
         type="button"
         class="btn small skip-link"
-        onClick={() => document.querySelector<HTMLElement>('.lesson .actions .btn.action, .lesson .step-title')?.focus()}
+        onClick={() => (document.querySelector<HTMLElement>('.lesson .actions .btn.action') ?? document.querySelector<HTMLElement>('.lesson .step-title'))?.focus()}
       >
         Back to the lesson
       </button>

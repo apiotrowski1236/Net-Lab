@@ -5,6 +5,7 @@ import type { Sim } from '../../sim/sim';
 import type { Frame } from '../../sim/types';
 import type { LabProgress } from '../../store/progress';
 import { playStep } from '../solution';
+import { wrongFeedback, type TextQuestion } from '../types';
 import { packetCaptureLab as lab } from '.';
 import {
   buildCapture,
@@ -209,7 +210,7 @@ describe('lesson buttons', () => {
     s.goTo(index('first-capture'));
     let lines = press(s, 'open-school');
     expect(lines()).toEqual([
-      { tone: 'bad', text: 'The capture was off, so it recorded none of this. Press Start, then press Open the school website again.' },
+      { tone: 'bad', text: 'The capture was off, so it recorded none of this. When this finishes, press Start, then press Open the school website again.' },
       { tone: 'wait', text: 'Loading the homework page…' },
     ]);
     s.sim.runUntilIdle();
@@ -278,7 +279,7 @@ describe('lesson buttons', () => {
     const lines = press(s, 'busy-minute');
     s.sim.runUntilIdle();
     expect(s.sim.dev('laptop').capture).toHaveLength(44);
-    expect(lines()).toEqual([{ tone: 'good', text: 'The minute is over. The capture recorded 44 packets.' }]);
+    expect(lines()).toEqual([{ tone: 'good', text: 'The minute is over. The capture recorded 44 packets. Press Stop.' }]);
   });
 
   it('Leave the laptop alone, started late: says when the minute is over, and the goal waits', () => {
@@ -320,7 +321,7 @@ describe('lesson buttons', () => {
     t.sim.advance(1500);
     t.dispatch({ type: 'capture', device: 'laptop', on: true });
     t.sim.runUntilIdle();
-    expect(tv()[0]).toEqual({ tone: 'good', text: 'The TV is playing the show.' });
+    expect(tv()[0]).toEqual({ tone: 'good', text: "The TV is playing the show. You don't need to wait for it to end." });
     expect(tv()[1].text).toMatch(/^The capture started after you pressed The TV plays a show, so it missed the first packets\. Press Restart/);
     expect(t.goalDone('cant-see', 'show')).toBe(false);
     t.dispatch({ type: 'capture', device: 'laptop', on: true });
@@ -337,6 +338,8 @@ describe('lesson buttons', () => {
     expect(lines()).toEqual([{ tone: 'wait', text: "The laptop's apps are at work: 0 packets so far…" }]);
     s.sim.runUntilIdle();
     const total = s.sim.dev('laptop').capture.length;
+    expect(lines()).toEqual([{ tone: 'good', text: `The minute is over. The capture recorded ${total} packets. Press Stop.` }]);
+    s.dispatch({ type: 'capture', device: 'laptop', on: false });
     expect(lines()).toEqual([{ tone: 'good', text: `The minute is over. The capture recorded ${total} packets.` }]);
   });
 
@@ -347,7 +350,9 @@ describe('lesson buttons', () => {
     const tv = press(s, 'tv-show');
     expect(tv()).toEqual([{ tone: 'wait', text: 'The TV is loading the show…' }]);
     s.sim.runUntilIdle();
-    expect(tv()).toEqual([{ tone: 'good', text: 'The TV is playing the show.' }]);
+    expect(tv()).toEqual([{ tone: 'good', text: "The TV is playing the show. You don't need to wait for it to end. Press Stop, then filter for the TV's address." }]);
+    s.dispatch({ type: 'capture', device: 'laptop', on: false });
+    expect(tv()).toEqual([{ tone: 'good', text: "The TV is playing the show. You don't need to wait for it to end. Filter for the TV's address." }]);
 
     const p = fresh();
     playTo('page-story', p);
@@ -419,6 +424,26 @@ describe('setups', () => {
     expect(sim.dev('laptop').sniffing).toBe(false);
     expect(cap(sim)).toHaveLength(6);
     expect(ipOf(sim, 'phone')).toBe(IP.phone);
+  });
+});
+
+describe('typed answers', () => {
+  const text = (step: string, id: string) => lab.steps.find((s) => s.id === step)!.questions!.find((q) => q.id === id) as TextQuestion;
+
+  it('the DNS answer: near misses and the name server\'s own address get their own feedback', () => {
+    const q = text('page-story', 'address');
+    expect(q.expect!.test('192.0.2.80')).toBe(true);
+    expect(wrongFeedback(q, '192.0.2.08')).toBe('Close. Check the last number against the DNS answer, digit by digit.');
+    expect(wrongFeedback(q, '192.0.2.53')).toBe("That's the name server's own address. Open the DNS answer and read the address it gave for school.example.");
+    expect(wrongFeedback(q, '10.0.0.1')).toBe('Open the DNS answer and read its IP address row.');
+  });
+
+  it("the HTTPS port: swapped digits, and the laptop's own From port", () => {
+    const q = text('https', 'port');
+    expect(q.expect!.test('443')).toBe(true);
+    expect(wrongFeedback(q, '434')).toBe('Close. Check the order of the digits against the TCP layer.');
+    expect(wrongFeedback(q, '49159')).toBe("That's the laptop's own port, the From port. The question asks for the port the request went to.");
+    expect(wrongFeedback(q, '80')).toBe("Open the TLS packet the laptop sent and read the TCP layer's To port.");
   });
 });
 
