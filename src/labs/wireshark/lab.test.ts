@@ -264,7 +264,7 @@ describe('wireshark: step 7 and the ping extra credit', () => {
   });
 });
 
-describe('wireshark: step 9, the two filters', () => {
+describe('wireshark: step 8, the two filters', () => {
   it('wants the two Displayed counts to add up to Packets', () => {
     expect(ok('not-mine', 'others', '41')).toBe(true);
     expect(ok('not-mine', 'others', 'Packets: 412 · Displayed: 41 (10.0%)')).toBe(true);
@@ -273,12 +273,40 @@ describe('wireshark: step 9, the two filters', () => {
     );
   });
 
+  it('tells the first two boxes to check again when the three disagree', () => {
+    expect(says('not-mine', 'mine', '370')).toBe("370 + 41 isn't 412, so one of the three numbers is off. Check this one too.");
+    expect(says('not-mine', 'total', '413')).toBe("371 + 41 isn't 413, so one of the three numbers is off. Check this one too.");
+    expect(ok('not-mine', 'mine', '370', { 'not-mine/others': '' })).toBe(true);
+  });
+
   it('catches Packets typed in place of Displayed', () => {
     expect(says('not-mine', 'mine', '500')).toBe("That's more than the 412 packets in the whole capture. Read the number after Displayed, not Packets.");
   });
 });
 
 describe('wireshark: report tries', () => {
+  it('takes Correct! off every count when the three disagree, and blames the box that changed', () => {
+    const now = Date.now();
+    const p: LabProgress = { labId: lab.id, labVersion: lab.version, studentId: 'ws-sum', startedAt: now, updatedAt: now, activeMs: 0, step: 7, maxStep: 7, stepStart: {}, goals: {}, answers: {}, actions: [], log: [] };
+    const s = new LabSession(lab, p);
+    const who = { id: 'x', name: 'Test Student', period: '', createdAt: 0 };
+    const answer = (id: string, v: string) => {
+      s.setDraft('not-mine', q('not-mine', id), v);
+      return s.check('not-mine', q('not-mine', id));
+    };
+    const right = () => ['total', 'mine', 'others'].map((id) => s.answer('not-mine', id)?.correct);
+    const tries = () => ['total', 'mine', 'others'].map((id) => buildReport(lab, s.progress, who, 'submitted').questions.find((x) => x.step === 'not-mine' && x.id === id)?.attempts);
+    expect(answer('total', '1248')).toBe(true);
+    expect(answer('mine', '1094')).toBe(true); // misread: really 1084
+    expect(answer('others', '164')).toBe(false);
+    expect(right()).toEqual([false, false, false]);
+    expect(wrongFeedback(q('not-mine', 'mine'), '1094', s.answerText)).toBe("1094 + 164 isn't 1248, so one of the three numbers is off. Check this one too.");
+    expect(answer('mine', '1084')).toBe(true);
+    expect(right()).toEqual([true, true, true]);
+    expect(tries()).toEqual([1, 2, 1]);
+  });
+
+
   it("doesn't count checks after the first right answer", () => {
     const now = Date.now();
     const p: LabProgress = { labId: lab.id, labVersion: lab.version, studentId: 'ws-tries', startedAt: now, updatedAt: now, activeMs: 0, step: 0, maxStep: 0, stepStart: {}, goals: {}, answers: {}, actions: [], log: [] };

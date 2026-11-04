@@ -24,8 +24,8 @@ Students install Wireshark before class (the teacher sends the link), so class t
 4. **dns**: `nslookup wikipedia.org`, filter `dns`, paste the response, its address (the DNS server's own address is turned away with its own message). Choice: what the Transaction ID is for.
 5. **http**: http://neverssl.com, filter `http`, paste a GET, its Host. Choice: who could read plain HTTP.
 6. **handshake**: filter `tcp.port == 80`, paste the [SYN] and its [SYN, ACK]. The explains cover the temporary port.
-7. **tls**: https://www.wikipedia.org, filter `tls.handshake.type == 1`, paste the Client Hello (SNI); a QUIC row gets its own message, and only-QUIC students open a private window. A drawing shows Encrypted Application Data. Choice: what a network watcher still learns.
-8. **not-mine**: Packets, `ip.addr ==` me, `!(ip.addr == me)`; the two add up. The body says why classmates' pages never reach the capture (the card keeps only packets for you, for everyone, or for a group; per-device Wi-Fi keys). Choice: would a classmate's plain-HTTP GET show up.
+7. **tls**: https://www.wikipedia.org, filter `tls.handshake.type == 1`, paste the Client Hello (SNI); a QUIC row gets its own message, and an "If you see QUIC" note sends only-QUIC students to a private window. A drawing shows Encrypted Application Data. Choice: what a network watcher still learns.
+8. **not-mine**: Packets, `ip.addr ==` me, `!(ip.addr == me)`; the two add up, and until they do, none of the three boxes says Correct!. The body says why classmates' pages never reach the capture (the card keeps only packets for you, for everyone, or for a group; per-device Wi-Fi keys). Choice: would a classmate's plain-HTTP GET show up.
 9. **reflect**: advice for a friend who thinks HTTPS makes them invisible (40+ words). Quit without saving after any extra credit.
 10. **submit**
 11. **ping** (extra credit): the gateway, `ping` it, filter `icmp`, paste a reply (or a lost request when pings are blocked). Choice: why ICMP has no ports.
@@ -39,11 +39,13 @@ Students install Wireshark before class (the teacher sends the link), so class t
 - `Summary.tsx` skips the goals stat when a lab has no goals, and `.summary-stats` drops to three columns then. Its time stat says "minutes on this page", since this lab's work happens in Wireshark. `.prose code` turns off font ligatures, so `!=` and `->` show as typed.
 - `inlineMarkdown` in `src/ui/markdown.ts`: question feedback and explains draw `**bold**` and `` `code` `` (everything else escaped). Before, they showed the stars and backticks.
 - `Lesson.tsx` `TextCard`: a text answer that failed only its `verify` drops the old verdict once the other answer it disagreed with changes, so its Check button works again.
+- `LabSession.check` re-grades the step's other checked text answers that have a `verify` (`regradeSiblings` in `src/runtime/session.ts`). An answer that a newer check contradicts loses its Correct!, and one that now agrees turns right without a new try. In step 8, when the three counts don't add up, all three boxes say so, and the report counts tries against the box the student changed.
 - `clickthrough.mjs` handles lessons (no `build`, no speed button), waits a moment as each step opens, and strips backticks when it finds a question card.
 
 ## For the teacher
 
 - Have students install Wireshark before class, and check ahead of time that it installs on the school's laptops (Npcap needs an administrator on Windows; ChmodBPF on Mac). Chromebooks can't run it. A class that installs during the period needs about 15 more minutes.
+- Some school web filters install their own certificate on school laptops and unlock HTTPS. Step 7's explain mentions it; if yours does, tell students the school can read their HTTPS pages too.
 - A school VPN or web filter agent can tunnel traffic past the Wi-Fi interface. If a student's capture is nearly empty or shows no DNS, try the other interfaces with a moving line.
 - Some networks block ping. The ping extra credit accepts a request marked `(no response found!)`.
 - Some school DNS servers answer `nslookup` first with the school's suffix added (`No such name`). Step 4 says to skip those.

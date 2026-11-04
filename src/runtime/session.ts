@@ -356,9 +356,33 @@ export class LabSession {
     if (!correct && q.kind === 'text' && q.expect && wrongMatch(q, a.value)?.format) next.formatSlips = (a.formatSlips ?? 0) + 1;
     if (correct && next.rightAfter === undefined) next.rightAfter = next.attempts - (next.formatSlips ?? 0);
     this.progress.answers[key] = next;
+    if (q.kind === 'text') this.regradeSiblings(stepId, q.id);
     touch(this.progress, { kind: 'answer', id: `${key}:${correct ? 'right' : 'wrong'}` });
     this.bump();
     return correct;
+  }
+
+  /**
+   * A checked text answer whose `verify` reads other answers can turn right or
+   * wrong when one of them is checked. Re-grade the step's other checked
+   * answers, so no box keeps a Correct! that its neighbors now contradict, and
+   * the report counts tries against the box that was really off. A re-grade
+   * isn't a try.
+   */
+  private regradeSiblings(stepId: string, qId: string): void {
+    const step = this.lab.steps.find((s) => s.id === stepId);
+    for (const other of step?.questions ?? []) {
+      if (other.id === qId || other.kind !== 'text' || !other.expect || !other.verify) continue;
+      const key = answerKey(stepId, other.id);
+      const a = this.progress.answers[key];
+      if (!a || a.correct === undefined) continue;
+      const now = textCorrect(other, a.value, this.answerText);
+      if (now === a.correct) continue;
+      const next: Answer = { ...a, correct: now };
+      if (now) next.rightAfter ??= a.attempts - (a.formatSlips ?? 0);
+      else delete next.rightAfter;
+      this.progress.answers[key] = next;
+    }
   }
 
   questionDone(stepId: string, q: QuestionDef): boolean {
