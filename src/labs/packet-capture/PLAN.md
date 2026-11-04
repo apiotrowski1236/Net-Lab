@@ -37,7 +37,7 @@ The Nguyens' home from lab 1, already set up: the Wi-Fi router (router plus Swit
 8. **Filters**: `dns`, then `http`; read the weather. Question: today's weather.
 9. **Follow one conversation**: `ip.addr ==` the chat service; `!` (the example is `!dns`, the task asks for `!arp`); `||` in one sentence. Question: what the chat messages show.
 10. **What the capture can't see**: a new capture; **The TV plays a show**; `ip.addr ==` the TV shows nothing; `arp` shows its broadcast. Question: why.
-11. **Get ready for Wireshark**: a drawing of Wireshark's window with its five parts numbered (`wiresharkWindow.ts`); TCP's handshake, QUIC (and the `quic` filter), and IPv6 in one paragraph; practice `icmp` and `tls`. Question: a good first move in a busy capture.
+11. **Get ready for Wireshark**: a drawing of Wireshark's window with its five parts numbered (`wiresharkWindow.ts`); a numbered practice list for `icmp` and `tls`; then a short list of what Wireshark shows that the lab left out: TCP's handshake, QUIC (and the `quic` filter), and IPv6. No question: step 8 teaches stop-then-filter, and the reflection asks about it.
 12. **Reflect**: advice for a friend opening Wireshark the first time (about 40 words).
 13. **Submit**.
 

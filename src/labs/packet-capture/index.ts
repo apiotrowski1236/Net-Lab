@@ -829,20 +829,6 @@ export const packetCaptureLab: LabDef = {
         { id: 'icmp', label: "Filter for pings, Wireshark's way", hint: "Type `icmp`. Wireshark doesn't know the word ping.", check: filtered('laptop', is('icmp')) },
         { id: 'tls', label: "Filter for encrypted web traffic, Wireshark's way", hint: 'Type `tls`.', check: filtered('laptop', is('tls')) },
       ],
-      questions: [
-        {
-          id: 'first-move',
-          kind: 'choice',
-          prompt: "You start Wireshark, and the list fills with hundreds of packets. What's a good first move?",
-          options: [
-            { id: 'filter', text: "Stop the capture, then filter for what you're looking for", correct: true },
-            { id: 'read', text: 'Read every packet, starting from No. 1', feedback: 'That could take hours. A filter gets you to the right packets in seconds.' },
-            { id: 'virus', text: 'Close it, because your computer may have a virus', feedback: 'A busy list is normal. Apps talk to the internet all day, as the busy minute showed.' },
-            { id: 'unplug', text: 'Turn off the Wi-Fi so the list stops growing', feedback: 'Press Stop instead. It keeps everything captured so far, and your internet keeps working.' },
-          ],
-          explain: 'Stop, then filter. Almost every capture you read will start that way.',
-        },
-      ],
     },
 
     {
