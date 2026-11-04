@@ -46,6 +46,8 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'ai-threshold': 'AI threshold (in the inspector)',
   // smurf
   'echo-tool': 'Echo tool',
+  // net-tools
+  terminal: 'Terminal',
   'directed-broadcast': 'Directed-broadcast setting (in the inspector)',
 };
 

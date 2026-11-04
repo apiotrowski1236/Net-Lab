@@ -39,8 +39,10 @@ export interface Service {
   proto: L4;
   /** The application that answers, as in WELL_KNOWN: 'https', 'ssh', 'smb', ... Any other name works too. */
   app: string;
-  /** What a client sees when it connects, like "SSH-2.0-OpenSSH_9.6". */
+  /** What a client sees when it connects, like "SSH-2.0-OpenSSH_9.6". nmap -sV prints it as the version. */
   banner?: string;
+  /** The program behind it, as netstat -b names it ("sshd", "svchost.exe"). */
+  program?: string;
 }
 
 export interface WellKnownPort {
@@ -136,6 +138,7 @@ export function identifyApp(pkt: IpPacket): string | undefined {
   const a = pkt.app;
   switch (a.kind) {
     case 'ping':
+    case 'icmp-error':
       return 'ping';
     case 'http-req':
     case 'http-res':
@@ -159,6 +162,7 @@ export function isReply(pkt: IpPacket): boolean {
       return a.reply;
     case 'http-res':
     case 'dns-answer':
+    case 'icmp-error':
       return true;
     default:
       return false;
@@ -203,6 +207,8 @@ export interface ScanHost {
   ping: ProbeResult;
   /** Port -> what came back. */
   ports: Record<number, ProbeResult>;
+  /** Port -> what the service said when it answered (its version, for nmap -sV). */
+  banners?: Record<number, string>;
 }
 
 /** One scan a device ran (newest last in `Device.scans`). */

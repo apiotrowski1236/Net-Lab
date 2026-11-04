@@ -300,7 +300,8 @@ function Dock({
   if (tab === 'tools') for (const k of keys) seenTools.current.add(k);
   return (
     // A Wireshark-style lab (packet-capture) lives in the Capture tab: give its packet list more room.
-    <div class={`dock ${lab.wireshark && tab === 'capture' ? 'dock-tall' : ''}`}>
+    // So does a terminal in the Toolkit (net-tools): its output needs the lines.
+    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''}`}>
       <div class="dock-tabs" role="tablist">
         <button
           role="tab"
@@ -331,7 +332,7 @@ function Dock({
       <div class="dock-body" ref={body} onScroll={measure}>
         {tab === 'inspect' && <Inspector session={session} deviceId={selected} />}
         {tab === 'capture' && capDev && <CaptureView session={session} deviceId={capDev.id} />}
-        {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} inCapture={captureTools} />}
+        {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} inCapture={captureTools} selected={selected} />}
         {tab === 'logs' && <LogsView session={session} />}
       </div>
       {more && (

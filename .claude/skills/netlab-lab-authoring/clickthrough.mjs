@@ -125,7 +125,7 @@ async function settle(limit = 120000) {
   const end = Date.now() + limit;
   let quietSince = 0;
   while (Date.now() < end) {
-    const busy = await page.evaluate(() => document.querySelectorAll('g.packet').length + document.querySelectorAll('.action-outcome li.wait, .ping-log li.wait').length);
+    const busy = await page.evaluate(() => document.querySelectorAll('g.packet').length + document.querySelectorAll('.action-outcome li.wait, .ping-log li.wait, .term-wait').length);
     if (busy) quietSince = 0;
     else if (!quietSince) quietSince = Date.now();
     else if (Date.now() - quietSince > 1000) return true;
@@ -162,6 +162,23 @@ async function doMove(i, step, m) {
       await card.locator('input').fill(a.ip);
       await card.getByRole('button', { name: 'Ping' }).click();
       log(`  ping ${a.ip} from ${labels[a.device]}`);
+    } else if (a.type === 'term') {
+      await tab('Toolkit');
+      const card = page.locator('.term-card').first();
+      const pick = card.locator('.term-at select');
+      if (await pick.count()) await pick.selectOption({ label: labels[a.device] });
+      else {
+        const at = (await card.locator('.term-at b').innerText()).trim();
+        if (at !== labels[a.device]) await fail(i, `the Terminal sits at ${at}, not ${labels[a.device]}`);
+      }
+      const input = card.locator('.term-input');
+      await input.fill(a.line);
+      await input.press('Enter');
+      await page.waitForTimeout(150);
+      // A line the terminal turned away prints only on screen: say what it said.
+      const last = card.locator('.term-entry').last();
+      if ((await last.getAttribute('data-local')) !== null) await fail(i, `the Terminal turned away "${a.line}": ${(await last.innerText()).replace(/\s+/g, ' ')}`);
+      log(`  ${a.device}> ${a.line}`);
     } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doMove.`);
   } else if ('filter' in m) {
     await tab('Capture');

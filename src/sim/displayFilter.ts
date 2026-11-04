@@ -62,6 +62,7 @@ export function protocolsOf(f: Frame): string[] {
   const app = ip.app;
   switch (app.kind) {
     case 'ping':
+    case 'icmp-error':
       break;
     case 'dns-query':
     case 'dns-answer':
@@ -132,7 +133,7 @@ const FIELDS: Record<string, FieldDef> = {
   'udp.srcport': { type: 'num', get: (f) => one(ports(f, 'udp')?.src) },
   'udp.dstport': { type: 'num', get: (f) => one(ports(f, 'udp')?.dst) },
   'arp.opcode': { type: 'num', get: (f) => one(f.arp ? (f.arp.op === 'request' ? 1 : 2) : undefined) },
-  'icmp.type': { type: 'num', get: (f) => one(f.ip?.app.kind === 'ping' ? (f.ip.app.reply ? 0 : 8) : undefined) },
+  'icmp.type': { type: 'num', get: (f) => one(f.ip?.app.kind === 'ping' ? (f.ip.app.reply ? 0 : 8) : f.ip?.app.kind === 'icmp-error' ? 11 : undefined) },
   'dns.qry.name': { type: 'str', get: (f) => one(f.ip?.app.kind === 'dns-query' || f.ip?.app.kind === 'dns-answer' ? f.ip.app.name : undefined) },
   'dns.a': { type: 'ip', get: (f) => one(f.ip?.app.kind === 'dns-answer' ? f.ip.app.ip : undefined) },
   'http.host': { type: 'str', get: (f) => one(httpReq(f)?.host) },

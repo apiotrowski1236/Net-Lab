@@ -59,6 +59,7 @@ import {
   appForPort,
   hostCount,
   isReply,
+  listening,
   MAX_CONNS,
   MAX_SCANS,
   SCAN_PORTS,
@@ -92,6 +93,24 @@ import {
 import { canGrant, fromClient, grant, newDhcpClient, newDhcpServer, offer, pickAddress, type DhcpMessage } from './dhcp';
 import { addEntry, allocPort, endText, findIn, findOut, forwardFor, natPorts, newNat, type NatForward } from './nat';
 import { newCaptureRun } from './capture';
+import {
+  MAX_RUNS,
+  NMAP_PORTS,
+  ownIp,
+  parseCommand,
+  PING_COUNT,
+  PING_GAP_MS,
+  reverseName,
+  roundTripMs,
+  TRACE_MAX_HOPS,
+  TRACE_SILENT,
+  zoneAnswer,
+  type NameLookup,
+  type NetstatRow,
+  type PingRun,
+  type TermRun,
+  type TraceRun,
+} from './terminal';
 
 /**
  * A deliberately simplified network simulator.
@@ -123,6 +142,12 @@ export interface SimOptions {
    * Use for labs where ARP would just be noise (e.g. internet routing).
    */
   autoArp: boolean;
+  /**
+   * Routers answer a ping whose TTL runs out with an ICMP "time exceeded"
+   * message, so traceroute can find them (net-tools). Off by default: the
+   * other labs never needed the extra packets.
+   */
+  icmpErrors: boolean;
   /** Seeds Sim.rand. Same seed, same actions: same network, every time. */
   seed: number;
 }
@@ -135,6 +160,7 @@ export const DEFAULT_SIM_OPTIONS: SimOptions = {
   arpTimeoutMs: 8000,
   pingTimeoutMs: 10000,
   autoArp: false,
+  icmpErrors: false,
   seed: 1,
 };
 
@@ -286,6 +312,7 @@ export class Sim {
     if (this.quiet) e.quiet = true;
     this.events.push(e);
     if (this.events.length > MAX_EVENTS) this.events.splice(0, this.events.length - MAX_EVENTS);
+    if (this.termWaiting.size) this.termEvent(e);
     for (const l of this.listeners) l(e);
   }
 
@@ -558,6 +585,7 @@ export class Sim {
     pkt.ttl -= 1;
     if (pkt.ttl <= 0) {
       this.drop(dev, 'ttl', pkt, frame);
+      if (this.opts.icmpErrors) this.timeExceeded(dev, pkt, iface);
       return;
     }
     this.emit({ t: this.t, type: 'forwarded', device: dev.id, frame });
@@ -584,6 +612,7 @@ export class Sim {
         this.failBrowser(owner, CANT_SEND.congestion!(pkt.dst, owner));
       }
     }
+    if (this.termWaiting.size && pkt && !(reason === 'ttl' && this.opts.icmpErrors)) this.traceLost(pkt);
     if (pkt?.app.kind !== 'ping') return;
     const seq = pkt.app.seq;
     const p = this.pings.get(seq);
@@ -710,11 +739,15 @@ export class Sim {
       case 'ping':
         if (!app.reply) this.reply(dev, pkt, { kind: 'ping', seq: app.seq, reply: true });
         else if (this.scanPingAnswered(dev, app.seq)) return;
+        else if (this.traceAnswered(dev, pkt, app.seq)) return;
         else {
           this.pings.delete(app.seq);
           const count = burstSize(frame);
-          this.emit({ t: this.t, type: 'ping-reply', device: dev.id, from: pkt.src, seq: app.seq, count: count > 1 ? count : undefined });
+          this.emit({ t: this.t, type: 'ping-reply', device: dev.id, from: pkt.src, seq: app.seq, count: count > 1 ? count : undefined, ttl: pkt.ttl });
         }
+        return;
+      case 'icmp-error':
+        this.traceAnswered(dev, pkt, app.seq);
         return;
       case 'http-req':
         this.serveHttp(dev, pkt, frame);
@@ -724,7 +757,10 @@ export class Sim {
         return;
       case 'dns-query':
         if (dev.resolver) this.resolverHandleQuery(dev, pkt);
-        else if (dev.dnsZone) this.reply(dev, pkt, { kind: 'dns-answer', name: app.name, ip: dev.dnsZone[app.name] ?? null, qid: app.qid });
+        else if (dev.dnsZone) {
+          const ptr = zoneAnswer(dev.dnsZone, app.name)?.ptr;
+          this.reply(dev, pkt, { kind: 'dns-answer', name: app.name, ip: dev.dnsZone[app.name] ?? null, qid: app.qid, ...(ptr ? { ptr } : {}), aa: true });
+        }
         return;
       case 'dns-answer':
         if (dev.resolver && this.resolverHandleAnswer(dev, pkt)) return;
@@ -811,6 +847,10 @@ export class Sim {
     if (!pending || pending.name !== ans.name) return;
     delete dev.dnsPending[ans.qid];
     this.emit({ t: this.t, type: 'dns-answer', device: dev.id, name: ans.name, ip: ans.ip });
+    if (pending.term !== undefined) {
+      this.termDnsAnswer(dev, pending.term, pkt.src, ans);
+      return;
+    }
     const b = dev.browser;
     if (!ans.ip) {
       if (b && b.reqId === pending.reqId) this.failBrowser(dev, `Can't find a server named ${ans.name}.`);
@@ -1354,6 +1394,12 @@ export class Sim {
   private resolverHandleQuery(dev: Device, pkt: IpPacket): void {
     const q = pkt.app as Extract<AppData, { kind: 'dns-query' }>;
     const r = dev.resolver!;
+    // A resolver that also holds its own records (a small office's DNS server) answers those itself.
+    const own = dev.dnsZone ? zoneAnswer(dev.dnsZone, q.name) : undefined;
+    if (own) {
+      this.reply(dev, pkt, { kind: 'dns-answer', name: q.name, ip: own.ip ?? null, qid: q.qid, ...(own.ptr ? { ptr: own.ptr } : {}), aa: true });
+      return;
+    }
     const hit = freshEntry(r, q.name, this.t);
     if (hit) {
       this.log(dev.id, { source: 'dns', level: 'info', msg: `cache hit ${q.name} -> ${hit.ip}`, fields: { name: q.name, ip: hit.ip } });
@@ -1395,7 +1441,7 @@ export class Sim {
     delete r.pending[ans.qid];
     this.emit({ t: this.t, type: 'dns-answer', device: dev.id, name: ans.name, ip: ans.ip });
     if (ans.ip == null) {
-      for (const w of pending.waiters) this.resolverReply(dev, w, ans.name, null);
+      for (const w of pending.waiters) this.resolverReply(dev, w, ans.name, null, ans.ptr);
       return true;
     }
     const prev = r.cache[ans.name];
@@ -1411,7 +1457,7 @@ export class Sim {
     return true;
   }
 
-  private resolverReply(dev: Device, w: Waiter, name: string, ip: Ip | null): void {
+  private resolverReply(dev: Device, w: Waiter, name: string, ip: Ip | null, ptr?: string): void {
     this.originate(dev, {
       src: this.srcFor(dev, w.ip) ?? dev.ifaces.find((i) => i.ip)?.ip ?? '0.0.0.0',
       dst: w.ip,
@@ -1419,7 +1465,7 @@ export class Sim {
       proto: 'udp',
       srcPort: 53,
       dstPort: w.port,
-      app: { kind: 'dns-answer', name, ip, qid: w.qid },
+      app: { kind: 'dns-answer', name, ip, qid: w.qid, ...(ptr ? { ptr } : {}) },
     });
   }
 
@@ -2285,8 +2331,11 @@ export class Sim {
       }
       this.svcWaiting.delete(a.conn);
       const status = a.status ?? 'open';
-      if (w.scan !== undefined) this.setProbe(dev.id, w.scan, w.ip, w.port, status);
-      else this.endConn(dev.id, a.conn, { status, banner: a.text });
+      if (w.scan !== undefined) {
+        // What the service said is its version, for nmap -sV (terminal.ts).
+        if (status === 'open' && a.text) this.setBanner(dev.id, w.scan, w.ip, w.port, a.text);
+        this.setProbe(dev.id, w.scan, w.ip, w.port, status);
+      } else this.endConn(dev.id, a.conn, { status, banner: a.text });
       return;
     }
     const proto: L4 = pkt.proto === 'udp' ? 'udp' : 'tcp';
@@ -2978,6 +3027,8 @@ export class Sim {
       e.used = this.t;
       const back: IpPacket = { ...pkt, dst: e.inside.ip, nat: { by: dev.id, was: { dst: pkt.dst, dstPort: pkt.dstPort } } };
       if (pkt.proto !== 'icmp') back.dstPort = e.inside.port;
+      // The copy of the dead packet inside an ICMP error gets its inside address back too.
+      if (back.app.kind === 'icmp-error') back.app = { ...back.app, orig: { ...back.app.orig, src: e.inside.ip } };
       frame.ip = back;
       const entry = { ...e, inside: { ...e.inside }, remote: { ...e.remote } };
       this.emit({ t: this.t, type: 'nat', device: dev.id, what: 'in', entry, publicIp: outside.ip, who: this.deviceByIp(e.inside.ip)?.id, pkt: back });
@@ -3046,6 +3097,352 @@ export class Sim {
     dev.sniffing = false;
     if (dev.captureRun) dev.captureRun.stoppedAt = this.t;
     this.emit({ t: this.t, type: 'config', device: devId, what: 'capture', on: false });
+  }
+
+  // -------------------------------------------------------------------------
+  // --- terminal (net-tools) ---
+  // Commands typed on a computer: ping, traceroute, nslookup, netstat, nmap.
+  // Each leaves a run on Device.term that fills in as answers arrive, and a
+  // 'term-done' event fires when it finishes. See terminal.ts.
+  // -------------------------------------------------------------------------
+
+  private nextRun = 1;
+  /** What terminal runs are waiting for: ping sequence numbers ('p'), DNS question ids ('d'), and scan ids ('s'). */
+  private termWaiting = new Map<string, { device: string; run: number; hop?: number }>();
+
+  /**
+   * Run a command line on a computer, as the student typed it. Throws on a line
+   * parseCommand rejects, or on help and clear (they only change the screen).
+   * Returns the run's id.
+   */
+  runCommand(devId: string, line: string): number {
+    const dev = this.dev(devId);
+    const p = parseCommand(line);
+    if (!p.ok) throw new Error(`Bad command "${line}": ${p.msg}`);
+    const c = p.parsed;
+    if (c.cmd === 'help' || c.cmd === 'clear') throw new Error(`${c.cmd} only changes the screen; it never reaches the network`);
+    const base = { id: this.nextRun++, t: this.t, line: p.line };
+    let run: TermRun;
+    switch (c.cmd) {
+      case 'ping':
+        run = { ...base, kind: 'ping', target: c.target, probes: [] };
+        break;
+      case 'traceroute':
+        run = { ...base, kind: 'traceroute', target: c.target, hops: [] };
+        break;
+      case 'nslookup': {
+        const reverse = isIp(c.name);
+        run = { ...base, kind: 'nslookup', name: c.name, reverse, server: c.server ?? dev.dnsServer, status: 'pending' };
+        break;
+      }
+      case 'netstat':
+        run = { ...base, kind: 'netstat', all: c.all, programs: c.programs, rows: [] };
+        break;
+      case 'nmap':
+        run = { ...base, kind: 'nmap', target: c.target, versions: c.versions, vuln: c.vuln };
+        break;
+    }
+    const list = (dev.term ??= []);
+    list.push(run);
+    if (list.length > MAX_RUNS) list.splice(0, list.length - MAX_RUNS);
+    switch (run.kind) {
+      case 'ping':
+      case 'traceroute':
+      case 'nmap':
+        this.termResolve(dev, run);
+        break;
+      case 'nslookup':
+        this.termLookup(dev, run);
+        break;
+      case 'netstat':
+        run.rows = this.netstatRows(dev, run.all);
+        this.termDone(dev, run);
+        break;
+    }
+    return run.id;
+  }
+
+  private termRun(devId: string, id: number): TermRun | undefined {
+    return this.devices[devId]?.term?.find((r) => r.id === id);
+  }
+
+  private termDone(dev: Device, run: TermRun): void {
+    if (run.doneAt !== undefined) return;
+    run.doneAt = this.t;
+    this.emit({ t: this.t, type: 'term-done', device: dev.id, run });
+  }
+
+  /** Ask `server` one DNS question for a terminal run; the answer comes back through onDnsAnswer. */
+  private termAsk(dev: Device, run: TermRun, server: Ip, name: string): void {
+    const qid = this.nextReqId++;
+    dev.dnsPending[qid] = { name, reqId: -1, term: run.id };
+    this.termWaiting.set(`d${qid}`, { device: dev.id, run: run.id });
+    this.originate(dev, {
+      src: this.srcFor(dev, server) ?? '0.0.0.0',
+      dst: server,
+      ttl: 64,
+      proto: 'udp',
+      srcPort: this.nextPort++,
+      dstPort: 53,
+      app: { kind: 'dns-query', name, qid },
+    });
+    this.schedule(this.opts.pingTimeoutMs, () => {
+      if (!this.termWaiting.delete(`d${qid}`)) return;
+      delete dev.dnsPending[qid];
+      if (run.kind === 'nslookup') run.status = 'timeout';
+      else if (run.kind !== 'netstat' && run.lookup) run.lookup.status = 'timeout';
+      if (run.kind === 'traceroute') run.end = 'no-name';
+      this.termDone(dev, run);
+    });
+  }
+
+  /** A name to look up before a ping, traceroute, or nmap can start (or none: an address goes straight on). */
+  private termResolve(dev: Device, run: PingRun | TraceRun | Extract<TermRun, { kind: 'nmap' }>): void {
+    if (isIp(run.target) || run.target.includes('/')) {
+      if (run.kind !== 'nmap') run.ip = run.target;
+      this.termStart(dev, run);
+      return;
+    }
+    const server = dev.dnsServer;
+    const lookup: NameLookup = { name: run.target, server: server ?? '', status: 'pending' };
+    run.lookup = lookup;
+    if (!server) {
+      lookup.status = 'nxdomain';
+      if (run.kind === 'traceroute') run.end = 'no-name';
+      this.termDone(dev, run);
+      return;
+    }
+    this.termAsk(dev, run, server, run.target);
+  }
+
+  private termLookup(dev: Device, run: Extract<TermRun, { kind: 'nslookup' }>): void {
+    if (!run.server) {
+      run.status = 'no-server';
+      this.termDone(dev, run);
+      return;
+    }
+    this.termAsk(dev, run, run.server, run.reverse ? reverseName(run.name) : run.name);
+  }
+
+  private termDnsAnswer(dev: Device, id: number, from: Ip, ans: Extract<AppData, { kind: 'dns-answer' }>): void {
+    if (!this.termWaiting.delete(`d${ans.qid}`)) return;
+    const run = this.termRun(dev.id, id);
+    if (!run || run.doneAt !== undefined) return;
+    if (run.kind === 'nslookup') {
+      const answer = run.reverse ? ans.ptr : (ans.ip ?? undefined);
+      run.status = answer ? 'found' : 'nxdomain';
+      run.answer = answer;
+      run.authoritative = !!ans.aa;
+      run.server = from;
+      this.termDone(dev, run);
+      return;
+    }
+    if (run.kind === 'netstat' || !run.lookup) return;
+    if (!ans.ip) {
+      run.lookup.status = 'nxdomain';
+      if (run.kind === 'traceroute') run.end = 'no-name';
+      this.termDone(dev, run);
+      return;
+    }
+    run.lookup.status = 'found';
+    if (run.kind === 'nmap') run.target = ans.ip;
+    else run.ip = ans.ip;
+    this.termStart(dev, run);
+  }
+
+  private termStart(dev: Device, run: PingRun | TraceRun | Extract<TermRun, { kind: 'nmap' }>): void {
+    if (run.kind === 'ping') {
+      for (let i = 0; i < PING_COUNT; i++) this.schedule(i * PING_GAP_MS, () => this.termPingOne(dev, run, i === PING_COUNT - 1));
+    } else if (run.kind === 'traceroute') this.traceNext(dev, run);
+    else {
+      const id = this.scan(dev.id, run.target, NMAP_PORTS);
+      run.scan = id;
+      const scan = dev.scans?.find((x) => x.id === id);
+      if (scan?.doneAt !== undefined) this.termDone(dev, run);
+      else this.termWaiting.set(`s${id}`, { device: dev.id, run: run.id });
+    }
+  }
+
+  /** One of ping's four echo requests, through Sim.ping, so the map shows it as any ping. */
+  private termPingOne(dev: Device, run: PingRun, last: boolean): void {
+    const seq = this.nextPing;
+    run.probes.push({ seq, sentAt: this.t, status: 'pending' });
+    this.termWaiting.set(`p${seq}`, { device: dev.id, run: run.id });
+    this.ping(dev.id, run.ip!);
+    this.schedule(this.opts.pingTimeoutMs, () => {
+      const probe = run.probes.find((x) => x.seq === seq);
+      if (this.termWaiting.delete(`p${seq}`) && probe) this.termPingTimeout(dev, run, probe);
+    });
+    if (last) this.pingMaybeDone(dev, run);
+  }
+
+  private pingMaybeDone(dev: Device, run: PingRun): void {
+    if (run.probes.length === PING_COUNT && run.probes.every((x) => x.status !== 'pending')) this.termDone(dev, run);
+  }
+
+  /** Ping replies and failures for the terminal's pings, and finished scans for nmap. */
+  private termEvent(e: SimEvent): void {
+    if (e.type === 'scan-done') {
+      const w = this.termWaiting.get(`s${e.scan.id}`);
+      if (!w || w.device !== e.device) return;
+      this.termWaiting.delete(`s${e.scan.id}`);
+      const run = this.termRun(w.device, w.run);
+      if (run) this.termDone(this.dev(w.device), run);
+      return;
+    }
+    if (e.type !== 'ping-reply' && e.type !== 'ping-fail') return;
+    if (e.seq === undefined) return;
+    const w = this.termWaiting.get(`p${e.seq}`);
+    if (!w || w.device !== e.device) return;
+    const run = this.termRun(w.device, w.run);
+    const probe = run?.kind === 'ping' ? run.probes.find((x) => x.seq === e.seq) : undefined;
+    if (!run || run.kind !== 'ping' || !probe || probe.status !== 'pending') return;
+    const dev = this.dev(w.device);
+    if (e.type === 'ping-reply') {
+      probe.status = 'reply';
+      probe.from = e.from;
+      probe.ttl = e.ttl;
+      probe.ms = roundTripMs(this, dev.id, e.from, e.seq);
+    } else {
+      // Some failures send a message back: this computer or a router saying it can't
+      // get there. The rest are silence, and the probe waits out its timeout.
+      const at = e.at ? this.devices[e.at] : undefined;
+      const mine = e.at === dev.id;
+      const local = ['no-ip', 'no-link', 'no-gateway', 'gateway-off-net'].includes(e.reason);
+      if (mine && (local || e.reason === 'arp-timeout')) {
+        probe.status = 'unreachable';
+        probe.why = local ? 'local' : 'host';
+        probe.from = ownIp(dev);
+      } else if (at && !mine && (e.reason === 'arp-timeout' || e.reason === 'no-route')) {
+        probe.status = 'unreachable';
+        probe.why = e.reason === 'no-route' ? 'net' : 'host';
+        const back = this.srcFor(dev, run.ip!);
+        probe.from = (back && this.srcFor(at, back)) || ownIp(at);
+      } else {
+        // Lost on the way: it counts as timed out once its answer would have been back.
+        if (e.reason !== 'timeout') this.termLostAfter(`p${e.seq}`, probe.sentAt, () => this.termPingTimeout(dev, run, probe));
+        return;
+      }
+    }
+    this.termWaiting.delete(`p${e.seq}`);
+    this.pingMaybeDone(dev, run);
+  }
+
+  private termPingTimeout(dev: Device, run: PingRun, probe: PingRun['probes'][number]): void {
+    if (probe.status === 'pending') probe.status = 'timeout';
+    this.pingMaybeDone(dev, run);
+  }
+
+  /** Mark a lost probe timed out when its answer would have come back: as long again as it travelled before it was lost. */
+  private termLostAfter(key: string, sentAt: number, done: () => void): void {
+    this.schedule(Math.max(0, this.t - sentAt) + this.opts.procMs, () => {
+      if (this.termWaiting.delete(key)) done();
+    });
+  }
+
+  /** A traceroute probe, or its answer, was dropped somewhere without a "time exceeded". */
+  private traceLost(pkt: IpPacket): void {
+    const a = pkt.app;
+    if (a.kind !== 'ping' && a.kind !== 'icmp-error') return;
+    const key = `p${a.seq}`;
+    const w = this.termWaiting.get(key);
+    if (w?.hop === undefined) return;
+    const run = this.termRun(w.device, w.run);
+    const hop = run?.kind === 'traceroute' ? run.hops.find((x) => x.seq === a.seq) : undefined;
+    if (!run || run.kind !== 'traceroute' || !hop) return;
+    const dev = this.dev(w.device);
+    this.termLostAfter(key, hop.sentAt, () => {
+      if (hop.status === 'pending') hop.status = 'timeout';
+      this.traceStep(dev, run);
+    });
+  }
+
+  /** traceroute: send the next probe, one hop farther than the last. */
+  private traceNext(dev: Device, run: TraceRun): void {
+    const ttl = run.hops.length + 1;
+    const seq = this.nextPing++;
+    const hop = { ttl, seq, sentAt: this.t, status: 'pending' as const };
+    run.hops.push(hop);
+    const src = this.srcFor(dev, run.ip!);
+    if (!src) {
+      run.end = 'local';
+      this.termDone(dev, run);
+      return;
+    }
+    this.termWaiting.set(`p${seq}`, { device: dev.id, run: run.id, hop: ttl });
+    this.originate(dev, { src, dst: run.ip!, ttl, proto: 'icmp', app: { kind: 'ping', seq, reply: false } });
+    this.schedule(this.opts.pingTimeoutMs, () => {
+      if (!this.termWaiting.delete(`p${seq}`)) return;
+      const h = run.hops.find((x) => x.seq === seq);
+      if (h?.status === 'pending') h.status = 'timeout';
+      this.traceStep(dev, run);
+    });
+  }
+
+  /** A traceroute probe came back: an echo reply from the target, or a router's "time exceeded". */
+  private traceAnswered(dev: Device, pkt: IpPacket, seq: number): boolean {
+    const w = this.termWaiting.get(`p${seq}`);
+    if (!w || w.device !== dev.id || w.hop === undefined) return false;
+    const run = this.termRun(dev.id, w.run);
+    const hop = run?.kind === 'traceroute' ? run.hops.find((x) => x.seq === seq) : undefined;
+    if (!run || run.kind !== 'traceroute' || !hop) return false;
+    this.termWaiting.delete(`p${seq}`);
+    hop.status = 'answer';
+    hop.from = pkt.src;
+    hop.ms = roundTripMs(this, dev.id, pkt.src, seq);
+    if (pkt.app.kind === 'ping') hop.last = true;
+    this.traceStep(dev, run);
+    return true;
+  }
+
+  private traceStep(dev: Device, run: TraceRun): void {
+    if (run.doneAt !== undefined) return;
+    const last = run.hops[run.hops.length - 1];
+    let silent = 0;
+    for (let i = run.hops.length - 1; i >= 0 && run.hops[i].status === 'timeout'; i--) silent++;
+    if (last?.last) run.end = 'reached';
+    else if (silent >= TRACE_SILENT) run.end = 'silent';
+    else if (run.hops.length >= TRACE_MAX_HOPS) run.end = 'max';
+    if (run.end) this.termDone(dev, run);
+    else this.traceNext(dev, run);
+  }
+
+  /** A router where a ping's TTL ran out tells the sender, from the port the ping came in on. */
+  private timeExceeded(dev: Device, pkt: IpPacket, iface?: Iface): void {
+    const a = pkt.app;
+    if (a.kind !== 'ping' || a.reply) return;
+    const src = iface?.ip ?? this.srcFor(dev, pkt.src);
+    if (!src) return;
+    this.originate(dev, {
+      src,
+      dst: pkt.src,
+      ttl: 64,
+      proto: 'icmp',
+      app: { kind: 'icmp-error', error: 'time-exceeded', seq: a.seq, orig: { src: pkt.src, dst: pkt.dst } },
+    });
+  }
+
+  /** netstat's table right now: open connections (gone if the cable is out), and with `all`, the ports waiting for connections. */
+  private netstatRows(dev: Device, all: boolean): NetstatRow[] {
+    const me = ownIp(dev) ?? '0.0.0.0';
+    const rows: NetstatRow[] = [];
+    if (all) {
+      for (const svc of listening(dev)) {
+        const tcp = svc.proto === 'tcp';
+        rows.push({ proto: tcp ? 'TCP' : 'UDP', local: `0.0.0.0:${svc.port}`, foreign: tcp ? '0.0.0.0:0' : '*:*', state: tcp ? 'LISTENING' : '', program: svc.program ?? svc.app });
+      }
+    }
+    if (dev.ifaces.some((i) => i.linkId)) {
+      for (const s of dev.sockets ?? []) {
+        rows.push({ proto: s.proto === 'tcp' ? 'TCP' : 'UDP', local: `${me}:${s.port}`, foreign: `${s.remote}:${s.rport}`, state: 'ESTABLISHED', program: s.program });
+      }
+    }
+    return rows;
+  }
+
+  private setBanner(devId: string, scanId: number, ip: Ip, port: number, text: string): void {
+    const h = this.devices[devId]?.scans?.find((s) => s.id === scanId)?.hosts.find((x) => x.ip === ip);
+    if (h) (h.banners ??= {})[port] = text;
   }
 }
 

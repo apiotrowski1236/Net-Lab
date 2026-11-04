@@ -75,6 +75,8 @@ export type SimAction =
   | { type: 'wifi-measure'; device: string; bssid: string; x: number; y: number }
   /** Port scan from `device`: an address or a network. */
   | { type: 'scan'; device: string; target: string; ports?: number[] }
+  /** Run a command line in the terminal on `device` (net-tools): ping, traceroute, nslookup, netstat, nmap. */
+  | { type: 'term'; device: string; line: string }
   /** Connect from `device` to a service. `app` is the program it speaks (default: the port's own). */
   | { type: 'connect'; device: string; to: string; port: number; app?: string }
   /** Put a standalone firewall into the cable between `a` and `b`, its outside port toward `outside`. */
@@ -245,6 +247,9 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'scan':
       sim.scan(a.device, a.target, a.ports);
+      return;
+    case 'term':
+      sim.runCommand(a.device, a.line);
       return;
     case 'connect':
       sim.connectService(a.device, a.to, a.port, { app: a.app });

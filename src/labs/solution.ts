@@ -18,6 +18,7 @@ import {
 import { checkNewMac, checkPortSecurity } from '../runtime/switchInput';
 import type { LabSession } from '../runtime/session';
 import { checkRule, checkScanTarget, ruleDraft } from '../runtime/firewallInput';
+import { checkCommand } from '../runtime/termInput';
 import type { Frame, LogEntry } from '../sim/types';
 import { parseFilter } from '../sim/displayFilter';
 import { isEncrypted, isPlainLogin, isTelnetLogin } from './helpers';
@@ -146,6 +147,7 @@ const TOOL_FOR: Partial<Record<SimAction['type'], (t: ToolSpec, a: SimAction) =>
   'wifi-scan': (t, a) => t.kind === 'wifi-scan' && on(t, dev(a)),
   'wifi-measure': (t, a) => t.kind === 'triangulate' && on(t, dev(a)),
   scan: (t, a) => t.kind === 'port-scan' && on(t, dev(a)),
+  term: (t, a) => t.kind === 'terminal' && on(t, dev(a)),
   connect: (t, a) => t.kind === 'port-scan' && on(t, dev(a)),
   'fw-place': (t, a) => t.kind === 'firewall-place' && on(t, dev(a)),
   'fw-unplace': (t, a) => t.kind === 'firewall-place' && on(t, dev(a)),
@@ -261,6 +263,11 @@ function assertTypable(s: LabSession, a: SimAction): void {
     case 'scan':
       r = checkScanTarget(sim, a.device, a.target);
       break;
+    case 'term': {
+      const tool = s.tools.find((t) => t.kind === 'terminal' && t.devices.includes(a.device));
+      r = tool?.kind === 'terminal' ? checkCommand(sim, tool, a.device, a.line) : { ok: false, msg: 'No terminal offered' };
+      break;
+    }
     // net-audit: chosen from dropdowns and toggles, so only check they name real things.
     case 'rate-risk':
       r =

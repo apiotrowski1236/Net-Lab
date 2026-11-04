@@ -3,6 +3,7 @@ import type { Device, Frame, LogEntry, SimEvent } from '../sim/types';
 import type { FwMode } from '../sim/firewall';
 import type { ZoneLevel } from '../sim/zones';
 import type { DemoFacts, DemoSpec } from '../demos/types';
+import type { TermCommand } from '../sim/terminal';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
@@ -159,6 +160,13 @@ export type ToolSpec =
   | { kind: 'triangulate'; scanner: string; spots: { x: number; y: number; label: string }[] }
   /** Port scanner on `device`: ping sweep plus port scan of an address or network the student types, then connect to what's open. */
   | { kind: 'port-scan'; device: string }
+  /**
+   * A command line on one of `devices` (src/ui/tools/Terminal.tsx, net-tools).
+   * `commands` are the ones this step allows. nmap also needs `nmap`: the one
+   * computer it is installed on, and the networks the owner's written
+   * permission covers (`owner` signed it). Anything else is refused.
+   */
+  | { kind: 'terminal'; devices: string[]; commands: TermCommand[]; nmap?: { from: string; scope: string[]; owner: string } }
   /**
    * Put standalone firewalls into cables. The outside port faces `internet`.
    * `feedback` explains each placement (`between` is the two devices the cable joined).

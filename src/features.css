@@ -4284,3 +4284,205 @@ button.pl-tile:active {
   font-family: var(--mono, ui-monospace, monospace);
   font-weight: 700;
 }
+
+/* ---------- net-tools: the Terminal card ---------- */
+/* Full width, as tall as the dock: a terminal needs lines more than columns. */
+.toolkit:has(.term-card) {
+  height: 100%;
+  grid-template-rows: minmax(250px, 1fr);
+}
+.term-card {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+}
+.term-head {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 14px;
+}
+.term-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.term-at {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.term-at select {
+  font-weight: 600;
+}
+/* The screen is dark in both themes, as terminals usually are. */
+.term-screen {
+  flex: 1 1 auto;
+  min-height: 130px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font: 13px/1.45 var(--mono);
+  font-variant-ligatures: none;
+  cursor: text;
+}
+[data-theme='dark'] .term-screen {
+  background: #05070d;
+  border: 1px solid var(--line);
+}
+.term-entry + .term-entry {
+  margin-top: 6px;
+}
+.term-cmd,
+.term-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.term-cmd {
+  color: #f8fafc;
+  font-weight: 600;
+}
+.term-prompt {
+  color: #7dd3fc;
+  font-weight: 600;
+  user-select: none;
+}
+.term-line.good {
+  color: #86efac;
+}
+.term-line.bad {
+  color: #fca5a5;
+}
+.term-line.warn {
+  color: #fcd34d;
+}
+.term-line.muted {
+  color: #94a3b8;
+}
+.term-line.head {
+  color: #bfdbfe;
+  font-weight: 600;
+}
+.term-wait {
+  animation: term-blink 1.2s steps(2, start) infinite;
+}
+@keyframes term-blink {
+  to {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .term-wait {
+    animation: none;
+  }
+}
+.term-older {
+  margin-bottom: 6px;
+}
+.term-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.term-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-bottom: 1px solid #334155;
+  border-radius: 0;
+  background: transparent;
+  color: #f8fafc;
+  font: inherit;
+  caret-color: #7dd3fc;
+}
+.term-input:focus {
+  outline: none;
+  border-bottom-color: #7dd3fc;
+}
+.term-input::placeholder {
+  color: #64748b;
+}
+.term-screen .term-run {
+  background: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+.term-screen .term-run:hover:not(:disabled) {
+  background: #334155;
+}
+.term-screen .term-run:disabled {
+  background: transparent;
+  border-color: #334155;
+  color: #64748b;
+}
+.term-meaning {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--brand);
+  border-radius: 6px;
+  background: var(--surface-3);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.term-meaning .icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--brand-ink);
+}
+.term-help {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12.5px;
+}
+.term-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.term-chip {
+  font-family: var(--mono);
+}
+.term-chip.on {
+  border-color: var(--brand);
+  color: var(--brand-ink);
+}
+.btn.term-chip.danger {
+  background: var(--surface-3);
+  border-color: var(--danger);
+  color: var(--attacker-ink);
+}
+.btn.term-chip.danger:hover:not(:disabled) {
+  background: var(--attacker-bg);
+}
+.term-usage code {
+  margin-right: 4px;
+  font-family: var(--mono);
+  color: var(--ink);
+}
+.term-scope {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.term-scope .icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--warn-solid);
+}
