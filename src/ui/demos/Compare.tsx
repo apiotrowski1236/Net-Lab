@@ -23,6 +23,15 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
         <span>{s.found ? 'Which one is bigger?' : 'Tap the first place, from the left, where the two numbers differ.'}</span>
       </div>
 
+      <p class="cmp-nums">
+        <span>
+          Top: <code class="bits-code">{a}</code>
+        </span>
+        <span>
+          Bottom: <code class="bits-code">{b}</code>
+        </span>
+      </p>
+
       {!s.padded && (
         <div class="callout warn small cmp-pad">
           <span>

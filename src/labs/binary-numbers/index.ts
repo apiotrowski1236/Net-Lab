@@ -1,3 +1,4 @@
+import { placeValues } from '../../demos/binary';
 import type { BitsSpec } from '../../demos/types';
 import { demoFact } from '../helpers';
 import { md } from '../md';
@@ -22,6 +23,12 @@ const scratch: BitsSpec = {
 
 const COUNT_ONES = "That's how many 1s there are. Add up their place values instead.";
 
+/** The place values under the 1s, as a sum: "8 + 2". */
+const sumOf = (bits: string) =>
+  placeValues(bits.length)
+    .filter((_, i) => bits[i] === '1')
+    .join(' + ');
+
 /** Worksheet Part A: binary to decimal. */
 function toDecimal(id: string, n: number, bits: string, ones: number): TextQuestion {
   const back = parseInt(reversed(bits), 2);
@@ -37,6 +44,7 @@ function toDecimal(id: string, n: number, bits: string, ones: number): TextQuest
     expect: num(n),
     wrong,
     expectHint: 'Write 128 64 32 16 8 4 2 1 above the bits, then add the place values that have a 1 under them.',
+    explain: bits.indexOf('1') === bits.lastIndexOf('1') ? `${bits} has one 1, in the ${n}s place.` : `${sumOf(bits)} = ${n}.`,
   };
 }
 
@@ -59,6 +67,7 @@ function toBinary(id: string, n: number, bits: string, extra: TextQuestion['wron
     expect: bitsRe(bits),
     wrong,
     expectHint: "Ask \"does it fit?\" at each place, starting at 128. When the place value fits in what's left, write 1 and subtract. When it's too big, write 0.",
+    explain: `${n} = ${sumOf(bits)}, so those places get a 1: ${bits}.`,
   };
 }
 
@@ -84,7 +93,7 @@ export const binaryNumbersLab: LabDef = {
       id: 'switches',
       title: 'How many messages can a switch send?',
       body: md`
-        > **How this lesson works.** Read each step here on the left. Try the activity on the right. Goals check themselves off when you finish them. Answer the questions, then press **Continue**. Your work saves on this computer as you go.
+        > **How this lesson works.** Read each step here on the left. Try the activity on the right. (On a narrow screen, like a tablet held upright, the activity is below the lesson.) Goals check themselves off when you finish them. Answer the questions, then press **Continue**. Your work saves on this computer as you go.
 
         A computer is built from billions of tiny switches. Each one is off or on, and that's all it can do. So how does a computer store a number, a word, or a song? It uses **patterns** of switches.
 

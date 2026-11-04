@@ -2801,3 +2801,12 @@ button.pv-bit:hover {
     animation: none;
   }
 }
+.cmp-nums {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
