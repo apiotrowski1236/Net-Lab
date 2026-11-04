@@ -11,11 +11,11 @@ The students are subagents named `netlab-student-<id>`, one per persona in [pers
 
 | id | Student | Screen |
 | --- | --- | --- |
-| maya | 10th grade, on level, no CS background | Chromebook, 1366x768 |
-| wei | 11th grade, international student still learning English, strong at math | Chromebook, 1366x768 |
+| maya | 10th grade, on level, no CS background | MacBook Air 13, 1470x760 |
+| wei | 11th grade, international student still learning English, strong at math | MacBook Air 13, 1470x760 |
 | jordan | 9th grade, learns by doing: skims, clicks first | iPad held upright, 820x1180 |
-| kayla | 11th grade, learns from pictures, reads below grade level | Chromebook, 1366x768 |
-| riley | 12th grade, struggles with math and logic, careful reader | Chromebook, 1366x768 |
+| kayla | 11th grade, learns from pictures, reads below grade level | MacBook Air 13, 1470x760 |
+| riley | 12th grade, struggles with math and logic, careful reader | MacBook Air 13, 1470x760 |
 | ethan | 10th grade, advanced: has coded, checks technical accuracy | laptop, 1440x900 |
 
 Together they cover the teacher's classes: electives with 9th to 12th graders who differ in what they already know, how strong their math and logic are, how well they read English, and whether they learn best by reading, from pictures, or by doing.
