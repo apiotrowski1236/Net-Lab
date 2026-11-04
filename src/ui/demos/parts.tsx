@@ -40,5 +40,16 @@ export function focusInto(root: Element | null, selector: string) {
   requestAnimationFrame(() => root?.querySelector<HTMLElement>(selector)?.focus());
 }
 
+/** After a press that may remove the pressed button: if focus fell out of `root`, put it on the first of `selectors` found. */
+export function keepFocus(root: Element | null, ...selectors: string[]) {
+  requestAnimationFrame(() => {
+    if (!root || root.contains(document.activeElement)) return;
+    for (const sel of selectors) {
+      const el = root.querySelector<HTMLElement>(sel);
+      if (el) return el.focus();
+    }
+  });
+}
+
 /** Spoken name for a place: "the 16s place", "the 1s place". */
 export const placeName = (v: number) => `the ${v}s place`;

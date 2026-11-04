@@ -29,6 +29,22 @@ const sumOf = (bits: string) =>
     .filter((_, i) => bits[i] === '1')
     .join(' + ');
 
+/** The place values under the 1s as a regex sum, largest or smallest first ("32 + 8 + 4 + 1"), or null for a single 1. */
+function sumSource(bits: string): string | null {
+  const terms = placeValues(bits.length)
+    .filter((_, i) => bits[i] === '1')
+    .map(String);
+  if (terms.length < 2) return null;
+  const join = (t: string[]) => t.join('\\s*\\+\\s*');
+  return `(?:${join(terms)}|${join([...terms].reverse())})`;
+}
+
+/** The right places with a wrong total: an adding slip, not a place-value mistake. */
+function addingSlip(bits: string): NonNullable<TextQuestion['wrong']> {
+  const sum = sumSource(bits);
+  return sum ? [{ match: new RegExp(`^\\s*${sum}\\s*=\\s*\\d+\\s*\\.?$`), text: 'Not quite. You picked the right places. Add them up again.' }] : [];
+}
+
 /** A sum that left out one of the 1s: say which place it missed. */
 function missedPlaces(n: number, bits: string): NonNullable<TextQuestion['wrong']> {
   const pv = placeValues(bits.length);
@@ -38,7 +54,8 @@ function missedPlaces(n: number, bits: string): NonNullable<TextQuestion['wrong'
 /** Worksheet Part A: binary to decimal. */
 function toDecimal(id: string, n: number, bits: string, ones: number): TextQuestion {
   const back = parseInt(reversed(bits), 2);
-  const wrong: TextQuestion['wrong'] = [];
+  const sum = sumSource(bits);
+  const wrong: TextQuestion['wrong'] = [...addingSlip(bits)];
   if (back !== n) wrong.push({ match: num(back), text: 'You read the bits from the wrong end. The rightmost bit is the 1s place, and the leftmost is the 128s place.' });
   wrong.push({ match: num(ones), text: COUNT_ONES });
   wrong.push(...missedPlaces(n, bits));
@@ -48,7 +65,8 @@ function toDecimal(id: string, n: number, bits: string, ones: number): TextQuest
     kind: 'text',
     prompt: `Turn **${bits}** into decimal.`,
     placeholder: 'Type a number',
-    expect: num(n),
+    // The number, or the work: the right place values added up, with or without "= n".
+    expect: sum ? new RegExp(`${num(n).source}|^\\s*${sum}\\s*(?:=\\s*${n})?\\s*\\.?$`, 'i') : num(n),
     wrong,
     expectHint: 'Not quite. Write 128 64 32 16 8 4 2 1 above the bits, then add the place values that have a 1 under them.',
     explain: bits.indexOf('1') === bits.lastIndexOf('1') ? `${bits} has one 1, in the ${n}s place.` : `${sumOf(bits)} = ${n}.`,
@@ -66,6 +84,14 @@ function toBinary(id: string, n: number, bits: string, extra: TextQuestion['wron
     { match: shortBits(8), text: 'Write exactly 8 bits. Put 0s in front if you need them.' },
     { match: longBits(8), text: 'Write exactly 8 bits. One byte has 8 places, from 128 down to 1.' },
   );
+  // Any other byte: say what it makes, so the student can find the slip.
+  for (let v = 0; v < 256; v++) {
+    if (v === n) continue;
+    wrong.push({
+      match: bitsRe(v.toString(2).padStart(8, '0')),
+      text: `Not quite. Your bits make ${v}, which is ${Math.abs(n - v)} ${v < n ? 'less' : 'more'} than ${n}. Ask "does it fit?" at each place again.`,
+    });
+  }
   return {
     id,
     kind: 'text',
@@ -155,7 +181,7 @@ export const binaryNumbersLab: LabDef = {
           id: 'rule',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'Which rule gives the number of patterns for **n** switches? (**2ⁿ** means n 2s multiplied together. For example, 2² = 2 × 2.)',
+          prompt: 'Which rule gives the number of patterns for **n** switches? (**2ⁿ** means n twos multiplied together. For example, 2² = 2 × 2.)',
           options: [
             { id: 'pow', text: '2ⁿ', correct: true },
             { id: 'double', text: '2 × n', feedback: 'That gives 6 for 3 switches. You found 8.' },
@@ -290,7 +316,7 @@ export const binaryNumbersLab: LabDef = {
           options: [
             { id: 'sixth', text: 'It would take a sixth card, worth 32', correct: true },
             { id: 'odd', text: 'The cards can only make odd numbers', feedback: 'They make even numbers too: 16 + 4 = 20. Try it.' },
-            { id: 'power', text: '32 is not a power of 2', feedback: '32 is a power of 2: 2 × 2 × 2 × 2 × 2 = 32. In fact, 32 is the next place value.' },
+            { id: 'power', text: "32 isn't a binary place value", feedback: 'It is. The places double: 1, 2, 4, 8, 16, then 32. It is the next place after 16.' },
             {
               id: 'five',
               text: 'Five cards can only make 5 different numbers',
@@ -365,6 +391,7 @@ export const binaryNumbersLab: LabDef = {
         {
           ...toDecimal('w4', 255, '11111111', 8),
           wrong: [
+            ...addingSlip('11111111'),
             { match: num(256), text: 'Close. 256 is how many patterns 8 bits make, counting 0. The biggest number is one less.' },
             { match: num(8), text: COUNT_ONES },
             ...missedPlaces(255, '11111111'),
@@ -557,7 +584,7 @@ export const binaryNumbersLab: LabDef = {
       id: 'overflow',
       title: 'Overflow',
       body: md`
-        A car's **odometer** counts miles with a fixed number of digits. Press **+1** on the odometer until it passes 999. What happens?
+        A car's **odometer** counts miles with a fixed number of digits: the number of digits is set and never changes. Press **+1** on the odometer until it passes 999. What happens?
 
         Many programming languages store each whole number in a fixed number of bits, so the same thing happens there. A 4-bit number goes from 0000 to 1111 (0 to 15). Press **+1** on the 4-bit counter until it passes 1111.
 
@@ -611,13 +638,13 @@ export const binaryNumbersLab: LabDef = {
       id: 'rounding',
       title: 'Rounding errors',
       body: md`
-        Some numbers can't be stored exactly. 1 ÷ 3 is 0.3333…, with 3s that never end. A computer keeps a fixed number of digits, so it stores the closest number it can, which is near 1/3 but not equal to it. That small difference is a **rounding error**.
+        Some numbers can't be stored exactly. 1 ÷ 3 is 0.3333…, with 3s that never end. A computer keeps a fixed number of digits, so it stores the closest number it can, which is near 1/3 but not equal to it. That small difference is a **rounding error**. (The last digit kept is rounded, so 1 ÷ 6 = 0.1666… kept to 4 digits is 0.1667.)
 
         Try it with **Rounding: 1 ÷ 3**. Keep 2 digits, then more.
 
         (Computers keep binary digits, not decimal ones. In binary, even 0.1 has digits that never end, so it gets rounded too.)
       `,
-      demos: [{ kind: 'rounding', id: 'round', title: 'Rounding: 1 ÷ 3', digits: [2, 4, 8], intro: 'Choose how many digits the computer keeps after the decimal point.' }],
+      demos: [{ kind: 'rounding', id: 'round', title: 'Rounding: 1 ÷ 3', digits: [2, 4, 8], intro: 'This card uses decimal digits so you can read them. Choose how many digits to keep after the decimal point.' }],
       goals: [
         {
           id: 'round',
@@ -630,14 +657,14 @@ export const binaryNumbersLab: LabDef = {
         {
           id: 'third',
           kind: 'choice',
-          prompt: 'A computer stores 1/3 with a fixed number of digits. Why is the stored number a little off?',
+          prompt: 'A computer stores 1/3 with a fixed number of digits. Why isn\'t the stored number exactly 1/3?',
           options: [
-            { id: 'digits', text: 'The 3s never end, so some of them are cut off', correct: true },
+            { id: 'digits', text: "The 3s never end, so it can't keep them all", correct: true },
             { id: 'whole', text: 'Computers can store only whole numbers', feedback: 'Computers store fractions too, with a fixed number of digits.' },
             { id: 'big', text: '1/3 is too big a number to fit in a byte', feedback: '1/3 is small. The trouble is that its digits never end.' },
             { id: 'enough', text: 'It kept too few digits, and 8 would make it exact', feedback: 'More digits make the error smaller, as the demo showed. The 3s never end, though, so some error is always left.' },
           ],
-          explain: 'Any fixed number of digits cuts 1/3 off somewhere. The small difference is a rounding error.',
+          explain: 'No fixed number of digits can hold 3s that never end. The small difference is a rounding error.',
         },
       ],
     },
@@ -707,7 +734,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         Look over your summary. You can go back to any step and change an answer, then hand in your work again.
 
-        Finished early? After you hand in, press **Extra credit** for four more steps. They show how the same bits can stand for hex, colors, and text.
+        Finished early? After you hand in, press **Extra credit** for four more steps. They show hex, a short way to write bits, and how bits can stand for colors and text.
       `,
     },
 

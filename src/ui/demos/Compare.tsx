@@ -3,7 +3,7 @@ import { firstDifference, fromBits, placeValues } from '../../demos/binary';
 import { comparePair, type CompareState } from '../../demos/compare';
 import type { CompareSpec } from '../../demos/types';
 import { Icon } from '../icons';
-import { focusInto, placeName, type DemoViewProps } from './parts';
+import { focusInto, keepFocus, placeName, type DemoViewProps } from './parts';
 
 /** Compare two binary numbers: line them up, find the first place they differ, say which is bigger. */
 export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec, CompareState>) {
@@ -16,6 +16,11 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
   const big = fromBits(a) > fromBits(b) ? a : b;
   const small = big === a ? b : a;
   const root = useRef<HTMLDivElement>(null);
+  // A right pick removes the pick buttons: keep keyboard focus in the card.
+  const pick = (i: 0 | 1) => {
+    send({ pick: i });
+    keepFocus(root.current, '.walk-done .btn', '.cmp-col.hit');
+  };
 
   // The pair as given, before any 0s: which row is shorter, and by how much.
   const [oa, ob] = spec.pairs[s.pair];
@@ -76,7 +81,13 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
           <span>
             These numbers have different lengths, so their places don't line up. {a} has {a.length} bits and {b} has {b.length}.
           </span>
-          <button class="btn small" onClick={() => send({ pad: true })}>
+          <button
+            class="btn small"
+            onClick={() => {
+              send({ pad: true });
+              keepFocus(root.current, '.cmp-col');
+            }}
+          >
             Line them up
           </button>
         </div>
@@ -119,10 +130,10 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
 
       {s.found && !s.done && (
         <div class="row gap-sm cmp-pick">
-          <button class="btn" onClick={() => send({ pick: 0 })}>
+          <button class="btn" onClick={() => pick(0)}>
             <code>{a}</code> is bigger
           </button>
-          <button class="btn" onClick={() => send({ pick: 1 })}>
+          <button class="btn" onClick={() => pick(1)}>
             <code>{b}</code> is bigger
           </button>
         </div>

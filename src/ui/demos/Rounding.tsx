@@ -40,7 +40,7 @@ export function RoundingView({ spec, state: s, send }: DemoViewProps<RoundingSpe
             </td>
           </tr>
           <tr>
-            <th>Off by</th>
+            <th>Stored × 3 is off by</th>
             <td>
               <code>{t.off}</code>
             </td>

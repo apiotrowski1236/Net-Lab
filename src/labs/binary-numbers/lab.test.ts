@@ -391,8 +391,19 @@ describe('binary-numbers: typed answers', () => {
     expect(fb('w4', '254')).toMatch(/leaves out the 1s place/);
     // Counting the 1s wins over a skipped place when they give the same number.
     expect(fb('w1', '2')).toMatch(/how many 1s/);
+    // The right places with a wrong total: an adding slip.
+    expect(fb('w4', '128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 245')).toBe('Not quite. You picked the right places. Add them up again.');
+    expect(fb('w2', '1+4+8+32=46')).toMatch(/right places/);
     // Anything else gets the general hint.
     expect(fb('w5', '130')).toBe(text('practice-decimal', 'w5').expectHint);
+  });
+
+  it('accepts the work without the total, binary to decimal', () => {
+    const q = text('practice-decimal', 'w2');
+    for (const ok of ['32+8+4+1', '32 + 8 + 4 + 1', '1 + 4 + 8 + 32', '32 + 8 + 4 + 1 = 45', '45']) expect(q.expect!.test(ok), ok).toBe(true);
+    for (const no of ['32 + 8 + 4', '32 + 8 + 1', '32 + 8 + 4 + 1 = 44', '8 + 32 + 4 + 1 + 1']) expect(q.expect!.test(no), no).toBe(false);
+    // A single 1: the number itself.
+    expect(text('practice-decimal', 'w4').expect!.test('128+64+32+16+8+4+2+1')).toBe(true);
   });
 
   it('answers the common mistakes, decimal to binary', () => {
@@ -405,7 +416,9 @@ describe('binary-numbers: typed answers', () => {
     expect(fb('w8', '0100110')).toMatch(/exactly 8 bits/);
     expect(fb('w8', '001001101')).toMatch(/exactly 8 bits/);
     expect(fb('w10', '100000000')).toMatch(/That's 256/);
-    expect(fb('w10', '11111110')).toBe(text('practice-binary', 'w10').expectHint);
+    // Any other byte: say what it makes.
+    expect(fb('w10', '11111110')).toBe('Not quite. Your bits make 254, which is 1 less than 255. Ask "does it fit?" at each place again.');
+    expect(fb('w6', '00001111')).toMatch(/make 15, which is 2 more than 13/);
   });
 
   it('answers the common mistakes about counting and overflow', () => {

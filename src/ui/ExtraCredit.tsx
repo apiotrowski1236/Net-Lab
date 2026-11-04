@@ -91,6 +91,7 @@ export function ExtraCreditDone({ session }: { session: LabSession }) {
     return (
       <div class="callout good extra-credit">
         <Icon name="check" size={14} /> <strong>You finished the extra credit.</strong> Your latest report includes it.
+        {!hasEndpoint() && ` If you haven't yet, ${handInWhere()}.`}
       </div>
     );
   }

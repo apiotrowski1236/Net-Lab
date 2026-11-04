@@ -211,6 +211,7 @@ try {
   log(`${lab.title}: ${lab.steps.length} steps`);
 
   let nextByKey = false;
+  let pickByKey = false;
   for (let i = 0; i < lab.steps.length; i++) {
     const step = lab.steps[i];
     await page.waitForSelector(`text=Step ${i + 1} of ${lab.steps.length}`);
@@ -270,6 +271,16 @@ try {
         await pause(250);
         await check(await card('read').evaluate((c) => c.contains(document.activeElement) && document.activeElement.matches('.pv-bit')), 'after Next example, focus left the activity');
         log('  pressed Next example with the keyboard: focus stayed on the boxes');
+      } else if (step.id === 'compare' && ('pad' in m.input || ('pick' in m.input && !pickByKey))) {
+        // By keyboard: the pressed button goes away, and focus must stay in the card.
+        if ('pick' in m.input) pickByKey = true;
+        const btn = 'pad' in m.input ? card('compare').getByRole('button', { name: 'Line them up' }) : card('compare').locator('.cmp-pick button').nth(m.input.pick);
+        await btn.focus();
+        await page.keyboard.press('Enter');
+        await pause(250);
+        const where = await card('compare').evaluate((c) => (c.contains(document.activeElement) ? document.activeElement.className || document.activeElement.tagName : 'outside'));
+        await check(where !== 'outside', `after pressing ${'pad' in m.input ? 'Line them up' : 'a pick'} with the keyboard, focus left the compare card`);
+        log(`  ${'pad' in m.input ? 'Line them up' : 'picked the bigger number'} with the keyboard: focus stayed in the card (${where.trim()})`);
       } else await doInput(step, m);
 
       // Reload in the middle of steps 1 and 6, then carry on.

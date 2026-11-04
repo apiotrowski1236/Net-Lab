@@ -136,7 +136,7 @@ function Board({ spec, state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
             <code class="bits-code">{s.bits}</code> = <strong class="bits-total">{fromBits(s.bits)}</strong>
           </span>
         ) : (
-          <span class="muted small">Tap a box to switch it between 0 and 1. Add up the place values yourself.</span>
+          <span class="bits-hint">Tap a box to switch it between 0 and 1. Add up the place values yourself.</span>
         )}
         <button class="btn ghost small" disabled={!s.bits.includes('1')} onClick={() => send({ clear: true })}>
           Clear

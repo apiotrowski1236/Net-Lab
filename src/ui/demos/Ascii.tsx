@@ -31,7 +31,7 @@ export function AsciiView({ spec, state: s, send }: DemoViewProps<AsciiSpec, Asc
       </label>
       {left.length > 0 && (
         <p class="walk-note" role="status">
-          {left.join(' ')} {left.length === 1 ? "isn't in ASCII, so it was" : "aren't in ASCII, so they were"} left out. ASCII has only English letters, digits, and common symbols.
+          {new Intl.ListFormat('en', { type: 'conjunction' }).format(left)} {left.length === 1 ? "isn't in ASCII, so it was" : "aren't in ASCII, so they were"} left out. ASCII has only English letters, digits, and common symbols.
         </p>
       )}
       {s.text ? (
