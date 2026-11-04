@@ -60,6 +60,7 @@ const NMAP: ToolSpec = { kind: 'terminal', devices: ['laptop'], commands: [...LO
 
 const sawWrongRecord = (sim: Sim, since: number) => lookups(sim, 'pc1', since).some((r) => r.name === NAME.catalog && r.answer === IP.wrongCatalog);
 const brokenTrace = (sim: Sim, since: number) => traces(sim, 'pc1', since).some((r) => r.ip === IP.ebooks && r.end === 'silent');
+const tracing = (sim: Sim) => (sim.dev('pc1').term ?? []).some((r) => r.kind === 'traceroute' && r.doneAt === undefined);
 const showsRat = (r: NetstatRun) => r.programs && r.rows.some((x) => x.foreign === `${IP.remote}:${RAT.port}`);
 /** Once: these buttons check what the student found first, the way the person on the other end would ask. */
 const ever = 0;
@@ -111,7 +112,9 @@ const callIsp: ActionDef = {
       ? [{ tone: 'good', text: 'The provider found a cut cable between its building and the internet router, and replaced it. Run traceroute again to check.' }]
       : brokenTrace(sim, ever)
         ? [{ tone: 'bad', text: 'You have the trace now. Press the button again to call.' }]
-        : [{ tone: 'bad', text: 'The provider asks: where on the path does it stop? Run traceroute first so you can tell them.' }],
+        : tracing(sim)
+          ? [{ tone: 'wait', text: 'The provider asks where the path stops. Wait for the trace to finish, then press the button again.' }]
+          : [{ tone: 'bad', text: 'The provider asks: where on the path does it stop? Run traceroute first so you can tell them.' }],
 };
 
 const watchButton: ActionDef = {
@@ -199,7 +202,7 @@ export const netToolsLab: LabDef = {
         | netstat | What is this computer connected to right now? |
         | nmap | Which computers are on this network, and which of their ports are open? |
 
-        A **port** is a numbered door into a computer, one for each service. Secure websites use port 443, for example. (The **Port** column in a device's details, like eth0, means something else: the jack a cable plugs into.)
+        A **port** is a numbered door into a computer, one for each service. Secure websites use port 443, for example. (The **Port** column in a device's details, like eth0 or lan, means something else: the jack a cable plugs into.)
 
         **The rule: nmap only with written permission.** The first four look at your own computer or ask one simple question. nmap knocks on the doors of other people's computers. Scanning a network without its owner's written permission can be a crime, even if you mean no harm. Everything in this lab happens inside a simulation.
 
@@ -248,14 +251,14 @@ export const netToolsLab: LabDef = {
 
         1. Open the **Toolkit** tab. The **Terminal** is sitting at Public PC 1.
         2. Type \`ping 10.0.0.1\` and press Enter. That's the library router.
-        3. Then ping [[catalog]] at 10.0.0.20.
+        3. Then ping [[catalog]] at 10.0.0.20. Watch the map: first, **ARP** asks the network "who has 10.0.0.20?" The **learned a MAC** tag means Public PC 1 now knows the catalog server's hardware address. Then the pings go.
 
         Each reply line shows:
 
         - **time**: how long the round trip took, in **milliseconds** (ms). 1,000 ms is one second.
-        - **TTL** (time to live): a number that starts at 64 or 128. Each router on the way lowers it by 1, and at 0 the packet is thrown away.
+        - **TTL** (time to live): starts at 64 or 128, and each router on the way lowers it by 1. At 0 the packet is thrown away. Ticket 2's tool, traceroute, uses this.
 
-        On the map, **ARP** is a computer asking its own network "who has this address?" before it sends. The answer shows as **learned a MAC**: now it knows the other computer's hardware address. (The map moves packets slowly so you can watch. The terminal prints real-world times.)
+        (The map moves packets slowly so you can watch. The terminal prints real-world times.)
       `,
       focus: ['pc1', 'router', 'catalog'],
       open: 'tools',
@@ -400,10 +403,7 @@ export const netToolsLab: LabDef = {
         Ticket 2: the e-book site, ebooks.example, won't load.
 
         1. Type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. Something on the way is broken, but where?
-        2. Type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map. On the way out, [[router]] puts the library's internet address on your packets: that's the blue **sent as 198.51.100.10** tag.
-        3. Answer **In the first trace, where is the problem?** below.
-        4. Press [[button:call-isp]].
-        5. Run the traceroute again, and count the routers on the way.
+        2. Type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map. On the way out, [[router]] puts the library's internet address on your packets (the blue **sent as 198.51.100.10** tag). Answers come back to that address, and the router passes each one to the computer that asked (**answer for Public PC 1**).
 
         traceroute sends packets with a small TTL. The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
 
@@ -413,9 +413,11 @@ export const netToolsLab: LabDef = {
         | 2 | 2 | 2nd router | line 2 |
         | 3 | 3 | 3rd router | line 3, and so on |
 
-        Each line is one **hop**: one stop on the way. The internet provider's box is a router too. A \`*\` means nothing answered. Some routers and servers ignore traceroute and ping, so one \`*\` isn't proof of a break. When the trace never gets past it and pings fail too, the path is broken there.
+        Each line is one **hop**: one router on the way (the internet provider's box is a router too). A \`*\` means nothing answered. Some routers ignore traceroute, so one \`*\` isn't proof. When the trace never gets past it and pings fail too, the path is broken there.
 
-        On the map, there's no line between [[isp]] and [[core]]: that's the cut cable. A real technician can't see it, so traceroute is how they find the break.
+        3. Answer **In the first trace, where is the problem?** below.
+        4. Press [[button:call-isp]].
+        5. Run the traceroute again, and count the routers on the way.
       `,
       focus: ['pc1', 'isp', 'core', 'ebooks'],
       open: 'tools',
@@ -457,7 +459,8 @@ export const netToolsLab: LabDef = {
             },
             { id: 'pc', text: 'In Public PC 1', feedback: 'Public PC 1 got answers from two routers, so its own connection works.' },
           ],
-          explain: 'The last stop to answer was the internet provider. Past it, nothing answered, so the break is beyond the library. The library can’t fix that; the provider can.',
+          explain:
+            'The last stop to answer was the internet provider. Past it, nothing answered, so the break is beyond the library. The library can’t fix that; the provider can. (The map shows the cut: no line between the provider and the internet router. A real technician can’t see that, so they use traceroute.) Next, press the Call the internet provider button.',
         },
         {
           id: 'routers',
@@ -540,7 +543,7 @@ export const netToolsLab: LabDef = {
       id: 'permission',
       title: 'Permission first',
       body: md`
-        The library director wants to know what else on the network is open to attack. IT staff find out with a **port scan**: nmap knocks on common ports of every computer in a network and reports which ones open. Attackers run the same scans to pick targets. That's why a scan needs the owner's permission, in writing, before you start.
+        The library director wants to know what else on the network is open to attack. IT staff find out with a **port scan**: nmap knocks on common ports of every computer in a network and reports which ones open. Attackers run the same scans to pick targets, so a scan needs the owner's written permission first.
 
         The director signs this letter:
 
@@ -555,9 +558,9 @@ export const netToolsLab: LabDef = {
         >
         > *Signed: the library director*
 
-        The **/24** means every address that starts with 10.0.0: all 256 of them, from 10.0.0.0 to 10.0.0.255. Only the library's own computers use them: the ones pulsing on the map. The guest Wi-Fi is a separate network, not on this map.
+        The **/24** means every address that starts with 10.0.0: all 256, from 10.0.0.0 to 10.0.0.255. Only the library's own computers (pulsing on the map) use them. The guest Wi-Fi is a separate network.
 
-        Security testers call this the **scope**: what you may scan, from where, and when. Don't scan anything outside it, even if it looks broken or interesting. This lab's Terminal refuses scans outside the letter. A real nmap won't stop you, so following the letter is your job.
+        This is the **scope**: what you may scan, from where, and when. Don't scan outside it, even if something looks broken or interesting. This lab's Terminal refuses scans outside the letter. A real nmap won't, so following the letter is your job.
       `,
       focus: ['router', 'laptop', 'pc1', 'pc2', 'catalog', 'printer'],
       questions: [
@@ -595,8 +598,8 @@ export const netToolsLab: LabDef = {
         Now you have permission. An **open** port means a program is answering there, ready for connections. Every open port is a door into that computer, so IT staff keep open only the ones they need.
 
         1. The Terminal is on [[laptop]], the only computer the letter lets you scan from. Type \`nmap 10.0.0.0/24\`.
-        2. nmap checks every address for a computer, then knocks on 10 common ports at each one it finds. On a local network it checks with ARP: a red **no ARP answer** tag on [[laptop]] means the laptop asked for an address and nobody had it. (A real nmap checks 1,000 ports.)
-        3. Read the report: one block for each computer that answered, with its DNS name. Press **Bigger** on the Terminal to see more of it. **Host is up** means it answered, and the **latency** is how long the answer took, in seconds: 0.0004s is 0.4 ms, under a millisecond.
+        2. nmap asks for every address on the network, then knocks on 10 common ports at each computer it finds. (A real nmap checks 1,000.) A red **no ARP answer** tag on [[laptop]] means it asked for an empty address: no computer has it.
+        3. Read the report: one block for each computer that answered. Press **Bigger** on the Terminal to see more. **Host is up** means it answered. The **latency** is how long the answer took: about 0.0004s, under a millisecond.
 
         | Service | Port | What it does |
         |---|---|---|
@@ -718,13 +721,13 @@ export const netToolsLab: LabDef = {
       body: md`
         You solved three tickets by asking the network simple questions: is it there (ping), where does the path break (traceroute), what address goes with a name (nslookup), and what is this computer connected to (netstat). Then, with written permission, you found two risky services with nmap and got them turned off.
 
-        In class, we'll try ping, traceroute, nslookup, and netstat on real computers. They're safe to run on your own computer. (On Windows, netstat -b works only in a Command Prompt opened as administrator. Plain netstat works anywhere.) Don't run nmap on any network you don't own, including the school's, without written permission from its owner. Scanning without permission can get you suspended, taken to court, or in trouble with the police.
+        In class, we'll try ping, traceroute, nslookup, and netstat on real computers. They're safe to run on your own computer. (On Windows, netstat -b works only in a Command Prompt opened as administrator, and it prints each program's name in brackets under its connection, like [chrome.exe]. Plain netstat works anywhere.) Don't run nmap on any network you don't own, including the school's, without written permission from its owner. Scanning without permission can get you suspended, taken to court, or in trouble with the police.
       `,
       questions: [
         {
           id: 'advice',
           kind: 'text',
-          prompt: 'A friend wants to run nmap on the school network to "see if it’s secure." What would you tell them? Explain the risk, and what they could do instead.',
+          prompt: 'A friend wants to run nmap on the school network to "see if it’s secure." What would you tell them? Explain the risk, and what they could do instead. You can start with: "I would tell them…"',
           minWords: 40,
           lines: 5,
         },

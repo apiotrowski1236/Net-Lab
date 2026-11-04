@@ -160,7 +160,9 @@ describe('net-tools buttons', () => {
     call.run(sim);
     expect(internetFixed(sim)).toBe(false);
     expect(call.outcome!(sim, 0)[0].tone).toBe('bad');
-    run(sim, 'pc1', 'traceroute ebooks.example');
+    sim.runCommand('pc1', 'traceroute ebooks.example');
+    expect(call.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'The provider asks where the path stops. Wait for the trace to finish, then press the button again.' }]);
+    sim.runUntilIdle();
     expect(call.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'You have the trace now. Press the button again to call.' }]);
     call.run(sim);
     expect(internetFixed(sim)).toBe(true);

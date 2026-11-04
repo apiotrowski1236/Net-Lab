@@ -466,8 +466,15 @@ export function LessonPanel({
     // map and tools, don't pull the page away from the result they're reading.
     if (matchMedia('(max-width: 900px)').matches && el.getBoundingClientRect().bottom < innerHeight * 0.5) return;
     const result = el.querySelector('.action-outcome');
-    if (result) result.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    else el.querySelectorAll('.qcard')[i]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const target = result ?? el.querySelectorAll('.qcard')[i];
+    if (!target) return;
+    const block = result ? 'start' : 'nearest';
+    if (matchMedia('(max-width: 900px)').matches) return target.scrollIntoView({ block, behavior: 'smooth' });
+    // On a wide screen only the lesson scrolls: scrollIntoView would also nudge the page.
+    const r = target.getBoundingClientRect();
+    const b = el.getBoundingClientRect();
+    const d = block === 'start' || r.top < b.top ? r.top - b.top - 8 : r.bottom > b.bottom ? Math.min(r.bottom - b.bottom + 8, r.top - b.top - 8) : 0;
+    if (d) el.scrollBy({ top: d, behavior: 'smooth' });
   }, [step.id, nUnlocked]);
   // The "Finish …" button shows what's left: the first unfinished goal or question, which may be below the fold.
   const showWhatsLeft = () => {

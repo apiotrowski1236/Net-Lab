@@ -110,9 +110,21 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
     el.scrollTop = el.scrollHeight;
     const nodes = el.querySelectorAll<HTMLElement>('.term-entry');
     const entry = nodes[nodes.length - 1];
-    if (lastDone && entry && entry.offsetHeight > el.clientHeight - 40) {
+    if (lastDone && entry && entry.offsetHeight > el.clientHeight - 24) {
       el.scrollTop += entry.getBoundingClientRect().top - el.getBoundingClientRect().top - 6;
     }
+    check();
+  };
+  // A result that starts at its first line has more below it: say so, with a button that goes there.
+  const [below, setBelow] = useState(false);
+  const check = () => {
+    const el = screen.current;
+    if (el) setBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 8);
+  };
+  const toEnd = (e: MouseEvent) => {
+    e.stopPropagation();
+    const el = screen.current;
+    el?.scrollTo({ top: el.scrollHeight, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
   useLayoutEffect(() => settle.current(), [size, at, meaning]);
   // Bigger, Smaller, and the dock making room for the map while a command runs all
@@ -130,9 +142,13 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
     return () => ro.disconnect();
   }, []);
 
-  // On a narrow screen the lesson sits above the map: one tap goes back up to it.
-  const backToStep = () =>
-    document.querySelector('.lesson')?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  // On a narrow screen the lesson sits above the map: one tap goes back up to what's left to do there.
+  const backToStep = () => {
+    const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    const todo = document.querySelector('.lesson .goal:not(.done), .lesson .qcard:not(.correct):not(.locked)');
+    if (todo) todo.scrollIntoView({ block: 'center', behavior });
+    else document.querySelector('.lesson')?.scrollIntoView({ block: 'start', behavior });
+  };
 
   const addLocal = (line: string, out: TermLine[]) => {
     ds.local.push({ n: st.n++, t: sim.t, after: newest?.id ?? 0, line, out });
@@ -235,26 +251,35 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
           Back to the step
         </button>
       </div>
-      <div class="term-screen" ref={screen} onClick={focusInput} role="log" aria-live="polite" aria-label={`Terminal on ${dev?.label ?? at}`}>
-        {older > 0 && (
-          <button class="btn tiny term-older" onClick={() => setShowOld(true)}>
-            Show {older} earlier command{older === 1 ? '' : 's'}
-          </button>
-        )}
-        {entries.length === 0 && <div class="term-line muted">Type a command and press Enter. Type help to see the commands.</div>}
-        {entries.map((e) => (
-          <div class="term-entry" key={e.key} data-local={e.run ? undefined : ''}>
-            <div class="term-cmd">
-              <span class="term-prompt">{prompt}</span> {e.line}
-            </div>
-            {e.out.map((l, i) => (
-              <div key={i} class={`term-line ${l.tone ?? ''}`}>
-                {l.text || ' '}
+      <div class="term-screen" onClick={focusInput}>
+        <div class="term-scroll-wrap">
+          <div class="term-scroll" ref={screen} onScroll={check} role="log" aria-live="polite" aria-label={`Terminal on ${dev?.label ?? at}`}>
+            {older > 0 && (
+              <button class="btn tiny term-older" onClick={() => setShowOld(true)}>
+                Show {older} earlier command{older === 1 ? '' : 's'}
+              </button>
+            )}
+            {entries.length === 0 && <div class="term-line muted">Type a command and press Enter. Type help to see the commands.</div>}
+            {entries.map((e) => (
+              <div class="term-entry" key={e.key} data-local={e.run ? undefined : ''}>
+                <div class="term-cmd">
+                  <span class="term-prompt">{prompt}</span> {e.line}
+                </div>
+                {e.out.map((l, i) => (
+                  <div key={i} class={`term-line ${l.tone ?? ''}`}>
+                    {l.text || ' '}
+                  </div>
+                ))}
+                {e.run && e.run.doneAt === undefined && <div class="term-line muted term-wait">running…</div>}
               </div>
             ))}
-            {e.run && e.run.doneAt === undefined && <div class="term-line muted term-wait">running…</div>}
           </div>
-        ))}
+          {below && (
+            <button type="button" class="more-below term-more" onClick={toEnd}>
+              More below <Icon name="chevronDown" size={13} />
+            </button>
+          )}
+        </div>
         <div class="term-input-row">
           <label class="term-prompt" for={`term-in-${at}`}>
             {prompt}

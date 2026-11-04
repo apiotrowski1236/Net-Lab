@@ -1095,6 +1095,10 @@
   background: var(--surface-2);
   font-size: 13.5px;
 }
+/* With every button inline in the step's text, the result follows the text itself: give it room. */
+.prose + .action-outcome {
+  margin-top: 10px;
+}
 .action-outcome li {
   display: flex;
   gap: 7px;
@@ -4324,8 +4328,9 @@ button.pl-tile:active {
 .term-screen {
   flex: 1 1 auto;
   min-height: 130px;
-  overflow: auto;
-  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 8px;
   background: #0f172a;
   color: #e2e8f0;
@@ -4336,6 +4341,23 @@ button.pl-tile:active {
 [data-theme='dark'] .term-screen {
   background: #05070d;
   border: 1px solid var(--line);
+}
+/* Output scrolls; the typing line below it never covers a line of it. */
+.term-scroll-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+.term-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px 4px;
+}
+.term-more {
+  right: 12px;
+  bottom: 6px;
 }
 .term-entry + .term-entry {
   margin-top: 6px;
@@ -4387,10 +4409,12 @@ button.pl-tile:active {
   margin-bottom: 6px;
 }
 .term-input-row {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  padding: 4px 10px 8px;
+  border-top: 1px solid #1e293b;
 }
 .term-input {
   flex: 1;
@@ -4501,25 +4525,15 @@ button.pl-tile:active {
   .dock.dock-tall {
     transition: flex-basis 0.25s ease;
   }
+  /* The map never gets shorter than the stage's own minimum, so the page itself doesn't scroll. */
   .dock.dock-tall.dock-max:not(.dock-busy) {
-    flex-basis: 74%;
+    flex-basis: min(74%, calc(100% - 240px));
   }
 }
 @media (min-width: 901px) and (prefers-reduced-motion: reduce) {
   .dock.dock-tall {
     transition: none;
   }
-}
-/* The typing line stays in view, even when a long result shows from its first line. */
-.term-input-row {
-  position: sticky;
-  bottom: -8px;
-  margin-bottom: -8px;
-  padding: 4px 0 8px;
-  background: #0f172a;
-}
-[data-theme='dark'] .term-input-row {
-  background: #05070d;
 }
 /* Back up to the lesson: only where the lesson sits above the map. */
 .term-up {
