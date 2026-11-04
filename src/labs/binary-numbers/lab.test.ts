@@ -202,8 +202,12 @@ describe('binary-numbers: demo models', () => {
     s = readWalkModel.apply(spec, s, { tap: 0 });
     expect(s).toMatchObject({ added: [], zero: 0 });
     expect(readWalkModel.apply(spec, s, { next: true })).toBe(s);
+    s = run(readWalkModel, spec, [{ tap: 1 }, { tap: 1 }]);
+    // A second tap on a 1 says it's already in the sum, and clears the 0 note.
+    expect(s).toMatchObject({ added: [1], zero: undefined, again: 1 });
     s = run(readWalkModel, spec, [{ tap: 1 }, { tap: 1 }, { tap: 4 }, { tap: 6 }]);
     expect(s.added).toEqual([1, 4, 6]);
+    expect(s.again).toBeUndefined();
     expect(readWalkModel.facts(spec, s)).toEqual({ ex: 0, finished: 1 });
     s = readWalkModel.apply(spec, s, { next: true });
     expect(readWalkModel.facts(spec, s)).toEqual({ ex: 1, finished: 1 });
@@ -408,13 +412,17 @@ describe('binary-numbers: typed answers', () => {
 
   it('names the wrong place in typed work, binary to decimal', () => {
     const fb = (id: string, v: string) => wrongFeedback(text('practice-decimal', id), v);
-    // 01100100: the 8s place holds a 0.
-    expect(fb('w3', '64+32+8')).toBe("The 8s place holds a 0, so don't add 8.");
-    expect(fb('w3', '64 + 32 + 8 = 104.')).toBe("The 8s place holds a 0, so don't add 8.");
+    // 01100100: the 8s place holds a 0, and the 4s place holds the 1.
+    const both = "The 8s place holds a 0, so don't add 8. The sum also leaves out the 4s place, which holds a 1.";
+    expect(fb('w3', '64+32+8')).toBe(both);
+    expect(fb('w3', '64 + 32 + 8 = 104.')).toBe(both);
+    expect(fb('w3', '64 + 32 + 4 + 8')).toBe("The 8s place holds a 0, so don't add 8.");
     // 00101101 without the 4s place, with or without a total.
     expect(fb('w2', '32 + 8 + 1')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
     expect(fb('w2', '1 + 8 + 32 = 41')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
     expect(fb('w1', '8 + 2 + 1')).toBe("The 1s place holds a 0, so don't add 1.");
+    // Both slips in one try: name both.
+    expect(fb('w2', '32 + 8 + 2 + 1 = 43')).toBe("The 2s place holds a 0, so don't add 2. The sum also leaves out the 4s place, which holds a 1.");
     expect(fb('w4', '128 + 64 + 32 + 16 + 8 + 4 + 2')).toMatch(/leaves out the 1s place/);
     // 41 is not the 4s place.
     expect(fb('w2', '32 + 8 + 41')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
@@ -424,6 +432,9 @@ describe('binary-numbers: typed answers', () => {
     const fb = (id: string, v: string) => wrongFeedback(text('practice-binary', id), v);
     expect(fb('w6', '1101')).toMatch(/write all 8/);
     expect(fb('w7', '110010')).toMatch(/write all 8/);
+    // Some of the 0s in front, not all: still the right bits.
+    expect(fb('w7', '0110010')).toBe('Right bits, but write all 8. Put one more 0 in front.');
+    expect(fb('w6', '001101')).toBe('Right bits, but write all 8. Put 2 more 0s in front.');
     expect(fb('w6', '10110000')).toMatch(/reverse order/);
     expect(fb('w9', '00010011')).toMatch(/reverse order/);
     expect(fb('w6', '13')).toMatch(/only the digits 0 and 1/);

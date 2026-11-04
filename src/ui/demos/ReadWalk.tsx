@@ -62,6 +62,11 @@ export function ReadWalkView({ spec, state: s, send }: DemoViewProps<ReadWalkSpe
           {placeName(pv[s.zero]).replace(/^t/, 'T')} holds a 0, so it adds nothing. Tap the boxes that hold a 1.
         </p>
       )}
+      {s.again !== undefined && !done && (
+        <p class="walk-note">
+          {placeName(pv[s.again]).replace(/^t/, 'T')} is already in the sum. Tap a 1 you haven't added yet.
+        </p>
+      )}
       {done && (
         <div class="callout good small walk-done">
           <span>

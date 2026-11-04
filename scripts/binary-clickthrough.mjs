@@ -236,6 +236,11 @@ try {
         await check(/holds a 0, so it adds nothing/.test(await card('read').innerText()), 'tapping a 0 did not explain itself');
         log('    tapped a 0: "adds nothing" note shown');
       }
+      if (step.id === 'to-decimal' && k === 1 && 'tap' in moves[0].input) {
+        await doInput(step, moves[0]);
+        await check(/is already in the sum/.test(await card('read').innerText()), 'tapping a 1 twice did not say it was already added');
+        log('    tapped the same 1 twice: "already in the sum" note shown');
+      }
       if (step.id === 'to-binary' && k === 0) {
         await doInput(step, { demo: 'fit', input: { say: 1 } });
         await check(/128 is bigger than 75/.test(await card('fit').locator('.walk-note.bad').innerText()), 'a wrong "fits" call was not explained');
@@ -271,6 +276,13 @@ try {
         await pause(250);
         await check(await card('read').evaluate((c) => c.contains(document.activeElement) && document.activeElement.matches('.pv-bit')), 'after Next example, focus left the activity');
         log('  pressed Next example with the keyboard: focus stayed on the boxes');
+      } else if (step.id === 'to-binary' && k === moves.map((x) => 'say' in x.input).lastIndexOf(true)) {
+        // The last place by keyboard: the buttons go away, and focus must stay in the card.
+        await card('fit').getByRole('button', { name: m.input.say ? 'Fits: write 1' : 'Too big: write 0' }).focus();
+        await page.keyboard.press('Enter');
+        await pause(250);
+        await check(await card('fit').evaluate((c) => c.contains(document.activeElement)), 'after the last place in step 6, focus left the activity');
+        log('  wrote the last place with the keyboard: focus stayed in the card');
       } else if (step.id === 'compare' && ('pad' in m.input || ('pick' in m.input && !pickByKey))) {
         // By keyboard: the pressed button goes away, and focus must stay in the card.
         if ('pick' in m.input) pickByKey = true;
@@ -349,7 +361,9 @@ try {
   const finished = page.locator('.lesson .callout.extra-credit.good');
   await check(/You finished the extra credit/.test(await finished.innerText()), 'no "hand in again" prompt after the last extra-credit step');
   const dl2 = page.waitForEvent('download');
-  await finished.getByRole('button', { name: /Download my updated report|Submit again/ }).click();
+  // By keyboard: the button goes away, and focus must stay in the box.
+  await finished.getByRole('button', { name: /Download my updated report|Submit again/ }).focus();
+  await page.keyboard.press('Enter');
   const file2 = join(OUT, 'report-extra.html');
   await (await dl2).saveAs(file2);
   const html2 = readFileSync(file2, 'utf8');
@@ -358,6 +372,8 @@ try {
   await check(!!ec && ec[1] === ec[2], `the updated report's extra credit points: ${ec?.[0]}`);
   await pause(400);
   await check(/Your latest report includes it/.test(await finished.innerText()), 'after handing in again, the prompt did not say the report includes the extra credit');
+  await check(await finished.evaluate((c) => c.contains(document.activeElement)), 'after handing in extra credit by keyboard, focus left the box');
+  log('  handed in extra credit with the keyboard: focus stayed in the box');
   log(`extra credit done; updated report downloaded with ${ec[1]} extra credit points: ${file2}`);
   await page.screenshot({ path: join(OUT, 'extra-after-download.png') });
   shots.push(join(OUT, 'extra-after-download.png'));

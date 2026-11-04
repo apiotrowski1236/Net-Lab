@@ -29,9 +29,16 @@ function HandInAgain({ session, label }: { session: LabSession; label: string })
         class="btn small primary"
         disabled={!who.name.trim()}
         title={who.name.trim() ? '' : 'Add your name (top right) first'}
-        onClick={() => {
+        onClick={(e) => {
+          const box = e.currentTarget.closest<HTMLElement>('.extra-credit');
           handIn(session);
           setDone(true);
+          // Handing in can replace this button. Keep keyboard focus in the same box.
+          requestAnimationFrame(() => {
+            if (document.activeElement && document.activeElement !== document.body) return;
+            const target = box?.isConnected ? box : [...document.querySelectorAll<HTMLElement>('.extra-credit')].pop();
+            (target?.querySelector<HTMLElement>('button') ?? target)?.focus();
+          });
         }}
       >
         <Icon name={endpoint ? 'send' : 'download'} size={14} /> {label}
@@ -74,7 +81,7 @@ export function ExtraCreditBanner({ session }: { session: LabSession }) {
     label = endpoint ? 'Submit again' : 'Download my report again';
   }
   return (
-    <div class="callout info extra-credit">
+    <div class="callout info extra-credit" tabIndex={-1}>
       <p>
         <Icon name="trophy" size={14} /> <strong>Extra credit{where}.</strong> {text}
       </p>
@@ -89,14 +96,14 @@ export function ExtraCreditDone({ session }: { session: LabSession }) {
   const p = session.progress;
   if (lastExtraWork(session) <= (p.submittedAt ?? 0)) {
     return (
-      <div class="callout good extra-credit">
+      <div class="callout good extra-credit" tabIndex={-1}>
         <Icon name="check" size={14} /> <strong>You finished the extra credit.</strong> Your latest report includes it.
         {!hasEndpoint() && ` If you haven't yet, ${handInWhere()}.`}
       </div>
     );
   }
   return (
-    <div class="callout good extra-credit">
+    <div class="callout good extra-credit" tabIndex={-1}>
       <p>
         <Icon name="trophy" size={14} /> <strong>You finished the extra credit.</strong> Hand in your updated report so your teacher sees it.
       </p>

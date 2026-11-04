@@ -56,9 +56,18 @@ function placeSlips(bits: string): NonNullable<TextQuestion['wrong']> {
   const work = '\\s*\\d+(?:\\s*\\+\\s*\\d+)+\\s*(?:=\\s*\\d+)?\\s*\\.?$';
   const term = (v: number) => `.*(?:^|\\+)\\s*${v}\\s*(?:\\+|=|\\.?\\s*$)`;
   const pv = placeValues(bits.length);
+  const zeros = pv.filter((_, i) => bits[i] === '0');
+  const ones = pv.filter((_, i) => bits[i] === '1');
   return [
-    ...pv.filter((_, i) => bits[i] === '0').map((v) => ({ match: new RegExp(`^(?=${term(v)})${work}`), text: `The ${v}s place holds a 0, so don't add ${v}.` })),
-    ...pv.filter((_, i) => bits[i] === '1').map((v) => ({ match: new RegExp(`^(?!${term(v)})${work}`), text: `That sum leaves out the ${v}s place, which holds a 1 too.` })),
+    // Both slips at once, so one try finds both.
+    ...zeros.flatMap((q) =>
+      ones.map((p) => ({
+        match: new RegExp(`^(?=${term(q)})(?!${term(p)})${work}`),
+        text: `The ${q}s place holds a 0, so don't add ${q}. The sum also leaves out the ${p}s place, which holds a 1.`,
+      })),
+    ),
+    ...zeros.map((v) => ({ match: new RegExp(`^(?=${term(v)})${work}`), text: `The ${v}s place holds a 0, so don't add ${v}.` })),
+    ...ones.map((v) => ({ match: new RegExp(`^(?!${term(v)})${work}`), text: `That sum leaves out the ${v}s place, which holds a 1 too.` })),
   ];
 }
 
@@ -88,7 +97,14 @@ function toDecimal(id: string, n: number, bits: string, ones: number): TextQuest
 function toBinary(id: string, n: number, bits: string, extra: TextQuestion['wrong'] = []): TextQuestion {
   const short = bits.replace(/^0+/, '');
   const wrong: TextQuestion['wrong'] = [...extra];
-  if (short !== bits) wrong.push({ match: bitsRe(short), text: `Right bits, but write all 8. Put 0s in front: ${'0'.repeat(8 - short.length)} then your bits.` });
+  if (short !== bits) {
+    wrong.push({ match: bitsRe(short), text: `Right bits, but write all 8. Put 0s in front: ${'0'.repeat(8 - short.length)} then your bits.` });
+    // Some of the 0s in front, but not all of them.
+    for (let k = short.length + 1; k < 8; k++) {
+      const more = 8 - k;
+      wrong.push({ match: bitsRe('0'.repeat(k - short.length) + short), text: `Right bits, but write all 8. Put ${more === 1 ? 'one more 0' : `${more} more 0s`} in front.` });
+    }
+  }
   if (reversed(bits) !== bits) wrong.push({ match: bitsRe(reversed(bits)), text: 'Those bits are in reverse order. The 128s place is on the left, and the 1s place is on the right.' });
   wrong.push(
     { match: notBinary, text: 'Binary uses only the digits 0 and 1.' },
@@ -597,7 +613,7 @@ export const binaryNumbersLab: LabDef = {
       id: 'overflow',
       title: 'Overflow',
       body: md`
-        A car's **odometer** is the counter that shows how many miles the car has gone. It has a fixed number of digits: the number of digits is set and never changes. Press **+1** on the odometer until it passes 999. What happens?
+        A car's **odometer** is the counter that shows how many miles the car has gone. Its number of digits is fixed: it never changes. Press **+1** on the odometer until it passes 999. What happens?
 
         Many programming languages store each whole number in a fixed number of bits, so the same thing happens there. A 4-bit number goes from 0000 to 1111 (0 to 15). Press **+1** on the 4-bit counter until it passes 1111.
 

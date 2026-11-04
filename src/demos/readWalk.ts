@@ -8,6 +8,8 @@ export interface ReadWalkState {
   added: number[];
   /** The 0 the student tapped last, so the view can say it adds nothing. */
   zero?: number;
+  /** A 1 the student tapped again after adding it, so the view can say it's already in the sum. */
+  again?: number;
 }
 
 const ones = (bits: string) => [...bits].filter((c) => c === '1').length;
@@ -28,9 +30,9 @@ export const readWalkModel: DemoModel<ReadWalkSpec, ReadWalkState> = {
     if ('tap' in input) {
       const i = input.tap;
       if (i < 0 || i >= bits.length || readDone(spec, s)) return s;
-      if (bits[i] === '0') return s.zero === i ? s : { ...s, zero: i };
-      if (s.added.includes(i)) return s;
-      return { ...s, added: [...s.added, i], zero: undefined };
+      if (bits[i] === '0') return s.zero === i ? s : { ...s, zero: i, again: undefined };
+      if (s.added.includes(i)) return s.again === i ? s : { ...s, zero: undefined, again: i };
+      return { ...s, added: [...s.added, i], zero: undefined, again: undefined };
     }
     if ('next' in input) {
       if (!readDone(spec, s) || s.ex >= spec.examples.length - 1) return s;
