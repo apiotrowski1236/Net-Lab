@@ -180,7 +180,7 @@ export const netToolsLab: LabDef = {
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves'],
   ced: ['3.1.B', '3.1.C', '3.5.E'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
     'Use ping and traceroute to test whether a computer can be reached, and to find where on the path a connection breaks.',
     'Use nslookup to check which address a name points to, and spot a wrong DNS record.',
