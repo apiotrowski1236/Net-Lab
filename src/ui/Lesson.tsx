@@ -9,7 +9,7 @@ import { connOutcomeLines, fwDenyText } from './firewallText';
 import { idsOutcomeLines } from './idsText';
 import { ExtraCreditBanner, ExtraCreditDone } from './ExtraCredit';
 import { Icon } from './icons';
-import { renderMarkdown } from './markdown';
+import { renderMarkdown, type MdActions } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
 import { hoverDevice } from './NetworkCanvas';
 import { overrideEnabled } from '../store/override';
@@ -21,8 +21,21 @@ import { guideHref } from '../routes';
 // Markdown body with device chips
 // ---------------------------------------------------------------------------
 
-function Prose({ src, labels, onDevice }: { src: string; labels: Record<string, string>; onDevice: (id: string) => void }) {
-  const html = useMemo(() => renderMarkdown(src, labels), [src, labels]);
+function Prose({
+  src,
+  labels,
+  onDevice,
+  actions,
+  onAction,
+}: {
+  src: string;
+  labels: Record<string, string>;
+  onDevice: (id: string) => void;
+  /** The step's lesson buttons, for [[button:id]] in the body. */
+  actions?: MdActions;
+  onAction?: (id: string) => void;
+}) {
+  const html = useMemo(() => renderMarkdown(src, labels, actions), [src, labels, actions]);
   return (
     <div
       class="prose"
@@ -33,6 +46,8 @@ function Prose({ src, labels, onDevice }: { src: string; labels: Record<string, 
       }}
       onMouseLeave={() => (hoverDevice.value = null)}
       onClick={(e) => {
+        const button = (e.target as HTMLElement).closest?.('[data-action]') as HTMLElement | null;
+        if (button?.dataset.action) return onAction?.(button.dataset.action);
         const chip = (e.target as HTMLElement).closest?.('.chip') as HTMLElement | null;
         if (chip?.dataset.device) onDevice(chip.dataset.device);
       }}
@@ -388,6 +403,7 @@ export function LessonPanel({
     for (const d of Object.values(session.sim.devices)) out[d.id] = d.label;
     return out;
   }, [session.sim]);
+  const actionLabels = useMemo<MdActions>(() => ({ labels: Object.fromEntries((step.actions ?? []).map((a) => [a.id, a.label])), live: true }), [step]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
@@ -498,7 +514,7 @@ export function LessonPanel({
           {step.title}
         </h2>
         {step.extra && <ExtraCreditBanner session={session} />}
-        <Prose src={step.body} labels={labels} onDevice={onDevice} />
+        <Prose src={step.body} labels={labels} onDevice={onDevice} actions={actionLabels} onAction={(id) => session.runStepAction(id)} />
 
         {captureTool && (
           // Keyboard users: the capture controls are many Tab presses away, past the map.

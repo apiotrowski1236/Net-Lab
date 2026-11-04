@@ -71,7 +71,7 @@ export function Summary({ session }: { session: LabSession }) {
   const pct = totalItems ? Math.round((doneItems / totalItems) * 100) : 100;
 
   const endpoint = hasEndpoint();
-  const title = p.submittedAt ? (endpoint ? 'Submitted. Nice work!' : 'Nice work! Now hand in your report.') : allDone ? 'Lab complete!' : 'Almost there';
+  const title = p.submittedAt ? (endpoint ? 'Submitted. Nice work!' : "Nice work! Don't forget to hand in your report.") : allDone ? 'Lab complete!' : 'Almost there';
   const message = allDone
     ? `You finished every step of ${lab.title}${/[.?!]$/.test(lab.title) ? '' : '.'} ${p.submittedAt && !endpoint ? `Take the report file you downloaded and ${handInWhere()}.` : endpoint ? 'Submit it to your teacher below.' : `Download your report below, then ${handInWhere()}.`}`
     : `${unfinished.length} step${unfinished.length > 1 ? 's' : ''} still ${unfinished.length > 1 ? 'have' : 'has'} unfinished work. Go back and finish, or ${endpoint ? 'submit' : 'download'} what you have.`;

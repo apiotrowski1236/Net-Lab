@@ -280,11 +280,11 @@ export const packetCaptureLab: LabDef = {
 
         The family laptop's Wi-Fi light blinks all day, even when nobody is using it. What is it sending? To find out, you'll run a **packet capture** on [[laptop]]: a recording of every packet its network card sends or receives. Each line of a capture is one packet: when it went, where it came from, where it went, and what it carries.
 
-        Network technicians use captures to find problems, and security analysts use them to spot attacks. The most common tool is **Wireshark**, a free program. In Part 2 of this lab you'll install it. Here, on a small, slow network, you'll learn to read a capture first, so Wireshark's busy window won't surprise you.
+        Network technicians use captures to find problems, and security analysts use them to spot attacks. The most common tool is **Wireshark**, a free program. In our next class, we'll install it together. Here, on a small, slow network, you'll learn to read a capture first, so Wireshark's busy window won't surprise you.
 
         A capture can show private things: the sites someone visits, and anything sent without encryption. Capture only on your own device, or with permission from the network's owner. Capturing other people's traffic without permission is illegal.
 
-        On the map, the home is on the left and the internet is on the right. Out on the internet are five servers. One of them, [[dns]], turns names like school.example into addresses. You'll see why that matters in step 4. (The number after the slash in an address, like /24, says which addresses share its network. You won't need it in this lab.)
+        On the map, the home is on the left and the internet is on the right. Out on the internet are five servers. One of them, [[dns]], turns names like school.example into addresses. Later you'll see why that matters. (The number after the slash in an address, like /24, says which addresses share its network. You won't need it in this lab.)
       `,
       focus: ['laptop', 'dns'],
       goals: [
@@ -302,7 +302,7 @@ export const packetCaptureLab: LabDef = {
             { id: 'pages', text: 'Only the web pages the laptop opens', feedback: "It records every kind of packet, not only web pages. You'll see six kinds in this lab." },
             { id: 'files', text: 'The passwords saved on the laptop', feedback: "A capture records packets on the network, not files on the computer. A password shows up only if it's sent without encryption." },
           ],
-          explain: "Wireshark on your own computer records what your network card sends and receives. Step 10 shows what that leaves out.",
+          explain: "Wireshark on your own computer records only what your network card sends and receives. Later you'll see that it misses packets between other devices, like the family TV and a video site.",
         },
       ],
     },
@@ -311,17 +311,17 @@ export const packetCaptureLab: LabDef = {
       id: 'first-capture',
       title: 'Your first capture',
       body: md`
-        A capture takes three moves: **Start**, do something on the network, **Stop**. Wireshark works the same way. To make the lesson's network go faster, press **4×** above the map.
+        To capture traffic, first **Start** the capture. Then wait for traffic on the network to go by, then **Stop** the capture. You can change the speed of the packets or replay the animation using the controls at the top of the network view.
 
         1. In the **Capture** tab under the map, press **Start**.
-        2. Press **Open the school website**. The laptop loads the homework page. Watch the list fill up.
+        2. Press [[button:open-school]]. The laptop loads the homework page. Watch the list fill up.
         3. When the line under the button says the page loaded, press **Stop**.
 
         Each row in the list is one packet. The columns match Wireshark's:
 
         - **No.**: the packet's number, counting from 1.
         - **Time**: seconds since you pressed Start. The lesson's network keeps its own time, so these seconds won't match a real clock.
-        - **Source** and **Destination**: where the packet came from and where it was going. Some rows show MAC addresses instead of IP addresses. Step 4 explains why.
+        - **Source** and **Destination**: where the packet came from and where it was going. Some rows show MAC addresses instead of IP addresses. Later you'll see why.
         - **Protocol**: the kind of packet. A **protocol** is a set of rules for one job, like getting a web page.
         - **Info**: a short summary of what's inside.
 
@@ -355,10 +355,10 @@ export const packetCaptureLab: LabDef = {
           options: [
             { id: 'one', text: 'One: the page itself', feedback: 'Count the rows in your capture. The page is only the last one.' },
             { id: 'two', text: 'Two: a request and the page', feedback: 'Look above the GET request. The laptop sent and received other packets first.' },
-            { id: 'six', text: 'Six, of three kinds', correct: true },
+            { id: 'six', text: 'Six, of three different kinds', correct: true },
             { id: 'hundreds', text: 'More than a hundred', feedback: 'Your list is short. A real browser sends more than this, but not that many for one small page.' },
           ],
-          explain: 'Six packets: two ARP, two DNS, and two HTTP. Step 4 explains why one page needs all three. (A real browser sends a few more, to open and close the connection. Wireshark shows those too.)',
+          explain: "Six packets: two ARP, two DNS, and two HTTP. Soon you'll see why one page needs all three. (A real browser sends a few more, to open and close the connection. Wireshark shows those too.)",
         },
       ],
     },
@@ -367,16 +367,16 @@ export const packetCaptureLab: LabDef = {
       id: 'layers',
       title: 'Open a packet',
       body: md`
-        Click a packet in the list to open its **layers**. They show beside the list, or under it on a narrow screen. A packet is one message wrapped inside another, like a letter in an envelope in a mailing box. Each layer does one part of the delivery.
+        Click a packet in the list to open its **layers**. They show beside the list. A packet is one message wrapped inside another, like a letter in an envelope in a mailing box. Each layer does one part of the delivery.
 
         - **Ethernet**: the **MAC addresses** for this **hop**. A hop is one trip from a device to the next one, like the laptop to the router.
-        - **IP**: the **IP addresses** of the two ends. It gets the packet across networks, all the way there.
+        - **IP**: the **IP addresses** of the packet's source and destination: the sender and the receiver.
         - **TCP** or **UDP**: the **port numbers**. A port says which program should get the packet. Plain web (HTTP) servers listen on port 80.
-        - The message itself: here, an **HTTP** request for a web page, or the page.
+        - The message itself: here, an **HTTP** request for a web page, or the page contents.
 
         Under each layer's title is Wireshark's name for it. Wireshark shows the same layers, top to bottom, under its packet list.
 
-        Some packets also have a note that the router changed an address. That's address sharing (NAT) from lab 1: the family's devices share one public address on the internet. You can skip the note's numbers, and rows like TTL. Wireshark on the laptop doesn't show this note.
+        Some packets also have a note that the router changed an address. That's address sharing (NAT) from lab 1: the family's devices share one public address on the internet. You can skip the note's numbers, and rows like TTL.
 
         Open the **GET /homework** packet (the request), then the **200 OK** packet (the page).
       `,
@@ -439,7 +439,7 @@ export const packetCaptureLab: LabDef = {
 
         Open the ARP reply and the DNS answer.
 
-        (To keep the lesson clear, this laptop forgets the router's MAC address each time it opens a page, so every page starts with ARP. Other packets, like the pings in the next step, use the MAC address it already knows. A real computer remembers the MAC address and its DNS answers for a while, so Wireshark won't show ARP and DNS before every page.)
+        *(To keep the lesson clear, this laptop forgets the router's MAC address each time it opens a page, so every page starts with ARP. Other packets, like the pings in the next step, use the MAC address it already knows. A real computer remembers the MAC address and its DNS answers for a while, so Wireshark won't show ARP and DNS before every page.)*
       `,
       setup: ensurePageCapture,
       focus: ['laptop', 'router', 'dns', 'school'],
@@ -494,8 +494,8 @@ export const packetCaptureLab: LabDef = {
       body: md`
         Not every packet is about web pages. Two more kinds you'll see in Wireshark:
 
-        - **DHCP** (Dynamic Host Configuration Protocol): a device that has joined a network asks for an IP address. Lab 1 showed the four messages. The device has no address yet, so it sends from 0.0.0.0 to 255.255.255.255, which means everyone on the network.
-        - **Ping**: a test message. One device asks "Are you there?" and the other answers. Wireshark calls ping packets **ICMP** (Internet Control Message Protocol), and so does the Protocol column here. Their Info says Echo (ping) request or reply, because the reply repeats the request back. The map still labels them PING.
+        - **DHCP** (Dynamic Host Configuration Protocol): a device that has joined a network asks for an IP address.
+        - **Ping**: a test message. One device asks "Are you there?" and the other answers. Wireshark calls ping packets **ICMP** (Internet Control Message Protocol).
 
         1. Press **Start** for a new capture.
         2. Press **The phone rejoins the Wi-Fi**.
@@ -656,7 +656,7 @@ export const packetCaptureLab: LabDef = {
       id: 'filter',
       title: 'Filters',
       body: md`
-        Scrolling through a busy capture is slow. In Wireshark, stop the capture first so the list holds still. Then a **display filter** hides every packet except the ones you ask for. Wireshark's filter bar sits right above its packet list, and so does this one now.
+        Packet captures can have hundreds or even thousands of packets. In order to find the ones we're looking for, we can filter by IP address, protocol, and more. Wireshark requires filters in a specific syntax, so we'll practice some of them now.
 
         Type a filter in the Capture tab's filter bar and press Enter:
 
@@ -667,7 +667,7 @@ export const packetCaptureLab: LabDef = {
 
         Filter \`dns\`, then \`http\`. Then open the weather service's answer and read it.
 
-        A filter only hides packets. The capture still holds every one: clear the filter to see them all again. (If your list is empty, press **Start**, then **Leave the laptop alone for a minute**.)
+        A filter only hides packets. The capture still remembers the entire list. Clear the filter to see them all again. (If your list is empty, press **Start**, then **Leave the laptop alone for a minute**.)
       `,
       setup: ensureBusyCapture,
       focus: ['laptop', 'weather'],
@@ -751,9 +751,9 @@ export const packetCaptureLab: LabDef = {
         3. When the TV is playing, press **Stop**. Then filter for the TV's address: \`ip.addr == 192.168.1.12\`. The list comes up empty, and that's the point: none of the TV's video reached the laptop.
         4. Then filter \`arp\`. ARP packets have no IP layer, so \`ip.addr\` filters never show them.
 
-        The capture misses almost everything the TV did. [[wifi]] is a **switch**: it sends each packet only to the device it's for. The laptop gets its own packets, plus the few sent to everyone, like ARP requests. (The Wi-Fi signal does reach the laptop. But its card skips packets meant for other devices.)
+        The capture misses almost everything the TV did. [[wifi]] is a **switch**: it sends each packet only to the device it's for. The laptop gets its own packets, plus the few sent to everyone, like ARP requests.
 
-        So Wireshark on your computer shows your own traffic, not your family's or your classmates'. To see other devices' traffic, an attacker has to trick the switch. A later lab shows how, and how to stop it.
+        So Wireshark on your computer shows your own traffic, not your family's or your classmates'. To see other devices' traffic, an attacker has to trick the switch. This is one example of a cyber attack, and we'll learn more about how to perform and defend against these attacks in a future lab.
       `,
       setup: readyToStart,
       focus: ['laptop', 'tv', 'wifi'],
@@ -843,7 +843,7 @@ export const packetCaptureLab: LabDef = {
       id: 'reflect',
       title: 'Reflect',
       body: md`
-        You've captured packets, opened their layers, and filtered a busy list down to the packets you wanted. Next is Part 2: Wireshark on a real computer.
+        You've captured packets, opened their layers, and filtered a busy list down to the packets you wanted. In our next class, we'll download Wireshark and observe some real-world network traffic together! Until then, please do not install or attempt to use Wireshark on your own. Capturing and tampering with network traffic without permission is spying, and can get you in trouble with the school or even the government.
       `,
       questions: [
         {

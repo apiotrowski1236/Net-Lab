@@ -3,7 +3,7 @@ import { useMemo } from 'preact/hooks';
 import { shuffledOptions } from '../labs/shuffle';
 import { isLesson, type LabDef, type StepDef, type ToolSpec } from '../labs/types';
 import { Icon } from './icons';
-import { renderMarkdown } from './markdown';
+import { renderMarkdown, type MdActions } from './markdown';
 import { DEMO_NAME } from './demos/registry';
 
 const TOOL_NAME: Record<ToolSpec['kind'], string> = {
@@ -49,8 +49,8 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'directed-broadcast': 'Directed-broadcast setting (in the inspector)',
 };
 
-function Md({ src, labels }: { src: string; labels: Record<string, string> }) {
-  const html = useMemo(() => renderMarkdown(src, labels), [src, labels]);
+function Md({ src, labels, actions }: { src: string; labels: Record<string, string>; actions?: MdActions }) {
+  const html = useMemo(() => renderMarkdown(src, labels, actions), [src, labels, actions]);
   return <div class="prose" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
@@ -115,7 +115,7 @@ export function Guide({ lab }: { lab: LabDef }) {
           <h2>
             <span class="guide-num">{i + 1}</span> {s.title}
           </h2>
-          <Md src={s.body} labels={labels} />
+          <Md src={s.body} labels={labels} actions={{ labels: Object.fromEntries((s.actions ?? []).map((a) => [a.id, a.label])), live: false }} />
 
           {!!(s.actions?.length || stepTools(s).length || s.demos?.length) && (
             <div class="guide-extras">
