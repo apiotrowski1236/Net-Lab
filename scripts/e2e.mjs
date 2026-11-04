@@ -323,7 +323,7 @@ try {
     // Playwright's WebKit on Linux turns spaces into underscores; browsers on Macs and PCs keep them.
     if (!/^Riley[ _]Seeded[ _]-[ _].+\.html$/.test(name)) throw new Error(`Unexpected download name "${name}"`);
     const html = readFileSync(await dl.path(), 'utf8');
-    for (const must of ['Teacher override', 'Packets never arrived', 'Wrong teacher override passwords typed', 'Riley Seeded &middot; Period 2 &middot; AP Cybersecurity']) {
+    for (const must of ['Teacher override', 'Packets never arrived', 'Wrong teacher override passwords typed', 'Riley Seeded</span> &middot; Period 2 &middot; AP Cybersecurity', 'Check code <b id="netlab-check">']) {
       if (!html.includes(must)) throw new Error(`Downloaded report is missing "${must}"`);
     }
     await page.setContent(html);
@@ -368,6 +368,35 @@ try {
       await ctx.close();
     }
     page = p;
+
+    step('teacher page: check report files for edits');
+    {
+      await page.goto(`${url}#/teacher`);
+      await page.waitForSelector('.check-drop');
+      const score = /<div class="stat score"><b>(\d+) \/ (\d+)<\/b>/.exec(html);
+      if (!score) throw new Error('Report has no auto-checked score');
+      const perfect = html.replace(score[0], `<div class="stat score"><b>${score[2]} / ${score[2]}</b>`);
+      const files = [
+        { ...file(html), name: 'honest.html' },
+        { ...file(perfect), name: 'perfect.html' },
+        { name: 'notes.html', mimeType: 'text/html', buffer: Buffer.from('<p>hello</p>') },
+      ];
+      await page.setInputFiles('.check-drop input[type=file]', files);
+      await page.waitForSelector('.check-table tbody tr >> nth=2');
+      const rows = await page.$$eval('.check-table tbody tr', (trs) => trs.map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent.trim())));
+      const byFile = Object.fromEntries(rows.map((r) => [r[1], r]));
+      const want = {
+        'honest.html': ['Not edited', 'Riley Seeded', `${score[1]} / ${score[2]}`],
+        'perfect.html': ['Edited after download', 'Riley Seeded', `${score[2]} / ${score[2]}`],
+        'notes.html': ['Not a NetLab report', '', ''],
+      };
+      for (const [name, [verdict, who, pts]] of Object.entries(want)) {
+        const r = byFile[name];
+        if (!r || r[0] !== verdict || r[2] !== who || r[4] !== pts) throw new Error(`Checker row for ${name}: expected ${verdict}, ${who}, ${pts}; got ${JSON.stringify(r)}`);
+      }
+      await page.waitForSelector('text=1 of 3 files were edited after download.');
+      await shot('report-check');
+    }
   }
 
   step('build-network lab: drag cables on the map, unplug one, see the ping result under the button');

@@ -127,6 +127,12 @@ If you set up the sheet before these columns existed, paste the new `Code.gs` ov
 
 With no `submitEndpoint` set, one button, **Download my report**, marks the lab finished and downloads the report. Students hand in that file themselves, where `handInTo` says (PowerSchool). The summary names the file and reminds them that their teacher doesn't have it until they do. The report is one HTML file. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, the Work ID, any teacher overrides, and any restores. The same file restores the student's work if their browser loses it.
 
+#### Checking a report for edits
+
+Each report ends with a **check code**, a salted SHA-256 hash of the report's results: the name, period, lab, dates, Work ID, scores, every goal, and every answer with its grade line. To check files, open the site's `#/teacher` page and choose them (or drop them on the page). You can check a whole class at once, and the files never leave the browser. Each file shows as **Not edited**, **Edited after download** (something a grade rests on was changed), **No check code** (downloaded before check codes existed, or the code was deleted), or **Not a NetLab report**. Grade from the score in the checker's table, not the page: it is read from the text the code covers, so styles or scripts added to change how the page looks don't change it.
+
+With no server there is no secret, so this catches hand edits only. A student who reads NetLab's source can make a code that matches. Spacing doesn't count toward the code, so a report re-saved by a browser still checks.
+
 ## Settings
 
 `public/config.json` (in the built site, `config.json` next to `index.html`):
@@ -235,8 +241,8 @@ src/
     route-hijack/            Advertise a Bad Route (scenario, lesson, solution)
     walkthrough.test.ts      plays every lab start to finish
   runtime/                   one student's session: goals, answers, step replay, tool input checks
-  store/                     local saving, profile, reports, submission outbox, teacher override, restore from a report file
-  ui/                        Preact components (lab player, summary, guide, teacher page)
+  store/                     local saving, profile, reports, report check codes, submission outbox, teacher override, restore from a report file
+  ui/                        Preact components (lab player, summary, guide, teacher page with the report checker)
   styles.css                 themes and core layout
   features.css               replay, summary, guide, override, and tool-input styles
 ```

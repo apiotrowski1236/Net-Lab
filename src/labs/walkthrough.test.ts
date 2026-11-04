@@ -7,6 +7,7 @@ import { hashOverridePassword, OVERRIDE_SALT, sha256Hex } from '../store/overrid
 import type { Profile } from '../store/profile';
 import { peekProgress, type LabProgress } from '../store/progress';
 import { buildReport } from '../store/report';
+import { checkReport } from '../store/reportCheck';
 import { pingFailText } from '../ui/describe';
 import { reportHtml } from '../ui/Submit';
 import { LABS } from '.';
@@ -629,5 +630,74 @@ describe('restore from a report file', () => {
     expect(readBackup('<html><body>hello</body></html>', riley, ids)).toMatchObject({ ok: false, reason: 'none' });
     const { html } = rileysReport();
     expect(readBackup(html, riley, ['route-hijack'])).toMatchObject({ ok: false, reason: 'unknown-lab' });
+  });
+});
+
+describe('report check code', () => {
+  const lab = LABS.find((l) => l.id === 'on-path')!;
+  const riley: Profile = { id: 'riley-laptop', name: 'Riley Seeded', period: 'Period 2', createdAt: 0 };
+  /** Riley's report partway through: some goals done, some questions not answered. */
+  function partway() {
+    const s = playThrough(lab, 3);
+    const report = buildReport(lab, s.progress, riley, 'in-progress');
+    return { report, html: reportHtml(lab, report, makeBackup(s.progress, riley)) };
+  }
+
+  it('matches on a report straight from NetLab', () => {
+    const { report, html } = partway();
+    const r = checkReport(html);
+    expect(r).toMatchObject({ status: 'ok', student: 'Riley Seeded', lab: lab.title, score: `${report.score.auto} / ${report.score.autoMax}` });
+    expect(r.code).toMatch(/^[0-9a-f]{4}(-[0-9a-f]{4}){3}$/);
+    expect(html).toContain(`Check code <b id="netlab-check">${r.code}</b>`);
+  });
+
+  it('catches a changed score, goal, grade, answer, or name', () => {
+    const { report, html } = partway();
+    expect(html).toContain('Not answered');
+    expect(html).toContain('class="todo">&#9744;');
+    const max = report.score.autoMax;
+    const edits = [
+      html.replace(/<div class="stat score"><b>\d+ \/ \d+<\/b>/, `<div class="stat score"><b>${max} / ${max}</b>`),
+      html.replace('class="todo">&#9744;', 'class="done">&#10003;'),
+      html.replace('Not answered', 'Correct on the first try'),
+      html.replace('<i>(no answer)</i>', 'Each port connects to a different network'),
+      html.replace('<span class="who">Riley Seeded</span>', '<span class="who">Sam Copier</span>'),
+    ];
+    for (const edited of edits) {
+      expect(edited).not.toBe(html);
+      expect(checkReport(edited).status).toBe('changed');
+    }
+  });
+
+  it('still matches after a browser re-saves the file with different spacing and characters', () => {
+    const { html } = partway();
+    const resaved = html.replace(/\n/g, '\r\n  ').replace(/&middot;/g, '\u00b7').replace(/&#10003;/g, '\u2713').replace(/&#9744;/g, '&#x2610;');
+    expect(checkReport(resaved).status).toBe('ok');
+  });
+
+  it('reads the real score when text outside the results is added to cover it', () => {
+    const { report, html } = partway();
+    const max = report.score.autoMax;
+    const faked = html.replace('<main id="netlab-results">', `<div class="stat score"><b>${max} / ${max}</b></div><main id="netlab-results" style="display:none">`);
+    // The <main> tag changed, so the results can't be found as NetLab wrote them.
+    expect(checkReport(faked).status).toBe('no-code');
+    const covered = html.replace('<main id="netlab-results">', `<div class="stat score"><b>${max} / ${max}</b></div><main id="netlab-results">`);
+    expect(checkReport(covered)).toMatchObject({ status: 'ok', score: `${report.score.auto} / ${max}` });
+  });
+
+  it('covers student text that looks like HTML', () => {
+    const s = playThrough(lab, 0);
+    const odd = { ...riley, name: 'Riley </main><b>hi</b> & &amp; "quotes"' };
+    const html = reportHtml(lab, buildReport(lab, s.progress, odd, 'in-progress'));
+    expect(checkReport(html)).toMatchObject({ status: 'ok', student: odd.name });
+    expect(checkReport(html.split('&lt;b&gt;hi').join('&lt;b&gt;bye')).status).toBe('changed');
+  });
+
+  it('tells apart old reports with no code and files that are not reports', () => {
+    const { html } = partway();
+    const old = html.replace(/<main id="netlab-results">|<\/main>/g, '').replace(/ &middot; Check code <b id="netlab-check">[^<]*<\/b>/, '');
+    expect(checkReport(old).status).toBe('no-code');
+    expect(checkReport(html.replace(/<b id="netlab-check">[^<]*<\/b>/, '')).status).toBe('no-code');
+    expect(checkReport('<html><body>hello</body></html>').status).toBe('not-report');
   });
 });

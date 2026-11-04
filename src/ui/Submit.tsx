@@ -4,6 +4,7 @@ import { backupScript, makeBackup, type BackupBlock } from '../store/backup';
 import { enqueue, hasEndpoint, outbox, synced } from '../store/outbox';
 import { config, online, profile } from '../store/profile';
 import { buildReport, type Report } from '../store/report';
+import { checkCode, checkCodeHtml, htmlText, RESULTS_ID } from '../store/reportCheck';
 import { flushSaves } from '../store/storage';
 import { Icon } from './icons';
 
@@ -68,6 +69,20 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
   const core = r.goals.filter((g) => !g.extra);
   const goalsDone = core.filter((g) => g.done).length;
   const written = r.questions.filter((q) => !q.autoGraded && !q.extra);
+  // Everything a grade rests on goes in <main>; its text makes the check code (store/reportCheck.ts).
+  const results = `<h1>${esc(r.lab.title)}</h1>
+<div class="meta"><span class="who">${esc(r.student.name || '(no name)')}</span>${r.student.period ? ` &middot; ${esc(r.student.period)}` : ''}${r.course ? ` &middot; ${esc(r.course.title)}` : ''}<br>
+Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(when(r.submittedAt))}` : `Last saved ${esc(when(r.updatedAt))} (not submitted)`} &middot; Work ID ${esc(r.workId)}</div>
+<div class="stats">
+<div class="stat score"><b>${r.score.auto} / ${r.score.autoMax}</b>auto-checked points</div>
+<div class="stat"><b>${goalsDone} / ${core.length}</b>goals</div>
+<div class="stat"><b>${r.stepReached} / ${r.lab.steps}</b>steps reached</div>
+<div class="stat"><b>${r.activeMinutes}</b>active minutes</div>
+<div class="stat"><b>${written.filter((q) => q.answer.trim()).length} / ${written.length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>
+${r.score.extraMax ? `<div class="stat"><b>${r.score.extra} / ${r.score.extraMax}</b>extra credit points</div>` : ''}
+</div>
+${overrideSummary}${failures}${restores}
+${steps}`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(r.student.name)} - ${esc(r.lab.title)}</title>
 <style>
@@ -88,20 +103,10 @@ ul{padding-left:0;list-style:none;margin:6px 0}li{margin:3px 0}li.todo{color:#b9
 .tag.extra{background:#dbeafe;color:#1e3a8a}
 .foot{font-size:12px;color:#64748b;margin-top:24px}
 </style></head><body>
-<h1>${esc(r.lab.title)}</h1>
-<div class="meta">${esc(r.student.name || '(no name)')}${r.student.period ? ` &middot; ${esc(r.student.period)}` : ''}${r.course ? ` &middot; ${esc(r.course.title)}` : ''}<br>
-Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(when(r.submittedAt))}` : `Last saved ${esc(when(r.updatedAt))} (not submitted)`} &middot; Work ID ${esc(r.workId)}</div>
-<div class="stats">
-<div class="stat"><b>${r.score.auto} / ${r.score.autoMax}</b>auto-checked points</div>
-<div class="stat"><b>${goalsDone} / ${core.length}</b>goals</div>
-<div class="stat"><b>${r.stepReached} / ${r.lab.steps}</b>steps reached</div>
-<div class="stat"><b>${r.activeMinutes}</b>active minutes</div>
-<div class="stat"><b>${written.filter((q) => q.answer.trim()).length} / ${written.length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>
-${r.score.extraMax ? `<div class="stat"><b>${r.score.extra} / ${r.score.extraMax}</b>extra credit points</div>` : ''}
-</div>
-${overrideSummary}${failures}${restores}
-${steps}
-<p class="foot">NetLab report &middot; ${esc(r.key)} &middot; made ${esc(new Date().toLocaleString())}${
+<main id="${RESULTS_ID}">
+${results}
+</main>
+<p class="foot">NetLab report &middot; ${esc(r.key)} &middot; made ${esc(new Date().toLocaleString())} &middot; Check code ${checkCodeHtml(checkCode(htmlText(results)))}${
     backup ? '<br>Lost your work? Open this file on the NetLab home page with <b>Open saved work</b>.' : ''
   }</p>
 ${backup ? backupScript(backup) : ''}

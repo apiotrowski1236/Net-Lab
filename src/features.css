@@ -696,9 +696,63 @@
   color: var(--ink);
 }
 .teacher-page h2 {
-  margin-top: 28px;
-  font-size: 17px;
+  margin-top: 32px;
+  font-size: 19px;
   color: var(--ink);
+}
+.teacher-page h3 {
+  margin: 22px 0 6px;
+  font-size: 16px;
+  color: var(--ink);
+}
+.check-drop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 14px;
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+}
+.check-drop.over {
+  border-color: var(--info-line);
+  background: var(--info-soft);
+}
+.check-table-wrap {
+  overflow-x: auto;
+  margin: 4px 0 8px;
+}
+.check-table th {
+  position: static;
+}
+.check-verdict {
+  white-space: nowrap;
+  font-weight: 600;
+}
+.check-verdict svg {
+  vertical-align: -2px;
+}
+.check-good .check-verdict {
+  color: var(--good-ink);
+}
+.check-warn .check-verdict {
+  color: var(--warn-ink);
+}
+.check-bad td {
+  background: var(--bad-soft);
+}
+.check-bad .check-verdict {
+  color: var(--bad);
+}
+.check-file {
+  overflow-wrap: anywhere;
+}
+.check-notes {
+  margin: 14px 0 0;
+  padding-left: 18px;
+}
+.check-notes li {
+  margin: 4px 0;
 }
 .teacher-line {
   display: flex;

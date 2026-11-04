@@ -1,10 +1,12 @@
 import { useState } from 'preact/hooks';
 import { hashOverridePassword, overrideEnabled, overridePasswordMatches } from '../store/override';
 import { Icon } from './icons';
+import { ReportChecker } from './ReportCheck';
 
 /**
- * #/teacher: make the line for config.json that turns on the teacher override,
- * and check that the live site has the right password. Nothing here is saved.
+ * #/teacher: check downloaded report files for edits, make the line for
+ * config.json that turns on the teacher override, and check that the live
+ * site has the right password. Nothing here is saved.
  */
 export function TeacherPage() {
   const [pw, setPw] = useState('');
@@ -19,7 +21,12 @@ export function TeacherPage() {
       <a class="btn ghost small" href="#/">
         <Icon name="home" size={14} /> Home
       </a>
-      <h1>Teacher override password</h1>
+      <h1>Teacher tools</h1>
+
+      <h2>Check report files</h2>
+      <ReportChecker />
+
+      <h2>Teacher override password</h2>
       <p>
         The override lets you unlock <strong>Continue</strong> on a step that is broken for a student. The step is flagged on the student's report and in the
         Google Sheet. Wrong passwords are counted there too.
@@ -28,7 +35,7 @@ export function TeacherPage() {
         {enabled ? 'An override password is set on this site.' : 'No override password is set on this site yet, so students do not see the override link.'}
       </div>
 
-      <h2>1. Make the config line</h2>
+      <h3>1. Make the config line</h3>
       <p class="muted small">Typed here, the password never leaves this page. Only a scrambled version (a hash) goes in config.json.</p>
       <label class="field">
         <span>New password (at least 8 characters)</span>
@@ -56,7 +63,7 @@ export function TeacherPage() {
         Students can read config.json, so pick a password that is long and not used anywhere else. To turn the override off, set the value back to "".
       </p>
 
-      <h2>2. Test the password on this site</h2>
+      <h3>2. Test the password on this site</h3>
       <label class="field">
         <span>Password</span>
         <input type="password" autoComplete="off" value={test} onInput={(e) => setTest((e.target as HTMLInputElement).value)} />
