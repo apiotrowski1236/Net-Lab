@@ -12,6 +12,16 @@ const PLAY = '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"
 export type MdActions = { labels: Record<string, string>; live: boolean };
 
 /**
+ * One line of feedback to HTML: **bold** and `code` only, everything else escaped,
+ * so a message can name a button or a filter the way the step body does.
+ */
+export function inlineMarkdown(src: string): string {
+  return esc(src)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
+
+/**
  * Markdown to HTML. [[deviceId]] becomes a device chip that highlights the device on the map.
  * [[button:actionId]] becomes a copy of that lesson button, so the step can put it in its instructions.
  */

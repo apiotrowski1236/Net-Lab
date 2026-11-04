@@ -14,7 +14,7 @@ Every auto-checked answer has to come out of the student's own capture:
 
 Pasting is the expected way in. **Copy > Summary as Text** gives one tab-separated row (No., Time, Source, Destination, Protocol, Length, Info), and the checks read Source and Destination out of it. An Info line on its own also passes, minus the address cross-check.
 
-## Steps (50 minutes)
+## Steps (55 minutes)
 
 Students install Wireshark before class (the teacher sends the link), so class time goes to capturing. Step 1 has a short "Not installed yet?" note for anyone who didn't.
 
@@ -24,8 +24,8 @@ Students install Wireshark before class (the teacher sends the link), so class t
 4. **dns**: `nslookup wikipedia.org`, filter `dns`, paste the response, its address (the DNS server's own address is turned away with its own message). Choice: what the Transaction ID is for.
 5. **http**: http://neverssl.com, filter `http`, paste a GET, its Host. Choice: who could read plain HTTP.
 6. **handshake**: filter `tcp.port == 80`, paste the [SYN] and its [SYN, ACK]. The explains cover the temporary port.
-7. **tls**: https://www.wikipedia.org, filter `tls.handshake.type == 1`, paste the Client Hello (SNI). Choice: what a network watcher still learns.
-8. **not-mine**: Packets, `ip.addr ==` me, `!(ip.addr == me)`; the two add up. Choice: why classmates' pages aren't there.
+7. **tls**: https://www.wikipedia.org, filter `tls.handshake.type == 1`, paste the Client Hello (SNI); a QUIC row gets its own message, and only-QUIC students open a private window. A drawing shows Encrypted Application Data. Choice: what a network watcher still learns.
+8. **not-mine**: Packets, `ip.addr ==` me, `!(ip.addr == me)`; the two add up. The body says why classmates' pages never reach the capture (the card keeps only packets for you, for everyone, or for a group; per-device Wi-Fi keys). Choice: would a classmate's plain-HTTP GET show up.
 9. **reflect**: advice for a friend who thinks HTTPS makes them invisible (40+ words). Quit without saving after any extra credit.
 10. **submit**
 11. **ping** (extra credit): the gateway, `ping` it, filter `icmp`, paste a reply (or a lost request when pings are blocked). Choice: why ICMP has no ports.
@@ -36,7 +36,9 @@ Students install Wireshark before class (the teacher sends the link), so class t
 - `TextQuestion.verify(value, answer)` in `src/labs/types.ts`: runs after `expect` passes and returns a message when the answer disagrees with another answer. `answer(stepId, questionId)` reads the student's trimmed answers. `textCorrect` and `wrongFeedback(q, value, answer?)` use it. `LabSession.answerText` is the lookup; `session.check` and `Lesson.tsx`'s feedback pass it.
 - CSS: "wireshark: drawings" in `src/features.css` (classes `ws-pic`, `ws-term`, `ws-settings`, `ws-shake`, `ws-split`, `ws-hi`/`ws-tag` rings, `ws-fog`, `ws-menu`, row colors for http, udp, arp, icmp).
 - `Answer.rightAfter` in `src/store/progress.ts`: the tries it took to be right the first time. `session.check` sets it once, and `buildReport` uses it, so checking another answer after a right one doesn't add tries.
-- `Summary.tsx` skips the goals stat when a lab has no goals, and `.summary-stats` drops to three columns then. `.prose code` turns off font ligatures, so `!=` and `->` show as typed.
+- `Summary.tsx` skips the goals stat when a lab has no goals, and `.summary-stats` drops to three columns then. Its time stat says "minutes on this page", since this lab's work happens in Wireshark. `.prose code` turns off font ligatures, so `!=` and `->` show as typed.
+- `inlineMarkdown` in `src/ui/markdown.ts`: question feedback and explains draw `**bold**` and `` `code` `` (everything else escaped). Before, they showed the stars and backticks.
+- `Lesson.tsx` `TextCard`: a text answer that failed only its `verify` drops the old verdict once the other answer it disagreed with changes, so its Check button works again.
 - `clickthrough.mjs` handles lessons (no `build`, no speed button), waits a moment as each step opens, and strips backticks when it finds a question card.
 
 ## For the teacher

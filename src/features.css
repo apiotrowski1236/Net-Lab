@@ -3831,7 +3831,7 @@ button.pl-tile:active {
    Wireshark. Long Info wraps inside that column instead of under Time. */
 @container (min-width: 600px) {
   .ws-pic .ws-row {
-    grid-template-columns: 3ch 8ch 14ch 14ch 7ch 5ch minmax(0, 1fr);
+    grid-template-columns: 3ch 9ch 15ch 15ch 8ch 6ch minmax(0, 1fr);
     font-size: 11px;
   }
   .ws-pic .ws-row > span:last-child {
@@ -3866,6 +3866,16 @@ button.pl-tile:active {
   overflow: visible;
   outline-offset: -2px;
 }
+/* A ringed row makes room for its label inside the ring, above the row's text,
+   so the label covers neither this row nor the one before it. */
+.ws-pic .ws-row.ws-hi {
+  padding-top: calc(1.5em + 4px);
+}
+.ws-pic .ws-row.ws-hi > .ws-tag {
+  left: 4px;
+  right: auto;
+  top: 3px;
+}
 .ws-fog {
   display: block;
   height: 0.9em;
@@ -3890,6 +3900,15 @@ button.pl-tile:active {
   position: relative;
   padding: 1px 3px;
   overflow-wrap: anywhere;
+}
+/* A ringed line's label sits at its right end, inside the ring. */
+.ws-line > .ws-tag {
+  position: static;
+  float: right;
+  margin-left: 8px;
+}
+.ws-line.ws-hi {
+  margin: 3px 0;
 }
 .ws-line > i {
   display: inline-block;
@@ -4038,10 +4057,12 @@ button.pl-tile:active {
 }
 .ws-term pre .ws-hi {
   display: inline-block;
+  margin: 2px 0;
+  padding: 0 4px;
   outline-color: #fb923c;
 }
 .ws-term pre .ws-tag {
-  top: -1.1em;
+  top: -1.45em;
 }
 .ws-settings {
   background: #f8fafc;
@@ -4058,9 +4079,16 @@ button.pl-tile:active {
   gap: 1ch;
   padding: 3px 4px;
 }
-.ws-kv > div > span {
+.ws-kv > div > span:not(.ws-tag) {
   min-width: 12ch;
   color: #475569;
+}
+/* A ringed setting's label sits at the end of its row, inside the ring. */
+.ws-kv .ws-tag {
+  position: static;
+  order: 1;
+  align-self: center;
+  margin-left: auto;
 }
 .ws-kv > div > span:empty {
   display: none;
@@ -4069,9 +4097,6 @@ button.pl-tile:active {
   font-family: var(--mono, ui-monospace, monospace);
   font-weight: 600;
   overflow-wrap: anywhere;
-}
-.ws-kv .ws-hi {
-  margin-top: 6px;
 }
 .ws-dialog {
   padding: 10px 14px 12px;
@@ -4091,6 +4116,11 @@ button.pl-tile:active {
   border: 1px solid #94a3b8;
   border-radius: 5px;
   background: #fff;
+}
+/* Above the button, not on its text. */
+.ws-dialog-btns .ws-tag {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 /* The TCP handshake: two computers, and arrows between them. */

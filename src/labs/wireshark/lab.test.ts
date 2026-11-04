@@ -228,6 +228,12 @@ describe('wireshark: steps 5 and 6, HTTP and the handshake', () => {
 });
 
 describe('wireshark: step 7 and the ping extra credit', () => {
+  it('names a QUIC row, and says what to do when every row is QUIC', () => {
+    expect(says('tls', 'hello', row(40, '0.512200', ME, '198.35.26.224', 'QUIC', 1292, 'Initial, DCID=8a3f2b1c0d9e7f61, PKN: 1, CRYPTO, PADDING'))).toBe(
+      'That row is QUIC, not TLS. Pick a row whose Protocol says TLS. Only QUIC rows? Open the site in a private window, like Incognito in Chrome, and capture again.',
+    );
+  });
+
   it("takes TShark's Client Hello, and explains other sites and old versions", () => {
     expect(ok('tls', 'hello', 'Client Hello (SNI=www.wikipedia.org)')).toBe(true);
     expect(ok('tls', 'hello', 'Client Hello\nServer Name: www.wikipedia.org')).toBe(true);
@@ -263,7 +269,7 @@ describe('wireshark: step 9, the two filters', () => {
     expect(ok('not-mine', 'others', '41')).toBe(true);
     expect(ok('not-mine', 'others', 'Packets: 412 · Displayed: 41 (10.0%)')).toBe(true);
     expect(says('not-mine', 'others', '40')).toBe(
-      '371 + 40 = 411, but the whole capture has 412. The two lists should add up to the whole capture. Use the same capture for all three numbers, and read the number after Displayed after each filter.',
+      '371 + 40 = 411, but the whole capture has 412, so one of your three numbers is off. Check each one in the same capture: Packets for the first, and the number after Displayed after each filter. You can change any of the three.',
     );
   });
 

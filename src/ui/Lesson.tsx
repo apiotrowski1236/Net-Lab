@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
-import { goalKey, isLesson, wrongFeedback, type ChoiceQuestion, type QuestionDef, type StepDef, type TextQuestion, type ToolSpec } from '../labs/types';
+import { goalKey, isLesson, textCorrect, wrongFeedback, type ChoiceQuestion, type QuestionDef, type StepDef, type TextQuestion, type ToolSpec } from '../labs/types';
 import type { SimEvent } from '../sim/types';
 import type { Sim } from '../sim/sim';
 import { targetsFor } from '../sim/malware';
@@ -9,7 +9,7 @@ import { connOutcomeLines, fwDenyText } from './firewallText';
 import { idsOutcomeLines } from './idsText';
 import { ExtraCreditBanner, ExtraCreditDone } from './ExtraCredit';
 import { Icon } from './icons';
-import { renderMarkdown, type MdActions } from './markdown';
+import { inlineMarkdown, renderMarkdown, type MdActions } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
 import { hoverDevice } from './NetworkCanvas';
 import { overrideEnabled } from '../store/override';
@@ -61,6 +61,11 @@ function Prose({
       }}
     />
   );
+}
+
+/** A line of feedback, with **bold** and `code` drawn the way the step body draws them. */
+function Inline({ text }: { text?: string }) {
+  return text ? <span dangerouslySetInnerHTML={{ __html: inlineMarkdown(text) }} /> : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,12 +131,12 @@ function ChoiceCard({ session, step, q, labels, onDevice }: { session: LabSessio
       )}
       {wrong && (
         <div class="qfeedback bad" ref={fb} tabIndex={-1}>
-          {feedback || (isLesson(session.lab) ? 'Not quite. Read the step again, then pick another answer.' : 'Not quite. Look at the network again, then pick another answer.')}
+          <Inline text={feedback || (isLesson(session.lab) ? 'Not quite. Read the step again, then pick another answer.' : 'Not quite. Look at the network again, then pick another answer.')} />
         </div>
       )}
       {done && (
         <div class="qfeedback good" ref={fb} tabIndex={-1}>
-          <strong>Correct!</strong> {q.explain}
+          <strong>Correct!</strong> <Inline text={q.explain} />
           <div class="muted small change-note">You can still change your answer.</div>
         </div>
       )}
@@ -165,7 +170,10 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
   const auto = !!q.expect;
   const done = auto ? !!a?.correct : words > 0;
-  const wrong = auto && a?.correct === false;
+  // A check that failed only because it disagreed with another answer goes stale
+  // when that answer changes: drop the verdict, so Check works again.
+  const stale = auto && a?.correct === false && !!q.verify && textCorrect(q, a.value, session.answerText);
+  const wrong = auto && a?.correct === false && !stale;
   const fb = useVerdictInView(a?.attempts);
   return (
     <div class={`qcard ${auto && done ? 'correct' : wrong ? 'wrong' : ''}`}>
@@ -208,12 +216,12 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
       )}
       {wrong && (
         <div class="qfeedback bad" ref={fb} tabIndex={-1}>
-          {wrongFeedback(q, a?.value ?? '', session.answerText)}
+          <Inline text={wrongFeedback(q, a?.value ?? '', session.answerText)} />
         </div>
       )}
       {auto && done && (
         <div class="qfeedback good" ref={fb} tabIndex={-1}>
-          <strong>Correct!</strong> {q.explain}
+          <strong>Correct!</strong> <Inline text={q.explain} />
         </div>
       )}
     </div>
