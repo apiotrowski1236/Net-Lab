@@ -118,6 +118,7 @@ Register the lab in `src/labs/index.ts`: import it, put it in `LABS` in CED orde
   - Edit only when `has(kind)` (false during a replay).
   - Outside its step, keep it out of the way: a short read-only summary, or a second entry in the `'end'` slot that shows only when the tool isn't offered (see `wifiSetupSummary` in `WifiSetup.tsx`).
 - **Redraws**: read `void session.simRev.value` in any component that must redraw when the network changes.
+  - This includes a child that reads a signal or uses hooks and gets a mutable sim object as a prop. `@preact/signals` skips re-rendering such a component when its props are shallow-equal, so `dev.sniffing` can change while the component keeps drawing the old value. packet-capture's Start/Stop buttons stayed on **Start** with **Stop** greyed out until `CaptureTools` subscribed.
 - **Parts**: `Toggle`, `ToolMsg`, `useDraft`, and `recentlyChanged` are in `src/ui/tools/parts.tsx`. Reuse the classes `tool-card`, `table`, `table kv`, `pill`, `callout`, `btn tiny`, `seg`, and `tool-row`.
 - **CSS**: append to `src/features.css` under a comment naming the lab. Count `{` against `}` afterward. Check light (the default), dark, and 1366x768.
   - `.tool-row` spreads its children to opposite ends. Scope an override if a Save button should sit beside its input.
@@ -137,6 +138,7 @@ Register the lab in `src/labs/index.ts`: import it, put it in `LABS` in CED orde
 npm run -s typecheck && npm test
 npm run e2e                                   # needs CHROME_PATH=/usr/bin/google-chrome-stable here
 LAB=<id> npm run playthrough                  # plus THEME=dark SIZE=small
+LAB=<id> node .claude/skills/netlab-lab-authoring/clickthrough.mjs   # after npm run build; also SPEED=1
 ```
 
 - `walkthrough.test.ts` plays every answer key, then checks reload replay, reset, version change, and tool offers.
@@ -150,6 +152,10 @@ LAB=<id> npm run playthrough                  # plus THEME=dark SIZE=small
   - To review real step states, run `.claude/skills/netlab-lab-authoring/shots.mjs` from the repo root after `npm run build`.
   - It plays the answer key up to a step, opens the app there, clicks a device, lesson chip, tab, or captured packet, and saves to `/tmp/netlab-shots/<lab>/`.
   - Read every screenshot in light, dark, and small. Look for overlaps.
+- **A lab isn't done until the click-through passes.** The walkthrough, playthrough, and shots all play moves through `LabSession` with `runUntilIdle`, so they can't catch a step a student can't finish in the live player.
+  - `clickthrough.mjs` plays the answer key from a fresh profile in the built app. It clicks map devices, lesson buttons, Start and Stop, the Ping card, display filters, captured rows, questions, and Continue, and waits on the live network.
+  - On a stuck step it prints the goals left, the capture bar, and the button's result line, saves a screenshot to `/tmp/netlab-shots/<lab>/clickthrough/`, and exits 1.
+  - Run it at the default 4× and at `SPEED=1`. A move or tool with no UI driver fails loudly: add one in `doMove`.
 
 ## Map layout gotchas
 
@@ -188,7 +194,7 @@ Include:
 - each step in one line;
 - new shared APIs with paths: types, Sim methods, actions, events, drop reasons, tool kinds, inspector sections, CSS;
 - every shared-file edit and why;
-- check results and screenshot paths;
+- check results and screenshot paths, including the click-through at 4× and 1×;
 - a README row: title, summary, CodeHS, steps, minutes;
 - the CED LOs touched;
 - rough spots, and what README and COVERAGE should say.
