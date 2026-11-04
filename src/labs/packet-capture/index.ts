@@ -7,11 +7,13 @@ import { md } from '../md';
 import type { ActionDef, ActionLine, CheckCtx, LabDef, MapZone, ToolSpec } from '../types';
 import {
   busyMinute,
+  busyStart,
   buildCapture,
   captured,
   capturedThrough,
   capturing,
   CHAT_CHECKS,
+  cleanPageCapture,
   ensureBusyCapture,
   ensurePageCapture,
   HOMEWORK,
@@ -39,6 +41,7 @@ import {
   tvShow,
   VIDEO_PIECES,
 } from './scenario';
+import { WIRESHARK_WINDOW } from './wiresharkWindow';
 
 // ---------------------------------------------------------------------------
 // Lesson buttons and the lines under them
@@ -47,23 +50,44 @@ import {
 /** A warning when the capture wasn't running as the button was pressed. */
 function offLine(sim: Sim, since: number, label: string): ActionLine[] {
   if (capturedThrough(sim, since, since)) return [];
+  const r = run(sim);
+  if (r && r.start > since) {
+    const button = capturing(sim) ? 'Restart' : 'Start';
+    return [{ tone: 'bad', text: `The capture started after you pressed ${label}, so it missed the first packets. When this finishes, press ${button}, then press ${label} again.` }];
+  }
   return [{ tone: 'bad', text: `The capture was off, so it recorded none of this. Press Start, then press ${label} again.` }];
 }
 
 const packets = (n: number) => `${n} packet${n === 1 ? '' : 's'}`;
+const isPing = is('icmp');
 
-/** "Loading…", then whether the laptop's page loaded and how many packets the capture got. */
+/**
+ * "Loading…", then whether the laptop's page loaded and how many packets the
+ * capture got for it. A press while a page is loading does nothing (see
+ * openSchool), so these lines follow the load that was already running.
+ * With `clean`, also say when the list holds packets from before the load.
+ */
 const pageLines =
-  (label: string, what: string) =>
+  (label: string, what: string, clean = false) =>
   (sim: Sim, since: number): ActionLine[] => {
     const b = sim.dev('laptop').browser;
-    if (!b || b.startedAt < since) return [];
-    const off = offLine(sim, since, label);
+    if (!b || b.startedAt > since) return [];
+    const from = b.startedAt;
+    const off = offLine(sim, from, label);
     if (b.status === 'resolving' || b.status === 'loading') return [...off, { tone: 'wait', text: `Loading ${what}…` }];
     if (b.status !== 'loaded') return [...off, { tone: 'bad', text: b.error ?? "The page didn't load." }];
     if (off.length) return [{ tone: 'good', text: `${what[0].toUpperCase()}${what.slice(1)} loaded.` }, ...off];
-    const n = capturedAfter(sim.dev('laptop'), since).length;
-    return [{ tone: 'good', text: `${what[0].toUpperCase()}${what.slice(1)} loaded. The capture recorded ${packets(n)} for it.` }];
+    // Pings sent alongside (step 11) aren't part of the page.
+    const n = capturedAfter(sim.dev('laptop'), from).filter((c) => !isPing(c.frame)).length;
+    const lines: ActionLine[] = [{ tone: 'good', text: `${what[0].toUpperCase()}${what.slice(1)} loaded. The capture recorded ${packets(n)} for it.` }];
+    const before = captured(sim).filter((c) => c.t < from).length;
+    if (clean && before > 0) {
+      lines.push({
+        tone: 'bad',
+        text: `Your list also has ${packets(before)} from before you pressed ${label}. For a list of this page alone, press ${capturing(sim) ? 'Restart' : 'Start'}, then press ${label} again.`,
+      });
+    }
+    return lines;
   };
 
 const SCHOOL_LABEL = 'Open the school website';
@@ -71,7 +95,7 @@ const openSchoolButton: ActionDef = {
   id: 'open-school',
   label: SCHOOL_LABEL,
   run: openSchool,
-  outcome: pageLines(SCHOOL_LABEL, 'the homework page'),
+  outcome: pageLines(SCHOOL_LABEL, 'the homework page', true),
 };
 
 const VIDEO_LABEL = 'Open the video site';
@@ -104,9 +128,11 @@ const busyButton: ActionDef = {
   label: BUSY_LABEL,
   run: busyMinute,
   outcome: (sim, since) => {
-    const off = offLine(sim, since, BUSY_LABEL);
+    // A press while the minute runs does nothing (see busyMinute): follow the minute that's running.
+    const from = Math.min(busyStart(sim) ?? since, since);
+    const off = offLine(sim, from, BUSY_LABEL);
     if (off.length) return off;
-    const mine = capturedAfter(sim.dev('laptop'), since);
+    const mine = capturedAfter(sim.dev('laptop'), from);
     const answers = mine.filter((c) => c.frame.ip?.app.kind === 'http-res' && c.frame.ip.dst === IP.laptop).length;
     if (answers >= BUSY_ANSWERS) return [{ tone: 'good', text: `The minute is over. The capture recorded ${packets(mine.length)}.` }];
     if (!capturing(sim)) return [{ tone: 'bad', text: `The capture stopped before the minute was over, with ${packets(mine.length)}. Press Start, then press ${BUSY_LABEL} again.` }];
@@ -173,7 +199,7 @@ const filteredArp = filtered('laptop', (f) => !!f.arp);
 
 export const packetCaptureLab: LabDef = {
   id: 'packet-capture',
-  version: 1,
+  version: 2,
   title: "What's in a Packet?",
   tagline: "Capture the family laptop's traffic, open packets layer by layer, learn the common kinds, and use filters to find the packets you want, so Wireshark feels familiar.",
   unit: 3,
@@ -205,7 +231,7 @@ export const packetCaptureLab: LabDef = {
 
         A capture can show private things: the sites someone visits, and anything sent without encryption. Capture only on your own device, or with permission from the network's owner. Capturing other people's traffic without permission is illegal.
 
-        On the map, the home is on the left and the internet is on the right. Out on the internet are five servers. One of them, [[dns]], turns names like school.example into addresses. You'll see why that matters in step 4.
+        On the map, the home is on the left and the internet is on the right. Out on the internet are five servers. One of them, [[dns]], turns names like school.example into addresses. You'll see why that matters in step 4. (The /24 after an address on the map says which addresses share its network. You won't need it in this lab.)
       `,
       focus: ['laptop', 'dns'],
       goals: [
@@ -235,18 +261,18 @@ export const packetCaptureLab: LabDef = {
         A capture takes three moves: **Start**, do something on the network, **Stop**. Wireshark works the same way.
 
         1. In the **Capture** tab under the map, press **Start**.
-        2. Press **Open the school website**. The laptop loads the homework page. Watch the packets on the map and the list filling up.
-        3. When the page has loaded, press **Stop**.
+        2. Press **Open the school website**. The laptop loads the homework page. Watch the list fill up.
+        3. When the line under the button says the page loaded, press **Stop**.
 
         Each row in the list is one packet. The columns match Wireshark's:
 
         - **No.**: the packet's number, counting from 1.
-        - **Time**: seconds since you pressed Start.
-        - **Source** and **Destination**: where the packet came from and where it was going.
+        - **Time**: seconds since you pressed Start. The lesson's network keeps its own time, so these seconds won't match a real clock.
+        - **Source** and **Destination**: where the packet came from and where it was going. Some rows show MAC addresses instead of IP addresses. Step 4 explains why.
         - **Protocol**: the kind of packet. A **protocol** is a set of rules for one job, like getting a web page.
         - **Info**: a short summary of what's inside.
 
-        Pressing **Start** again throws the old list away and starts a new one.
+        While a capture runs, **Start** changes to **Restart**. Either one deletes the old list and starts a new one.
       `,
       focus: ['laptop', 'school'],
       open: 'capture',
@@ -257,14 +283,14 @@ export const packetCaptureLab: LabDef = {
         {
           id: 'page',
           label: 'Capture the homework page loading',
-          hint: 'With the capture running, press **Open the school website**.',
-          check: ({ sim, since }) => startedSince(sim, since) && captured(sim).some((c) => isHomeworkPage(c.frame)),
+          hint: 'With the capture running, press **Open the school website**. The list should hold this one page load, from its first packet to the page.',
+          check: ({ sim, since }) => startedSince(sim, since) && cleanPageCapture(sim),
         },
         {
           id: 'stop',
           label: 'Stop the capture',
           hint: 'After the page loads, press **Stop** in the Capture tab.',
-          check: ({ sim, since }) => startedSince(sim, since) && !capturing(sim) && captured(sim).some((c) => isHomeworkPage(c.frame)),
+          check: ({ sim, since }) => startedSince(sim, since) && !capturing(sim) && cleanPageCapture(sim),
         },
       ],
       questions: [
@@ -288,14 +314,16 @@ export const packetCaptureLab: LabDef = {
       id: 'layers',
       title: 'Open a packet',
       body: md`
-        Click a packet in the list to open it. The right side shows its **layers**: one message wrapped inside another, like a letter in an envelope in a mailing box. Each layer does one part of the delivery.
+        Click a packet in the list to open its **layers**. They show beside the list, or under it on a narrow screen. A packet is one message wrapped inside another, like a letter in an envelope in a mailing box. Each layer does one part of the delivery.
 
-        - **Ethernet**: the **MAC addresses** for this hop. It gets the packet to the next device on the local network.
+        - **Ethernet**: the **MAC addresses** for this **hop**. A hop is one trip from a device to the next one, like the laptop to the router.
         - **IP**: the **IP addresses** of the two ends. It gets the packet across networks, all the way there.
-        - **TCP** or **UDP**: the **port numbers**. A port says which program should get the packet. Web servers listen on port 80.
+        - **TCP** or **UDP**: the **port numbers**. A port says which program should get the packet. Plain web (HTTP) servers listen on port 80.
         - The message itself: here, an **HTTP** request for a web page, or the page.
 
         Under each layer's title is Wireshark's name for it. Wireshark shows the same layers, top to bottom, under its packet list.
+
+        Some packets also have a note that the router changed an address. That's address sharing (NAT) from lab 1: the family's devices share one public address on the internet. Wireshark on the laptop doesn't show this note.
 
         Open the **GET /homework** packet (the request), then the **200 OK** packet (the page).
       `,
@@ -341,7 +369,7 @@ export const packetCaptureLab: LabDef = {
             { id: 'hide', text: "The router hides the school's MAC address to keep it private", feedback: "The router isn't hiding it. An Ethernet address only works on its own local network." },
             { id: 'wrong', text: 'The laptop put the wrong MAC address in it', feedback: "It's right on purpose. Look at the To IP: that's still the school website." },
           ],
-          explain: 'The MAC addresses change at every hop. The IP addresses stay the same from one end to the other.',
+          explain: "The MAC addresses change at every hop. The To IP stays the school website's address the whole way. (The router swaps the laptop's own address for the family's public one, going out and coming back. That's the note on the 200 OK.)",
         },
       ],
     },
@@ -409,15 +437,15 @@ export const packetCaptureLab: LabDef = {
       body: md`
         Not every packet is about web pages. Two more kinds you'll see in Wireshark:
 
-        - **DHCP** (Dynamic Host Configuration Protocol): a device that has joined a network asks for an IP address. Lab 1 showed the four messages.
-        - **Ping**: a test message. One device asks "Are you there?" and the other answers. Wireshark calls ping packets **ICMP** (Internet Control Message Protocol).
+        - **DHCP** (Dynamic Host Configuration Protocol): a device that has joined a network asks for an IP address. Lab 1 showed the four messages. The device has no address yet, so it sends from 0.0.0.0 to 255.255.255.255, which means everyone on the network.
+        - **Ping**: a test message. One device asks "Are you there?" and the other answers. Wireshark calls ping packets **ICMP** (Internet Control Message Protocol), and so does the Protocol column here.
 
         1. Press **Start** for a new capture.
         2. Press **The phone rejoins the Wi-Fi**.
         3. In the **Toolkit** tab, ping [[router]] (192.168.1.1) from [[laptop]].
         4. Open one of the phone's DHCP packets, and the router's ping reply.
 
-        The capture shows only two of the phone's four DHCP messages: the two sent to everyone. The router sends the other two to the phone alone.
+        The capture shows only two of the phone's four DHCP messages: the two sent to everyone. This router sends the other two to the phone alone. (Some routers send all four to everyone, so Wireshark may show all four.)
       `,
       setup: readyToStart,
       focus: ['laptop', 'phone', 'router'],
@@ -428,14 +456,14 @@ export const packetCaptureLab: LabDef = {
         startGoal,
         {
           id: 'dhcp',
-          label: "Open one of [[phone]]'s DHCP packets",
+          label: 'Open a DHCP packet from [[phone]]',
           hint: 'With the capture running, press **The phone rejoins the Wi-Fi**. Then click a DHCP row from 0.0.0.0.',
           check: openedFrame('laptop', isPhoneDhcp),
         },
         {
           id: 'ping',
-          label: "Open [[router]]'s ping reply",
-          hint: 'In the Toolkit tab, ping 192.168.1.1 from the laptop. Then click the PING row whose Info says reply.',
+          label: 'Open the ping reply from [[router]]',
+          hint: 'In the Toolkit tab, ping 192.168.1.1 from the laptop. Then click the ICMP row whose Info says reply.',
           check: openedFrame('laptop', isRouterPingReply),
         },
       ],
@@ -463,9 +491,9 @@ export const packetCaptureLab: LabDef = {
 
         1. Press **Start** for a new capture.
         2. Press **Open the video site**. It uses HTTPS.
-        3. Open one of the HTTPS packets.
+        3. Open one of its encrypted packets.
 
-        The Protocol column says HTTPS. Wireshark says TLS for these packets, and its Info column says Application Data.
+        Wireshark calls these packets TLS, and so does the Protocol column here. Their Info says Application Data.
       `,
       setup: readyToStart,
       focus: ['laptop', 'video'],
@@ -482,8 +510,8 @@ export const packetCaptureLab: LabDef = {
         },
         {
           id: 'open',
-          label: 'Open an HTTPS packet',
-          hint: 'Click a row whose Protocol says HTTPS.',
+          label: 'Open an encrypted (TLS) packet',
+          hint: 'Click a row whose Protocol says TLS.',
           check: openedFrame('laptop', (f) => !!f.ip?.encrypted),
         },
       ],
@@ -505,7 +533,7 @@ export const packetCaptureLab: LabDef = {
           kind: 'text',
           prompt: 'Which port number did the laptop send the HTTPS request to?',
           expect: /\b443\b/,
-          expectHint: "Open the HTTPS packet the laptop sent and read the TCP layer's To port.",
+          expectHint: "Open the TLS packet the laptop sent and read the TCP layer's To port.",
           explain: 'Port 443 means HTTPS. Plain HTTP uses port 80.',
         },
       ],
@@ -518,8 +546,8 @@ export const packetCaptureLab: LabDef = {
         Back to the blinking Wi-Fi light. Nobody is using the laptop, but its apps are working: the chat app checks for new messages, the video app loads the next video, the weather app gets today's forecast, and the browser reloads the homework page.
 
         1. Press **Start** for a new capture.
-        2. Press **Leave the laptop alone for a minute**. (The lesson squeezes the minute into about 15 seconds.)
-        3. Watch the list grow. When the button's line says the minute is over, press **Stop**.
+        2. Press **Leave the laptop alone for a minute**. (The lesson speeds up the minute. At 1× speed it takes about 45 seconds.)
+        3. Watch the list grow. When the line under the button says the minute is over, press **Stop**.
 
         A real computer is far busier. In Wireshark, hundreds of packets a minute is normal. The next steps show how to find the few you care about.
       `,
@@ -625,11 +653,10 @@ export const packetCaptureLab: LabDef = {
         A filter can pick packets by address, too. In Wireshark:
 
         - \`ip.addr == 198.51.100.140\` shows packets to or from that address. Use two equals signs.
-        - \`ip.src ==\` shows packets from an address, and \`ip.dst ==\` packets to it.
         - \`!\` means "not": \`!arp\` shows everything except ARP.
-        - \`&&\` means "and", and \`||\` means "or": \`dns || http\` shows both.
+        - \`||\` means "or": \`dns || http\` shows both kinds.
 
-        [[chat]] is at 198.51.100.140. Filter for every packet to or from it. Then filter out the ARP packets.
+        [[chat]] is at 198.51.100.140. Filter for every packet to or from it. Then replace that filter with one that shows everything except ARP.
       `,
       setup: ensureBusyCapture,
       focus: ['laptop', 'chat'],
@@ -643,7 +670,7 @@ export const packetCaptureLab: LabDef = {
           hint: 'Type `ip.addr == 198.51.100.140` and press Enter.',
           check: filtered('laptop', isChat),
         },
-        { id: 'no-arp', label: 'Show everything except ARP', hint: 'Type `!arp` and press Enter.', check: filtered('laptop', (f) => !f.arp) },
+        { id: 'no-arp', label: 'Show everything except ARP', hint: 'Clear the bar, type `!arp`, and press Enter.', check: filtered('laptop', (f) => !f.arp) },
       ],
       questions: [
         {
@@ -665,7 +692,7 @@ export const packetCaptureLab: LabDef = {
           options: [
             { id: 'addr', text: 'ip.addr == 192.0.2.140', correct: true },
             { id: 'word', text: 'weather', feedback: "Wireshark doesn't know the word weather. Try it in the filter bar to see its message." },
-            { id: 'name', text: 'ip.addr == weather.example', feedback: 'ip.addr needs an IP address, not a name. The DNS answer for weather.example has it.' },
+            { id: 'one', text: 'ip.addr = 192.0.2.140', feedback: 'Wireshark needs two equals signs (==) to compare. With one, the bar turns red.' },
             { id: 'http', text: 'http', feedback: "That also shows the school website's packets." },
           ],
           explain: "192.0.2.140 is the weather service's address. The DNS answer for weather.example says so.",
@@ -680,11 +707,11 @@ export const packetCaptureLab: LabDef = {
         Your capture shows the laptop's packets. What about the rest of the family?
 
         1. Press **Start** for a new capture.
-        2. Press **The TV plays a show**. Watch [[tv]] on the map: it sends and receives lots of packets.
-        3. Filter for the TV's address: \`ip.addr == 192.168.1.12\`.
-        4. Then filter \`arp\`.
+        2. Press **The TV plays a show**. [[tv]] sends and receives lots of packets.
+        3. Filter for the TV's address: \`ip.addr == 192.168.1.12\`. The list comes up empty, and that's the point: none of the TV's video reached the laptop.
+        4. Then filter \`arp\`. ARP packets have no IP layer, so \`ip.addr\` filters never show them.
 
-        The capture misses almost everything the TV did. [[wifi]] is a **switch**: it sends each packet only to the device it's for. The laptop gets its own packets, plus the few sent to everyone, like ARP requests. (Lab 1 showed this.)
+        The capture misses almost everything the TV did. [[wifi]] is a **switch**: it sends each packet only to the device it's for. The laptop gets its own packets, plus the few sent to everyone, like ARP requests. (Lab 1 showed this.) The Wi-Fi signal does reach the laptop, but its card ignores packets addressed to other devices, and each device's packets are locked with its own Wi-Fi key.
 
         So Wireshark on your computer shows your own traffic, not your family's or your classmates'. To see other devices' traffic, an attacker has to trick the switch. A later lab shows how, and how to stop it.
       `,
@@ -736,17 +763,19 @@ export const packetCaptureLab: LabDef = {
       id: 'wireshark',
       title: 'Get ready for Wireshark',
       body: md`
-        Wireshark looks busier than this, but it works the same way. Some things carry over, and some are new:
+        Wireshark looks busier than this tab, but it has the same parts. Here is a drawing of its window:
 
-        - **Pick an interface first.** Wireshark lists your computer's network connections. Pick Wi-Fi (or Ethernet, if you use a cable): the one with a moving line next to it.
-        - **Start** is a blue shark fin. **Stop** is a red square.
-        - The packet list has the same columns, plus **Length**: the packet's size in bytes.
-        - Under the list are the layers, like the right side of this tab. Under those are the packet's raw **bytes**, in hexadecimal.
-        - Wireshark says ICMP for ping and TLS for HTTPS.
-        - You'll see extra packets. TCP opens each connection with three small packets, marked [SYN], [SYN, ACK], and [ACK]. Many sites use **QUIC**, a newer way to carry web traffic. Some addresses are **IPv6**: longer, with colons.
-        - Filters work the same: \`dns\`, \`http\`, \`tls\`, \`icmp\`, \`arp\`, \`ip.addr ==\`.
+        ${WIRESHARK_WINDOW}
 
-        Practice two Wireshark filters here. Press **Start**, ping [[router]] from the laptop in the **Toolkit** tab, and press **Open the video site**. Then filter for the pings, and then for the encrypted web traffic, using Wireshark's names.
+        1. **Toolbar**: Start is a blue shark fin, Stop is a red square, and Restart is a green fin. Before your first capture, Wireshark lists your computer's network connections, called **interfaces**. Pick Wi-Fi (or Ethernet, if you use a cable): the one with a moving line next to it.
+        2. **Filter bar**: the filters from this lab work there too.
+        3. **Packet list**: the same columns, plus **Length**, the packet's size in bytes.
+        4. **Packet details**: the layers of the packet you clicked. Click an arrow to open a layer.
+        5. **Packet bytes**: the whole packet as the computer stores it, written in **hexadecimal** (the digits 0 to 9 and the letters a to f). You can ignore this part.
+
+        Wireshark also shows packets this lab left out. TCP starts each connection with three small packets, marked [SYN], [SYN, ACK], and [ACK], like rows 3 to 5 in the drawing. Many sites use **QUIC**, a newer way to carry web traffic. Some addresses are **IPv6**: longer, with colons.
+
+        Practice two filters here. Press **Start**, ping [[router]] (192.168.1.1) from the laptop in the **Toolkit** tab, and press **Open the video site**. Then filter for the pings, and then for the encrypted web traffic, using Wireshark's names.
       `,
       setup: readyToStart,
       focus: ['laptop', 'router', 'video'],
@@ -759,17 +788,9 @@ export const packetCaptureLab: LabDef = {
       ],
       questions: [
         {
-          id: 'dns-filter',
-          kind: 'text',
-          prompt: 'In Wireshark, what would you type in the filter bar to see only name lookups?',
-          expect: /^\s*["'“”]?(dns|udp\.port\s*==\s*53)["'“”]?\s*\.?\s*$/,
-          expectHint: "Wireshark's filters are protocol names in lowercase. Which protocol looks up names?",
-          explain: 'dns. Filters are lowercase: Wireshark turns the bar red for DNS.',
-        },
-        {
           id: 'first-move',
           kind: 'choice',
-          prompt: "You start Wireshark, and hundreds of packets pour in. What's a good first move?",
+          prompt: "You start Wireshark, and the list fills with hundreds of packets. What's a good first move?",
           options: [
             { id: 'filter', text: "Stop the capture, then filter for what you're looking for", correct: true },
             { id: 'read', text: 'Read every packet, starting from No. 1', feedback: 'That could take hours. A filter gets you to the right packets in seconds.' },
@@ -803,7 +824,7 @@ export const packetCaptureLab: LabDef = {
       title: 'Review and submit',
       kind: 'submit',
       body: md`
-        Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+        Look over your summary. You can go back to any step and change an answer, then hand in your work again.
       `,
     },
   ],

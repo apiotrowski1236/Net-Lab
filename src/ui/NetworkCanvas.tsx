@@ -829,7 +829,8 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
               onClick={() => !swallowClick.current && onSelect(d.id)}
               onPointerDown={(e) => startPress(d.id, e)}
               role="button"
-              tabIndex={0}
+              // Lowercase: on an SVG element Preact sets the attribute as written, and only "tabindex" makes it focusable.
+              tabindex={0}
               aria-label={[d.label, ...lines.get(d.id)!.map((l) => l.text)].join(', ')}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(d.id)}
             >

@@ -36,6 +36,14 @@ function Prose({ src, labels, onDevice }: { src: string; labels: Record<string, 
         const chip = (e.target as HTMLElement).closest?.('.chip') as HTMLElement | null;
         if (chip?.dataset.device) onDevice(chip.dataset.device);
       }}
+      onKeyDown={(e) => {
+        // A chip takes keyboard focus: Enter or Space opens its device, like a click.
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const chip = (e.target as HTMLElement).closest?.('.chip') as HTMLElement | null;
+        if (!chip?.dataset.device) return;
+        e.preventDefault();
+        onDevice(chip.dataset.device);
+      }}
     />
   );
 }

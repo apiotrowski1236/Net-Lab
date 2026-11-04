@@ -594,6 +594,9 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 // Packet capture (a friendly Wireshark)
 // ---------------------------------------------------------------------------
 
+/** Wireshark's Protocol column names, where they differ from NetLab's (LabDef.wireshark). */
+const WIRESHARK_PROTO: Partial<Record<string, string>> = { PING: 'ICMP', HTTPS: 'TLS' };
+
 export function CaptureView({ session, deviceId }: { session: LabSession; deviceId: string }) {
   // New frames arrive while the tab is open: re-render whenever the network changes.
   void session.simRev.value;
@@ -614,16 +617,26 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
   const all = dev?.capture ?? [];
   const rows: Captured[] = all.filter((c) => !(hideArp && (c.frame.arp || c.frame.bgp)) && matchFilter(node, c.frame));
   const runStart = dev?.captureRun?.start;
+  const live = !!dev?.sniffing;
 
   useEffect(() => {
     const el = listRef.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [rows.length]);
+  // A Wireshark-style list (packet-capture) follows new packets only while capturing. A stopped
+  // capture, or a new filter, starts at the top, so the first packets aren't hidden above.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!lab.wireshark || !el) return;
+    stick.current = live;
+    if (!live) el.scrollTop = 0;
+  }, [applied, live, runStart]);
   // A new capture renumbers from 1: forget the packet that was open.
   useEffect(() => setSelected(null), [runStart]);
 
   if (!dev) return null;
-  const sel = rows.find((r) => r.no === selected) ?? dev.capture.find((r) => r.no === selected);
+  // A packet the filter hides isn't open any more.
+  const sel = rows.find((r) => r.no === selected) ?? (lab.wireshark ? undefined : dev.capture.find((r) => r.no === selected));
   const time = (c: Captured) => (dev.captureRun ? captureSeconds(dev, c).toFixed(3) : fmtTime(c.t));
   const stopped = tool
     ? 'Press Start to capture.'
@@ -635,7 +648,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
 
   return (
     <div class="capture">
-      {tool && <CaptureTools session={session} dev={dev} filter={!!tool.filter} />}
+      {tool && <CaptureTools key={session.step.id} session={session} dev={dev} filter={!!tool.filter} />}
       <div class="capture-bar">
         <span>
           <strong>{dev.label}'s packet capture</strong>{' '}
@@ -681,13 +694,21 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                 {rows.map((c) => {
                   const proto = protoOf(c.frame);
                   const { src, dst } = endpoints(c.frame);
+                  const open = () => {
+                    setSelected(c.no);
+                    session.ui({ type: 'ui:open-frame', device: deviceId, frame: c.frame });
+                  };
                   return (
                     <tr
                       key={c.no}
                       class={`${selected === c.no ? 'selected' : ''} ${c.frame.forged ? 'forged' : ''}`}
-                      onClick={() => {
-                        setSelected(c.no);
-                        session.ui({ type: 'ui:open-frame', device: deviceId, frame: c.frame });
+                      tabIndex={0}
+                      aria-selected={selected === c.no}
+                      onClick={open}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter' && e.key !== ' ') return;
+                        e.preventDefault();
+                        open();
                       }}
                     >
                       <td>{c.no}</td>
@@ -696,7 +717,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                       <td class="mono">{dst}</td>
                       <td>
                         <span class="proto" style={{ background: PROTO_COLOR[proto] }}>
-                          {proto}
+                          {(lab.wireshark && WIRESHARK_PROTO[proto]) || proto}
                         </span>
                       </td>
                       <td class="mono info">{infoOf(c.frame)}</td>
@@ -705,7 +726,11 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                 })}
               </tbody>
             </table>
-            {rows.length === 0 && <p class="muted capture-none">No packets match this filter.</p>}
+            {rows.length === 0 && (
+              <p class="muted capture-none">
+                No packets match this filter.{lab.wireshark && /\d+\.\d+\.\d+\.\d+/.test(applied) ? ' If you typed an address, check each number against the map.' : ''}
+              </p>
+            )}
           </div>
           <div class="capture-detail">
             {sel ? (
@@ -794,6 +819,11 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
                 setTried(false);
               }}
             />
+            {state && (
+              <span class={`filter-state ${state}`}>
+                <Icon name={state === 'valid' ? 'check' : 'x'} size={12} /> {state === 'valid' ? 'OK' : 'Error'}
+              </span>
+            )}
             <button type="submit" class="btn tiny">
               Apply
             </button>
@@ -813,7 +843,12 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
           </form>
         )}
       </div>
-      {filter && tried && !check.ok && <div class="filter-msg">{check.msg}</div>}
+      {filter && tried && !check.ok && (
+        <div class="filter-msg">
+          {check.msg}
+          {applied ? ` The list still shows your last filter that worked: ${applied}` : ''}
+        </div>
+      )}
       {filter && applied && applied !== draft.trim() && check.ok && <div class="filter-msg muted">Press Enter to apply. Still showing: {applied}</div>}
     </div>
   );

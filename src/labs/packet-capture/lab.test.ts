@@ -223,6 +223,58 @@ describe('lesson buttons', () => {
     expect(lines()).toEqual([{ tone: 'good', text: 'The homework page loaded. The capture recorded 6 packets for it.' }]);
   });
 
+  it('Open the school website: a second press while it loads does nothing, and a capture started late says so and does not count', () => {
+    const s = playTo('tour');
+    s.goTo(index('first-capture'));
+    const t1 = s.sim.t;
+    press(s, 'open-school');
+    s.sim.advance(2500);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    const lines = press(s, 'open-school');
+    const late = {
+      tone: 'bad',
+      text: 'The capture started after you pressed Open the school website, so it missed the first packets. When this finishes, press Restart, then press Open the school website again.',
+    };
+    expect(lines()).toEqual([late, { tone: 'wait', text: 'Loading the homework page…' }]);
+    s.sim.runUntilIdle();
+    // One load only: the second press didn't start another.
+    expect(s.sim.dev('laptop').browser?.startedAt).toBe(t1);
+    expect(lines()).toEqual([{ tone: 'good', text: 'The homework page loaded.' }, late]);
+    expect(s.goalDone('first-capture', 'page')).toBe(false);
+
+    // A whole load after the leftovers: the list isn't one page load yet.
+    const again = press(s, 'open-school');
+    s.sim.runUntilIdle();
+    const before = s.sim.dev('laptop').capture.length - 6;
+    expect(before).toBeGreaterThan(0);
+    expect(again()).toEqual([
+      { tone: 'good', text: 'The homework page loaded. The capture recorded 6 packets for it.' },
+      {
+        tone: 'bad',
+        text: `Your list also has ${before} packet${before === 1 ? '' : 's'} from before you pressed Open the school website. For a list of this page alone, press Restart, then press Open the school website again.`,
+      },
+    ]);
+    expect(s.goalDone('first-capture', 'page')).toBe(false);
+
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    const clean = press(s, 'open-school');
+    s.sim.runUntilIdle();
+    expect(clean()).toEqual([{ tone: 'good', text: 'The homework page loaded. The capture recorded 6 packets for it.' }]);
+    expect(s.goalDone('first-capture', 'page')).toBe(true);
+  });
+
+  it('Leave the laptop alone: a second press while the minute runs does nothing', () => {
+    const s = playTo('https');
+    s.goTo(index('busy'));
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    press(s, 'busy-minute');
+    s.sim.advance(3000);
+    const lines = press(s, 'busy-minute');
+    s.sim.runUntilIdle();
+    expect(s.sim.dev('laptop').capture).toHaveLength(44);
+    expect(lines()).toEqual([{ tone: 'good', text: 'The minute is over. The capture recorded 44 packets.' }]);
+  });
+
   it('Leave the laptop alone: a running count, then the total', () => {
     const s = playTo('https');
     s.goTo(index('busy'));
@@ -291,6 +343,16 @@ describe('setups', () => {
     const own = captureOf(busy, busyMinute);
     quietly(busy, ensureBusyCapture);
     expect(cap(busy)).toEqual(own);
+  });
+
+  it('replace a capture that starts in the middle of a page load', () => {
+    const sim = buildCapture();
+    openSchool(sim);
+    sim.advance(2500);
+    const late = captureOf(sim, () => {});
+    expect(story(late)[0]).not.toBe('arp');
+    quietly(sim, ensurePageCapture);
+    expect(story(cap(sim))).toEqual(['arp', 'arp', 'dns', 'dns', 'http', 'http']);
   });
 
   it('readyToStart stops the capture and keeps its list, and brings the phone back', () => {

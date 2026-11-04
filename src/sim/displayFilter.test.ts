@@ -97,7 +97,7 @@ describe('display filters', () => {
     expect(msg('ip.addr = 192.0.2.80')).toBe('Use two equals signs (==) to compare.');
     expect(msg('ip.addr ==')).toBe('Type a value after ==.');
     expect(msg('ip.addr == 192.0.2')).toBe('“192.0.2” isn\'t a full IP address. An IP address is four numbers with dots between, like 192.168.1.10.');
-    expect(msg('ip.addr == chat.example')).toBe("ip.addr needs an IP address, like 192.0.2.80, not a name. A DNS answer tells you a name's address.");
+    expect(msg('ip.addr == chat.example')).toBe("Use the IP address here, like 192.0.2.80. Wireshark can look up a name, but this lesson's filter can't. A DNS answer tells you a name's address.");
     expect(msg('192.0.2.80')).toBe('Say what to compare the address with. Try: ip.addr == 192.0.2.80');
     expect(msg('school.example')).toBe('To find lookups of a name, try: dns.qry.name == "school.example"');
     expect(msg('tcp.port == https')).toBe('tcp.port needs a number, like 443.');

@@ -209,6 +209,7 @@ export const isSchoolDnsAnswer = (f: Frame) => f.ip?.app.kind === 'dns-answer' &
 export const isPhoneDhcp = (f: Frame) => f.dhcp?.client === MAC.phone;
 export const isRouterPingReply = (f: Frame) => f.ip?.app.kind === 'ping' && f.ip.app.reply && f.ip.src === IP.router;
 export const isTvArp = (f: Frame) => f.arp?.op === 'request' && f.arp.senderIp === IP.tv;
+export const isLaptopArpRequest = (f: Frame) => f.arp?.op === 'request' && f.arp.senderIp === IP.laptop;
 export const isChat = (f: Frame) => fromTo(f, IP.chat);
 
 /** The newest event since `since` that matches, if any. */
@@ -223,6 +224,16 @@ export function lastSince<T extends SimEvent['type']>(sim: Sim, since: number, t
 /** The TV's newest "show" connection since `since`. */
 export function showSince(sim: Sim, since: number): Conn | undefined {
   return [...(sim.dev('tv').conns ?? [])].reverse().find((c) => c.t >= since && c.tag === 'show');
+}
+
+/**
+ * The capture holds one whole page load from its first packet: the laptop's
+ * ARP request comes first, and the GET and the page are in it. A capture
+ * started in the middle of an earlier load starts with that load's leftovers.
+ */
+export function cleanPageCapture(sim: Sim): boolean {
+  const cap = captured(sim);
+  return cap.length > 0 && isLaptopArpRequest(cap[0].frame) && cap.some((c) => isHomeworkGet(c.frame)) && cap.some((c) => isHomeworkPage(c.frame));
 }
 
 /** The laptop's capture was running the whole time from `from` to `to`. */
@@ -270,6 +281,16 @@ function fetch(sim: Sim, dev: string, to: Ip, host: string, path: string, secure
   });
 }
 
+/** When the newest busy minute started, so a second press while it runs does nothing. */
+const busyStarts = new WeakMap<Sim, number>();
+/** How long the busy minute's packets take, in ms of network time (the last answer is back by about 15.7 s). */
+const BUSY_MS = 17000;
+export const busyStart = (sim: Sim): number | undefined => busyStarts.get(sim);
+export const busyRunning = (sim: Sim): boolean => {
+  const s = busyStarts.get(sim);
+  return s !== undefined && sim.t < s + BUSY_MS;
+};
+
 /** How the busy minute's chat and video traffic is spaced (ms). */
 const GAP = 400;
 /** The chat app checks for messages this many times; the video app loads this many pieces. */
@@ -285,6 +306,9 @@ export const VIDEO_PIECES = 6;
  * each ask for the router's MAC address (ARP, sent to everyone).
  */
 export function busyMinute(sim: Sim): void {
+  // A second press while the minute runs does nothing, so the capture never holds two minutes at once.
+  if (busyRunning(sim)) return;
+  busyStarts.set(sim, sim.t);
   sim.clearArp('laptop');
   const at = (ms: number, fn: () => void) => sim.schedule(ms, fn);
   at(0, () => lookup(sim, 'laptop', NAME.chat));
@@ -311,14 +335,26 @@ export function busyMinute(sim: Sim): void {
 // What the lesson buttons do
 // ---------------------------------------------------------------------------
 
-/** The laptop opens the school's homework page. It forgets the router's MAC first, so each load shows ARP, DNS, and HTTP. */
+/** The laptop's browser is still loading a page. */
+export const loadingPage = (sim: Sim): boolean => {
+  const s = sim.dev('laptop').browser?.status;
+  return s === 'resolving' || s === 'loading';
+};
+
+/**
+ * The laptop opens the school's homework page. It forgets the router's MAC
+ * first, so each load shows ARP, DNS, and HTTP. A press while a page is still
+ * loading does nothing, so two loads never mix in one capture.
+ */
 export function openSchool(sim: Sim): void {
+  if (loadingPage(sim)) return;
   sim.clearArp('laptop');
   sim.browse('laptop', SCHOOL_URL);
 }
 
-/** The laptop opens the video site over HTTPS. */
+/** The laptop opens the video site over HTTPS. A press while a page is still loading does nothing. */
 export function openVideo(sim: Sim): void {
+  if (loadingPage(sim)) return;
   sim.clearArp('laptop');
   sim.browse('laptop', VIDEO_URL);
 }
@@ -362,11 +398,12 @@ export function readyToStart(sim: Sim): void {
   sim.stopCapture('laptop');
 }
 
-/** A finished capture of one homework page load (steps 3 and 4). Keeps the student's own capture if it has one. */
+/** A finished capture of one homework page load (steps 3 and 4). Keeps the student's own capture if it's one whole load. */
 export function ensurePageCapture(sim: Sim): void {
   ensureFamily(sim);
-  const cap = captured(sim);
-  if (cap.some((c) => isHomeworkGet(c.frame)) && cap.some((c) => isHomeworkPage(c.frame))) return;
+  if (cleanPageCapture(sim)) return;
+  // Let a load that's still running finish first, so the new capture holds only the new one.
+  sim.runUntilIdle();
   sim.startCapture('laptop');
   openSchool(sim);
   sim.runUntilIdle();
@@ -378,6 +415,7 @@ export function ensureBusyCapture(sim: Sim): void {
   ensureFamily(sim);
   const cap = captured(sim);
   if (cap.some((c) => isWeatherPage(c.frame)) && cap.some((c) => isChat(c.frame))) return;
+  sim.runUntilIdle();
   sim.startCapture('laptop');
   busyMinute(sim);
   sim.runUntilIdle();

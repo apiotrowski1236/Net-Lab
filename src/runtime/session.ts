@@ -184,6 +184,8 @@ export class LabSession {
     p.step = index;
     p.maxStep = Math.max(p.maxStep, index);
     const step = this.step;
+    // Each step starts with no display filter, so an old one can't hide the new step's packets.
+    this.captureFilter.value = '';
     if (p.stepStart[step.id] === undefined) p.stepStart[step.id] = this.sim.t;
     if (step.setup && !p.actions.some((x) => x.a.type === 'setup' && x.a.step === step.id)) {
       this.dispatch({ type: 'setup', step: step.id });

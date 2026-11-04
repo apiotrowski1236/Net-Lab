@@ -3582,3 +3582,140 @@ button.pl-tile:active {
   color: var(--ink-2);
   font-size: 14px;
 }
+
+/* packet-capture, student panel: keyboard focus on a packet row, the step
+   title after Continue, and the filter bar's state in words as well as color. */
+.capture-table tbody tr:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+.step-title:focus:not(:focus-visible) {
+  outline: none;
+}
+.filter-state {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.filter-state.valid {
+  color: var(--good-ink);
+}
+.filter-state.invalid {
+  color: var(--bad-ink);
+}
+/* A tablet held upright, or a zoomed-in screen, stacks the packet list over
+   the packet's layers: give the Capture tab enough height for both. */
+@media (max-width: 900px) {
+  .dock.dock-tall {
+    height: max(420px, min(760px, 80vh));
+  }
+  .dock.dock-tall .capture-split {
+    grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+/* packet-capture: a drawing of Wireshark's window (step 11). It stays light
+   in the dark theme, like a picture of the real program. */
+.ws-window {
+  margin: 12px 0;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.ws-part {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 30px;
+  border-top: 1px solid #cbd5e1;
+}
+.ws-part:first-child {
+  border-top: 0;
+  background: #e2e8f0;
+}
+.ws-num {
+  position: absolute;
+  left: 6px;
+  top: 5px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 750;
+  line-height: 17px;
+  text-align: center;
+}
+.ws-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.ws-input {
+  flex: 1;
+  padding: 2px 6px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: #fff;
+  color: #64748b;
+}
+.ws-list,
+.ws-details,
+.ws-bytes {
+  align-items: flex-start;
+}
+.ws-table {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+.ws-row {
+  display: grid;
+  grid-template-columns: 3ch 5ch 13ch 13ch 6ch 5ch minmax(16ch, 1fr);
+  gap: 0 6px;
+  padding: 1px 3px;
+  white-space: nowrap;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+}
+.ws-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ws-row.ws-head {
+  font-family: inherit;
+  font-weight: 700;
+  border-bottom: 1px solid #cbd5e1;
+}
+.ws-row.dns {
+  background: #daeeff;
+}
+.ws-row.tcp {
+  background: #e7e6ff;
+}
+.ws-row.tls {
+  background: #e4ffc7;
+}
+.ws-row.sel {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+.ws-details > div,
+.ws-bytes > div {
+  min-width: 0;
+}
+.ws-bytes {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
