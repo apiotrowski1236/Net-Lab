@@ -141,8 +141,8 @@ const PROTOCOLS = new Set(
 /** Words from the column headers, or from the lesson, that aren't protocols. */
 const NOT_PROTOCOLS = new Set(['no', 'no.', 'time', 'source', 'destination', 'protocol', 'length', 'info', 'wi-fi', 'wifi', 'ethernet', 'and', 'or', 'the', 'a']);
 
-/** The distinct protocol names in a list like "TCP, DNS, and TLSv1.3". */
-export function protocolNames(value: string): { ok: string[]; bad: string[] } {
+/** The distinct protocol names in a list like "TCP, DNS, and TLSv1.3". `known` counts the ones on the list above. */
+export function protocolNames(value: string): { ok: string[]; bad: string[]; known: number } {
   const words = value
     .split(/[\s,;]+|\band\b/i)
     .map((w) => w.replace(/^[("'[]+|[)"'\].]+$/g, ''))
@@ -156,12 +156,15 @@ export function protocolNames(value: string): { ok: string[]; bad: string[] } {
     if (PROTOCOLS.has(lower) || /^[A-Z][A-Z0-9-]{1,9}(?:v\d+(?:\.\d+)?)?$/.test(w)) ok.set(lower, w);
     else bad.push(w);
   }
-  return { ok: [...ok.values()], bad };
+  const names = [...ok.values()];
+  return { ok: names, bad, known: names.filter((n) => PROTOCOLS.has(n.toLowerCase())).length };
 }
 
 export const threeProtocols: Verify = (value) => {
-  const { ok, bad } = protocolNames(value);
-  if (ok.length >= 3) return undefined;
+  const { ok, bad, known } = protocolNames(value);
+  // A name this list doesn't know can count, but not two: most of a real capture is common protocols.
+  if (ok.length >= 3 && known >= 2) return undefined;
+  if (ok.length >= 3) return "Those don't look like names from the Protocol column. Copy three names the way your Wireshark writes them, like TCP.";
   if (bad.length) {
     const w = bad[0];
     if (new RegExp(`^${IPV4}$`).test(w)) return `${w} is an address, from the Source or Destination column. Name what the Protocol column says.`;
@@ -195,6 +198,13 @@ export const DNS_REPLY_RE = new RegExp(`Standard query response\\s+0x[0-9a-f]{4}
 
 /** The addresses in a response's A records ("A 198.35.26.224"). */
 export const answerIps = (reply: string): string[] => [...reply.matchAll(new RegExp(`\\sA\\s+(${IPV4})(?![\\d.])`, 'gi'))].map((m) => m[1]);
+
+/** The DNS server's own address (the response's Source) given as the answer. */
+export const dnsServerNotAnswer: Verify = (value, answer) => {
+  const [server] = ipsBefore(answer('dns', 'reply'), /Standard query/i);
+  if (!server || firstIp(value) !== server) return undefined;
+  return "That's the DNS server's own address: the Server line in nslookup, and the Source of the response. The answer for wikipedia.org is the address at the end of the response.";
+};
 
 export const addressInReply: Verify = (value, answer) => {
   const ips = answerIps(answer('dns', 'reply'));

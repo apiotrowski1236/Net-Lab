@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { LABS } from '..';
+import { LabSession } from '../../runtime/session';
+import type { LabProgress } from '../../store/progress';
+import { buildReport } from '../../store/report';
 import { isLesson, textCorrect, wrongFeedback, type AnswerLookup, type TextQuestion } from '../types';
 import { countOf, fromDrawing, ipsBefore, protocolNames } from './answers';
 import { wiresharkLab as lab } from './index';
-import { PIC, wsWindow } from './pictures';
+import { PIC, SPLIT_NUM, wsWindow } from './pictures';
 import { wiresharkSolution as sol } from './solution';
 
 function q(step: string, id: string): TextQuestion {
@@ -47,9 +50,9 @@ describe('wireshark: lesson shape', () => {
     }
   });
 
-  it('puts only the User-Agent step after submit, as extra credit', () => {
+  it('puts ping and the User-Agent after submit, as extra credit', () => {
     const at = lab.steps.findIndex((s) => s.kind === 'submit');
-    expect(lab.steps.slice(at + 1).map((s) => s.id)).toEqual(['user-agent']);
+    expect(lab.steps.slice(at + 1).map((s) => s.id)).toEqual(['ping', 'user-agent']);
     expect(lab.steps.slice(at + 1).every((s) => s.extra)).toBe(true);
   });
 
@@ -85,7 +88,8 @@ describe('wireshark: drawings', () => {
     expect(says('http', 'host', PIC.neverssl)).toBe("That's from the drawing. Use the one from your own Wireshark.");
     expect(says('handshake', 'syn', `${PIC.port} → 80 [SYN] Seq=0`)).toBe('That port is from the drawing. Copy a packet from your own capture.');
     expect(says('first-capture', 'count', '1482')).toBe("That's from the drawing. Use the one from your own Wireshark.");
-    expect(says('not-mine', 'others', '171')).toBe("That's from the drawing. Use the one from your own Wireshark.");
+    expect(says('not-mine', 'others', String(SPLIT_NUM.others))).toBe("That's from the drawing. Use the one from your own Wireshark.");
+    expect(says('dns', 'address', PIC.wikiIp)).toBe("That's from the drawing. Use the one from your own Wireshark.");
   });
 
   it('hide the Protocol and Info cells when fogged', () => {
@@ -115,7 +119,7 @@ describe('wireshark: reading pasted text', () => {
     expect(protocolNames('tcp and udp and mdns').ok).toEqual(['tcp', 'udp', 'mdns']);
     expect(protocolNames('SSDP LLMNR NBNS').ok).toHaveLength(3);
     // A name the list doesn't know still counts in the column's style.
-    expect(protocolNames('TCP, UDP, XYZP').ok).toEqual(['TCP', 'UDP', 'XYZP']);
+    expect(protocolNames('TCP, UDP, XYZP')).toEqual({ ok: ['TCP', 'UDP', 'XYZP'], bad: [], known: 2 });
     expect(protocolNames('TCP, tcp, TCP').ok).toEqual(['TCP']);
   });
 });
@@ -133,6 +137,7 @@ describe('wireshark: step 2, the first capture', () => {
     expect(says('first-capture', 'protocols', 'TCP TCP TCP')).toBe("That's 1 different name. Find three different ones in the Protocol column.");
     expect(says('first-capture', 'protocols', 'TCP, 10.40.0.10, DNS')).toBe('10.40.0.10 is an address, from the Source or Destination column. Name what the Protocol column says.');
     expect(says('first-capture', 'protocols', 'TCP, internet, DNS')).toBe('"internet" isn\'t a name from the Protocol column. Copy the names the way that column writes them, like TCP.');
+    expect(says('first-capture', 'protocols', 'TCP, ABC, XYZ')).toBe("Those don't look like names from the Protocol column. Copy three names the way your Wireshark writes them, like TCP.");
   });
 });
 
@@ -184,6 +189,9 @@ describe('wireshark: step 4, DNS', () => {
   it('wants the address from the pasted response', () => {
     expect(ok('dns', 'address', '198.35.26.224')).toBe(true);
     expect(says('dns', 'address', '198.35.26.225')).toBe('The response you pasted says wikipedia.org is at 198.35.26.224. Copy the address from the end of it.');
+    expect(says('dns', 'address', '10.40.0.10')).toBe(
+      "That's the DNS server's own address: the Server line in nslookup, and the Source of the response. The answer for wikipedia.org is the address at the end of the response.",
+    );
   });
 });
 
@@ -219,19 +227,13 @@ describe('wireshark: steps 5 and 6, HTTP and the handshake', () => {
   });
 });
 
-describe('wireshark: steps 7 and 8, TLS and ping', () => {
+describe('wireshark: step 7 and the ping extra credit', () => {
   it("takes TShark's Client Hello, and explains other sites and old versions", () => {
     expect(ok('tls', 'hello', 'Client Hello (SNI=www.wikipedia.org)')).toBe(true);
     expect(ok('tls', 'hello', 'Client Hello\nServer Name: www.wikipedia.org')).toBe(true);
     expect(says('tls', 'hello', 'Client Hello (SNI=www.google.com)')).toBe('That Client Hello is for another site. Find the one that says wikipedia.org.');
     expect(says('tls', 'hello', 'Client Hello')).toMatch(/^Your Wireshark doesn't show the name in Info/);
     expect(says('tls', 'hello', 'Server Hello, Change Cipher Spec, Application Data')).toBe("That's the server's answer. Paste the Client Hello your browser sent.");
-  });
-
-  it('wants 443 for the port, and names the temporary port', () => {
-    expect(ok('tls', 'port', '443')).toBe(true);
-    expect(ok('tls', 'port', 'Dst Port: 443')).toBe(true);
-    expect(says('tls', 'port', '54036')).toBe("That's your computer's temporary port, the Src Port. The question asks for Dst Port, where the hello went.");
   });
 
   it("turns away the student's own address as the gateway", () => {
@@ -261,11 +263,32 @@ describe('wireshark: step 9, the two filters', () => {
     expect(ok('not-mine', 'others', '41')).toBe(true);
     expect(ok('not-mine', 'others', 'Packets: 412 · Displayed: 41 (10.0%)')).toBe(true);
     expect(says('not-mine', 'others', '40')).toBe(
-      '371 + 40 = 411, but the whole capture has 412. The two lists should add up to the whole capture. Use the same capture for all three numbers, and read Displayed: after each filter.',
+      '371 + 40 = 411, but the whole capture has 412. The two lists should add up to the whole capture. Use the same capture for all three numbers, and read the number after Displayed after each filter.',
     );
   });
 
   it('catches Packets typed in place of Displayed', () => {
-    expect(says('not-mine', 'mine', '500')).toBe("That's more than the 412 packets in the whole capture. Read Displayed:, not Packets:.");
+    expect(says('not-mine', 'mine', '500')).toBe("That's more than the 412 packets in the whole capture. Read the number after Displayed, not Packets.");
+  });
+});
+
+describe('wireshark: report tries', () => {
+  it("doesn't count checks after the first right answer", () => {
+    const now = Date.now();
+    const p: LabProgress = { labId: lab.id, labVersion: lab.version, studentId: 'ws-tries', startedAt: now, updatedAt: now, activeMs: 0, step: 0, maxStep: 0, stepStart: {}, goals: {}, answers: {}, actions: [], log: [] };
+    const s = new LabSession(lab, p);
+    const who = { id: 'x', name: 'Test Student', period: '', createdAt: 0 };
+    const tries = () => buildReport(lab, s.progress, who, 'submitted').questions.find((x) => x.step === 'first-capture' && x.id === 'count')?.attempts;
+    const answer = (v: string) => {
+      s.setDraft('first-capture', q('first-capture', 'count'), v);
+      return s.check('first-capture', q('first-capture', 'count'));
+    };
+    expect(answer('1482')).toBe(false);
+    expect(answer('1203')).toBe(true);
+    // Trying another number from the same capture, after being right, isn't a new try.
+    expect(answer('1482')).toBe(false);
+    expect(answer('1210')).toBe(true);
+    expect(s.answer('first-capture', 'count')?.attempts).toBe(4);
+    expect(tries()).toBe(2);
   });
 });

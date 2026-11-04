@@ -321,6 +321,10 @@
   gap: 12px;
   margin: 16px 0;
 }
+/* A lesson has no goals, so three stats. */
+.summary-stats:not(:has(> :nth-child(4))) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .sstat {
   padding: 14px 16px;
   border: 1px solid var(--line);
@@ -2096,7 +2100,8 @@
 }
 /* Filters are typed character by character: show == as two equals signs, not one joined glyph. */
 .capture-filter input,
-.lesson code {
+.lesson code,
+.prose code {
   font-variant-ligatures: none;
 }
 /* The packet list is the lesson: on a wide screen the Capture tab takes half the column. */
@@ -3809,6 +3814,8 @@ button.pl-tile:active {
 .ws-shake,
 .ws-split {
   margin: 0 0 10px;
+  /* Draw == as two equals signs, the way students type them. */
+  font-variant-ligatures: none;
 }
 .ws-pic .ws-part {
   padding-left: 8px;
@@ -3820,9 +3827,17 @@ button.pl-tile:active {
 .ws-pic .ws-row {
   grid-template-columns: 3ch 9ch 15ch 15ch 8ch 6ch;
 }
-@container (min-width: 760px) {
+/* A stage card on a laptop fits Info as a column of its own, as in
+   Wireshark. Long Info wraps inside that column instead of under Time. */
+@container (min-width: 600px) {
   .ws-pic .ws-row {
-    grid-template-columns: 3ch 9ch 15ch 15ch 8ch 6ch auto;
+    grid-template-columns: 3ch 8ch 14ch 14ch 7ch 5ch minmax(0, 1fr);
+    font-size: 11px;
+  }
+  .ws-pic .ws-row > span:last-child {
+    grid-column: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 .ws-pic .ws-toolbar {
@@ -3901,14 +3916,14 @@ button.pl-tile:active {
 .ws-tag {
   position: absolute;
   right: 6px;
-  top: -0.75em;
+  top: -0.8em;
   z-index: 1;
-  padding: 0 6px;
+  padding: 0 7px;
   border-radius: 999px;
-  background: #ea580c;
+  background: #c2410c;
   color: #fff;
   font-family: var(--font, system-ui, sans-serif);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
   line-height: 1.5;
   white-space: nowrap;
@@ -3955,16 +3970,18 @@ button.pl-tile:active {
 .ws-menu-col > .ws-hi {
   outline-offset: -2px;
 }
+/* Under the packet list, so it doesn't cover the row it was opened on. */
 .ws-pic .ws-list:has(> .ws-menu) {
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.ws-pic .ws-list > .ws-menu {
+  align-self: flex-end;
 }
 @container (max-width: 520px) {
-  .ws-pic .ws-details,
-  .ws-pic .ws-list:has(> .ws-menu) {
+  .ws-pic .ws-details {
     flex-direction: column;
-  }
-  .ws-pic .ws-list:has(> .ws-menu) .ws-table {
-    width: 100%;
   }
   .ws-menu {
     align-self: flex-end;
@@ -4067,7 +4084,7 @@ button.pl-tile:active {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 22px;
 }
 .ws-dialog-btns > span {
   padding: 3px 12px;

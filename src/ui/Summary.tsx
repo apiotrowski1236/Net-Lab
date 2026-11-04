@@ -92,13 +92,15 @@ export function Summary({ session }: { session: LabSession }) {
       </header>
 
       <div class="summary-stats">
-        <div class="sstat">
-          <div class="sstat-num">
-            {goalsDone}
-            <span>/{goals.length}</span>
+        {goals.length > 0 && (
+          <div class="sstat">
+            <div class="sstat-num">
+              {goalsDone}
+              <span>/{goals.length}</span>
+            </div>
+            <div class="sstat-label">goals reached</div>
           </div>
-          <div class="sstat-label">goals reached</div>
-        </div>
+        )}
         <div class="sstat">
           <div class="sstat-num">
             {report.score.auto}

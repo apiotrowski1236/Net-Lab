@@ -7,6 +7,7 @@ import {
   COUNT,
   countOf,
   DNS_REPLY_RE,
+  dnsServerNotAnswer,
   firstIp,
   FROM_DRAWING,
   IP_ANY,
@@ -23,7 +24,7 @@ import {
   synAckMatches,
   threeProtocols,
 } from './answers';
-import { ABOUT, DETAIL_MENU, HANDSHAKE, PIC, ROW_MENU, settings, SPLIT, terminal, UNSAVED, WELCOME, wsWindow } from './pictures';
+import { ABOUT, DETAIL_MENU, HANDSHAKE, PIC, ROW_MENU, settings, SPLIT, SPLIT_NUM, terminal, UNSAVED, WELCOME, wsWindow } from './pictures';
 
 /**
  * Wireshark for Real (AP Cybersecurity, lab 3). A lesson with no network:
@@ -57,24 +58,24 @@ export const wiresharkLab: LabDef = {
   id: 'wireshark',
   version: 1,
   title: 'Wireshark for Real',
-  tagline: "Install Wireshark, capture your own computer's traffic on the school Wi-Fi, and copy real DNS, web, TCP, TLS, and ping packets out of it.",
+  tagline: "Capture your own computer's traffic on the school Wi-Fi with Wireshark, and copy real DNS, web, TCP, and TLS packets out of it.",
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves'],
   ced: ['3.1.A'],
   minutes: 50,
   objectives: [
-    'Install Wireshark, capture on the right interface, and follow the rules for capturing with permission.',
+    'Check your Wireshark install, capture on the right interface, and follow the rules for capturing with permission.',
     "Find your computer's IP and MAC addresses, filter a capture, and copy values out of Wireshark.",
-    'Read real DNS, HTTP, TCP, TLS, and ping (ICMP) packets, and explain what each one does.',
+    'Read real DNS, HTTP, TCP, and TLS packets, and explain what each one does.',
     'Explain what a capture shows in plain text, what encryption hides, and why your capture misses other computers\u2019 traffic.',
   ],
   steps: [
     // -----------------------------------------------------------------------
     {
       id: 'install',
-      title: 'Install Wireshark',
+      title: 'Check your Wireshark',
       body: md`
-        > **How this lab works.** You do each task in **Wireshark** on your computer, then copy what it shows into this page. The checker reads what you paste, so paste it the way Wireshark shows it. Your work saves on this computer as you go.
+        > **How this lab works.** You do each task in **Wireshark** on your computer, then copy what it shows into this page. Do it all on that computer, with this page and Wireshark side by side. The checker reads what you paste, so paste it the way Wireshark shows it.
 
         In the last lab you captured packets on a pretend network. Today you'll capture real ones: the packets your own computer sends and receives on the school Wi-Fi. You'll use **Wireshark**, the free program network technicians and security analysts use.
 
@@ -86,16 +87,9 @@ export const wiresharkLab: LabDef = {
 
         Capturing other people's traffic without permission breaks school rules and the law.
 
-        **Install it:**
+        Your teacher asked you to install Wireshark before class. Open it, then open its **About** window: **Help > About Wireshark** on Windows, or **Wireshark > About Wireshark** on a Mac.
 
-        1. Go to **wireshark.org** and press **Download**. Use only that site.
-        2. **Windows**: run the installer and keep its choices. When it offers **Npcap**, install that too. Wireshark needs it to capture.
-        3. **Mac**: open the file you downloaded and drag Wireshark into Applications. Then double-click **Install ChmodBPF** in the same window. Without it, Wireshark can't see your network.
-        4. **Chromebook**: Wireshark doesn't run on Chromebooks. Tell your teacher.
-
-        If an installer asks for a password you don't have, ask your teacher.
-
-        Open Wireshark. Then open its **About** window: **Help > About Wireshark** on Windows, or **Wireshark > About Wireshark** on a Mac.
+        **Not installed yet?** Go to **wireshark.org** and press **Download**. Use only that site. On **Windows**, keep the installer's choices, and install **Npcap** when it offers it: Wireshark captures through it. On a **Mac**, drag Wireshark into Applications, then double-click **Install ChmodBPF** in the same window: it lets Wireshark read the network card. Wireshark doesn't run on Chromebooks. If an installer asks for a password you don't have, ask your teacher.
       `,
       demos: [pic('about', 'The About window', ABOUT, 'Your version number may be newer.')],
       questions: [
@@ -132,7 +126,7 @@ export const wiresharkLab: LabDef = {
               feedback: 'The permission is for this lab, in class. Another time needs permission again.',
             },
           ],
-          explain: 'Your own computer, on this network, for this lab. Anything else needs permission from whoever owns the network.',
+          explain: 'Your own computer, on this network, for this lab. Anything else needs permission from whoever owns the device or the network.',
         },
       ],
     },
@@ -199,7 +193,7 @@ export const wiresharkLab: LabDef = {
           expect: /\S+[\s,]+\S+[\s,]+\S+/,
           expectHint: 'Write three names from the Protocol column, with commas between them.',
           verify: threeProtocols,
-          explain: "You'll meet the most common ones in this lab: DNS, HTTP, TCP, TLS, and ICMP.",
+          explain: "You'll meet the most common ones in this lab: DNS, HTTP, TCP, and TLS.",
         },
       ],
     },
@@ -209,22 +203,20 @@ export const wiresharkLab: LabDef = {
       id: 'you',
       title: 'Find your computer',
       body: md`
-        Every packet your computer sends carries two of its addresses. Its **IP address** gets the packet across the internet. Its **MAC address** names its network card, for the first hop to the router.
+        Every packet your computer sends carries two of its addresses. Its **IP address** names your computer on the school network. Its **MAC address** names its network card, for the first hop to the router.
 
-        **Find your IP address** in your computer's settings:
+        **1. Find your IP address** in your computer's settings:
 
         - **Windows**: press the Windows key, type **cmd**, and press Enter. In the black window (**Command Prompt**), type \`ipconfig\` and press Enter. Under **Wireless LAN adapter Wi-Fi**, find **IPv4 Address**.
         - **Mac**: open **System Settings**, then **Wi-Fi**. Press **Details** next to your network, then **TCP/IP**. Find **IP address**.
 
         Keep that window open. You'll need it again.
 
-        **Find your MAC address** in Wireshark, inside a packet your computer sent:
+        **2. Find your MAC address** in Wireshark, inside a packet your computer sent:
 
-        1. Click the **filter bar** above the packet list. Type \`ip.src == \` and your IP address, like \`ip.src == 192.0.2.25\`, and press Enter. The bar turns green, and the list shows only packets from your computer. (A red bar means a typo.)
-        2. Click any packet. Its layers show in the pane under the list. Click the arrow next to **Ethernet II** to open it.
-        3. Right-click **Source** (on a Mac, you can also hold Control and click). Choose **Copy**, then **Value**. Paste it below.
-
-        Wireshark may show the card maker's name in front, like **Apple_5c:21:9f**. **Copy > Value** gives you the whole address.
+        - Click the **filter bar** above the packet list. Type \`ip.src == 192.0.2.25\` with your own IP address in place of 192.0.2.25, and press Enter. The bar turns green, and the list shows only packets from your computer. (A red bar means a typo.)
+        - Click any packet. Its layers show in the pane under the list. Click the arrow next to **Ethernet II** to open it.
+        - Right-click **Source** (on a Mac, you can also hold Control and click). Choose **Copy**, then **Value**: that gives the whole address, without the card maker's name in front.
       `,
       demos: [
         pic(
@@ -283,7 +275,7 @@ export const wiresharkLab: LabDef = {
           wrong: [IPV6_HINT],
           expectHint: 'Type the IPv4 address from ipconfig (Windows) or the TCP/IP window (Mac): four numbers with dots between them.',
           verify: all(notDrawing, (v) => notAnAddress(firstIp(v))),
-          explain: 'Every packet your computer sends on this network carries this address as its Source.',
+          explain: "Every packet your computer sends on this network carries this address as its Source. It's a private address: the school's router swaps in the school's own public address before packets go out to the internet.",
         },
         {
           id: 'my-mac',
@@ -302,7 +294,7 @@ export const wiresharkLab: LabDef = {
             if (parseInt(mac.slice(0, 2), 16) & 1) return "That's a group (multicast) address, which no network card owns. Use the Source of a packet your computer sent.";
             return undefined;
           }),
-          explain: 'Packets carry this MAC address only as far as the router. Your IP address goes the whole way.',
+          explain: 'Packets carry this MAC address only as far as the router. Your IP address stays on them across the school network.',
         },
       ],
     },
@@ -314,35 +306,36 @@ export const wiresharkLab: LabDef = {
       body: md`
         To reach wikipedia.org, your computer needs its IP address. It asks a **DNS server**, which turns names into addresses. You'll make your computer ask, and catch the question and the answer.
 
-        1. Press the blue fin (**Start**) at the top left to start a new capture. When Wireshark asks whether to save the old one, choose **Continue without Saving**.
+        1. Press the blue shark fin (**Start**) at the top left to start a new capture. When Wireshark asks whether to save the old one, choose **Continue without Saving**.
         2. In Command Prompt (Windows) or Terminal (Mac), type \`nslookup wikipedia.org\` and press Enter. It prints the address it got. (To open Terminal on a Mac, press Command and the space bar, type **Terminal**, and press Enter.)
         3. Press **Stop**. Type \`dns\` in the filter bar and press Enter.
         4. Find the **response**: its Info starts with **Standard query response** and ends with an address. Skip any that say **No such name**. Windows sometimes tries the name with the school's ending added first.
         5. Right-click that row. Choose **Copy**, then **Summary as Text**. Paste it below.
 
-        The number after **Standard query**, like 0x5c3d, is the lookup's **Transaction ID**. The question and its answer have the same one.
+        DNS sends each question and answer in one **UDP** packet: UDP sends a packet without opening a connection first. The number after **Standard query**, like ${PIC.txid}, is the lookup's **Transaction ID**. The question and its answer have the same one.
       `,
       demos: [
         pic(
           'nslookup',
-          'nslookup',
+          'nslookup on Windows',
           terminal(
             'Command Prompt',
             'A drawing of Command Prompt after typing nslookup wikipedia.org. It shows the DNS server, then the answer: an IPv6 address and an IPv4 address.',
             ['C:\\> nslookup wikipedia.org', 'Server:   dns.school.example', `Address:  ${PIC.dns}`, '', 'Non-authoritative answer:', 'Name:     wikipedia.org', 'Addresses:  2001:db8::224', `           ${PIC.wikiIp}`],
           ),
+          'A Mac shows almost the same thing. The drawings use made-up example addresses. Yours will be different.',
         ),
         pic(
           'dns',
           'Wireshark: copy the response',
           wsWindow({
-            label: `A drawing of Wireshark with the filter dns. Four rows: a query and a response for an A record, then for AAAA. The A response, Standard query response ${PIC.txid} A ${PIC.site} A ${PIC.siteIp}, is ringed, with a right-click menu open at Copy, Summary as Text.`,
+            label: `A drawing of Wireshark with the filter dns. Four rows: a query and a response for an A record, then for AAAA. The A response, Standard query response ${PIC.txid} A wikipedia.org A ${PIC.wikiIp}, is ringed, with a right-click menu open at Copy, Summary as Text.`,
             filter: 'dns',
             rows: [
-              ['udp', 12, '0.000000', PIC.me, PIC.dns, 'DNS', 73, `Standard query ${PIC.txid} A ${PIC.site}`],
-              ['udp', 13, '0.018322', PIC.dns, PIC.me, 'DNS', 89, `Standard query response ${PIC.txid} A ${PIC.site} A ${PIC.siteIp}`],
-              ['udp', 14, '0.019004', PIC.me, PIC.dns, 'DNS', 73, `Standard query 0x7a11 AAAA ${PIC.site}`],
-              ['udp', 15, '0.036870', PIC.dns, PIC.me, 'DNS', 101, `Standard query response 0x7a11 AAAA ${PIC.site} AAAA 2001:db8::10`],
+              ['udp', 12, '0.000000', PIC.me, PIC.dns, 'DNS', 73, `Standard query ${PIC.txid} A wikipedia.org`],
+              ['udp', 13, '0.018322', PIC.dns, PIC.me, 'DNS', 89, `Standard query response ${PIC.txid} A wikipedia.org A ${PIC.wikiIp}`],
+              ['udp', 14, '0.019004', PIC.me, PIC.dns, 'DNS', 73, 'Standard query 0x7a11 AAAA wikipedia.org'],
+              ['udp', 15, '0.036870', PIC.dns, PIC.me, 'DNS', 101, 'Standard query response 0x7a11 AAAA wikipedia.org AAAA 2001:db8::224'],
             ],
             selected: 1,
             hiRow: [1, 'Right-click'],
@@ -377,7 +370,7 @@ export const wiresharkLab: LabDef = {
           expect: IP_ANY,
           wrong: [IPV6_HINT],
           expectHint: 'Copy the address at the end of the response, after the last **A**.',
-          verify: all(notDrawing, addressInReply),
+          verify: all(notDrawing, dnsServerNotAnswer, addressInReply),
           explain: 'Your browser connects to this address when you visit wikipedia.org.',
         },
         {
@@ -403,10 +396,10 @@ export const wiresharkLab: LabDef = {
         Most websites use **HTTPS**, which locks what they send. A few still use plain **HTTP**, with no lock. **neverssl.com** does on purpose: people use it to test networks.
 
         1. Start a new capture (**Continue without Saving**).
-        2. In your browser, go to **http://neverssl.com**. Type the http:// part too. The page sends you on to a made-up name, like calmquietmorning.neverssl.com.
-        3. When the page has loaded, press **Stop**. Filter \`http\`.
+        2. In the browser on the computer running Wireshark, go to \`http://neverssl.com\`. Type the http:// part too. If the browser warns that the site isn't secure, choose to continue to the site. The page then moves you to a new, made-up name, like calmquietmorning.neverssl.com.
+        3. When the page has loaded, press **Stop**. Filter \`http\`. (Nothing shows? Load the page again while capturing.)
         4. Find a **GET** request: your browser asking for a page. Right-click it, choose **Copy**, then **Summary as Text**, and paste it below.
-        5. Click the same row. Open **Hypertext Transfer Protocol** in the pane under the list. Find the **Host** line: the name of the site the browser asked for.
+        5. Click the same row. Open **Hypertext Transfer Protocol** in the pane under the list. Find the **Host** line: the name of the site the browser asked for. (The \`\\r\\n\` at the end only marks the end of the line.)
       `,
       demos: [
         pic(
@@ -526,7 +519,7 @@ export const wiresharkLab: LabDef = {
           ],
           expectHint: 'Filter `tcp.port == 80`. Copy a row whose Info has **→ 80 [SYN]** in it.',
           verify: all(notDrawing, (v) => (v.includes(PIC.port) ? PORT_FROM_DRAWING : undefined), summaryEnds(SYN_RE, me)),
-          explain: 'The number before the arrow is the temporary port your computer picked.',
+          explain: 'The number before the arrow is the temporary port your computer picked. Port 80 is the web server.',
         },
         {
           id: 'syn-ack',
@@ -541,19 +534,7 @@ export const wiresharkLab: LabDef = {
           ],
           expectHint: 'Find the row right after your [SYN] whose Info has **80 →** and **[SYN, ACK]** in it.',
           verify: all(notDrawing, (v) => (v.includes(PIC.port) ? PORT_FROM_DRAWING : undefined), synAckMatches, summaryEnds(SYN_ACK_RE, undefined, me)),
-          explain: 'The server answered from port 80 to the same temporary port your [SYN] came from.',
-        },
-        {
-          id: 'ports',
-          kind: 'choice',
-          prompt: "Your computer's port in these packets is a big number, like 52114. What is it?",
-          options: [
-            { id: 'temp', text: 'A temporary port your computer picked for this connection', correct: true },
-            { id: 'server', text: 'The port the web server listens on', feedback: 'The server listens on 80. Check which side of the arrow each number is on.' },
-            { id: 'count', text: 'The number of packets in the connection', feedback: 'It stays the same in every packet of the connection. It names a place to deliver to, not a count.' },
-            { id: 'address', text: "Your computer's address on the Wi-Fi", feedback: 'Your address is in the IP layer. A port picks a program on the computer.' },
-          ],
-          explain: 'Open the same site in a second tab and you get a second connection, with a different temporary port.',
+          explain: 'The server answered from port 80 to the same temporary port your [SYN] came from. Open the site in a second tab and you may get a second connection, with a different temporary port.',
         },
       ],
     },
@@ -566,30 +547,32 @@ export const wiresharkLab: LabDef = {
         **HTTPS** is HTTP inside **TLS** (Transport Layer Security), which **encrypts** it: it scrambles the page so only your browser and the server can read it. But first the browser has to say which site it wants. Its first TLS message, the **Client Hello**, carries the site's name.
 
         1. Start a new capture (**Continue without Saving**).
-        2. In your browser, go to **https://www.wikipedia.org**.
-        3. When it loads, press **Stop**. Filter \`tls.handshake.type == 1\`. Type 1 means Client Hello, so the list shows every site your browser said hello to.
-        4. Find the one whose Info says **Client Hello (SNI=www.wikipedia.org)**. **SNI** stands for Server Name Indication: the site's name. Copy its summary.
+        2. In the browser on the computer running Wireshark, go to \`https://www.wikipedia.org\`.
+        3. When it loads, press **Stop**. Filter \`tls.handshake.type == 1\`. Type 1 means Client Hello, so the list shows every site your browser said hello to. (If the Protocol column says QUIC, skip that row: pick one that says TLS.)
+        4. Find the one whose Info says \`Client Hello (SNI=www.wikipedia.org)\`. **SNI** stands for Server Name Indication: the site's name. Copy its summary.
         5. Filter \`tls\`. Click a row whose Info says **Application Data**, and open **Transport Layer Security**. You'll see **Encrypted Application Data**: the locked page.
+
+        HTTPS goes to port 443, the way plain HTTP goes to port 80.
       `,
       demos: [
         pic(
           'hello',
           'Wireshark: Client Hellos',
           wsWindow({
-            label: `A drawing of Wireshark with the filter tls.handshake.type == 1. Three Client Hello rows, each with a site name after SNI=. The first, for ${PIC.site}, is selected, and its Server Name line is ringed in the layers below.`,
+            label: `A drawing of Wireshark with the filter tls.handshake.type == 1. Three Client Hello rows, each with a site name after SNI=. The first, for www.wikipedia.org, is selected, and its Server Name line is ringed in the layers below.`,
             filter: 'tls.handshake.type == 1',
             rows: [
-              ['tcp', 31, '0.000000', PIC.me, '198.51.100.80', 'TLSv1.3', 571, `Client Hello (SNI=${PIC.site})`],
-              ['tcp', 58, '0.240133', PIC.me, '203.0.113.80', 'TLSv1.3', 583, 'Client Hello (SNI=static.example.org)'],
-              ['tcp', 77, '0.511920', PIC.me, '198.51.100.7', 'TLSv1.3', 602, 'Client Hello (SNI=login.example.com)'],
+              ['tcp', 31, '0.000000', PIC.me, PIC.wikiIp, 'TLSv1.3', 571, 'Client Hello (SNI=www.wikipedia.org)'],
+              ['tcp', 58, '0.240133', PIC.me, '198.51.100.240', 'TLSv1.3', 583, 'Client Hello (SNI=upload.wikimedia.org)'],
+              ['tcp', 77, '0.511920', PIC.me, '203.0.113.80', 'TLSv1.3', 602, 'Client Hello (SNI=www.example.org)'],
             ],
             selected: 0,
             details: [
               { text: `Transmission Control Protocol, Src Port: ${PIC.port}, Dst Port: 443`, open: false },
               { text: 'Transport Layer Security', open: true },
               { text: 'TLSv1.3 Record Layer: Handshake Protocol: Client Hello', depth: 1, open: true },
-              { text: `Extension: server_name (len=20) name=${PIC.site}`, depth: 2, open: true },
-              { text: `Server Name: ${PIC.site}`, depth: 3, hi: "The site's name" },
+              { text: 'Extension: server_name (len=22) name=www.wikipedia.org', depth: 2, open: true },
+              { text: 'Server Name: www.wikipedia.org', depth: 3, hi: "The site's name" },
             ],
             status: { packets: 903, displayed: 3 },
           }),
@@ -616,19 +599,6 @@ export const wiresharkLab: LabDef = {
           explain: 'The site\u2019s name traveled in plain view, before the lock was set up.',
         },
         {
-          id: 'port',
-          kind: 'text',
-          prompt: 'Which port did the Client Hello go to? Click it and read **Dst Port** in the **Transmission Control Protocol** line.',
-          placeholder: 'Type a number',
-          expect: /^\D*443\D*$/,
-          wrong: [
-            { match: /\b(49|5\d|6[0-5])\d{3}\b/, text: "That's your computer's temporary port, the Src Port. The question asks for Dst Port, where the hello went." },
-            { match: /\b80\b/, text: 'Port 80 is plain HTTP. Read Dst Port on the Client Hello for wikipedia.org.' },
-          ],
-          expectHint: 'Click the Client Hello. In the pane under the list, the **Transmission Control Protocol** line ends with **Dst Port:** and a number.',
-          explain: 'Port 443 means HTTPS, the way port 80 means plain HTTP.',
-        },
-        {
           id: 'still-see',
           kind: 'choice',
           prompt: 'Someone running the network has a capture of your visit. What can they learn?',
@@ -645,18 +615,117 @@ export const wiresharkLab: LabDef = {
 
     // -----------------------------------------------------------------------
     {
+      id: 'not-mine',
+      title: "What your capture can't see",
+      body: md`
+        Your computer shares the school Wi-Fi with dozens of others. Does your capture show their traffic? Count to find out. Use the capture you have open, from the last step.
+
+        1. Read **Packets:** in the status bar: the whole capture.
+        2. Filter \`ip.addr == 192.0.2.25\`, with your address from step 3 in place of 192.0.2.25. This shows every packet to or from your computer. Read **Displayed:**.
+        3. Filter \`!(ip.addr == 192.0.2.25)\`, again with your address. The \`!\` means "not". Read **Displayed:** again.
+
+        Click a few packets in the second list. Many are sent to every device (**broadcast**) or to a group of devices (**multicast**). This list can also hold some of your own packets: **IPv6** ones, with long addresses and colons, because \`ip.addr\` only matches addresses with dots.
+
+        Is anything there a classmate's web page?
+      `,
+      demos: [
+        pic('split', 'Two filters, one capture', SPLIT),
+        pic(
+          'others',
+          'Wireshark: not your address',
+          wsWindow({
+            label: `A drawing of Wireshark with the filter !(ip.addr == ${PIC.me}). Rows: an ARP broadcast, two MDNS packets, and an SSDP packet, all from other devices.`,
+            filter: `!(ip.addr == ${PIC.me})`,
+            rows: [
+              ['arp', 112, '9.881020', 'Dell_44:10:2c', 'Broadcast', 'ARP', 60, `Who has ${PIC.router}? Tell 192.0.2.77`],
+              ['udp', 140, '11.204413', '192.0.2.61', '224.0.0.251', 'MDNS', 87, 'Standard query 0x0000 PTR _googlecast._tcp.local'],
+              ['udp', 151, '12.003118', '192.0.2.88', '239.255.255.250', 'SSDP', 216, 'M-SEARCH * HTTP/1.1'],
+              ['udp', 166, '13.517640', 'fe80::1c2b:3aff:fe4d:5e6f', 'ff02::fb', 'MDNS', 107, 'Standard query 0x0000 PTR _companion-link._tcp.local'],
+            ],
+            status: { packets: SPLIT_NUM.total, displayed: SPLIT_NUM.others },
+            hi: { status: 'Displayed:' },
+          }),
+        ),
+      ],
+      questions: [
+        countQ('total', 'How many packets are in the whole capture? (**Packets:**)', 'Packets', (v) => (countOf(v, 'Packets') === SPLIT_NUM.total ? FROM_DRAWING : undefined)),
+        countQ('mine', 'How many show with `ip.addr ==` your address? (**Displayed:**)', 'Displayed', (v, a) => {
+          const n = countOf(v, 'Displayed')!;
+          const total = countOf(a('not-mine', 'total'), 'Packets');
+          if (n === SPLIT_NUM.mine) return FROM_DRAWING;
+          if (total !== undefined && n > total) return `That's more than the ${total} packets in the whole capture. Read the number after Displayed, not Packets.`;
+          return undefined;
+        }),
+        countQ('others', 'How many show with the "not" filter, `!(ip.addr == ...)`? (**Displayed:**)', 'Displayed', (v, a) => {
+          const n = countOf(v, 'Displayed')!;
+          const total = countOf(a('not-mine', 'total'), 'Packets');
+          const mine = countOf(a('not-mine', 'mine'), 'Displayed');
+          if (n === SPLIT_NUM.others) return FROM_DRAWING;
+          if (total === undefined || mine === undefined || mine + n === total) return undefined;
+          return `${mine} + ${n} = ${mine + n}, but the whole capture has ${total}. The two lists should add up to the whole capture. Use the same capture for all three numbers, and read the number after Displayed after each filter.`;
+        }),
+        {
+          id: 'why',
+          kind: 'choice',
+          prompt: "Why doesn't your capture show your classmates' web pages?",
+          options: [
+            { id: 'card', text: 'Your Wi-Fi card keeps only packets for your computer or for everyone', correct: true },
+            { id: 'encrypted', text: 'Wireshark hides encrypted packets', feedback: 'Your capture has plenty of encrypted packets: your own TLS. Your classmates\u2019 packets never reached Wireshark at all.' },
+            { id: 'one-site', text: 'Wireshark shows one website at a time', feedback: 'Your capture had many sites and kinds of packets at once. Wireshark shows whatever reaches your card.' },
+            { id: 'blocked', text: "Your classmates' computers block Wireshark", feedback: "Their computers don't do anything special. Their packets aren't addressed to yours." },
+          ],
+          explain: "Your Wi-Fi card keeps only packets addressed to your computer or to everyone, and each device's Wi-Fi traffic is locked with its own key. To capture someone else's packets, an attacker has to trick the network, like in later labs. Doing that here would break the rules from step 1.",
+        },
+      ],
+    },
+
+    // -----------------------------------------------------------------------
+    {
+      id: 'reflect',
+      title: 'Reflect and clean up',
+      body: md`
+        You captured your own traffic and read real packets: DNS, HTTP, TCP, and TLS.
+
+        Your capture also holds other devices' broadcasts, so don't keep it. When you finish the lab (and any extra credit), quit Wireshark: **File > Quit** on Windows, **Wireshark > Quit Wireshark** on a Mac. When it asks whether to save, choose **Quit without Saving**.
+      `,
+      demos: [pic('unsaved', 'When you quit', UNSAVED, 'Wireshark asks this when a capture has not been saved.')],
+      questions: [
+        {
+          id: 'advice',
+          kind: 'text',
+          prompt:
+            'A friend thinks HTTPS makes them invisible on the school Wi-Fi. Using what you saw today, explain what someone running the network could learn about their visit to a website, and what stays hidden. Name at least two kinds of packets you saw.',
+          minWords: 40,
+          lines: 5,
+        },
+      ],
+    },
+
+    // -----------------------------------------------------------------------
+    {
+      id: 'submit',
+      title: 'Review and submit',
+      kind: 'submit',
+      body: md`
+        Look over your summary. You can go back to any step and change an answer, then hand in your work again.
+      `,
+    },
+
+    // -----------------------------------------------------------------------
+    {
       id: 'ping',
-      title: 'Ping your router',
+      title: 'Extra credit: ping your router',
+      extra: true,
       body: md`
         A **ping** asks a computer "are you there?" and waits for an answer. Wireshark calls ping packets **ICMP**. You'll ping your router, the **default gateway**: your network's way out to the internet.
 
         Find its address in the window from step 3. On Windows, \`ipconfig\` shows it as **Default Gateway**. On a Mac, the TCP/IP window shows it as **Router**.
 
-        1. Start a new capture (**Continue without Saving**).
-        2. **Windows**: in Command Prompt, type \`ping\`, a space, and the address, like \`ping 192.0.2.1\`. **Mac**: in Terminal, type \`ping -c 4\`, a space, and the address. Either one sends four pings.
+        1. Open Wireshark again if you closed it, and start a capture on Wi-Fi.
+        2. **Windows**: in Command Prompt, type \`ping 192.0.2.1\` with your router's address in place of 192.0.2.1. **Mac**: in Terminal, type \`ping -c 4 192.0.2.1\` the same way. Either one sends four pings.
         3. When it finishes, press **Stop**. Filter \`icmp\`.
 
-        Each **Echo (ping) request** from your computer should get an **Echo (ping) reply** from the router. If the command says **Request timed out**, the network blocks pings. Then copy a request instead. Its Info ends with **(no response found!)**.
+        Each **Echo (ping) request** from your computer should get an **Echo (ping) reply** from the router. If the command says **Request timed out** (Windows) or **Request timeout** (Mac), the network blocks pings. Then copy a request instead. Its Info ends with **(no response found!)**.
       `,
       demos: [
         pic(
@@ -666,6 +735,15 @@ export const wiresharkLab: LabDef = {
             'Command Prompt',
             `A drawing of Command Prompt after typing ping ${PIC.router}: four lines that start with Reply from ${PIC.router}.`,
             [`C:\\> ping ${PIC.router}`, '', `Pinging ${PIC.router} with 32 bytes of data:`, ...[3, 2, 4, 2].map((t) => `Reply from ${PIC.router}: bytes=32 time=${t}ms TTL=64`)],
+          ),
+        ),
+        pic(
+          'ping-mac',
+          'Mac: ping',
+          terminal(
+            'Terminal',
+            `A drawing of a Mac Terminal after typing ping -c 4 ${PIC.router}: four lines that start with 64 bytes from ${PIC.router}.`,
+            [`% ping -c 4 ${PIC.router}`, `PING ${PIC.router} (${PIC.router}): 56 data bytes`, ...[3.1, 2.4, 4.0, 2.2].map((t, i) => `64 bytes from ${PIC.router}: icmp_seq=${i} ttl=64 time=${t.toFixed(3)} ms`)],
           ),
         ),
         pic(
@@ -728,126 +806,17 @@ export const wiresharkLab: LabDef = {
 
     // -----------------------------------------------------------------------
     {
-      id: 'not-mine',
-      title: "What your capture can't see",
-      body: md`
-        Your computer shares the school Wi-Fi with dozens of others. Does your capture show their traffic? Count to find out. Use the capture you have open.
-
-        1. If the capture is running, press **Stop**. Read **Packets:** in the status bar.
-        2. Filter \`ip.addr ==\` and your address from step 3. This shows every packet to or from your computer. Read **Displayed:**.
-        3. Filter \`!(ip.addr ==\` and your address, then \`)\`. The \`!\` means "not". Read **Displayed:** again.
-
-        Click a few packets in the second list. Many are sent to every device (**broadcast**) or to a group of devices (**multicast**), like ARP, MDNS, and SSDP. Some may be your own **IPv6** packets, with long addresses and colons: \`ip.addr\` only matches addresses with dots.
-
-        Your Wi-Fi card keeps only packets addressed to your computer or to everyone, and each device's Wi-Fi traffic is locked with its own key. So your capture shows your own traffic, plus packets meant for everyone. It doesn't show your classmates' web pages.
-      `,
-      demos: [
-        pic('split', 'Two filters, one capture', SPLIT),
-        pic(
-          'others',
-          'Wireshark: not your address',
-          wsWindow({
-            label: `A drawing of Wireshark with the filter !(ip.addr == ${PIC.me}). Rows: an ARP broadcast, two MDNS packets, and an SSDP packet, all from other devices.`,
-            filter: `!(ip.addr == ${PIC.me})`,
-            rows: [
-              ['arp', 112, '9.881020', 'Dell_44:10:2c', 'Broadcast', 'ARP', 60, `Who has ${PIC.router}? Tell 192.0.2.77`],
-              ['udp', 140, '11.204413', '192.0.2.61', '224.0.0.251', 'MDNS', 87, 'Standard query 0x0000 PTR _googlecast._tcp.local'],
-              ['udp', 151, '12.003118', '192.0.2.88', '239.255.255.250', 'SSDP', 216, 'M-SEARCH * HTTP/1.1'],
-              ['udp', 166, '13.517640', 'fe80::1c2b:3aff:fe4d:5e6f', 'ff02::fb', 'MDNS', 107, 'Standard query 0x0000 PTR _companion-link._tcp.local'],
-            ],
-            status: { packets: 1482, displayed: 171 },
-            hi: { status: 'Displayed:' },
-          }),
-        ),
-      ],
-      questions: [
-        countQ('total', 'How many packets are in the whole capture? (**Packets:**)', 'Packets', (v) => (countOf(v, 'Packets') === 1482 ? FROM_DRAWING : undefined)),
-        countQ('mine', 'How many show with `ip.addr ==` your address? (**Displayed:**)', 'Displayed', (v, a) => {
-          const n = countOf(v, 'Displayed')!;
-          const total = countOf(a('not-mine', 'total'), 'Packets');
-          if (n === 1311) return FROM_DRAWING;
-          if (total !== undefined && n > total) return `That's more than the ${total} packets in the whole capture. Read Displayed:, not Packets:.`;
-          return undefined;
-        }),
-        countQ('others', 'How many show with `!(ip.addr ==` your address `)`? (**Displayed:**)', 'Displayed', (v, a) => {
-          const n = countOf(v, 'Displayed')!;
-          const total = countOf(a('not-mine', 'total'), 'Packets');
-          const mine = countOf(a('not-mine', 'mine'), 'Displayed');
-          if (n === 171) return FROM_DRAWING;
-          if (total === undefined || mine === undefined || mine + n === total) return undefined;
-          return `${mine} + ${n} = ${mine + n}, but the whole capture has ${total}. The two lists should add up to the whole capture. Use the same capture for all three numbers, and read Displayed: after each filter.`;
-        }),
-        {
-          id: 'why',
-          kind: 'choice',
-          prompt: "Why doesn't your capture show your classmates' web pages?",
-          options: [
-            { id: 'card', text: 'Your Wi-Fi card keeps only packets for your computer or for everyone', correct: true },
-            { id: 'encrypted', text: 'Wireshark hides encrypted packets', feedback: 'Your capture has plenty of encrypted packets: your own TLS. Your classmates\u2019 packets never reached Wireshark at all.' },
-            { id: 'one-site', text: 'Wireshark shows one website at a time', feedback: 'Your capture had many sites and kinds of packets at once. Wireshark shows whatever reaches your card.' },
-            { id: 'blocked', text: "Your classmates' computers block Wireshark", feedback: "Their computers don't do anything special. Their packets aren't addressed to yours." },
-          ],
-          explain: "To capture someone else's packets, an attacker has to trick the network, like in later labs. Doing that here would break the rules from step 1.",
-        },
-      ],
-    },
-
-    // -----------------------------------------------------------------------
-    {
-      id: 'reflect',
-      title: 'Reflect and clean up',
-      body: md`
-        You captured your own traffic and read real packets: DNS, HTTP, TCP, TLS, and ICMP.
-
-        Your capture also holds other devices' broadcasts, so don't keep it. Quit Wireshark (**File > Quit** on Windows, **Wireshark > Quit Wireshark** on a Mac). When it asks whether to save, choose **Quit without Saving**.
-      `,
-      demos: [pic('unsaved', 'When you quit', UNSAVED, 'Wireshark asks this when a capture has not been saved.')],
-      questions: [
-        {
-          id: 'advice',
-          kind: 'text',
-          prompt:
-            'A friend thinks HTTPS makes them invisible on the school Wi-Fi. Using what you saw today, explain what someone running the network could learn about their visit to a website, and what stays hidden. Name at least two kinds of packets you saw.',
-          minWords: 40,
-          lines: 5,
-        },
-        {
-          id: 'quit',
-          kind: 'text',
-          prompt: 'Quit Wireshark without saving. Which button did you press?',
-          placeholder: 'The words on the button',
-          expect: /without saving|don.?t save|discard/i,
-          wrong: [{ match: /save/i, text: "Don't save the capture: it has other devices' packets in it. Quit again and pick the button that throws it away." }],
-          expectHint: 'Type the words on the button that quits without keeping the capture.',
-          explain: 'The capture is gone, and so are the other devices\u2019 packets in it.',
-        },
-      ],
-    },
-
-    // -----------------------------------------------------------------------
-    {
-      id: 'submit',
-      title: 'Review and submit',
-      kind: 'submit',
-      body: md`
-        Look over your summary. You can go back to any step and change an answer, then hand in your work again.
-      `,
-    },
-
-    // -----------------------------------------------------------------------
-    {
       id: 'user-agent',
       title: 'Extra credit: what your browser says about you',
       extra: true,
       body: md`
-        Every plain HTTP request also carries a **User-Agent** line: your browser telling the site what it is.
+        Every web request carries a **User-Agent** line: your browser telling the site what it is. With HTTPS only the site reads it. With plain HTTP, anyone who sees the packets can read it too.
 
-        1. Open Wireshark and start a capture on Wi-Fi.
-        2. In your browser, go to **http://neverssl.com** again. When it loads, press **Stop**, and filter \`http\`.
-        3. Right-click a GET request and choose **Follow**, then **HTTP Stream**. A window shows the whole conversation as text. Your browser's words are red, and the server's are blue.
-        4. Find the line that starts with **User-Agent:** and copy it.
+        1. Open Wireshark again if you closed it, and start a capture on Wi-Fi.
+        2. Go to \`http://neverssl.com\` again. When it loads, press **Stop**, and filter \`http\`.
+        3. Click a GET request and open **Hypertext Transfer Protocol**, as in step 5. Right-click the **User-Agent** line, choose **Copy**, then **Value**.
 
-        When you're done, quit Wireshark without saving, then hand in your work again.
+        (On Windows 11 it still says Windows NT 10.0.) When you're done, quit Wireshark without saving, then hand in your work again.
       `,
       demos: [pic('http', 'Where the User-Agent is', wsWindow({
         label: 'A drawing of an HTTP request in Wireshark. Its Hypertext Transfer Protocol layer is open, and the User-Agent line is ringed.',
@@ -869,14 +838,14 @@ export const wiresharkLab: LabDef = {
           prompt: 'Paste your **User-Agent** line.',
           lines: 2,
           expect: /Mozilla\/5\.0\s*\(/i,
-          expectHint: 'Copy the whole line after **User-Agent:** from the HTTP Stream window. Browsers start it with Mozilla/5.0.',
+          expectHint: 'Right-click the **User-Agent** line in **Hypertext Transfer Protocol**, then choose **Copy**, then **Value**. Browsers start it with Mozilla/5.0.',
           verify: (v) => (/AppleWebKit\/537\.36 …/.test(v) ? FROM_DRAWING : undefined),
           explain: 'Nearly every browser starts with Mozilla/5.0, for old reasons. The rest names your browser and system.',
         },
         {
           id: 'agent-says',
           kind: 'text',
-          prompt: 'What does your User-Agent tell every plain HTTP site you visit about your computer? Why could that matter?',
+          prompt: 'What does your User-Agent tell about your computer, to every site you visit and, with plain HTTP, to anyone watching? Why could that matter?',
           minWords: 25,
           lines: 3,
         },

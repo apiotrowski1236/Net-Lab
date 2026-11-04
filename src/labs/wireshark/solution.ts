@@ -42,7 +42,6 @@ export const wiresharkSolution: LabSolution = {
   tls: {
     text: {
       hello: row(53, '1.485034', ME, '198.35.26.224', 'TLSv1.3', 1622, 'Client Hello (SNI=www.wikipedia.org)'),
-      port: '443',
     },
   },
 
@@ -59,7 +58,6 @@ export const wiresharkSolution: LabSolution = {
     text: {
       advice:
         'HTTPS locks the page, but it does not make you invisible. Someone running the network can see your DNS lookups, the site name in the TLS Client Hello, the IP addresses, and when and how much you sent. They cannot read the pages or anything you type, because that is encrypted Application Data. Plain HTTP pages like neverssl.com have no lock at all.',
-      quit: 'Quit without Saving',
     },
   },
 
