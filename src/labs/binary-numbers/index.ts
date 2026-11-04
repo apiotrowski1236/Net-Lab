@@ -611,7 +611,7 @@ export const binaryNumbersLab: LabDef = {
       id: 'rounding',
       title: 'Rounding errors',
       body: md`
-        Some numbers can't be stored exactly. 1 ÷ 3 is 0.3333…, with 3s that never end. A computer keeps a fixed number of digits, so it stores a number close to 1/3 but not equal to it. That small difference is a **rounding error**.
+        Some numbers can't be stored exactly. 1 ÷ 3 is 0.3333…, with 3s that never end. A computer keeps a fixed number of digits, so it stores the closest number it can, which is near 1/3 but not equal to it. That small difference is a **rounding error**.
 
         Try it with **Rounding: 1 ÷ 3**. Keep 2 digits, then more.
 
