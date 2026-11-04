@@ -8,9 +8,17 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A new push to the same branch or PR cancels the older run instead of
+# finishing it, so quick fix-up pushes don't pile up runner minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    # A run takes about 2 minutes. Stop a hung one long before the 6-hour default.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -27,7 +35,8 @@ jobs:
         env:
           BROWSER: ${{ matrix.browser }}
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots-${{ matrix.browser }}
           path: screenshots/
+          retention-days: 7
