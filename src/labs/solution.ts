@@ -23,6 +23,7 @@ import { parseFilter } from '../sim/displayFilter';
 import { isEncrypted, isPlainLogin, isTelnetLogin } from './helpers';
 import { RISK_LEVELS } from '../sim/audit';
 import { HARDEN_SETTINGS } from '../sim/hardening';
+import type { DemoInput } from '../demos/types';
 import type { ChoiceQuestion, ToolSpec } from './types';
 
 /**
@@ -45,7 +46,9 @@ export type Move =
   /** Click the newest line in `openLog`'s log that matches `where`, in the Logs tab. */
   | { openLog: string; where: (e: LogEntry) => boolean }
   /** Type a display filter into `filter`'s Capture tab and apply it (packet-capture). It must be valid. */
-  | { filter: string; text: string };
+  | { filter: string; text: string }
+  /** Use demo `demo` on the step's stage (lessons with no network): one tap, flip, or choice. */
+  | { demo: string; input: DemoInput };
 
 export interface StepSolution {
   /** What to do, in order. The network runs until it is quiet after each move. */
@@ -60,7 +63,10 @@ const MATCH: Record<'login' | 'encrypted' | 'telnet', (f: Frame) => boolean> = {
 
 export function playMove(s: LabSession, m: Move): void {
   if ('inspect' in m) s.ui({ type: 'ui:inspect', device: m.inspect });
-  else if ('press' in m) s.runStepAction(m.press);
+  else if ('demo' in m) {
+    if (!s.demoSpec(m.demo)) throw new Error(`Step "${s.step.id}" has no demo "${m.demo}". List it in this step's demos.`);
+    s.demo(m.demo, m.input);
+  } else if ('press' in m) s.runStepAction(m.press);
   else if ('tool' in m) {
     assertInReach(s, m.tool);
     assertTypable(s, m.tool);

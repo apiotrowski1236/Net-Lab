@@ -422,7 +422,7 @@ describe('build-network lab details', () => {
 describe('typed tool inputs', () => {
   const onPath = LABS.find((l) => l.id === 'on-path')!;
   const hijack = LABS.find((l) => l.id === 'route-hijack')!;
-  const cafe = () => onPath.build();
+  const cafe = () => onPath.build!();
 
   it('the ARP spoofer explains bad addresses', () => {
     const sim = cafe();
@@ -456,7 +456,7 @@ describe('typed tool inputs', () => {
   });
 
   it('the route announcer suggests the network address and rejects junk', () => {
-    const sim = hijack.build();
+    const sim = hijack.build!();
     const r = checkPrefix(sim, 'shady', '203.0.113.10/24');
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.suggest).toBe('203.0.113.0/24');

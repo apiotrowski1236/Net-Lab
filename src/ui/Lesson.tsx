@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../runtime/session';
-import { goalKey, type ChoiceQuestion, type QuestionDef, type StepDef, type TextQuestion } from '../labs/types';
+import { goalKey, isLesson, wrongFeedback, type ChoiceQuestion, type QuestionDef, type StepDef, type TextQuestion } from '../labs/types';
 import type { SimEvent } from '../sim/types';
 import type { Sim } from '../sim/sim';
 import { targetsFor } from '../sim/malware';
@@ -106,7 +106,11 @@ function ChoiceCard({ session, step, q, labels, onDevice }: { session: LabSessio
           {a?.value && a.correct === undefined && (a.attempts ?? 0) > 0 && <span class="muted small">Changed. Check again.</span>}
         </div>
       )}
-      {wrong && <div class="qfeedback bad" ref={fb}>{feedback || 'Not quite. Look at the network again, then pick another answer.'}</div>}
+      {wrong && (
+        <div class="qfeedback bad" ref={fb}>
+          {feedback || (isLesson(session.lab) ? 'Not quite. Read the step again, then pick another answer.' : 'Not quite. Look at the network again, then pick another answer.')}
+        </div>
+      )}
       {done && (
         <div class="qfeedback good" ref={fb}>
           <strong>Correct!</strong> {q.explain}
@@ -164,7 +168,9 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
           </button>
         </div>
       )}
-      {wrong && <div class="qfeedback bad">{q.expectHint ?? 'Not quite. Change your answer and check again.'}</div>}
+      {wrong && (
+        <div class="qfeedback bad">{wrongFeedback(q, a?.value ?? '')}</div>
+      )}
       {auto && done && (
         <div class="qfeedback good">
           <strong>Correct!</strong> {q.explain}
@@ -406,7 +412,7 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
         {session.replayWarning && <div class="callout warn small">{session.replayWarning}</div>}
         {reviewing && (
           <div class="callout info small review-banner">
-            You're reviewing an earlier step. The network stays the way you left it.
+            You're reviewing an earlier step. {isLesson(session.lab) ? 'Your work stays the way you left it.' : 'The network stays the way you left it.'}
             <div class="row gap-sm">
               {session.canReplay(p.step) && (
                 <button class="btn tiny" onClick={() => session.startReplay(p.step)} disabled={replayingThis === p.step}>

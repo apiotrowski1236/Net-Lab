@@ -1,8 +1,9 @@
 import { useMemo } from 'preact/hooks';
 import { shuffledOptions } from '../labs/shuffle';
-import type { LabDef, StepDef, ToolSpec } from '../labs/types';
+import { isLesson, type LabDef, type StepDef, type ToolSpec } from '../labs/types';
 import { Icon } from './icons';
 import { renderMarkdown } from './markdown';
+import { DEMO_NAME } from './demos/registry';
 
 const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   sniffer: 'Packet capture',
@@ -60,7 +61,7 @@ function Md({ src, labels }: { src: string; labels: Record<string, string> }) {
 export function Guide({ lab }: { lab: LabDef }) {
   const labels = useMemo(() => {
     const out: Record<string, string> = {};
-    for (const d of Object.values(lab.build().devices)) out[d.id] = d.label;
+    for (const d of Object.values(lab.build?.().devices ?? {})) out[d.id] = d.label;
     return out;
   }, [lab]);
   const steps = lab.steps.filter((s) => s.kind !== 'submit');
@@ -69,7 +70,7 @@ export function Guide({ lab }: { lab: LabDef }) {
     <div class="guide">
       <div class="guide-bar no-print">
         <a class="btn ghost small" href={`#/lab/${lab.id}`}>
-          <Icon name="chevronLeft" size={14} /> Open the lab
+          <Icon name="chevronLeft" size={14} /> {isLesson(lab) ? 'Open the lesson' : 'Open the lab'}
         </a>
         <button class="btn small" onClick={() => window.print()}>
           <Icon name="print" size={14} /> Print
@@ -77,7 +78,9 @@ export function Guide({ lab }: { lab: LabDef }) {
       </div>
 
       <header class="guide-head">
-        <div class="eyebrow">Lab guide · Unit {lab.unit}</div>
+        <div class="eyebrow">
+          {isLesson(lab) ? 'Lesson guide' : 'Lab guide'} · Unit {lab.unit}
+        </div>
         <h1>{lab.title}</h1>
         <p class="guide-tagline">{lab.tagline}</p>
         <div class="guide-meta">
@@ -113,8 +116,13 @@ export function Guide({ lab }: { lab: LabDef }) {
           </h2>
           <Md src={s.body} labels={labels} />
 
-          {!!(s.actions?.length || stepTools(s).length) && (
+          {!!(s.actions?.length || stepTools(s).length || s.demos?.length) && (
             <div class="guide-extras">
+              {s.demos?.length ? (
+                <div>
+                  <b>On screen in this step:</b> {s.demos.map((d) => d.title || DEMO_NAME[d.kind]).join(', ')}
+                </div>
+              ) : null}
               {s.actions?.length ? (
                 <div>
                   <b>Buttons in this step:</b> {s.actions.map((a) => a.label).join(', ')}

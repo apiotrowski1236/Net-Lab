@@ -1,0 +1,473 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { firstDifference, fromBits, lineUp, toBits } from '../../demos/binary';
+import { bitsModel, type BitsState } from '../../demos/bits';
+import { asciiClean } from '../../demos/ascii';
+import { compareModel, type CompareState } from '../../demos/compare';
+import { counterModel } from '../../demos/counter';
+import { fitWalkModel } from '../../demos/fitWalk';
+import { readWalkModel } from '../../demos/readWalk';
+import { thirds } from '../../demos/rounding';
+import { switchesModel, type SwitchesState } from '../../demos/switches';
+import type { BitsSpec, CompareSpec, CounterSpec, DemoInput, DemoModel, DemoSpec, FitWalkSpec, ReadWalkSpec, SwitchesSpec } from '../../demos/types';
+import { LabSession } from '../../runtime/session';
+import type { LabProgress } from '../../store/progress';
+import { buildReport } from '../../store/report';
+import { LABS } from '..';
+import { playStep } from '../solution';
+import { isLesson, wrongFeedback, type ChoiceQuestion, type QuestionDef, type TextQuestion } from '../types';
+import { num, rangeRe } from './answers';
+import { binaryNumbersLab as lab } from '.';
+import { binaryNumbersSolution as key } from './solution';
+
+class MemoryStorage {
+  private m = new Map<string, string>();
+  get length() {
+    return this.m.size;
+  }
+  key(i: number) {
+    return [...this.m.keys()][i] ?? null;
+  }
+  getItem(k: string) {
+    return this.m.get(k) ?? null;
+  }
+  setItem(k: string, v: string) {
+    this.m.set(k, String(v));
+  }
+  removeItem(k: string) {
+    this.m.delete(k);
+  }
+  clear() {
+    this.m.clear();
+  }
+}
+
+beforeEach(() => {
+  vi.stubGlobal('localStorage', new MemoryStorage());
+});
+
+let n = 0;
+function fresh(): LabProgress {
+  const now = Date.now();
+  return { labId: lab.id, labVersion: lab.version, studentId: `bin-${n++}`, startedAt: now, updatedAt: now, activeMs: 0, step: 0, maxStep: 0, stepStart: {}, goals: {}, answers: {}, actions: [], log: [] };
+}
+
+/** Run inputs through a model from its starting state. */
+function run<Spec extends DemoSpec, State>(model: DemoModel<Spec, State>, spec: Spec, inputs: DemoInput[]): State {
+  return inputs.reduce((s, input) => model.apply(spec, s, input), model.init(spec));
+}
+
+const step = (id: string) => {
+  const s = lab.steps.find((x) => x.id === id);
+  if (!s) throw new Error(`no step ${id}`);
+  return s;
+};
+const question = (stepId: string, qId: string): QuestionDef => {
+  const q = step(stepId).questions?.find((x) => x.id === qId);
+  if (!q) throw new Error(`no question ${stepId}/${qId}`);
+  return q;
+};
+const text = (stepId: string, qId: string) => {
+  const q = question(stepId, qId);
+  if (q.kind !== 'text') throw new Error(`${qId} is not a text question`);
+  return q as TextQuestion;
+};
+const choice = (stepId: string, qId: string) => {
+  const q = question(stepId, qId);
+  if (q.kind !== 'choice') throw new Error(`${qId} is not a choice question`);
+  return q as ChoiceQuestion;
+};
+const right = (q: ChoiceQuestion) => q.options.filter((o) => o.correct).map((o) => o.text);
+const demoSpec = <T extends DemoSpec>(stepId: string, id: string) => step(stepId).demos!.find((d) => d.id === id) as T;
+
+/** Every string in the lesson a student can read. */
+function strings(x: unknown, out: string[] = []): string[] {
+  if (typeof x === 'string') out.push(x);
+  else if (Array.isArray(x)) for (const v of x) strings(v, out);
+  else if (x && typeof x === 'object' && !(x instanceof RegExp)) for (const v of Object.values(x)) strings(v, out);
+  return out;
+}
+
+describe('binary-numbers: lesson shape', () => {
+  it('is a lesson with no network, and only it is', () => {
+    expect(isLesson(lab)).toBe(true);
+    for (const l of LABS) if (l.id !== lab.id) expect(isLesson(l), l.id).toBe(false);
+  });
+
+  it('gives every step except the optional one and submit something to finish', () => {
+    for (const s of lab.steps) {
+      if (s.id === 'extra' || s.kind === 'submit') continue;
+      expect((s.goals?.length ?? 0) + (s.questions?.length ?? 0), s.id).toBeGreaterThan(0);
+    }
+    expect(step('extra').goals ?? []).toEqual([]);
+    expect(step('extra').questions ?? []).toEqual([]);
+  });
+
+  it('keeps demo ids unique within a step', () => {
+    for (const s of lab.steps) {
+      const ids = (s.demos ?? []).map((d) => d.id);
+      expect(new Set(ids).size, s.id).toBe(ids.length);
+    }
+  });
+
+  it('uses the house style in student text', () => {
+    for (const t of strings(lab.steps)) {
+      expect(t, t).not.toMatch(/—/);
+      expect(t, t).not.toMatch(/\b(simply|just|easy|easier|obviously)\b/i);
+      expect(t, t).not.toMatch(/\p{Extended_Pictographic}/u);
+    }
+  });
+});
+
+describe('binary-numbers: demo models', () => {
+  const sw: SwitchesSpec = { kind: 'switches', id: 'sw', title: 'x', max: 3 };
+
+  it('switches: counts all off as a pattern and finds 2, 4, then 8', () => {
+    let s = switchesModel.init(sw);
+    expect(switchesModel.facts(sw, s)).toEqual({ n: 1, found: 1, total: 2 });
+    s = switchesModel.apply(sw, s, { flip: 0 });
+    expect(switchesModel.facts(sw, s)).toEqual({ n: 1, found: 2, total: 2 });
+    s = [{ use: 2 }, { flip: 0 }, { flip: 1 }, { flip: 0 }].reduce<SwitchesState>((st, i) => switchesModel.apply(sw, st, i), s);
+    expect(switchesModel.facts(sw, s)).toEqual({ n: 2, found: 4, total: 4 });
+    s = [{ use: 3 }, ...[0, 1, 0, 2, 0, 1, 0].map((flip) => ({ flip }))].reduce<SwitchesState>((st, i) => switchesModel.apply(sw, st, i), s);
+    expect(switchesModel.facts(sw, s)).toEqual({ n: 3, found: 8, total: 8 });
+    expect(new Set(s.seen[3]).size).toBe(8);
+  });
+
+  it('switches: repeats and bad inputs change nothing', () => {
+    const s = switchesModel.init(sw);
+    expect(switchesModel.apply(sw, s, { use: 1 })).toBe(s);
+    expect(switchesModel.apply(sw, s, { flip: 5 })).toBe(s);
+    expect(switchesModel.apply(sw, s, { use: 9 }).n).toBe(3);
+    // Flipping back to a pattern already found doesn't count it twice.
+    const twice = run(switchesModel, sw, [{ flip: 0 }, { flip: 0 }, { flip: 0 }]);
+    expect(twice.seen[1]).toEqual(['0', '1']);
+  });
+
+  it('bits: flips, clears, and counts views', () => {
+    const wires: BitsSpec = { kind: 'bits', id: 'b', title: 'x', style: 'wires', places: 8, start: '01000001' };
+    let s = bitsModel.init(wires);
+    expect(bitsModel.facts(wires, s)).toMatchObject({ value: 65, flips: 0, views: 1 });
+    s = run(bitsModel, wires, [{ flip: 0 }, { view: 'light' }, { view: 'light' }, { view: 'bits' }]);
+    expect(bitsModel.facts(wires, s)).toMatchObject({ value: 193, bits: '11000001', flips: 1, views: 3 });
+    s = bitsModel.apply(wires, s, { clear: true });
+    expect(s.bits).toBe('00000000');
+    expect(bitsModel.apply(wires, s, { clear: true })).toBe(s);
+  });
+
+  it('bits: the cards moves in the key make 9, 21, and 31', () => {
+    const cards = demoSpec<BitsSpec>('cards', 'cards');
+    const values: number[] = [];
+    let s: BitsState = bitsModel.init(cards);
+    for (const m of key.cards.moves ?? []) {
+      if (!('demo' in m)) continue;
+      s = bitsModel.apply(cards, s, m.input);
+      values.push(fromBits(s.bits));
+    }
+    expect(values).toEqual([8, 9, 25, 17, 21, 29, 31]);
+  });
+
+  it('read-walk: 0s add nothing, 1s add their place value, next waits for the end', () => {
+    const spec = demoSpec<ReadWalkSpec>('to-decimal', 'read');
+    expect(spec.examples.map(fromBits)).toEqual([74, 147]);
+    let s = readWalkModel.init(spec);
+    s = readWalkModel.apply(spec, s, { tap: 0 });
+    expect(s).toMatchObject({ added: [], zero: 0 });
+    expect(readWalkModel.apply(spec, s, { next: true })).toBe(s);
+    s = run(readWalkModel, spec, [{ tap: 1 }, { tap: 1 }, { tap: 4 }, { tap: 6 }]);
+    expect(s.added).toEqual([1, 4, 6]);
+    expect(readWalkModel.facts(spec, s)).toEqual({ ex: 0, finished: 1 });
+    s = readWalkModel.apply(spec, s, { next: true });
+    expect(readWalkModel.facts(spec, s)).toEqual({ ex: 1, finished: 1 });
+  });
+
+  it('fit-walk: a wrong call is explained and does not move on', () => {
+    const spec = demoSpec<FitWalkSpec>('to-binary', 'fit');
+    expect(spec.examples.map((x) => toBits(x))).toEqual(['01001011', '10011100']);
+    let s = fitWalkModel.apply(spec, fitWalkModel.init(spec), { say: 1 });
+    expect(s).toMatchObject({ bits: '', miss: { col: 0, said: 1 }, misses: 1 });
+    s = fitWalkModel.apply(spec, s, { say: 0 });
+    expect(s).toMatchObject({ bits: '0', miss: undefined, misses: 1 });
+    // Walking each answer's bits finishes the example.
+    const all = [...'01001011'].map((c) => ({ say: c === '1' ? 1 : 0 }) as DemoInput);
+    s = run(fitWalkModel, spec, all);
+    expect(s.bits).toBe('01001011');
+    expect(fitWalkModel.facts(spec, s)).toEqual({ ex: 0, finished: 1, misses: 0 });
+  });
+
+  it('compare: must line up first, then find the first difference, then pick', () => {
+    const spec = demoSpec<CompareSpec>('compare', 'compare');
+    expect(spec.pairs.map(([a, b]) => firstDifference(...lineUp(a, b)))).toEqual([4, 0, 0]);
+    expect(spec.pairs.map(([a, b]) => [fromBits(a), fromBits(b)])).toEqual([
+      [105, 103],
+      [128, 127],
+      [9, 6],
+    ]);
+    let s: CompareState = compareModel.init(spec);
+    s = compareModel.apply(spec, s, { tap: 0 });
+    expect(s.note).toEqual({ kind: 'same', col: 0 });
+    s = compareModel.apply(spec, s, { tap: 6 });
+    expect(s.note).toEqual({ kind: 'later', col: 6 });
+    s = compareModel.apply(spec, s, { tap: 4 });
+    expect(s).toMatchObject({ found: true, note: undefined });
+    s = compareModel.apply(spec, s, { pick: 1 });
+    expect(s.note).toEqual({ kind: 'wrong-pick', pick: 1 });
+    s = run(compareModel, spec, [{ tap: 4 }, { pick: 0 }, { next: true }, { tap: 0 }, { pick: 0 }, { next: true }]);
+    expect(s).toMatchObject({ pair: 2, padded: false });
+    s = compareModel.apply(spec, s, { tap: 0 });
+    expect(s.note).toEqual({ kind: 'unpadded' });
+    s = run(compareModel, spec, [{ tap: 4 }, { pick: 0 }, { next: true }, { tap: 0 }, { pick: 0 }, { next: true }, { pad: true }, { tap: 0 }, { pick: 0 }]);
+    expect(compareModel.facts(spec, s)).toEqual({ pair: 2, finished: 3 });
+  });
+
+  it('counter: 1111 + 1 shows 0000, and the odometer rolls 999 to 000', () => {
+    const bin: CounterSpec = { kind: 'counter', id: 'c', title: 'x', base: 2, digits: 4, start: 15 };
+    const s = counterModel.apply(bin, counterModel.init(bin), { add: 1 });
+    expect(s).toEqual({ value: 0, overflows: 1, carried: true });
+    expect(counterModel.apply(bin, s, { add: 1 })).toEqual({ value: 1, overflows: 1, carried: false });
+    const odo = demoSpec<CounterSpec>('overflow', 'odometer');
+    const after = run(counterModel, odo, Array.from({ length: 5 }, () => ({ add: 1 })));
+    expect(after).toEqual({ value: 0, overflows: 1, carried: true });
+    const four = demoSpec<CounterSpec>('overflow', 'counter');
+    expect(run(counterModel, four, Array.from({ length: 3 }, () => ({ add: 1 }))).overflows).toBe(0);
+    expect(run(counterModel, four, Array.from({ length: 4 }, () => ({ add: 1 }))).overflows).toBe(1);
+  });
+
+  it('rounding and ascii', () => {
+    expect(thirds(2)).toEqual({ stored: '0.33', times3: '0.99', off: '0.01' });
+    expect(thirds(8)).toEqual({ stored: '0.33333333', times3: '0.99999999', off: '0.00000001' });
+    expect(asciiClean({ kind: 'ascii', id: 'a', title: 'x' }, 'Hé llo!\u{1F600}world wide')).toBe('H llo!worl');
+    expect('A'.charCodeAt(0)).toBe(65);
+    expect(toBits(65)).toBe('01000001');
+  });
+});
+
+describe('binary-numbers: answer key arithmetic', () => {
+  const partA: [string, string, number][] = [
+    ['w1', '00001010', 10],
+    ['w2', '00101101', 45],
+    ['w3', '01100100', 100],
+    ['w4', '11111111', 255],
+    ['w5', '10000001', 129],
+  ];
+  const partB: [string, number, string][] = [
+    ['w6', 13, '00001101'],
+    ['w7', 50, '00110010'],
+    ['w8', 77, '01001101'],
+    ['w9', 200, '11001000'],
+    ['w10', 255, '11111111'],
+  ];
+
+  it('worksheet 1 to 5: binary to decimal', () => {
+    for (const [id, bits, value] of partA) {
+      const q = text('practice-decimal', id);
+      expect(fromBits(bits)).toBe(value);
+      expect(q.prompt).toContain(bits);
+      expect(q.expect!.test(String(value))).toBe(true);
+      expect(q.expect!.test(String(value + 1))).toBe(false);
+    }
+  });
+
+  it('worksheet 6 to 10: decimal to binary', () => {
+    for (const [id, value, bits] of partB) {
+      const q = text('practice-binary', id);
+      expect(toBits(value)).toBe(bits);
+      expect(q.prompt).toContain(String(value));
+      expect(q.expect!.test(bits)).toBe(true);
+      expect(q.expect!.test(`${bits.slice(0, 4)} ${bits.slice(4)}`)).toBe(true);
+      expect(q.expect!.test(toBits(value + 1))).toBe(false);
+    }
+  });
+
+  it('worksheet 11: least to greatest', () => {
+    const list = ['01011010', '00111111', '01010111', '10000000'];
+    const sorted = [...list].sort((a, b) => fromBits(a) - fromBits(b));
+    expect(sorted.map(fromBits)).toEqual([63, 87, 90, 128]);
+    expect(right(choice('compare', 'order'))).toEqual([sorted.join(', ')]);
+    expect(choice('compare', 'order').prompt).toContain(list.join(', '));
+  });
+
+  it('worksheet 12 to 14 and the exit ticket', () => {
+    const fewestBits = (items: number) => Math.ceil(Math.log2(items));
+    expect(2 ** 6).toBe(64);
+    expect(text('limits', 'w12-values').expect!.test('64')).toBe(true);
+    expect(text('limits', 'w12-range').expect!.test('0 to 63')).toBe(true);
+    expect(fewestBits(100)).toBe(7);
+    expect(text('limits', 'w13').expect!.test('7')).toBe(true);
+    expect(toBits((fromBits('1110') + 2) % 16, 4)).toBe('0000');
+    expect(text('overflow', 'w14').expect!.test('0000')).toBe(true);
+
+    expect(fromBits('01011')).toBe(11);
+    expect(right(choice('exit', 'e1'))).toEqual(['11']);
+    const e2 = { b192: fromBits('11000000'), d190: 190, b191: fromBits('10111111'), d189: 189 };
+    const top = Object.entries(e2).sort((a, b) => b[1] - a[1])[0][0];
+    expect(choice('exit', 'e2').options.find((o) => o.correct)!.id).toBe(top);
+    expect(fewestBits(1200)).toBe(11);
+    expect(right(choice('exit', 'e3'))).toEqual(['11']);
+    const e4 = text('exit', 'e4');
+    expect(e4.expect).toBeUndefined();
+    expect(e4.minWords).toBeGreaterThan(0);
+  });
+
+  it('the earlier steps', () => {
+    expect(text('switches', 'four').expect!.test('16')).toBe(true);
+    expect(right(choice('switches', 'rule'))).toEqual(['2ⁿ']);
+    expect(text('bits', 'byte').expect!.test('256')).toBe(true);
+    expect(16 + 8 + 4 + 2 + 1).toBe(31);
+    expect(fromBits('00000011')).toBe(3);
+    expect(fromBits('11000000')).toBe(192);
+    expect(right(choice('to-binary', 'max'))).toEqual(['255']);
+  });
+});
+
+describe('binary-numbers: typed answers', () => {
+  it('accepts the ways students write numbers', () => {
+    const re = num(45);
+    for (const ok of ['45', ' 45 ', '45.', '32 + 8 + 4 + 1 = 45', '32+8+4+1=45', '45 in decimal']) expect(re.test(ok), ok).toBe(true);
+    for (const bad of ['450', '145', '4 5', '44', '', '45 = 32 + 8 + 4 + 1']) expect(re.test(bad), bad).toBe(false);
+    expect(text('limits', 'w12-values').expect!.test('2^6 = 64')).toBe(true);
+    expect(text('limits', 'w12-values').expect!.test('64 values')).toBe(true);
+    expect(text('switches', 'four').expect!.test('16 patterns')).toBe(true);
+  });
+
+  it('accepts the ways students write ranges', () => {
+    const re = rangeRe(0, 63);
+    for (const ok of ['0 to 63', '0-63', '0 - 63', '0–63', 'from 0 to 63', '0 through 63', '0...63', '0 to 63 values', 'From 0 To 63.']) expect(re.test(ok), ok).toBe(true);
+    for (const bad of ['0 to 64', '1 to 63', '63', '0 to 630']) expect(re.test(bad), bad).toBe(false);
+  });
+
+  it('answers the common mistakes, binary to decimal', () => {
+    const fb = (id: string, v: string) => wrongFeedback(text('practice-decimal', id), v);
+    // Read from the wrong end.
+    expect(fb('w1', '80')).toMatch(/wrong end/);
+    expect(fb('w2', '180')).toMatch(/wrong end/);
+    expect(fb('w3', '38')).toMatch(/wrong end/);
+    // Counted the 1s.
+    expect(fb('w2', '4')).toMatch(/how many 1s/);
+    expect(fb('w4', '8')).toMatch(/how many 1s/);
+    // 256 for 11111111.
+    expect(fb('w4', '256')).toMatch(/256 is how many patterns/);
+    // Anything else gets the general hint.
+    expect(fb('w5', '130')).toBe(text('practice-decimal', 'w5').expectHint);
+  });
+
+  it('answers the common mistakes, decimal to binary', () => {
+    const fb = (id: string, v: string) => wrongFeedback(text('practice-binary', id), v);
+    expect(fb('w6', '1101')).toMatch(/write all 8/);
+    expect(fb('w7', '110010')).toMatch(/write all 8/);
+    expect(fb('w6', '10110000')).toMatch(/reverse order/);
+    expect(fb('w9', '00010011')).toMatch(/reverse order/);
+    expect(fb('w6', '13')).toMatch(/only the digits 0 and 1/);
+    expect(fb('w8', '0100110')).toMatch(/exactly 8 bits/);
+    expect(fb('w8', '001001101')).toMatch(/exactly 8 bits/);
+    expect(fb('w10', '100000000')).toMatch(/That's 256/);
+    expect(fb('w10', '11111110')).toBe(text('practice-binary', 'w10').expectHint);
+  });
+
+  it('answers the common mistakes about counting and overflow', () => {
+    expect(wrongFeedback(text('bits', 'byte'), '255')).toMatch(/counting starts at 0/);
+    expect(wrongFeedback(text('overflow', 'w14'), '10000')).toMatch(/needs 5 bits/);
+    expect(wrongFeedback(text('overflow', 'w14'), '16')).toMatch(/true total/);
+    expect(wrongFeedback(text('overflow', 'w14'), '1111')).toMatch(/one count up/);
+    expect(wrongFeedback(text('limits', 'w12-range'), '0 to 64')).toMatch(/65 numbers/);
+    expect(wrongFeedback(text('limits', 'w13'), '6')).toMatch(/too few/);
+    const crash = choice('overflow', 'meaning').options.find((o) => o.id === 'crash')!;
+    expect(crash.correct).toBeFalsy();
+    expect(crash.feedback).toMatch(/nothing crashes/i);
+    const count = choice('compare', 'shortcut').options.find((o) => o.id === 'count')!;
+    expect(count.feedback).toMatch(/00111111 has six 1s but is the smallest/);
+  });
+});
+
+describe('binary-numbers: saving and resuming', () => {
+  it('saves demo state, and a reload resumes it with goals kept', () => {
+    const s = new LabSession(lab, fresh());
+    s.demo('switches', { flip: 0 });
+    s.demo('switches', { use: 2 });
+    s.demo('switches', { flip: 0 });
+    expect(s.goalDone('switches', 'one')).toBe(true);
+    expect(s.goalDone('switches', 'two')).toBe(false);
+
+    const again = new LabSession(lab, JSON.parse(JSON.stringify(s.progress)) as LabProgress);
+    expect(again.replayWarning).toBe('');
+    expect(again.goalDone('switches', 'one')).toBe(true);
+    const st = again.demoState<SwitchesState>(again.demoSpec('switches')!);
+    expect(st).toEqual({ n: 2, on: [true, false], seen: { 1: ['0', '1'], 2: ['00', '10'] } });
+    // Pick up where they left off.
+    again.demo('switches', { flip: 1 });
+    again.demo('switches', { flip: 0 });
+    expect(again.goalDone('switches', 'two')).toBe(true);
+  });
+
+  it('resumes mid-lesson on the same step with its demo where it was', () => {
+    const s = new LabSession(lab, fresh());
+    for (const id of ['switches', 'bits', 'cards']) {
+      playStep(s, key[id]);
+      expect(s.missing(), id).toEqual([]);
+      s.goTo(s.progress.step + 1);
+    }
+    expect(s.step.id).toBe('to-decimal');
+    s.demo('read', { tap: 1 });
+    s.demo('read', { tap: 4 });
+    const again = new LabSession(lab, JSON.parse(JSON.stringify(s.progress)) as LabProgress);
+    expect(again.step.id).toBe('to-decimal');
+    expect(again.demoState(again.demoSpec('read')!)).toEqual({ ex: 0, added: [1, 4] });
+    expect(again.goalDone('to-decimal', 'ex1')).toBe(false);
+    again.demo('read', { tap: 6 });
+    expect(again.goalDone('to-decimal', 'ex1')).toBe(true);
+    // Earlier steps' work came back too.
+    expect(again.demoState<BitsState>(again.demoSpec('cards', 'cards')!, 'cards').bits).toBe('11111');
+    expect(again.goalDone('cards', 'thirty-one')).toBe(true);
+  });
+
+  it('keeps each step its own scratch board', () => {
+    const p = fresh();
+    const s = new LabSession(lab, p);
+    for (const id of ['switches', 'bits', 'cards', 'to-decimal']) {
+      playStep(s, key[id]);
+      s.goTo(s.progress.step + 1);
+    }
+    expect(s.step.id).toBe('practice-decimal');
+    s.demo('board', { flip: 4 });
+    expect(Object.keys(p.demos ?? {})).toContain('practice-decimal/board');
+    expect(s.demoState<BitsState>(s.demoSpec('board')!, 'practice-binary').bits).toBe('00000000');
+  });
+
+  it('"Start over" restores a demo but keeps its goals', () => {
+    const s = new LabSession(lab, fresh());
+    playStep(s, key.switches);
+    s.resetDemo('switches');
+    expect(s.demoState<SwitchesState>(s.demoSpec('switches')!)).toEqual(switchesModel.init(demoSpec('switches', 'switches')));
+    expect(s.goalDone('switches', 'three')).toBe(true);
+  });
+
+  it('a demo on another step does not finish this step', () => {
+    const s = new LabSession(lab, fresh());
+    // The board isn't on step 1, so this does nothing.
+    s.demo('board', { flip: 0 });
+    expect(s.progress.demos ?? {}).toEqual({});
+  });
+
+  it('a lesson update starts activities fresh but keeps answers and goals', () => {
+    const s = new LabSession(lab, fresh());
+    playStep(s, key.switches);
+    const saved = JSON.parse(JSON.stringify(s.progress)) as LabProgress;
+    saved.labVersion = lab.version - 1;
+    const again = new LabSession(lab, saved);
+    expect(again.replayWarning).toMatch(/lesson was updated/);
+    expect(again.progress.demos).toEqual({});
+    expect(again.goalDone('switches', 'three')).toBe(true);
+    expect(again.answer('switches', 'four')?.correct).toBe(true);
+  });
+
+  it('builds a report with no network', () => {
+    const s = new LabSession(lab, fresh());
+    for (let i = 0; i < lab.steps.length; i++) {
+      playStep(s, key[s.step.id]);
+      if (i < lab.steps.length - 1) s.goTo(i + 1);
+    }
+    const r = buildReport(lab, s.progress, { id: 'x', name: 'Test Student', period: '', createdAt: 0 }, 'submitted');
+    expect(r.goals.every((g) => g.done)).toBe(true);
+    expect(r.score.auto).toBe(r.score.autoMax);
+    expect(r.questions.find((q) => q.id === 'e4')?.answer).toMatch(/overflow/i);
+  });
+});

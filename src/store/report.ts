@@ -55,7 +55,7 @@ function deviceLabels(lab: LabDef): Record<string, string> {
   let labels = labelCache.get(lab);
   if (!labels) {
     labels = {};
-    for (const d of Object.values(lab.build().devices)) labels[d.id] = d.label;
+    for (const d of Object.values(lab.build?.().devices ?? {})) labels[d.id] = d.label;
     labelCache.set(lab, labels);
   }
   return labels;

@@ -1,5 +1,6 @@
 import type { Sim } from '../sim/sim';
 import type { Frame, LogEntry, SimEvent } from '../sim/types';
+import type { DemoFacts } from '../demos/types';
 import type { CheckCtx } from './types';
 import { matchFilter, parseFilter } from '../sim/displayFilter';
 
@@ -93,3 +94,9 @@ export const filtered =
     }
     return shown > 0;
   };
+
+/** Demo `demo` on the step's stage just reported facts matching `pred` (lessons with no network). */
+export const demoFact =
+  (demo: string, pred: (f: DemoFacts) => boolean) =>
+  ({ ev }: CheckCtx): boolean =>
+    ev?.type === 'ui:demo' && ev.demo === demo && pred(ev.facts);
