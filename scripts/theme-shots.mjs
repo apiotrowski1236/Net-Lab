@@ -3,7 +3,7 @@
 //   node scripts/theme-shots.mjs              # both themes
 //   node scripts/theme-shots.mjs light        # one theme
 //   SIZE=small node scripts/theme-shots.mjs   # 1366x768 laptop at 1x
-//   SIZE=phone node scripts/theme-shots.mjs   # 390x844 phone at 2x
+//   SIZE=phone node scripts/theme-shots.mjs   # 390x844 phone at 2x: sign-in and home pages only
 //   SCALE=1 node scripts/theme-shots.mjs      # override the pixel density
 //
 // Starts the Vite dev server (no build needed) and drives the app in headless
@@ -128,6 +128,9 @@ async function run(theme) {
     await shot('class-menu');
     await page.keyboard.press('Escape');
   });
+
+  // The labs are built for laptops; on a phone, check sign-in and the home pages only.
+  if (SIZE_NAME === 'phone') return context.close();
 
   await attempt('lab-step1', async () => {
     await page.click('a[href="#/cyber/lab/on-path"]');

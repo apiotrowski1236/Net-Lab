@@ -525,6 +525,36 @@ try {
     page = p;
   }
 
+  step('courses: on a phone, tap the name to switch classes, tap outside to close');
+  {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' });
+    await setTheme(ctx);
+    await ctx.addInitScript(() => {
+      if (!localStorage.getItem('netlab:v1:profile'))
+        localStorage.setItem('netlab:v1:profile', JSON.stringify({ id: 'e2e-phone', name: 'Pat Phone', period: '', createdAt: 0, curriculum: 'csp' }));
+    });
+    const p = page;
+    page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await page.goto(url);
+    await page.waitForSelector('.home-empty');
+    await expectHash('#/csp', 'Phone home');
+    const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    if (wide) throw new Error('The phone home page scrolls sideways');
+    await page.tap('.student-chip');
+    await page.waitForSelector('.menu');
+    await page.tap('.menu-item >> text=AP Computer Science A');
+    await expectHash('#/csa', 'After tapping AP CSA');
+    await expectCount('.menu', 0, 'Menu after tapping a class');
+    await page.tap('.student-chip');
+    await page.waitForSelector('.menu');
+    await page.tap('.home-empty h2');
+    await expectCount('.menu', 0, 'Menu after tapping outside');
+    if ((await savedProfile()).curriculum !== 'csa') throw new Error('Tapped class was not saved');
+    await ctx.close();
+    page = p;
+  }
+
   step('courses: a student from before courses lands back in their lab, with no questions');
   {
     const { ctx, pg } = await seeded({ step: 2, maxStep: 2 }, { name: 'Jordan Returning', period: '' });

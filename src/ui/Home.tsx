@@ -25,7 +25,12 @@ export function Home({ cur }: { cur?: Curriculum }) {
           <span>NetLab</span>
         </a>
         <div class="topbar-title">
-          <div class="tb-lab">{cur?.title}</div>
+          {cur && (
+            <div class="tb-lab" title={cur.title}>
+              <span class="tb-course-full">{cur.title}</span>
+              <span class="tb-course-short">{cur.short}</span>
+            </div>
+          )}
         </div>
         <SaveStatus />
         <ThemeToggle />

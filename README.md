@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Open the address it prints (usually http://localhost:5173). The first visit asks for the student's name.
+Open the address it prints (usually http://localhost:5173). The first visit asks for the student's name and class.
 
 To try it from a student laptop on the same Wi-Fi, run `npm run dev -- --host` and open the `Network:` address it prints. Offline mode is off over plain `http://` on another machine (browsers only allow it on `https://` or `localhost`), but saving still works.
 
@@ -37,6 +37,10 @@ To try it from a student laptop on the same Wi-Fi, run `npm run dev -- --host` a
 
 Together these labs cover every topic in the CED's Unit 3. [docs/unit3/COVERAGE.md](docs/unit3/COVERAGE.md) maps each learning objective to a lab, each lab's plan is in `src/labs/<id>/PLAN.md`, and [docs/unit3/ARCHITECTURE.md](docs/unit3/ARCHITECTURE.md) is the guide for building one.
 
+### Courses
+
+NetLab serves several courses, each with its own home page: Intro to Computer Science (`#/intro`), AP Computer Science Principles (`#/csp`), AP Computer Science A (`#/csa`), and AP Cybersecurity (`#/cyber`, the labs above). Students choose their class when they first sign in; a link to a course's page picks that course for them. Afterward the site opens on their class, and the menu under their name (top right) switches classes. Students who signed in before there were several courses stay in AP Cybersecurity. Old addresses such as `#/lab/on-path` still work: they open the lab in its course. `src/curricula.ts` lists the courses, their home page text, and which labs belong to each.
+
 ### How a lab works
 
 - **Steps** have a short reading, buttons that make things happen on the network ("Alice signs in"), **goals** that check themselves when the student does the thing, and **questions**.
@@ -52,7 +56,7 @@ Together these labs cover every topic in the CED's Unit 3. [docs/unit3/COVERAGE.
 
 - **Replay step** (above the map) plays back everything the student did on the network in this step, on a copy of the network. Turn on **Repeat** to loop it. The inspector shows the replayed network, so students can watch an ARP table change. **Back to live** returns to the real network. Doing anything on the network also ends the replay.
 - Each step starts with a "Builds on step N" row. **Reread** opens the previous step; **Watch again** replays it.
-- **Guide** (top of the lesson) opens every step of the lab on one page in a new tab: the reading, the buttons, the goals, the hints, and the questions (no answers). Students keep it open for notes. Print it for a paper reference; it always prints in black on white. The address is `#/guide/on-path` or `#/guide/route-hijack`.
+- **Guide** (top of the lesson) opens every step of the lab on one page in a new tab: the reading, the buttons, the goals, the hints, and the questions (no answers). Students keep it open for notes. Print it for a paper reference; it always prints in black on white. The address is `#/cyber/guide/on-path` or `#/cyber/guide/route-hijack`.
 
 ### Teacher override
 
@@ -160,7 +164,7 @@ npm run playthrough  # build, then page through every lab's answer key in Chromi
 
 `npm test` plays every lab from the first step to the last using its solution file and fails if any step can't be finished. It also checks that a reload rebuilds the same network, that **Reset network** keeps answers, and that a student can't skip ahead.
 
-`npm run e2e` builds the site, opens it in headless Chromium at 13-inch MacBook Air size (1440×800; `SIZE=small` for 1366×768, `THEME=light` for the light theme), plays the first steps of a lab through the real interface, changes an answer, replays a step, reloads to confirm the work was saved, goes offline to confirm the app still loads, opens the guide (screen and print), types a wrong and a right address into the ARP spoofer, uses the teacher override, submits and downloads from the summary page, and restores the work from that download on a fresh browser (and refuses it for a different student or after the file is edited). It also opens every lab and its guide. It writes screenshots to `screenshots/`. It needs a Chromium for Playwright. If it can't find one, run `npx playwright-core install chromium` or set `CHROME_PATH` to a Chrome binary.
+`npm run e2e` builds the site, opens it in headless Chromium at 13-inch MacBook Air size (1440×800; `SIZE=small` for 1366×768, `THEME=light` for the light theme), plays the first steps of a lab through the real interface, changes an answer, replays a step, reloads to confirm the work was saved, goes offline to confirm the app still loads, opens the guide (screen and print), types a wrong and a right address into the ARP spoofer, uses the teacher override, submits and downloads from the summary page, and restores the work from that download on a fresh browser (and refuses it for a different student or after the file is edited). It also opens every lab and its guide, signs in new students to different classes, switches classes from the menu under the name, and checks that old `#/lab/<id>` addresses and a returning student's last lab still open. It writes screenshots to `screenshots/`. It needs a Chromium for Playwright. If it can't find one, run `npx playwright-core install chromium` or set `CHROME_PATH` to a Chrome binary.
 
 `npm run playthrough` plays each lab's solution file in Node, loads the finished work into the built app, and pages through every step with **Continue**. Each step must show its goals done, with no sideways scrolling and no page errors. That also proves the saved actions replay to the same network in the browser. `LAB=<id>` checks one lab. Screenshots go to `screenshots/playthrough/`.
 
@@ -215,12 +219,14 @@ scripts/set-password.mjs     sets the teacher override password
 .github/workflows/deploy.yml GitHub Pages build and deploy
 sw/sw-template.js            offline service worker (filled in at build time)
 src/
+  curricula.ts               the courses, their home page text, and their labs
+  routes.ts                  hash addresses (#/<course>/lab/<id>) and redirects from old ones
   sim/                       the network simulator (no UI code)
     sim.ts                   devices, frames, ARP, switching, routing, BGP, DNS, HTTP(S)
     build.ts                 NetBuilder: describe a network in a few lines
     sim.test.ts              attack and defense scenarios
   labs/
-    index.ts                 list of labs shown on the home page
+    index.ts                 every lab (src/curricula.ts says which course shows it)
     types.ts                 what a lab, step, goal, question, and tool look like
     helpers.ts               building blocks for goal checks
     shuffle.ts               seeded order for multiple-choice options
@@ -246,7 +252,7 @@ If you change a lab's steps after students have started, bump its `version`. Stu
 1. **Build the network.** Create `src/labs/<id>/scenario.ts` with a function that returns a `Sim`. Use `NetBuilder`: `.host()`, `.router()`, `.switch()`, `.hub()`, `.link()`. Place devices with `x` (0 to 1000) and `y` (0 to 600); the map zooms to fit them. Add a test in `src/sim/sim.test.ts` that the attack and the defense do what you expect.
 2. **Write the lesson.** Create `src/labs/<id>/index.ts` exporting a `LabDef`. Each step has a markdown `body` (write `[[deviceId]]` for a clickable device chip), optional `actions` (lesson buttons), `tools` (every tool the step needs, including ones an earlier step introduced: tools don't carry over to later steps), `goals`, `questions`, and a `setup` that restores whatever the step needs if the student reset the network or a teacher overrode an earlier step. Use the helpers in `src/labs/helpers.ts` for goal checks. For a lab where students build the network, leave addresses out of the scenario, give switches `ports`, and turn on the `cable`, `ping`, `ip-config`, `gateway`, and `static-route` tools. Set `map: { ports: true, addresses: true }` to label ports, show live addresses, and tag each MAC address a switch learns on the map. Setups in that kind of lab should finish earlier steps without undoing the student's own valid choices; see `src/labs/build-network/scenario.ts`. With the `cable` tool on, students also plug in cables by dragging from one device to another on the map, and unplug one by clicking it. Changes a `setup` makes don't put tags on the map, so a setup can break something for students to find. Mark a question `afterGoals: true` when it asks about something the student is about to see; it stays locked until the step's goals are done. Options are shuffled for students; mark "Both" or "None of these" options `last: true` to keep them at the end. End with a step that has `kind: 'submit'`.
 3. **Write the solution.** Create `src/labs/<id>/solution.ts` with the moves and text answers for each step, and add it to `SOLUTIONS` in `src/labs/walkthrough.test.ts`. Tool moves go through the same input checks a student's typing does, so the test fails if the lesson asks for something the tool would reject.
-4. **Register it** in `LABS` in `src/labs/index.ts` (and remove its "coming soon" entry from `STUBS`).
+4. **Register it** in `LABS` in `src/labs/index.ts` (and remove its "coming soon" entry from `STUBS`), and add its id to its course's `labs` in `src/curricula.ts`.
 5. Run `npm test` and `npm run e2e`, then try it yourself with `npm run dev`.
 
 Lesson text follows the house voice: short sentences, imperatives, terms in bold the first time they appear, no em dashes, no emoji.

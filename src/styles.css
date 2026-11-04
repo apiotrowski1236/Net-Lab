@@ -2209,6 +2209,37 @@ a.lab-card:hover,
   }
 }
 
+/* Phones: the course's short name, and a little less room between top bar items. */
+.tb-course-short {
+  display: none;
+}
+@media (max-width: 600px) {
+  .topbar {
+    gap: 10px;
+    padding: 0 12px;
+  }
+  .tb-course-full {
+    display: none;
+  }
+  .tb-course-short {
+    display: inline;
+  }
+  .student-chip {
+    max-width: 170px;
+  }
+}
+@media (max-width: 480px) {
+  /* The logo alone, so the course and the student's name fit. The word stays for screen readers. */
+  .brand span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 @media (max-height: 700px) and (min-width: 901px) {
   .dock {
     flex-basis: 40%;
