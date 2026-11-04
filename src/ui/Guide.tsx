@@ -1,4 +1,4 @@
-import { guideHref } from '../routes';
+import { guideHref, labHref } from '../routes';
 import { useMemo } from 'preact/hooks';
 import { shuffledOptions } from '../labs/shuffle';
 import { isLesson, type LabDef, type StepDef, type ToolSpec } from '../labs/types';
@@ -70,7 +70,7 @@ export function Guide({ lab }: { lab: LabDef }) {
   return (
     <div class="guide">
       <div class="guide-bar no-print">
-        <a class="btn ghost small" href={`#/lab/${lab.id}`}>
+        <a class="btn ghost small" href={labHref(lab.id)}>
           <Icon name="chevronLeft" size={14} /> {isLesson(lab) ? 'Open the lesson' : 'Open the lab'}
         </a>
         <button class="btn small" onClick={() => window.print()}>

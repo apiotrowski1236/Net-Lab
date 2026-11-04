@@ -201,6 +201,7 @@ try {
   await page.goto(url);
   // A fresh computer: the sign-in dialog first.
   await page.getByLabel('First and last name').fill('Riley Student');
+  await page.getByRole('radio', { name: 'AP Computer Science Principles' }).check();
   await page.getByRole('button', { name: 'Start' }).click();
   await page.locator('.lab-card', { hasText: lab.title }).locator('a.lab-card-link').click();
   await page.waitForSelector('.lesson');
@@ -309,7 +310,8 @@ try {
   watch(page);
   await page.goto(url);
   await page.getByLabel('First and last name').fill('Tess Tablet');
-  await page.getByRole('button', { name: 'Start' }).click();
+  await page.getByRole('radio', { name: 'AP Computer Science Principles' }).tap();
+  await page.getByRole('button', { name: 'Start' }).tap();
   await page.locator('.lab-card', { hasText: lab.title }).locator('a.lab-card-link').tap();
   await page.waitForSelector('.lesson');
   const s1 = lab.steps[0];
