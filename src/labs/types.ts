@@ -96,8 +96,11 @@ export interface TextQuestion {
 }
 
 export type QuestionDef = (ChoiceQuestion | TextQuestion) & {
-  /** Hide until the step's goals are done: for questions about what the student is about to see. */
-  afterGoals?: boolean;
+  /**
+   * Hide until the step's goals are done: for questions about what the student
+   * is about to see. A list of goal ids waits for those goals only.
+   */
+  afterGoals?: boolean | string[];
 };
 
 /**
@@ -364,6 +367,8 @@ export interface MapZone {
   shape: { kind: 'rect'; x: number; y: number; w: number; h: number } | { kind: 'circle'; cx: number; cy: number; r: number };
   /** Shown at the zone's top-left (rect) or top (circle). */
   label?: string;
+  /** Put the label at the bottom-left instead (rect only), clear of tags that pop up above a device. */
+  labelAt?: 'bottom';
   /** Colors the outline and fill: 'neutral' for a building, 'good' for a protected zone, 'bad' for hostile ground. */
   tone?: 'neutral' | 'info' | 'good' | 'warn' | 'bad';
   /** Dashed outline, e.g. for a radio signal's reach or a logical zone like a VLAN. */

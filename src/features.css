@@ -4491,3 +4491,18 @@ button.pl-tile:active {
 .goal-text code {
   white-space: nowrap;
 }
+
+/* net-tools: the terminal's Bigger button grows the Dock over the map, for long output. */
+.term-head .term-at {
+  margin-left: auto;
+}
+@media (min-width: 901px) {
+  .dock.dock-tall.dock-max {
+    flex-basis: 74%;
+  }
+}
+@media (max-width: 900px) {
+  .dock.dock-tall.dock-max {
+    height: max(420px, 88vh);
+  }
+}

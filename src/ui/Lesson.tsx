@@ -341,6 +341,19 @@ function ActionOutcome({ session, step }: { session: LabSession; step: StepDef }
   );
 }
 
+/** The notice that stands in for questions still locked behind goals. */
+function lockNotice(locked: QuestionDef[], step: StepDef, labels: Record<string, string>): string {
+  const ids = locked.flatMap((q) => (Array.isArray(q.afterGoals) ? q.afterGoals : []));
+  const waits = locked.every((q) => Array.isArray(q.afterGoals)) && ids.length > 0;
+  const what = locked.length > 1 ? `${locked.length} questions about what happens unlock` : 'A question about what happens unlocks';
+  if (!waits) return `${what} when you finish the goals above.`;
+  // Only some goals: name them, as plain text.
+  const names = (step.goals ?? [])
+    .filter((g) => ids.includes(g.id))
+    .map((g) => `“${g.label.replace(/`/g, '').replace(/\[\[([\w-]+)\]\]/g, (_, id: string) => labels[id] ?? id)}”`);
+  return `${what} when you finish ${names.join(' and ')}.`;
+}
+
 function QuestionCard(props: { session: LabSession; step: StepDef; q: QuestionDef; labels: Record<string, string>; onDevice: (id: string) => void }) {
   return props.q.kind === 'choice' ? <ChoiceCard {...props} q={props.q} /> : <TextCard {...props} q={props.q} />;
 }
@@ -415,7 +428,6 @@ export function LessonPanel({
     return out;
   }, [session.sim]);
   // A button the instructions already show ([[button:id]]) isn't repeated under them.
-  const lockedQs = (step.questions ?? []).filter((q) => q.afterGoals);
   const rowActions = (step.actions ?? []).filter((a) => !step.body.includes(`[[button:${a.id}]]`));
   const actionLabels = useMemo<MdActions>(() => ({ labels: Object.fromEntries((step.actions ?? []).map((a) => [a.id, a.label])), live: true }), [step]);
 
@@ -436,20 +448,24 @@ export function LessonPanel({
   const canContinue = session.stepComplete(p.step);
   // A teacher override opens the step's questions too.
   const goalsDone = !!overridden || (step.goals ?? []).every((g) => session.goalDone(step.id, g.id));
-  // When the goals finish, move toward the question they unlocked: it can sit below the fold.
+  const unlocked = (q: QuestionDef) =>
+    !q.afterGoals || !!overridden || (q.afterGoals === true ? goalsDone : q.afterGoals.every((id) => session.goalDone(step.id, id)));
+  const lockedQs = (step.questions ?? []).filter((q) => !unlocked(q));
+  const nUnlocked = (step.questions ?? []).filter((q) => q.afterGoals && unlocked(q)).length;
+  // When goals unlock a question, move toward it: it can sit below the fold.
   // Keep the action's result in view on the way, since the question asks about it.
-  const unlockedAt = useRef({ step: step.id, done: goalsDone });
+  const unlockedAt = useRef({ step: step.id, n: nUnlocked });
   useEffect(() => {
     const was = unlockedAt.current;
-    unlockedAt.current = { step: step.id, done: goalsDone };
-    if (was.step !== step.id || was.done || !goalsDone) return;
-    const i = step.questions?.findIndex((q) => q.afterGoals) ?? -1;
+    unlockedAt.current = { step: step.id, n: nUnlocked };
+    if (was.step !== step.id || nUnlocked <= was.n) return;
+    const i = step.questions?.findIndex((q) => q.afterGoals && unlocked(q)) ?? -1;
     const el = scroller.current;
     if (i < 0 || !el) return;
     const result = el.querySelector('.action-outcome');
     if (result) result.scrollIntoView({ block: 'start', behavior: 'smooth' });
     else el.querySelectorAll('.qcard')[i]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [step.id, goalsDone]);
+  }, [step.id, nUnlocked]);
   // The "Finish …" button shows what's left: the first unfinished goal or question, which may be below the fold.
   const showWhatsLeft = () => {
     const el = scroller.current;
@@ -587,11 +603,11 @@ export function LessonPanel({
         {demos}
 
         {step.questions?.map((q) =>
-          q.afterGoals && !goalsDone ? (
+          !unlocked(q) ? (
             // Several locked questions share one notice.
             q === lockedQs[0] && (
               <div key={`${step.id}/${q.id}`} class="qcard locked">
-                <Icon name="lock" size={14} /> {lockedQs.length > 1 ? `${lockedQs.length} questions about what happens unlock` : 'A question about what happens unlocks'} when you finish the goals above.
+                <Icon name="lock" size={14} /> {lockNotice(lockedQs, step, labels)}
               </div>
             )
           ) : (

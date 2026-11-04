@@ -145,7 +145,7 @@ export function parseCommand(raw: string): ParseResult {
         const a = args[i];
         if (a === '-sV' || a === '-A') versions = true;
         else if (a.toLowerCase() === '-sv') return { ok: false, cmd: 'nmap', msg: `nmap's options care about capital letters. Type -sV, with a capital V.` };
-        else if (a === '-script' || a.startsWith('-script=')) return { ok: false, cmd: 'nmap', msg: 'Long options start with two dashes: --script vuln' };
+        else if (a === '-script' || a.startsWith('-script=')) return { ok: false, cmd: 'nmap', msg: 'Type it with two dashes: --script vuln' };
         else if (a === '--script=vuln' || (a === '--script' && args[i + 1] === 'vuln')) {
           vuln = versions = true;
           if (a === '--script') i++;

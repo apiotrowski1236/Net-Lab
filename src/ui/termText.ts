@@ -3,6 +3,7 @@ import { scanDone, scanFindings, type Scan } from '../sim/services';
 import type { Sim } from '../sim/sim';
 import {
   fmtMs,
+  NMAP_GAP_MS,
   nmapName,
   PING_COUNT,
   reverseName,
@@ -153,7 +154,10 @@ function nmapLines(sim: Sim, devId: string, run: NmapRun): TermLine[] {
   if (!done) {
     const total = scan.hosts.length * (scan.ports.length + 1) || 1;
     const answered = scan.hosts.reduce((n, h) => n + (h.ping !== 'pending' ? 1 : 0) + scan.ports.filter((p) => h.ports[p] !== 'pending').length, 0);
-    return [...out, L(`Stats: about ${Math.round((100 * answered) / total)}% done`, 'muted')];
+    // Answers arrive in bursts (an empty address waits out its ARP timeout), so count probes sent too: the number keeps moving.
+    const sent = Math.min(total, Math.floor((sim.t - scan.t) / NMAP_GAP_MS) + 1);
+    const pct = Math.min(99, Math.round((100 * (answered + sent)) / (2 * total)));
+    return [...out, L(`Stats: about ${pct}% done`, 'muted')];
   }
   const found = scanFindings(scan);
   for (const h of found) {
@@ -230,12 +234,12 @@ export function runMeaning(sim: Sim, devId: string, run: TermRun): string | unde
       const answered = run.hops.filter((h) => h.status === 'answer');
       const names = answered.map((h) => `${h.ttl}: ${who(sim, h.from) ?? h.from}`).join(', ');
       if (run.end === 'reached') {
-        return `${named}Each line is one stop on the way (${names}). Every line before the last is a router; the last line is the destination itself.`;
+        return `${named}Each line is one hop on the way (${names}). Every line before the last is a router; the last line is the destination itself.`;
       }
       if (run.end === 'local') return `${me} couldn't send anything. Check its cable and its address.`;
       const last = answered[answered.length - 1];
       if (!last) return `${named}Not even the first router answered.`;
-      return `${named}The last stop to answer was ${who(sim, last.from) ?? last.from} (line ${last.ttl}). After it, nothing answered.`;
+      return `${named}The last hop to answer was ${who(sim, last.from) ?? last.from} (line ${last.ttl}). After it, nothing answered. (A real traceroute keeps trying up to 30 hops. This one stops after 2 silent hops to save time.)`;
     }
     case 'nslookup': {
       const server = who(sim, run.server) ?? run.server;
@@ -260,6 +264,10 @@ export function runMeaning(sim: Sim, devId: string, run: TermRun): string | unde
       const found = scanFindings(scan);
       const open = found.reduce((n, h) => n + h.open.length, 0);
       const bad = run.vuln ? found.reduce((n, h) => n + h.open.filter((p) => vulnsFor(scan.hosts.find((x) => x.ip === h.ip)?.banners?.[p]).length).length, 0) : 0;
+      // "nmap 10.0.0.0": one address, not the network.
+      if (!found.length && !run.target.includes('/')) {
+        return `${named}No device answered at ${run.target}. To scan a whole network, add a slash and its size, like ${run.target}/24.`;
+      }
       const tail = run.vuln ? ` The vuln check matched ${bad} known problem${bad === 1 ? '' : 's'}.` : '';
       return `${named}${found.length} device${found.length === 1 ? '' : 's'} answered, with ${open} open port${open === 1 ? '' : 's'} between them. Each open port is a program that accepts connections from anyone who can reach it.${tail}`;
     }

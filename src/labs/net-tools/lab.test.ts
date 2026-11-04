@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkCommand } from '../../runtime/termInput';
 import type { Sim } from '../../sim/sim';
 import type { TermRun } from '../../sim/terminal';
-import { runLines } from '../../ui/termText';
+import { runLines, runMeaning } from '../../ui/termText';
 import type { ToolSpec } from '../types';
 import { netToolsLab } from '.';
 import { buildLibrary, dnsFixed, ensureTicketsDone, fixDns, internetFixed, IP, pc2Plugged, riskyClosed } from './scenario';
@@ -88,6 +88,20 @@ describe('net-tools network', () => {
   });
 });
 
+describe('net-tools terminal hints', () => {
+  it('nmap of a bare network address suggests the /24', () => {
+    const sim = buildLibrary();
+    ensureTicketsDone(sim);
+    const r = run(sim, 'laptop', 'nmap 10.0.0.0');
+    expect(runMeaning(sim, 'laptop', r)).toBe('No device answered at 10.0.0.0. To scan a whole network, add a slash and its size, like 10.0.0.0/24.');
+  });
+
+  it('the netstat question waits for netstat -b only, not the unplug', () => {
+    const odd = step('netstat').questions!.find((q) => q.id === 'odd')!;
+    expect(odd.afterGoals).toEqual(['netstat']);
+  });
+});
+
 describe('net-tools typed checks', () => {
   it('keeps nmap locked until the permission letter', () => {
     const sim = buildLibrary();
@@ -168,7 +182,7 @@ describe('net-tools buttons', () => {
     watch.run(sim);
     expect(watch.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'Public PC 2 is sending something…' }]);
     sim.runUntilIdle();
-    expect(watch.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it traded packets with 203.0.113.66, out on the internet.' }]);
+    expect(watch.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it sent packets to 203.0.113.66, out on the internet, and got answers back.' }]);
   });
 });
 

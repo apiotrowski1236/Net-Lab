@@ -41,7 +41,7 @@ function zones(sim: Sim): MapZone[] {
     { id: 'library', shape: { kind: 'rect', x: 20, y: 70, w: 640, h: 540 }, label: 'Lakeside Public Library', tone: 'neutral' },
     { id: 'internet', shape: { kind: 'rect', x: 690, y: 70, w: 560, h: 540 }, label: 'The internet', tone: 'neutral', dashed: true },
     // Once its cable is out, Public PC 2 stays marked, so it doesn't look plugged in again later.
-    ...(pc2Plugged(sim) ? [] : [{ id: 'unplugged', shape: { kind: 'rect' as const, x: 40, y: 282, w: 140, h: 122 }, label: 'Unplugged', tone: 'warn' as const, dashed: true }]),
+    ...(pc2Plugged(sim) ? [] : [{ id: 'unplugged', shape: { kind: 'rect' as const, x: 40, y: 282, w: 140, h: 148 }, label: 'Unplugged', labelAt: 'bottom' as const, tone: 'warn' as const, dashed: true }]),
   ];
 }
 
@@ -122,7 +122,7 @@ const watchButton: ActionDef = {
     const c = (sim.dev('pc2').conns ?? []).filter((x) => x.t >= since && x.to === IP.remote).pop();
     if (!c || c.status === 'pending') return [{ tone: 'wait', text: 'Public PC 2 is sending something…' }];
     if (c.status !== 'open') return [{ tone: 'bad', text: 'Public PC 2 tried to reach 203.0.113.66, but nothing came back.' }];
-    return [{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it traded packets with 203.0.113.66, out on the internet.' }];
+    return [{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it sent packets to 203.0.113.66, out on the internet, and got answers back.' }];
   },
 };
 
@@ -162,7 +162,7 @@ const scanned = ({ sim, since }: CheckCtx) => nmaps(sim, 'laptop', since).some(w
 
 export const netToolsLab: LabDef = {
   id: 'net-tools',
-  version: 2,
+  version: 3,
   title: 'Clues from the Command Line',
   tagline:
     'Solve three help desk tickets at a public library with ping, traceroute, nslookup, and netstat. Then, with written permission, map the network with nmap and find services that should be turned off.',
@@ -330,6 +330,7 @@ export const netToolsLab: LabDef = {
               feedback: 'A misspelled name finds no address at all: "could not find host". This name found one. It was the wrong one.',
             },
           ],
+          explain: 'The server is fine at 10.0.0.20. The name sends everyone to 10.0.0.21, where no device lives, so the problem is the name, not the server.',
           afterGoals: true,
         },
       ],
@@ -342,7 +343,7 @@ export const netToolsLab: LabDef = {
         A ping by name has two parts. First the computer asks a **DNS server** which address goes with the name. Then it pings that address. **nslookup** does only the first part, so you see exactly what the DNS server says.
 
         1. Type \`nslookup catalog.lakeside.example\`. The first two lines name the DNS server that answered, [[router]]. (The #53 means port 53, the DNS port.) The last **Address** line is the answer.
-        2. Is the answer the catalog server's address? If not, the record is wrong. The library's IT contractor manages the router: press [[button:report-dns]].
+        2. Is the answer the catalog server's address? If not, the record is wrong. The library pays an **IT contractor**, an outside company, to manage the router: press [[button:report-dns]].
         3. Check their fix with the same nslookup. (The up arrow key brings back the command.)
         4. Press [[button:open-catalog]].
       `,
@@ -399,20 +400,21 @@ export const netToolsLab: LabDef = {
 
         1. Type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. Something on the way is broken, but where?
         2. Type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map.
-        3. Answer **In the first trace, where is the problem?** below. Then press [[button:call-isp]].
-        4. Run the traceroute again, and count the routers on the way.
+        3. Answer **In the first trace, where is the problem?** below.
+        4. Press [[button:call-isp]].
+        5. Run the traceroute again, and count the routers on the way.
 
-        traceroute uses the TTL to make each router on the way answer:
+        traceroute sends packets with a small TTL. The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
 
-        | Try | TTL sent | Where it hits 0 | Who answers "time exceeded" |
+        | Try | TTL sent | Where it hits 0 | Shows up as |
         |---|---|---|---|
-        | 1 | 1 | 1st router | line 1 of the output |
+        | 1 | 1 | 1st router | line 1 |
         | 2 | 2 | 2nd router | line 2 |
         | 3 | 3 | 3rd router | line 3, and so on |
 
-        Each line is one **hop**: one stop on the way. The internet provider's box is a router too. A \`*\` means nothing answered. Some routers ignore traceroute, so one \`*\` isn't proof of a break. When the trace never gets past it and pings fail too, the path is broken there.
+        Each line is one **hop**: one stop on the way. The internet provider's box is a router too. A \`*\` means nothing answered. Some routers and servers ignore traceroute and ping, so one \`*\` isn't proof of a break. When the trace never gets past it and pings fail too, the path is broken there.
 
-        You can see the cut cable on the map. A real technician can't see the internet, so traceroute is how they find the break. (The "sent as" tags on [[router]] are NAT: it sends everything out under the library's one public address.)
+        You can see the cut cable on the map. A real technician can't, so traceroute is how they find the break.
       `,
       focus: ['pc1', 'isp', 'core', 'ebooks'],
       open: 'tools',
@@ -480,17 +482,20 @@ export const netToolsLab: LabDef = {
 
         **netstat** lists a computer's open connections. Here is one normal line of \`netstat -b\`, and what each part means:
 
-        | Proto | Local Address | Foreign Address | State | Program |
-        |---|---|---|---|---|
-        | TCP | 10.0.0.32:49712 | 10.0.0.20:443 | ESTABLISHED | browser.exe |
-        | kind of connection | this computer, then its port | the other computer, then its port | open right now | what opened it |
+        | Column | Example | What it means |
+        |---|---|---|
+        | Proto | TCP | the kind of connection |
+        | Local Address | 10.0.0.32:49712 | this computer, then its port |
+        | Foreign Address | 10.0.0.20:443 | the other computer, then its port |
+        | State | ESTABLISHED | connected right now |
+        | Program | browser.exe | what opened it |
 
-        Port 443 is the usual door for secure websites. Everyday programs use a short list of well-known ports like it.
+        Port 443 is the usual door for secure websites.
 
         1. Press [[button:watch-pc2]] and watch the map.
         2. The Terminal is sitting at Public PC 2. Type \`netstat -b\`. (\`-b\` is the Windows option. Linux and macOS use others.)
         3. Find the line that doesn't belong. The map shows where each Foreign Address is.
-        4. Press [[button:unplug-pc2]] to cut it off while IT investigates. Then run netstat again.
+        4. Press [[button:unplug-pc2]] to cut it off until IT can check it. Then run netstat again.
       `,
       focus: ['pc2', 'remote'],
       open: 'tools',
@@ -520,12 +525,12 @@ export const netToolsLab: LabDef = {
           options: [
             { id: 'rat', text: 'update-helper.exe to 203.0.113.66, port 4444', correct: true },
             { id: 'catalog', text: 'browser.exe to 10.0.0.20, port 443', feedback: "10.0.0.20 is the library's catalog server, and 443 is HTTPS. That's the browser showing the catalog." },
-            { id: 'ebooks', text: 'browser.exe to 192.0.2.80, port 443', feedback: '192.0.2.80 is the e-book site, over HTTPS. Patrons use it every day.' },
+            { id: 'ebooks', text: 'browser.exe to 192.0.2.80, port 443', feedback: '192.0.2.80 is the e-book site, over HTTPS. Visitors use it every day.' },
             { id: 'none', text: 'None of them. They are all normal.', feedback: 'Look at the Foreign Address of each line, and find it on the map.', last: true },
           ],
           explain:
             'A program named like an updater, connected to an unknown server on an unusual port, is a common sign of a remote-control program. Attack tools often use port 4444.',
-          afterGoals: true,
+          afterGoals: ['netstat'],
         },
       ],
     },
@@ -534,24 +539,24 @@ export const netToolsLab: LabDef = {
       id: 'permission',
       title: 'Permission first',
       body: md`
-        The library director wants to know what else on the network is exposed. IT staff find out with a **port scan**: nmap knocks on common ports of every computer in a network and reports which ones open. Attackers run the same scans to pick targets. That's why a scan needs the owner's permission, in writing, before you start.
+        The library director wants to know what else on the network is open to attack. IT staff find out with a **port scan**: nmap knocks on common ports of every computer in a network and reports which ones open. Attackers run the same scans to pick targets. That's why a scan needs the owner's permission, in writing, before you start.
 
         The director signs this letter:
 
         > **Lakeside Public Library: permission to scan**
         >
-        > - **What:** the library's network, 10.0.0.0/24, including checks for known vulnerabilities
+        > - **What:** the library's network, 10.0.0.0/24, including checks for known vulnerabilities (weaknesses)
         > - **From:** the help desk laptop
         > - **When:** today, 3:00 to 5:00 p.m.
         > - **Why:** to find services that should be turned off
         >
-        > Not covered: any other network, including the e-book site and the internet provider, or visitors' own devices.
+        > Not covered: any other network. That includes the e-book site, the internet provider, and the guest Wi-Fi, where visitors connect their own devices.
         >
         > *Signed: the library director*
 
-        The **/24** means every address that starts with 10.0.0: all 256 of them, from 10.0.0.0 to 10.0.0.255.
+        The **/24** means every address that starts with 10.0.0: all 256 of them, from 10.0.0.0 to 10.0.0.255. Only the library's own computers use them. The guest Wi-Fi is a separate network, not on this map.
 
-        Security testers call this the **scope**: what you may scan, from where, and when. Anything outside it is off limits, even if it looks broken or interesting. This lab's Terminal refuses scans outside the letter. A real nmap won't stop you, so the rule is on you.
+        Security testers call this the **scope**: what you may scan, from where, and when. Don't scan anything outside it, even if it looks broken or interesting. This lab's Terminal refuses scans outside the letter. A real nmap won't stop you, so following the letter is your job.
       `,
       questions: [
         {
@@ -562,7 +567,7 @@ export const netToolsLab: LabDef = {
             { id: 'catalog', text: 'The catalog server, 10.0.0.20', correct: true },
             { id: 'ebooks', text: 'The e-book site, 192.0.2.80', feedback: 'The letter names the e-book site as not covered. Only its owner can give permission to scan it.' },
             { id: 'isp', text: "The internet provider's router, 198.51.100.1", feedback: 'The provider owns that router. The library director can’t give permission for it.' },
-            { id: 'visitor', text: "A visitor's laptop on the library network", feedback: "It's on the library's network, but it belongs to the visitor. The letter leaves visitors' devices out." },
+            { id: 'visitor', text: "A visitor's laptop on the guest Wi-Fi", feedback: "The guest Wi-Fi is a separate network, and the laptop belongs to the visitor. The letter leaves both out." },
           ],
           explain: '10.0.0.20 is inside 10.0.0.0/24, the network the director owns and named in the letter.',
         },
@@ -588,10 +593,16 @@ export const netToolsLab: LabDef = {
         Now you have permission. An **open** port means a program is answering there, ready for connections. Every open port is a door into that computer, so IT staff keep open only the ones they need.
 
         1. The Terminal is on [[laptop]], the only computer the letter lets you scan from. Type \`nmap 10.0.0.0/24\`.
-        2. nmap pings every address, then knocks on 10 common ports at each computer that answers. (A real nmap checks 1,000 ports unless you tell it otherwise.)
-        3. Read the report: one block for each computer that answered, with its DNS name. **Host is up** means it answered, and the **latency** is how long the answer took.
+        2. nmap checks every address for a computer, then knocks on 10 common ports at each one it finds. (On a local network it asks with ARP, so the "no ARP answer" tags are the empty addresses. A real nmap checks 1,000 ports.)
+        3. Read the report: one block for each computer that answered, with its DNS name. Press **Bigger** on the Terminal to see more of it. **Host is up** means it answered, and the **latency** is how long the answer took, in seconds.
 
-        Services worth knowing: **ssh** (22) and **telnet** (23) let someone log in and control a computer from far away. SSH encrypts everything. **Telnet** sends everything as plain text, passwords included, so anyone capturing packets can read them. **ftp** (21) moves files, also unencrypted. **domain** (53) is DNS, and **ipp** (631) is printing.
+        | Service | Port | What it does |
+        |---|---|---|
+        | ssh | 22 | log in and control a computer from far away, encrypted |
+        | telnet | 23 | the same, but in **plain text**: anyone capturing packets can read the password |
+        | ftp | 21 | move files, also in plain text |
+        | domain | 53 | DNS |
+        | ipp | 631 | printing |
       `,
       focus: ['laptop'],
       open: 'tools',
@@ -614,22 +625,6 @@ export const netToolsLab: LabDef = {
           explain: 'Printers often come with Telnet turned on for setup. Anyone on the network could try to log in, and the password would cross the network unencrypted.',
           afterGoals: true,
         },
-        {
-          id: 'missing',
-          kind: 'choice',
-          prompt: 'Public PC 2 isn’t in the report. Why?',
-          options: [
-            { id: 'unplugged', text: 'You unplugged it, so it couldn’t answer', correct: true },
-            {
-              id: 'closed',
-              text: 'All its ports are closed',
-              feedback: 'Then nmap would still list it, like Public PC 1: "All 10 scanned ports are closed". It answered no ping at all.',
-            },
-            { id: 'hidden', text: 'The remote-control program hid it', feedback: 'The program can’t answer anything once the cable is out. The reason is simpler.' },
-            { id: 'scope', text: 'It’s outside the permission letter', feedback: 'Its address, 10.0.0.32, is inside 10.0.0.0/24, so the scan did try it.' },
-          ],
-          afterGoals: true,
-        },
       ],
     },
 
@@ -640,7 +635,7 @@ export const netToolsLab: LabDef = {
         An open port isn't the whole story. The program behind it might be an old version with a **vulnerability**: a known weakness an attacker can use. Researchers publish each one as a **CVE** (Common Vulnerabilities and Exposures) with an ID like CVE-2011-2523, so everyone can check for it.
 
         1. Type \`nmap -sV --script vuln 10.0.0.0/24\`. **-sV** asks each open port which program and version is answering. **--script vuln** runs tests for known vulnerabilities. Some tests actually try the weakness, which is why the letter had to say "including checks for known vulnerabilities".
-        2. Read the new **VERSION** column, and the lines that start with \`|\`.
+        2. Read the new **VERSION** column, and the lines that start with \`|\`. A **backdoor** is a secret way in that skips the password.
       `,
       focus: ['laptop', 'catalog', 'printer'],
       open: 'tools',
@@ -659,7 +654,7 @@ export const netToolsLab: LabDef = {
           id: 'turn-off',
           kind: 'choice',
           multi: true,
-          prompt: 'Which services should the library turn off? Pick all that apply.',
+          prompt: 'Which services should the library turn off?',
           options: [
             {
               id: 'ftp',
@@ -671,7 +666,7 @@ export const netToolsLab: LabDef = {
               id: 'telnet',
               text: 'Telnet (port 23) on the printer',
               correct: true,
-              missed: 'The scan doesn’t flag everything. Which service sends passwords as plain text?',
+              missed: 'The scan doesn’t flag everything. Which service lets someone log in and control a device, with the password in plain text?',
             },
             { id: 'https', text: 'HTTPS (port 443) on the catalog server', feedback: 'That’s the catalog website itself, and it’s encrypted. Turning it off would close the catalog.' },
             { id: 'dns', text: 'DNS (port 53) on the library router', feedback: 'Every computer in the library uses it to look up names. Without it, no site would load by name.' },
@@ -690,7 +685,7 @@ export const netToolsLab: LabDef = {
         It's 4:40 p.m., inside the letter's time.
 
         1. Press [[button:close-risky]].
-        2. Scan again to check: \`nmap 10.0.0.0/24\`. Ports 21 and 23 should be gone.
+        2. Scan again to check: \`nmap 10.0.0.0/24\`. nmap still knocks on ports 21 and 23, so you'll see those packets on the map, but they should be gone from the report.
 
         Checking a fix with the same tool that found the problem is how IT staff know the fix worked.
       `,

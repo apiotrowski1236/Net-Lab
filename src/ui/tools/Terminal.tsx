@@ -1,3 +1,4 @@
+import { signal } from '@preact/signals';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { LabSession } from '../../runtime/session';
 import { checkCommand } from '../../runtime/termInput';
@@ -34,6 +35,9 @@ interface DevState {
 
 /** Kept per session, so switching tabs doesn't wipe the screen. */
 const STATE = new WeakMap<LabSession, { at?: string; devs: Map<string, DevState>; n: number }>();
+
+/** The student made the terminal bigger: the Dock grows and the map shrinks, for long output like an nmap report. */
+export const termBig = signal(false);
 
 function stateOf(session: LabSession) {
   let s = STATE.get(session);
@@ -197,6 +201,9 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
             <b>{dev?.label ?? at}</b>
           )}
         </label>
+        <button type="button" class="btn tiny term-size" title="Make the terminal taller, or put it back" aria-pressed={termBig.value} onClick={() => (termBig.value = !termBig.value)}>
+          {termBig.value ? 'Smaller' : 'Bigger'}
+        </button>
       </div>
       <div class="term-screen" ref={screen} onClick={focusInput} role="log" aria-live="polite" aria-label={`Terminal on ${dev?.label ?? at}`}>
         {older > 0 && (

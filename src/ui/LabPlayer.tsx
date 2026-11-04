@@ -17,11 +17,13 @@ import { logDevices, LogsView } from './LogsView';
 import { type Cabling, NetworkCanvas } from './NetworkCanvas';
 import { Summary } from './Summary';
 import { TopBar } from './TopBar';
+import { termBig } from './tools/Terminal';
 
 type Tab = 'inspect' | 'capture' | 'tools' | 'logs';
 
 /** The one-column layout (styles.css, max-width 900px): the lesson on top, the stage under it. */
 const NARROW = '(max-width: 900px)';
+const smoothScroll = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 function useNarrow(): boolean {
   const [narrow, setNarrow] = useState(() => matchMedia(NARROW).matches);
   useEffect(() => {
@@ -301,7 +303,7 @@ function Dock({
   return (
     // A Wireshark-style lab (packet-capture) lives in the Capture tab: give its packet list more room.
     // So does a terminal in the Toolkit (net-tools): its output needs the lines.
-    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''}`}>
+    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${tab === 'tools' && termBig.value && tools.some((t) => t.kind === 'terminal') ? 'dock-max' : ''}`}>
       <div class="dock-tabs" role="tablist">
         <button
           role="tab"
@@ -446,7 +448,11 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
       <div class="player-body">
         <LessonPanel
           session={session}
-          onDevice={(id) => open(id, true)}
+          onDevice={(id) => {
+            open(id, true);
+            // On a narrow screen the map and its Dock sit below the lesson: bring them up, so the tap shows something.
+            if (narrow) requestAnimationFrame(() => document.querySelector('.stage-col')?.scrollIntoView({ block: 'start', behavior: smoothScroll() }));
+          }}
           narrow={narrow}
           demos={inlineDemos ? <DemoStage session={session} inline /> : undefined}
         />

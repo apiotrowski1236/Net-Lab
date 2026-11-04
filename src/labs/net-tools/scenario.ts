@@ -65,7 +65,7 @@ const MS = { wan: 4, core: 6, web: 2, far: 38 };
 
 export function buildLibrary(): Sim {
   const lan = { gateway: IP.router, dns: IP.router };
-  const sim = new NetBuilder({ linkMs: 130, procMs: 40, l2Ms: 30, arpTimeoutMs: 1200, pingTimeoutMs: 4000, httpTimeoutMs: 8000, icmpErrors: true })
+  const sim = new NetBuilder({ linkMs: 130, procMs: 40, l2Ms: 30, arpTimeoutMs: 1200, pingTimeoutMs: 2000, httpTimeoutMs: 8000, icmpErrors: true })
     .host('laptop', { label: 'Help desk laptop', icon: 'laptop', x: 110, y: 165, ip: `${IP.laptop}/24`, ...lan })
     .host('pc2', { label: 'Public PC 2', icon: 'desktop', x: 110, y: 335, ip: `${IP.pc2}/24`, ...lan })
     .host('pc1', { label: 'Public PC 1', icon: 'desktop', x: 110, y: 505, ip: `${IP.pc1}/24`, ...lan })
