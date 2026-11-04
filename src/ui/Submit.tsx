@@ -111,7 +111,9 @@ ${backup ? backupScript(backup) : ''}
 /** The downloaded report's file name. */
 export function reportFileName(name: string, labTitle: string): string {
   const who = name.replace(/[^\w -]+/g, '').trim() || 'student';
-  return `${who} - ${labTitle}.html`;
+  // Browsers swap characters a file name can't hold (like the ? in "What's in a Packet?") for _. Drop them, so the name shown is the name saved.
+  const what = labTitle.replace(/[<>:"/\\|?*]+/g, '').trim();
+  return `${who} - ${what}.html`;
 }
 
 /** Where the downloaded report goes, for "Then ___." (config.handInTo). */

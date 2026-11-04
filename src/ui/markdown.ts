@@ -12,7 +12,7 @@ export function renderMarkdown(src: string, labels: Record<string, string>): str
   const hit = cache.get(key);
   if (hit) return hit;
   const pre = src.replace(/\[\[([A-Za-z0-9_-]+)\]\]/g, (_, id: string) =>
-    labels[id] ? `<span class="chip" data-device="${esc(id)}" tabindex="0">${esc(labels[id])}</span>` : esc(id),
+    labels[id] ? `<span class="chip" data-device="${esc(id)}" tabindex="0" role="button">${esc(labels[id])}</span>` : esc(id),
   );
   const html = marked.parse(pre, { async: false }) as string;
   cache.set(key, html);

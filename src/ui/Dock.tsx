@@ -594,6 +594,14 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 // Packet capture (a friendly Wireshark)
 // ---------------------------------------------------------------------------
 
+/** Wireshark's Protocol column names, where they differ from NetLab's (LabDef.wireshark). */
+const WIRESHARK_PROTO: Partial<Record<string, string>> = { PING: 'ICMP', HTTPS: 'TLS' };
+
+/** Whether a filter names an IP address no device on the map has (a likely typo). */
+function unknownAddress(sim: Sim, filter: string): boolean {
+  return (filter.match(/\d+\.\d+\.\d+\.\d+/g) ?? []).some((ip) => !sim.deviceByIp(ip));
+}
+
 export function CaptureView({ session, deviceId }: { session: LabSession; deviceId: string }) {
   // New frames arrive while the tab is open: re-render whenever the network changes.
   void session.simRev.value;
@@ -606,6 +614,9 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
   const [hideArp, setHideArp] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  // Where the list last scrolled itself. A scroll event lands a frame later, after more rows
+  // may have arrived, so only a scroll above this point means the student scrolled away.
+  const autoTop = useRef(0);
   const tool = session.tools.find((t): t is Extract<ToolSpec, { kind: 'capture' }> => t.kind === 'capture' && t.device === deviceId);
   // The filter is only in effect in steps that offer it (packet-capture).
   const applied = tool?.filter ? session.captureFilter.value : '';
@@ -614,16 +625,45 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
   const all = dev?.capture ?? [];
   const rows: Captured[] = all.filter((c) => !(hideArp && (c.frame.arp || c.frame.bgp)) && matchFilter(node, c.frame));
   const runStart = dev?.captureRun?.start;
+  const live = !!dev?.sniffing;
 
   useEffect(() => {
     const el = listRef.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
+    if (el && stick.current) {
+      el.scrollTop = el.scrollHeight;
+      autoTop.current = el.scrollTop;
+    }
   }, [rows.length]);
-  // A new capture renumbers from 1: forget the packet that was open.
-  useEffect(() => setSelected(null), [runStart]);
+  // A Wireshark-style list (packet-capture) follows new packets only while capturing. A stopped
+  // capture, or a new filter, starts at the top, so the first packets aren't hidden above.
+  // A new step starts there too. Set stick even while the list is empty, so the first packets
+  // of a new capture are followed.
+  useLayoutEffect(() => {
+    if (!lab.wireshark) return;
+    stick.current = live;
+    const el = listRef.current;
+    if (el && !live) el.scrollTop = autoTop.current = 0;
+  }, [applied, live, runStart, session.step.id]);
+  // The layers box is short on a laptop screen: say when there's more to scroll to (as the
+  // dock does), and start each packet at its top.
+  const detailRef = useRef<HTMLDivElement>(null);
+  const [detailMore, setDetailMore] = useState(false);
+  const measureDetail = () => {
+    const el = detailRef.current;
+    const m = !!lab.wireshark && !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 12;
+    if (m !== detailMore) setDetailMore(m);
+  };
+  useLayoutEffect(measureDetail);
+  useLayoutEffect(() => {
+    if (detailRef.current) detailRef.current.scrollTop = 0;
+  }, [selected]);
+  // A new capture renumbers from 1: forget the packet that was open. So does a new step in a
+  // Wireshark-style lab, so the step's list starts with nothing open.
+  useEffect(() => setSelected(null), [runStart, lab.wireshark ? session.step.id : '']);
 
   if (!dev) return null;
-  const sel = rows.find((r) => r.no === selected) ?? dev.capture.find((r) => r.no === selected);
+  // A packet the filter hides isn't open any more.
+  const sel = rows.find((r) => r.no === selected) ?? (lab.wireshark ? undefined : dev.capture.find((r) => r.no === selected));
   const time = (c: Captured) => (dev.captureRun ? captureSeconds(dev, c).toFixed(3) : fmtTime(c.t));
   const stopped = tool
     ? 'Press Start to capture.'
@@ -635,7 +675,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
 
   return (
     <div class="capture">
-      {tool && <CaptureTools session={session} dev={dev} filter={!!tool.filter} />}
+      {tool && <CaptureTools key={session.step.id} session={session} dev={dev} filter={!!tool.filter} />}
       <div class="capture-bar">
         <span>
           <strong>{dev.label}'s packet capture</strong>{' '}
@@ -663,7 +703,8 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
             ref={listRef}
             onScroll={(e) => {
               const el = e.currentTarget as HTMLDivElement;
-              stick.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+              if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) stick.current = true;
+              else if (el.scrollTop < autoTop.current - 4) stick.current = false;
             }}
           >
             <table class="table capture-table">
@@ -681,13 +722,21 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                 {rows.map((c) => {
                   const proto = protoOf(c.frame);
                   const { src, dst } = endpoints(c.frame);
+                  const open = () => {
+                    setSelected(c.no);
+                    session.ui({ type: 'ui:open-frame', device: deviceId, frame: c.frame });
+                  };
                   return (
                     <tr
                       key={c.no}
                       class={`${selected === c.no ? 'selected' : ''} ${c.frame.forged ? 'forged' : ''}`}
-                      onClick={() => {
-                        setSelected(c.no);
-                        session.ui({ type: 'ui:open-frame', device: deviceId, frame: c.frame });
+                      tabIndex={0}
+                      aria-selected={selected === c.no}
+                      onClick={open}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter' && e.key !== ' ') return;
+                        e.preventDefault();
+                        open();
                       }}
                     >
                       <td>{c.no}</td>
@@ -696,7 +745,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                       <td class="mono">{dst}</td>
                       <td>
                         <span class="proto" style={{ background: PROTO_COLOR[proto] }}>
-                          {proto}
+                          {(lab.wireshark && WIRESHARK_PROTO[proto]) || proto}
                         </span>
                       </td>
                       <td class="mono info">{infoOf(c.frame)}</td>
@@ -705,35 +754,52 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                 })}
               </tbody>
             </table>
-            {rows.length === 0 && <p class="muted capture-none">No packets match this filter.</p>}
+            {rows.length === 0 && (
+              <p class="muted capture-none">
+                No packets match this filter.
+                {lab.wireshark && unknownAddress(sim, applied) ? ' If you typed an address, check each number against the map.' : ''}
+              </p>
+            )}
           </div>
-          <div class="capture-detail">
-            {sel ? (
-              layersOf(sim, sel.frame).map((l) => (
-                <div class={`layer ${l.locked ? 'locked' : ''}`} style={{ borderLeftColor: l.color }}>
-                  <div class="layer-title" style={{ color: l.color }}>
-                    {l.locked && <Icon name="lock" size={14} />} {l.title}
+          <div class="capture-detail-col">
+            <div class="capture-detail" ref={detailRef} onScroll={measureDetail}>
+              {sel ? (
+                layersOf(sim, sel.frame).map((l) => (
+                  <div class={`layer ${l.locked ? 'locked' : ''}`} style={{ borderLeftColor: l.color }}>
+                    <div class="layer-title" style={{ color: l.color }}>
+                      {l.locked && <Icon name="lock" size={14} />} {l.title}
+                    </div>
+                    {lab.wireshark && l.ws && <div class="layer-ws">Wireshark: {l.ws}</div>}
+                    <table>
+                      <tbody>
+                        {l.rows.map(([k, v, note]) => (
+                          <tr>
+                            <td class="k">{k}</td>
+                            <td class={`v mono ${l.locked ? 'gib' : ''}`}>
+                              {v} {note && <span class="muted">{note}</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {l.note && <div class="layer-note">{l.note}</div>}
                   </div>
-                  {lab.wireshark && l.ws && <div class="layer-ws">Wireshark: {l.ws}</div>}
-                  <table>
-                    <tbody>
-                      {l.rows.map(([k, v, note]) => (
-                        <tr>
-                          <td class="k">{k}</td>
-                          <td class={`v mono ${l.locked ? 'gib' : ''}`}>
-                            {v} {note && <span class="muted">{note}</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {l.note && <div class="layer-note">{l.note}</div>}
+                ))
+              ) : (
+                <div class="dock-empty small">
+                  <p>{rows.length ? 'Click a packet, or Tab to it and press Enter, to open it up.' : 'No packet to open.'}</p>
                 </div>
-              ))
-            ) : (
-              <div class="dock-empty small">
-                <p>Click a packet to open it up.</p>
-              </div>
+              )}
+            </div>
+            {/* Under the box, not over it, so it never covers a row. */}
+            {sel && detailMore && (
+              <button
+                type="button"
+                class="more-below detail-more"
+                onClick={() => detailRef.current?.scrollBy({ top: detailRef.current.clientHeight * 0.8, behavior: 'smooth' })}
+              >
+                More below <Icon name="chevronDown" size={13} />
+              </button>
             )}
           </div>
         </div>
@@ -751,9 +817,21 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
   void session.simRev.value;
   const [draft, setDraft] = useState(session.captureFilter.value);
   const [tried, setTried] = useState(false);
+  const [entered, setEntered] = useState(0);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<HTMLButtonElement>(null);
   const check = parseFilter(draft);
   const applied = session.captureFilter.value;
+  // At high zoom the bar can sit at the bottom of the screen: after Enter, scroll its message,
+  // or else the list, into view. Nothing moves when they are already on screen.
+  useEffect(() => {
+    if (!entered) return;
+    const box = toolsRef.current?.parentElement;
+    const target = box?.querySelector<HTMLElement>('.filter-msg') ?? box?.querySelector<HTMLElement>('.capture-split, .dock-empty');
+    target?.scrollIntoView({ block: 'nearest' });
+  }, [entered]);
   const apply = (text: string) => {
+    setEntered((n) => n + 1);
     const r = parseFilter(text);
     if (!r.ok) return setTried(true);
     setTried(false);
@@ -763,12 +841,27 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
   // Like Wireshark's filter bar: green while what's typed works, red while it doesn't.
   const state = !draft.trim() ? '' : check.ok ? 'valid' : 'invalid';
   return (
-    <div class="capture-tools" data-capture-tools>
+    <div class="capture-tools" data-capture-tools ref={toolsRef}>
+      <button
+        type="button"
+        class="btn small skip-link"
+        onClick={() => (document.querySelector<HTMLElement>('.lesson .actions .btn.action') ?? document.querySelector<HTMLElement>('.lesson .step-title'))?.focus()}
+      >
+        Back to the lesson
+      </button>
       <div class="capture-buttons">
-        <button class="btn small primary" onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: true })}>
+        <button class="btn small primary" ref={startRef} onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: true })}>
           <Icon name={dev.sniffing ? 'replay' : 'play'} size={14} /> {dev.sniffing ? 'Restart' : 'Start'}
         </button>
-        <button class="btn small" disabled={!dev.sniffing} onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: false })}>
+        <button
+          class="btn small"
+          disabled={!dev.sniffing}
+          onClick={() => {
+            session.dispatch({ type: 'capture', device: dev.id, on: false });
+            // Stop turns off under the keyboard: keep focus on the toolbar, on Start.
+            startRef.current?.focus();
+          }}
+        >
           <Icon name="stop" size={14} /> Stop
         </button>
         {filter && (
@@ -794,6 +887,11 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
                 setTried(false);
               }}
             />
+            {state && (
+              <span class={`filter-state ${state}`}>
+                <Icon name={state === 'valid' ? 'check' : 'x'} size={12} /> {state === 'valid' ? 'OK' : 'Error'}
+              </span>
+            )}
             <button type="submit" class="btn tiny">
               Apply
             </button>
@@ -813,7 +911,12 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
           </form>
         )}
       </div>
-      {filter && tried && !check.ok && <div class="filter-msg">{check.msg}</div>}
+      {filter && tried && !check.ok && (
+        <div class="filter-msg">
+          <div>{check.msg}</div>
+          {applied && <div>The list still shows your last filter that worked: {applied}</div>}
+        </div>
+      )}
       {filter && applied && applied !== draft.trim() && check.ok && <div class="filter-msg muted">Press Enter to apply. Still showing: {applied}</div>}
     </div>
   );

@@ -5,6 +5,7 @@ import type { Sim } from '../../sim/sim';
 import type { Frame } from '../../sim/types';
 import type { LabProgress } from '../../store/progress';
 import { playStep } from '../solution';
+import { wrongFeedback, type TextQuestion } from '../types';
 import { packetCaptureLab as lab } from '.';
 import {
   buildCapture,
@@ -209,18 +210,147 @@ describe('lesson buttons', () => {
     s.goTo(index('first-capture'));
     let lines = press(s, 'open-school');
     expect(lines()).toEqual([
-      { tone: 'bad', text: 'The capture was off, so it recorded none of this. Press Start, then press Open the school website again.' },
+      { tone: 'bad', text: 'The capture was off, so it recorded none of this. When this finishes, press Start, then press "Open the school website" again.' },
       { tone: 'wait', text: 'Loading the homework page…' },
     ]);
     s.sim.runUntilIdle();
     expect(lines()).toEqual([
       { tone: 'good', text: 'The homework page loaded.' },
-      { tone: 'bad', text: 'The capture was off, so it recorded none of this. Press Start, then press Open the school website again.' },
+      { tone: 'bad', text: 'The capture was off, so it recorded none of this. Press Start, then press "Open the school website" again.' },
     ]);
     s.dispatch({ type: 'capture', device: 'laptop', on: true });
     lines = press(s, 'open-school');
     s.sim.runUntilIdle();
-    expect(lines()).toEqual([{ tone: 'good', text: 'The homework page loaded. The capture recorded 6 packets for it.' }]);
+    expect(lines()).toEqual([{ tone: 'good', text: 'The homework page loaded. Press Stop. The capture recorded 6 packets for it.' }]);
+
+    // A new capture started after the page loaded isn't a late one.
+    s.dispatch({ type: 'capture', device: 'laptop', on: false });
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    expect(lines()).toEqual([
+      { tone: 'good', text: 'The homework page loaded.' },
+      { tone: 'wait', text: `Your capture started after this ended. It doesn't have these packets. To record them, press "Open the school website" again.` },
+    ]);
+  });
+
+  it('Open the school website: a second press while it loads does nothing, and a capture started late says so and does not count', () => {
+    const s = playTo('tour');
+    s.goTo(index('first-capture'));
+    const t1 = s.sim.t;
+    press(s, 'open-school');
+    s.sim.advance(2500);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    const lines = press(s, 'open-school');
+    const late = {
+      tone: 'bad',
+      text: 'The capture started after you pressed "Open the school website", so it missed the first packets. When this finishes, press Restart, then press "Open the school website" again.',
+    };
+    expect(lines()).toEqual([late, { tone: 'wait', text: 'Loading the homework page…' }]);
+    s.sim.runUntilIdle();
+    // One load only: the second press didn't start another.
+    expect(s.sim.dev('laptop').browser?.startedAt).toBe(t1);
+    expect(lines()).toEqual([
+      { tone: 'good', text: 'The homework page loaded.' },
+      {
+        tone: 'bad',
+        text: 'The capture started after you pressed "Open the school website", so it missed the first packets. Press Restart, then press "Open the school website" again.',
+      },
+    ]);
+    expect(s.goalDone('first-capture', 'page')).toBe(false);
+
+    // A whole load after the leftovers: the list isn't one page load yet.
+    const again = press(s, 'open-school');
+    s.sim.runUntilIdle();
+    const before = s.sim.dev('laptop').capture.length - 6;
+    expect(before).toBeGreaterThan(0);
+    expect(again()).toEqual([
+      { tone: 'good', text: 'The homework page loaded. The capture recorded 6 packets for it.' },
+      {
+        tone: 'bad',
+        text: `Your list also has ${before} packet${before === 1 ? '' : 's'} from before you pressed "Open the school website". For a list of this page alone, press Restart, then press "Open the school website" again.`,
+      },
+    ]);
+    expect(s.goalDone('first-capture', 'page')).toBe(false);
+
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    const clean = press(s, 'open-school');
+    s.sim.runUntilIdle();
+    expect(clean()).toEqual([{ tone: 'good', text: 'The homework page loaded. Press Stop. The capture recorded 6 packets for it.' }]);
+    expect(s.goalDone('first-capture', 'page')).toBe(true);
+  });
+
+  it('Leave the laptop alone: a second press while the minute runs does nothing', () => {
+    const s = playTo('https');
+    s.goTo(index('busy'));
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    press(s, 'busy-minute');
+    s.sim.advance(3000);
+    const lines = press(s, 'busy-minute');
+    s.sim.runUntilIdle();
+    expect(s.sim.dev('laptop').capture).toHaveLength(44);
+    expect(lines()).toEqual([{ tone: 'good', text: 'The minute is over. Press Stop. The capture recorded 44 packets.' }]);
+  });
+
+  it('Leave the laptop alone, started late: says when the minute is over, and the goal waits', () => {
+    const s = playTo('https');
+    s.goTo(index('busy'));
+    const lines = press(s, 'busy-minute');
+    s.sim.advance(2000);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    const late = 'The capture started after you pressed "Leave the laptop alone for a minute", so it missed the first packets.';
+    expect(lines()).toEqual([{ tone: 'bad', text: `${late} When this finishes, press Restart, then press "Leave the laptop alone for a minute" again.` }]);
+    s.sim.runUntilIdle();
+    expect(lines()).toEqual([
+      { tone: 'good', text: 'The minute is over.' },
+      { tone: 'bad', text: `${late} Press Restart, then press "Leave the laptop alone for a minute" again.` },
+    ]);
+    expect(s.goalDone('busy', 'busy')).toBe(false);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    press(s, 'busy-minute');
+    s.sim.runUntilIdle();
+    expect(s.goalDone('busy', 'busy')).toBe(true);
+  });
+
+  it('Open the video site and The TV plays a show, started late: the goal waits for a capture that was running first', () => {
+    const s = playTo('more-kinds');
+    s.goTo(index('https'));
+    press(s, 'open-video');
+    s.sim.advance(1500);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    s.sim.runUntilIdle();
+    expect(s.goalDone('https', 'captured')).toBe(false);
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    press(s, 'open-video');
+    s.sim.runUntilIdle();
+    expect(s.goalDone('https', 'captured')).toBe(true);
+
+    const t = playTo('address-filter');
+    const tv = press(t, 'tv-show');
+    t.sim.advance(1500);
+    t.dispatch({ type: 'capture', device: 'laptop', on: true });
+    t.sim.runUntilIdle();
+    expect(tv()[0]).toEqual({ tone: 'good', text: "The TV is playing the show. It sent and received 8 packets through the router." });
+    expect(tv()[1].text).toMatch(/^The capture started after you pressed "The TV plays a show", so it missed the first packets\. Press Restart/);
+    expect(t.goalDone('cant-see', 'show')).toBe(false);
+    t.dispatch({ type: 'capture', device: 'laptop', on: true });
+    press(t, 'tv-show');
+    t.sim.runUntilIdle();
+    expect(t.goalDone('cant-see', 'show')).toBe(true);
+  });
+
+  it('Leave the laptop alone with the capture off: the line changes as soon as the minute is over', () => {
+    const s = playTo('https');
+    s.goTo(index('busy'));
+    s.dispatch({ type: 'capture', device: 'laptop', on: false });
+    s.sim.advance(500);
+    const lines = press(s, 'busy-minute');
+    const off = 'The capture was off, so it recorded none of this.';
+    expect(lines()).toEqual([{ tone: 'bad', text: `${off} When this finishes, press Start, then press "Leave the laptop alone for a minute" again.` }]);
+    // No time passes after the last answer: the line can't wait on a clock.
+    s.sim.runUntilIdle();
+    expect(lines()).toEqual([
+      { tone: 'good', text: 'The minute is over.' },
+      { tone: 'bad', text: `${off} Press Start, then press "Leave the laptop alone for a minute" again.` },
+    ]);
   });
 
   it('Leave the laptop alone: a running count, then the total', () => {
@@ -231,6 +361,8 @@ describe('lesson buttons', () => {
     expect(lines()).toEqual([{ tone: 'wait', text: "The laptop's apps are at work: 0 packets so far…" }]);
     s.sim.runUntilIdle();
     const total = s.sim.dev('laptop').capture.length;
+    expect(lines()).toEqual([{ tone: 'good', text: `The minute is over. Press Stop. The capture recorded ${total} packets.` }]);
+    s.dispatch({ type: 'capture', device: 'laptop', on: false });
     expect(lines()).toEqual([{ tone: 'good', text: `The minute is over. The capture recorded ${total} packets.` }]);
   });
 
@@ -241,7 +373,9 @@ describe('lesson buttons', () => {
     const tv = press(s, 'tv-show');
     expect(tv()).toEqual([{ tone: 'wait', text: 'The TV is loading the show…' }]);
     s.sim.runUntilIdle();
-    expect(tv()).toEqual([{ tone: 'good', text: 'The TV is playing the show.' }]);
+    expect(tv()).toEqual([{ tone: 'good', text: "The TV is playing the show. It sent and received 8 packets through the router. Press Stop, then filter for the TV's address." }]);
+    s.dispatch({ type: 'capture', device: 'laptop', on: false });
+    expect(tv()).toEqual([{ tone: 'good', text: 'The TV is playing the show. It sent and received 8 packets through the router.' }]);
 
     const p = fresh();
     playTo('page-story', p);
@@ -250,7 +384,21 @@ describe('lesson buttons', () => {
     const phone = press(p, 'phone-rejoins');
     expect(phone()).toEqual([{ tone: 'wait', text: 'The phone left the Wi-Fi…' }]);
     p.sim.runUntilIdle();
-    expect(phone()).toEqual([{ tone: 'good', text: `The phone got its address, ${IP.phone}, again.` }]);
+    expect(phone()).toEqual([{ tone: 'good', text: `The phone got its address, ${IP.phone}, again. Next, in the Toolkit tab, ping the router from the laptop.` }]);
+    p.dispatch({ type: 'ping', device: 'laptop', ip: IP.router });
+    p.sim.runUntilIdle();
+    expect(phone()).toEqual([{ tone: 'good', text: `The phone got its address, ${IP.phone}, again. Press Stop.` }]);
+
+    p.dispatch({ type: 'capture', device: 'laptop', on: false });
+    p.sim.advance(500);
+    const offPhone = press(p, 'phone-rejoins');
+    const off = 'The capture was off, so it recorded none of this.';
+    expect(offPhone()[0]).toEqual({ tone: 'bad', text: `${off} When this finishes, press Start, then press "The phone rejoins the Wi-Fi" again.` });
+    p.sim.runUntilIdle();
+    expect(offPhone()).toEqual([
+      { tone: 'good', text: `The phone got its address, ${IP.phone}, again.` },
+      { tone: 'bad', text: `${off} Press Start, then press "The phone rejoins the Wi-Fi" again.` },
+    ]);
   });
 });
 
@@ -293,6 +441,16 @@ describe('setups', () => {
     expect(cap(busy)).toEqual(own);
   });
 
+  it('replace a capture that starts in the middle of a page load', () => {
+    const sim = buildCapture();
+    openSchool(sim);
+    sim.advance(2500);
+    const late = captureOf(sim, () => {});
+    expect(story(late)[0]).not.toBe('arp');
+    quietly(sim, ensurePageCapture);
+    expect(story(cap(sim))).toEqual(['arp', 'arp', 'dns', 'dns', 'http', 'http']);
+  });
+
   it('readyToStart stops the capture and keeps its list, and brings the phone back', () => {
     const sim = buildCapture();
     sim.startCapture('laptop');
@@ -303,6 +461,35 @@ describe('setups', () => {
     expect(sim.dev('laptop').sniffing).toBe(false);
     expect(cap(sim)).toHaveLength(6);
     expect(ipOf(sim, 'phone')).toBe(IP.phone);
+  });
+});
+
+describe('typed answers', () => {
+  const text = (step: string, id: string) => lab.steps.find((s) => s.id === step)!.questions!.find((q) => q.id === id) as TextQuestion;
+
+  it('the DNS answer: near misses and the name server\'s own address get their own feedback', () => {
+    const q = text('page-story', 'address');
+    expect(q.expect!.test('192.0.2.80')).toBe(true);
+    expect(wrongFeedback(q, '192.0.2.08')).toBe('Close. Check the last number against the DNS answer, digit by digit.');
+    expect(wrongFeedback(q, '192.0.2.53')).toBe("That's the name server's own address. Open the DNS answer and read the address it gave for school.example.");
+    expect(wrongFeedback(q, '10.0.0.1')).toBe('Open the DNS answer and read its IP address row.');
+  });
+
+  it("the HTTPS port: swapped digits, and the laptop's own From port", () => {
+    const q = text('https', 'port');
+    expect(q.expect!.test('443')).toBe(true);
+    expect(wrongFeedback(q, '434')).toBe('Close. Check the order of the digits against the TCP layer.');
+    expect(wrongFeedback(q, '49159')).toBe("That's the laptop's own port, the From port. The question asks for the port the request went to.");
+    expect(wrongFeedback(q, '80')).toBe("Port 80 is for plain HTTP. This request used HTTPS. Open the TLS packet the laptop sent and read the TCP layer's To port.");
+    expect(wrongFeedback(q, '22')).toBe("Open the TLS packet the laptop sent and read the TCP layer's To port.");
+  });
+
+  it('the weather: any temperature in the answer has to be the right one', () => {
+    const q = text('filter', 'weather');
+    for (const ok of ['sunny', 'Sunny, with a high of 72°F.', '72', 'sunny 72 degrees', 'Today: sunny, high of 72°F']) expect(q.expect!.test(ok)).toBe(true);
+    for (const bad of ['sunny 27', 'sunny, high of 27°F', 'rainy', '172', 'sunny 720']) expect(q.expect!.test(bad)).toBe(false);
+    expect(wrongFeedback(q, 'sunny 27')).toBe('Check the temperature against the page text, digit by digit.');
+    expect(wrongFeedback(q, 'cloudy')).toBe('Open the 200 OK from the weather service and read the page text.');
   });
 });
 
@@ -320,6 +507,26 @@ describe('goals', () => {
     }
     s.ui({ type: 'ui:filter', device: 'laptop', filter: 'ip.src == 192.168.1.12' });
     expect(done()).toBe(true);
+  });
+
+  it('a filter applied before its packets arrive checks off when they show, and not after the step changes', () => {
+    const s = playTo('cant-see');
+    expect(s.step.id).toBe('wireshark');
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    s.ui({ type: 'ui:filter', device: 'laptop', filter: 'icmp' });
+    expect(s.goalDone('wireshark', 'icmp')).toBe(false);
+    s.dispatch({ type: 'ping', device: 'laptop', ip: '192.168.1.1' });
+    s.sim.runUntilIdle();
+    expect(s.goalDone('wireshark', 'icmp')).toBe(true);
+
+    // A new step clears the filter on screen, so an old one can't count there.
+    s.ui({ type: 'ui:filter', device: 'laptop', filter: 'tls' });
+    s.goTo(index('cant-see'));
+    s.goTo(index('wireshark'));
+    s.dispatch({ type: 'capture', device: 'laptop', on: true });
+    s.runStepAction('open-video');
+    s.sim.runUntilIdle();
+    expect(s.goalDone('wireshark', 'tls')).toBe(false);
   });
 
   it('a filter that also shows other packets does not count', () => {

@@ -194,7 +194,7 @@ function markerFor(
       if (e.what === 'cable') return { device: e.device, text: e.on ? 'plugged in' : 'unplugged', tone: e.on ? 'info' : 'warn' };
       if (e.what === 'ip' || e.what === 'gateway') {
         const what = e.what === 'ip' ? 'address' : 'gateway';
-        if (!e.on) return { device: e.device, text: `${what} removed`, tone: 'warn' };
+        if (!e.on) return { device: e.device, text: `${what} removed`, tone: 'warn', merge: { key: 'addr-off', many: () => 'address and gateway removed' } };
         return { device: e.device, text: `${what} set`, tone: 'info', merge: { key: 'addr', many: () => 'address and gateway set' } };
       }
       if (e.what === 'port') return { device: e.device, text: `${portName(e.detail ?? '')} ${e.on ? 'turned on' : 'shut down'}`, tone: e.on ? 'info' : 'warn' };
@@ -215,8 +215,14 @@ function markerFor(
     }
     case 'nat':
       return e.what === 'out'
-        ? { device: e.device, text: `sent as ${e.entry.proto === 'icmp' ? e.publicIp : `${e.publicIp}:${e.entry.public}`}`, tone: 'info' }
-        : { device: e.device, text: `answer for ${(e.who && devName?.(e.who)) ?? e.entry.inside.ip}`, tone: 'info' };
+        ? {
+            device: e.device,
+            text: `sent as ${e.entry.proto === 'icmp' ? e.publicIp : `${e.publicIp}:${e.entry.public}`}`,
+            tone: 'info',
+            // A busy minute sends many at once: one tag, not a stack over the map.
+            merge: { key: 'nat-out', many: (n) => `sent ${n} as ${e.publicIp}` },
+          }
+        : { device: e.device, text: `answer for ${(e.who && devName?.(e.who)) ?? e.entry.inside.ip}`, tone: 'info', merge: { key: 'nat-in', many: (n) => `${n} answers back` } };
     case 'wifi':
       switch (e.what) {
         case 'join':
@@ -829,7 +835,8 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
               onClick={() => !swallowClick.current && onSelect(d.id)}
               onPointerDown={(e) => startPress(d.id, e)}
               role="button"
-              tabIndex={0}
+              // Lowercase: on an SVG element Preact sets the attribute as written, and only "tabindex" makes it focusable.
+              tabindex={0}
               aria-label={[d.label, ...lines.get(d.id)!.map((l) => l.text)].join(', ')}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(d.id)}
             >

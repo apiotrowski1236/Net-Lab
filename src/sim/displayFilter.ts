@@ -81,7 +81,8 @@ export function protocolsOf(f: Frame): string[] {
 /** Other names Wireshark accepts for the same protocol. */
 const ALIAS: Record<string, string> = { bootp: 'dhcp', ssl: 'tls', smb: 'smb2' };
 
-const PROTOCOLS = new Set(['eth', 'arp', 'ip', 'icmp', 'udp', 'tcp', 'dns', 'dhcp', 'http', 'tls', 'ipp', 'ssh', 'smb2', 'telnet', 'bgp']);
+// quic and ipv6 are real Wireshark filters that no simulated packet matches (packet-capture names them for Part 2).
+const PROTOCOLS = new Set(['eth', 'arp', 'ip', 'icmp', 'udp', 'tcp', 'dns', 'dhcp', 'http', 'tls', 'ipp', 'ssh', 'smb2', 'telnet', 'bgp', 'quic', 'ipv6']);
 
 type FieldType = 'ip' | 'mac' | 'num' | 'str' | 'flag';
 
@@ -320,7 +321,8 @@ function parseValue(field: string, type: FieldType, op: FilterOp, tok: Tok | und
       const m = /^([^/]+)(?:\/(\d{1,2}))?$/.exec(raw);
       const bits = m?.[2] === undefined ? 32 : Number(m[2]);
       if (m && isIp(m[1]) && bits <= 32) return { kind: 'ip', net: ipToInt(m[1]), bits };
-      if (/[a-z]/i.test(raw)) return fail(`${field} needs an IP address, like 192.0.2.80, not a name. A DNS answer tells you a name's address.`);
+      // Real Wireshark looks a name up here. This lesson's filter doesn't, so say so instead of calling names wrong.
+      if (/[a-z]/i.test(raw)) return fail(`Use the IP address here, like 192.0.2.80. Wireshark can look up a name, but this lesson's filter can't. A DNS answer tells you a name's address.`);
       return fail(`“${raw}” isn't a full IP address. An IP address is four numbers with dots between, like 192.168.1.10.`);
     }
     case 'mac': {
@@ -439,8 +441,13 @@ export function parseFilter(text: string): FilterResult {
   try {
     return { ok: true, node: new Parser(tokenize(src)).parse() };
   } catch (e) {
-    if (e instanceof FilterError) return { ok: false, msg: e.message };
-    throw e;
+    if (!(e instanceof FilterError)) throw e;
+    // Suggest the whole filter in lowercase, so "!ARP" gets "!arp", not "arp".
+    const lower = src.toLowerCase();
+    if (lower !== src && e.message.startsWith('Filters are lowercase.') && parseFilter(lower).ok) {
+      return { ok: false, msg: `Filters are lowercase. Try: ${lower}` };
+    }
+    return { ok: false, msg: e.message };
   }
 }
 

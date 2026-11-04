@@ -45,10 +45,7 @@ export const packetCaptureSolution: LabSolution = {
 
   'cant-see': { moves: [start, { press: 'tv-show' }, filter(`ip.addr == ${IP.tv}`), filter('arp')] },
 
-  wireshark: {
-    moves: [start, pingRouter, { press: 'open-video' }, filter('icmp'), filter('tls')],
-    text: { 'dns-filter': 'dns' },
-  },
+  wireshark: { moves: [start, pingRouter, { press: 'open-video' }, filter('icmp'), filter('tls')] },
 
   reflect: {
     text: {

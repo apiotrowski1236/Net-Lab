@@ -109,7 +109,7 @@ export function nameForIp(sim: Sim, ip: string): string | undefined {
 }
 
 export function nameForMac(sim: Sim, mac: string): string | undefined {
-  if (mac === 'ff:ff:ff:ff:ff:ff') return 'everyone (broadcast)';
+  if (mac === 'ff:ff:ff:ff:ff:ff') return 'broadcast, to everyone';
   return sim.deviceByMac(mac)?.label;
 }
 
