@@ -25,7 +25,8 @@ export const binaryNumbersSolution: LabSolution = {
     text: { four: '16' },
   },
   bits: {
-    moves: [...flips('byte', 0, 7), ...on('byte', { view: 'light' }, { view: 'bits' })],
+    // 2305 -> 2306; then 1100 (12) -> 1000 -> 1010 (10).
+    moves: [...on('base10', { bump: 3, by: 1 }), ...flips('base2', 1, 2)],
     text: { byte: '256' },
   },
   cards: {

@@ -6,6 +6,7 @@ import { CounterView } from './Counter';
 import { FitWalkView } from './FitWalk';
 import { NoteView } from './Note';
 import type { DemoView } from './parts';
+import { PlacesView } from './Places';
 import { ReadWalkView } from './ReadWalk';
 import { RoundingView } from './Rounding';
 import { SwitchesView } from './Switches';
@@ -14,6 +15,7 @@ import { SwitchesView } from './Switches';
 export const DEMO_VIEWS: { [K in DemoKind]: DemoView<Extract<DemoSpec, { kind: K }>, any> } = {
   switches: SwitchesView,
   bits: BitsView,
+  places: PlacesView,
   'read-walk': ReadWalkView,
   'fit-walk': FitWalkView,
   compare: CompareView,
@@ -27,6 +29,7 @@ export const DEMO_VIEWS: { [K in DemoKind]: DemoView<Extract<DemoSpec, { kind: K
 export const DEMO_NAME: Record<DemoKind, string> = {
   switches: 'Light switches',
   bits: 'Bits to flip',
+  places: 'Place values',
   'read-walk': 'Worked examples',
   'fit-walk': 'Worked examples',
   compare: 'Compare two numbers',

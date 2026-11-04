@@ -1,6 +1,7 @@
-import { fromBits, hexDigit, placeValues } from '../../demos/binary';
+import { fromBits, hexDigit, placeValues, toBits } from '../../demos/binary';
 import type { BitsState } from '../../demos/bits';
 import type { BitsSpec, WireView } from '../../demos/types';
+import { Icon } from '../icons';
 import { Bulb, placeName, type DemoViewProps } from './parts';
 
 /** Dots on a binary card, in a near-square grid: 16 is 4 x 4, 8 is 4 x 2. */
@@ -15,10 +16,66 @@ function Dots({ n }: { n: number }) {
   );
 }
 
+/** The numbers to make, each checked off once the cards have shown it. */
+function Targets({ targets, found, now }: { targets: number[]; found: number[]; now: number }) {
+  return (
+    <div class="bc-targets" role="list" aria-label="Numbers to make">
+      <span class="bc-targets-label" aria-hidden="true">
+        Make
+      </span>
+      {targets.map((t) => {
+        const done = found.includes(t);
+        return (
+          <span key={t} role="listitem" class={`bc-target ${done ? 'done' : ''} ${t === now ? 'now' : ''}`} aria-label={`${t}: ${done ? 'made' : 'not made yet'}`}>
+            {done && <Icon name="check" size={13} />}
+            {t}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Every target made so far, with the bits that made it and the cards that add up to it. */
+function FoundLog({ found, places }: { found: number[]; places: number }) {
+  const pv = placeValues(places);
+  return (
+    <div class="bc-log">
+      <div class="bc-log-title">Numbers you made</div>
+      {found.length === 0 ? (
+        <p class="muted small bc-log-empty">Each number you make shows up here with its bits.</p>
+      ) : (
+        <ol class="bc-log-list" aria-live="polite">
+          {found.map((v) => {
+            const bits = toBits(v, places);
+            return (
+              <li key={v} class="bc-log-row">
+                <Icon name="check" size={14} />
+                <strong class="bc-log-num">{v}</strong>
+                <span class="bc-log-eq">=</span>
+                <span class="bc-log-bits" aria-label={`bits ${[...bits].join(' ')}`}>
+                  {[...bits].map((c, i) => (
+                    <span key={i} class={`bc-log-bit ${c === '1' ? 'one' : ''}`}>
+                      {c}
+                    </span>
+                  ))}
+                </span>
+                <span class="bc-log-sum muted">{pv.filter((_, i) => bits[i] === '1').join(' + ')}</span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 function Cards({ spec, state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
   const pv = placeValues(spec.places);
+  const found = s.found ?? [];
   return (
     <>
+      {spec.targets && <Targets targets={spec.targets} found={found} now={fromBits(s.bits)} />}
       <div class="bcards" style={{ '--n': spec.places }}>
         {pv.map((v, i) => {
           const up = s.bits[i] === '1';
@@ -48,6 +105,7 @@ function Cards({ spec, state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
           </span>
         )}
       </div>
+      {spec.targets && <FoundLog found={found} places={spec.places} />}
     </>
   );
 }
@@ -75,7 +133,7 @@ function Board({ spec, state: s, send }: DemoViewProps<BitsSpec, BitsState>) {
             <code class="bits-code">{s.bits}</code> = <strong class="bits-total">{fromBits(s.bits)}</strong>
           </span>
         ) : (
-          <span class="muted small">Tap a box to switch it between 0 and 1. The board doesn't add for you: that part is yours.</span>
+          <span class="muted small">Tap a box to switch it between 0 and 1. Add up the place values yourself.</span>
         )}
         <button class="btn ghost small" disabled={!s.bits.includes('1')} onClick={() => send({ clear: true })}>
           Clear

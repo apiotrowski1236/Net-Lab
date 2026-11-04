@@ -2887,3 +2887,355 @@ button.pv-bit:hover {
   font-size: 14px;
   color: var(--ink-2);
 }
+
+/* ---------- binary-numbers: place values (src/ui/demos/Places.tsx) ----------
+   A number as an equation: place values on top, joined by "×10" / "×2" arcs,
+   the digits under them, and what each place adds, summed into the total. */
+.pl {
+  --gap: 12px;
+}
+.pl.base10 {
+  --pl-soft: var(--info-soft);
+  --pl-line: var(--info-line);
+  --pl-ink: var(--info-ink);
+  --pl-solid: var(--info-solid);
+}
+.pl.base2 {
+  --pl-soft: var(--brand-soft);
+  --pl-line: var(--brand-line);
+  --pl-ink: var(--brand-ink);
+  --pl-solid: var(--brand);
+}
+.pl-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr)) minmax(84px, auto);
+  column-gap: var(--gap);
+  row-gap: 10px;
+  align-items: center;
+  padding-top: 30px;
+}
+.pl-head {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.pl-place {
+  min-width: 64px;
+  padding: 5px 12px;
+  border: 1px solid var(--pl-line);
+  border-radius: 999px;
+  background: var(--pl-soft);
+  color: var(--pl-ink);
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.pl-total-head {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+/* An arc from this place's badge to the one on its left, arrow pointing left. */
+.pl-arc {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 3px);
+  width: calc(100% + var(--gap));
+  height: 16px;
+  border: 2px solid var(--pl-line);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+}
+.pl-arc::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: -6px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--pl-line);
+}
+.pl-arc-label {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--pl-ink);
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.pl-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.pl-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 96px;
+  height: 64px;
+  border: 2px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 32px;
+  font-weight: 800;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.1s;
+}
+.pl-tile.on {
+  border-color: var(--pl-line);
+  background: var(--pl-soft);
+  color: var(--pl-ink);
+}
+/* A 1 bit lights up, like the switches in step 1. */
+.base2 .pl-tile.on {
+  border-color: var(--pl-solid);
+  background: var(--pl-solid);
+  color: #fff;
+  box-shadow: 0 4px 16px rgb(var(--brand-rgb) / 0.35);
+}
+button.pl-tile {
+  cursor: pointer;
+}
+button.pl-tile:hover {
+  border-color: var(--pl-line);
+}
+button.pl-tile:active {
+  transform: scale(0.96);
+}
+.pl-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 96px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.pl-step:hover {
+  border-color: var(--pl-line);
+  color: var(--pl-ink);
+}
+.pl-part {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.pl-times {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pl-product {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 800;
+}
+.pl-part.on .pl-product {
+  color: var(--pl-ink);
+}
+.pl-part.off .pl-times,
+.pl-part.off .pl-product {
+  opacity: 0.45;
+}
+.pl-op {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--gap) / -2);
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 800;
+}
+.pl-total {
+  background: none;
+}
+.pl-total-box {
+  min-width: 76px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--pl-solid);
+  color: #fff;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 800;
+}
+@media (max-width: 600px) {
+  .pl {
+    --gap: 8px;
+  }
+  .pl-grid {
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr)) minmax(64px, auto);
+  }
+  .pl-place {
+    min-width: 0;
+    padding: 4px 8px;
+    font-size: 14px;
+  }
+  .pl-tile {
+    height: 52px;
+    font-size: 26px;
+  }
+  .pl-times {
+    font-size: 11px;
+  }
+  .pl-product {
+    font-size: 17px;
+  }
+  .pl-total-box {
+    min-width: 56px;
+    font-size: 20px;
+  }
+}
+
+/* ---------- binary-numbers: binary card targets and the log of numbers made ---------- */
+.bc-targets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.bc-targets-label,
+.bc-log-title {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.bc-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 48px;
+  padding: 4px 12px;
+  border: 2px dashed var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 800;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+.bc-target.done {
+  border-style: solid;
+  border-color: var(--good-line);
+  background: var(--good-soft);
+  color: var(--good-ink);
+}
+.bc-target.now {
+  box-shadow: 0 0 0 3px var(--good-line);
+}
+.bc-log {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.bc-log-title {
+  margin-bottom: 8px;
+}
+.bc-log-empty {
+  margin: 0;
+}
+.bc-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bc-log-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 12px;
+  border: 1px solid var(--good-line);
+  border-radius: 10px;
+  background: var(--good-soft);
+  animation: bc-in 0.35s ease-out;
+}
+.bc-log-row > svg {
+  color: var(--good-ink);
+}
+.bc-log-num {
+  min-width: 26px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 18px;
+}
+.bc-log-eq {
+  color: var(--muted);
+  font-weight: 800;
+}
+.bc-log-bits {
+  display: inline-flex;
+  gap: 3px;
+}
+.bc-log-bit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-weight: 800;
+}
+.bc-log-bit.one {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+.bc-log-sum {
+  font-size: 14px;
+}
+@keyframes bc-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bc-log-row,
+  .pl-tile {
+    animation: none;
+    transition: none;
+  }
+}

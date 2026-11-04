@@ -177,46 +177,40 @@ export const binaryNumbersLab: LabDef = {
         | 4 | 16 |
         | 8 (one byte) | ? |
 
-        **Place value.** The numbers you use every day are **base 10**. Each place is worth 10 times the place to its right: 1, 10, 100, 1000. Binary is **base 2**. Each place is worth 2 times the place to its right: 1, 2, 4, 8, 16, and so on. The **Place values** card on the right shows both.
+        **Place value.** The numbers you use every day are **base 10**. Each place is worth 10 times the place to its right: 1, 10, 100, 1000. Binary is **base 2**. Each place is worth 2 times the place to its right: 1, 2, 4, 8, 16, and so on.
 
-        **Binary is an abstraction.** An **abstraction** hides details so you can think about the big idea. There are no little 0s and 1s inside a chip. Each wire has a high or a low voltage, and we *call* low 0 and high 1. Flip a few wires on the right, then look at the same byte three ways with **View as**.
+        The two cards on the right show both. Each digit is multiplied by its place value, and the results add up to the number. Change the base 10 digits with the arrows, and tap the base 2 bits to flip them. Watch the bottom row and the total.
       `,
       demos: [
-        { kind: 'bits', id: 'byte', title: 'One byte, three ways', style: 'wires', places: 8, start: '01000001', intro: 'Tap a wire to flip it between low and high.' },
         {
-          kind: 'note',
-          id: 'places',
-          title: 'Place values',
-          md: md`
-            **Base 10:** each place is worth 10 times the place to its right.
-
-            | Place value | 1000 | 100 | 10 | 1 |
-            | --- | --- | --- | --- | --- |
-            | Digits of 2305 | 2 | 3 | 0 | 5 |
-
-            2305 = 2 × 1000 + 3 × 100 + 0 × 10 + 5 × 1
-
-            **Base 2:** each place is worth 2 times the place to its right.
-
-            | Place value | 8 | 4 | 2 | 1 |
-            | --- | --- | --- | --- | --- |
-            | Bits of 1100 | 1 | 1 | 0 | 0 |
-
-            1100 = 1 × 8 + 1 × 4 + 0 × 2 + 0 × 1 = 12
-          `,
+          kind: 'places',
+          id: 'base10',
+          title: 'Base 10: the numbers you use every day',
+          base: 10,
+          start: '2305',
+          intro: 'Each place is worth **10 times** the place to its right.',
+        },
+        {
+          kind: 'places',
+          id: 'base2',
+          title: 'Base 2: binary',
+          base: 2,
+          start: '1100',
+          intro: 'Each place is worth **2 times** the place to its right.',
         },
       ],
       goals: [
         {
-          id: 'flip',
-          label: 'Flip at least one wire of the byte.',
-          check: demoFact('byte', (f) => Number(f.flips) >= 1),
+          id: 'digit',
+          label: 'In base 10, change a digit and watch its place add more or less to the total.',
+          hint: 'Use the arrows above and below a digit.',
+          check: demoFact('base10', (f) => Number(f.changes) >= 1),
         },
         {
-          id: 'views',
-          label: 'Look at the byte all three ways: **Voltage**, **Lights**, and **Bits**.',
-          hint: 'Use the **View as** buttons at the top of the byte.',
-          check: demoFact('byte', (f) => Number(f.views) >= 3),
+          id: 'ten',
+          label: 'In base 2, make the total **10**.',
+          hint: 'Which two place values add up to 10? Make those bits 1 and the others 0.',
+          check: demoFact('base2', (f) => f.value === 10),
         },
       ],
       questions: [
@@ -237,16 +231,16 @@ export const binaryNumbersLab: LabDef = {
           explain: '2⁸ = 256. One byte can stand for 256 different things, like the numbers 0 to 255.',
         },
         {
-          id: 'stores',
+          id: 'next-place',
           kind: 'choice',
-          prompt: 'What does a computer chip really hold for each bit?',
+          prompt: 'In base 2, what is the place to the **left** of the 8s place worth?',
           options: [
-            { id: 'volt', text: 'A high or a low voltage', correct: true },
-            { id: 'digit', text: 'A tiny printed 0 or 1', feedback: 'There are no printed digits inside a chip. 0 and 1 are names we give to low and high voltage.' },
-            { id: 'ten', text: 'A digit from 0 to 9', feedback: 'A bit has only two states. The digits 0 to 9 are base 10.' },
-            { id: 'bulb', text: 'A very small light bulb', feedback: 'Lights are one way to picture bits. The chip holds a voltage on a wire.' },
+            { id: 'sixteen', text: '16', correct: true },
+            { id: 'nine', text: '9', feedback: "Places don't go up by 1. Each place is worth 2 times the place to its right." },
+            { id: 'ten', text: '10', feedback: "That's a base 10 habit. In base 2, each place is worth 2 times the place to its right." },
+            { id: 'eighty', text: '80', feedback: 'Multiplying by 10 is how base 10 grows. In base 2, multiply by 2.' },
           ],
-          explain: 'The voltage is real. The 0 and 1 are an abstraction: names that let us think about numbers instead of electricity.',
+          explain: '8 × 2 = 16. The places in a byte, left to right, are 128, 64, 32, 16, 8, 4, 2, 1.',
         },
       ],
     },
@@ -258,9 +252,9 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         Binary cards turn bits into something you can count. Each card has dots on its front: **16, 8, 4, 2, and 1**. A card **face up** is a 1. A card **face down** is a 0. The number the cards show is the total of the dots you can see.
 
-        Tap a card to flip it. Make each number in the goals. Then look closely at the cards to answer the questions.
+        Tap a card to flip it. Make each number at the top of the cards. Each one you make is checked off and saved below the cards with its bits. Then look closely at the cards to answer the questions.
       `,
-      demos: [{ kind: 'bits', id: 'cards', title: 'Binary cards', style: 'cards', places: 5, total: true, intro: 'Face up is 1. Face down is 0.' }],
+      demos: [{ kind: 'bits', id: 'cards', title: 'Binary cards', style: 'cards', places: 5, total: true, targets: [9, 21, 31], intro: 'Face up is 1. Face down is 0.' }],
       goals: [
         {
           id: 'nine',
@@ -285,14 +279,30 @@ export const binaryNumbersLab: LabDef = {
         {
           id: 'biggest',
           kind: 'choice',
-          prompt: "What is the biggest number the five cards can make, and why can't they make 32?",
+          prompt: 'What is the biggest number the five cards can make?',
           options: [
-            { id: 'thirty-one', text: '31: all five face up add to 31, with no card left', correct: true },
-            { id: 'thirty-two', text: '32: all five face up add to 32, a power of 2', feedback: 'Add them: 16 + 8 + 4 + 2 + 1 = 31. Making 32 would take a sixth card, worth 32.' },
-            { id: 'sixteen', text: '16: the biggest card is the biggest number', feedback: 'You made 21 and 31, which are bigger than 16. Face-up cards add together.' },
-            { id: 'five', text: '5: five cards can only make five numbers', feedback: 'Five cards make 2⁵ = 32 patterns: every number from 0 to 31.' },
+            { id: 'thirty-one', text: '31', correct: true },
+            { id: 'thirty-two', text: '32', feedback: 'Add them: 16 + 8 + 4 + 2 + 1 = 31. Even with every card face up, the dots stop at 31.' },
+            { id: 'sixteen', text: '16', feedback: 'You made 21 and 31, which are bigger than 16. Face-up cards add together.' },
+            { id: 'five', text: '5', feedback: 'Five is how many cards there are. Turn them all face up and count the dots.' },
           ],
-          explain: '16 + 8 + 4 + 2 + 1 = 31. To make 32 you would need a sixth card, worth 32. Five bits stop at 31.',
+          explain: 'All five face up: 16 + 8 + 4 + 2 + 1 = 31.',
+        },
+        {
+          id: 'no-32',
+          kind: 'choice',
+          prompt: "Why can't the five cards make **32**?",
+          options: [
+            { id: 'sixth', text: 'It would take a sixth card, worth 32', correct: true },
+            { id: 'odd', text: 'The cards can only make odd numbers', feedback: 'They make even numbers too: 16 + 4 = 20. Try it.' },
+            { id: 'power', text: '32 is not a power of 2', feedback: '32 is a power of 2: 2 × 2 × 2 × 2 × 2 = 32. In fact, 32 is the next place value.' },
+            {
+              id: 'five',
+              text: 'Five cards can only make 5 different numbers',
+              feedback: 'Five cards make 2⁵ = 32 patterns. One of them is 0 (all face down), so they cover 0 to 31.',
+            },
+          ],
+          explain: 'The next place value after 16 is 32, and it needs its own card. In base 10, 99 is the biggest two-digit number for the same reason: 100 needs a third digit.',
         },
         {
           id: 'dots',
@@ -304,7 +314,7 @@ export const binaryNumbersLab: LabDef = {
             { id: 'half', text: 'Each card has half as many dots', feedback: "That's true the other way around: each card has half as many dots as the card to its left." },
             { id: 'one-more', text: 'Each card has 1 more dot', feedback: '1, 2, 4, 8, 16 jumps by more each time. How many times bigger is each card?' },
           ],
-          explain: 'Each place is worth twice the place to its right. That doubling is what makes binary work: 1, 2, 4, 8, 16, 32, 64, 128.',
+          explain: 'Each place is worth twice the place to its right: 1, 2, 4, 8, 16, 32, 64, 128.',
         },
       ],
     },
@@ -350,7 +360,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         Worksheet problems 1 to 5. Turn each byte into decimal, then press **Check**.
 
-        Use the place-value board on the right as scratch paper. Tap the boxes to copy a byte onto it, then add the place values over each 1. You can type your work if you like, such as 8 + 2 = 10.
+        Use the place-value board on the right or a piece of scratch paper. On the board, tap the boxes to copy a byte, then add the place values over each 1. You can type your work if you like, such as 8 + 2 = 10.
       `,
       demos: [scratch],
       questions: [
@@ -412,7 +422,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         Worksheet problems 6 to 10. Turn each number into **8-bit** binary. Write all eight bits, with 0s in front if you need them. For example, 5 is 00000101.
 
-        Use the board on the right as scratch paper.
+        Use the board on the right or a piece of scratch paper.
       `,
       demos: [scratch],
       questions: [
@@ -628,7 +638,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         Answer these four questions on your own, the way you would on the AP exam. Your teacher uses them to plan the next class.
 
-        Think before you press **Check**: your report shows how many tries each one took. The board on the right is scratch paper.
+        Think before you press **Check**. Your report shows how many tries each one took. Use the board on the right or a piece of scratch paper.
       `,
       demos: [scratch],
       questions: [

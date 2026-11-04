@@ -8,6 +8,8 @@ export interface BitsState {
   /** Every view the student has looked at. */
   views: WireView[];
   flips: number;
+  /** Targets (spec.targets) the bits have added up to, in the order the student made them. */
+  found?: number[];
 }
 
 const VIEWS: WireView[] = ['voltage', 'light', 'bits'];
@@ -18,11 +20,14 @@ export const bitsModel: DemoModel<BitsSpec, BitsState> = {
     const start = (spec.start ?? '').replace(/[^01]/g, '');
     return { bits: start.length === spec.places ? start : '0'.repeat(spec.places), view, views: [view], flips: 0 };
   },
-  apply(_spec, s, input) {
+  apply(spec, s, input) {
     if ('flip' in input) {
       if (input.flip < 0 || input.flip >= s.bits.length) return s;
       const bits = [...s.bits].map((c, i) => (i === input.flip ? (c === '1' ? '0' : '1') : c)).join('');
-      return { ...s, bits, flips: s.flips + 1 };
+      const value = fromBits(bits);
+      const found = s.found ?? [];
+      const hit = spec.targets?.includes(value) && !found.includes(value);
+      return { ...s, bits, flips: s.flips + 1, ...(hit ? { found: [...found, value] } : {}) };
     }
     if ('clear' in input) {
       if (!s.bits.includes('1')) return s;
@@ -34,5 +39,5 @@ export const bitsModel: DemoModel<BitsSpec, BitsState> = {
     }
     return s;
   },
-  facts: (_spec, s) => ({ value: fromBits(s.bits), bits: s.bits, flips: s.flips, views: s.views.length }),
+  facts: (_spec, s) => ({ value: fromBits(s.bits), bits: s.bits, flips: s.flips, views: s.views.length, found: (s.found ?? []).length }),
 };

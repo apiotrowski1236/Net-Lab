@@ -5,10 +5,11 @@ import { asciiClean } from '../../demos/ascii';
 import { compareModel, type CompareState } from '../../demos/compare';
 import { counterModel } from '../../demos/counter';
 import { fitWalkModel } from '../../demos/fitWalk';
+import { placesModel } from '../../demos/places';
 import { readWalkModel } from '../../demos/readWalk';
 import { thirds } from '../../demos/rounding';
 import { switchesModel, type SwitchesState } from '../../demos/switches';
-import type { BitsSpec, CompareSpec, CounterSpec, DemoInput, DemoModel, DemoSpec, FitWalkSpec, ReadWalkSpec, SwitchesSpec } from '../../demos/types';
+import type { BitsSpec, CompareSpec, CounterSpec, DemoInput, DemoModel, DemoSpec, FitWalkSpec, PlacesSpec, ReadWalkSpec, SwitchesSpec } from '../../demos/types';
 import { LabSession } from '../../runtime/session';
 import type { LabProgress } from '../../store/progress';
 import { buildReport } from '../../store/report';
@@ -164,6 +165,29 @@ describe('binary-numbers: demo models', () => {
       values.push(fromBits(s.bits));
     }
     expect(values).toEqual([8, 9, 25, 17, 21, 29, 31]);
+    // Each target is logged once, in the order it was made.
+    expect(s.found).toEqual([9, 21, 31]);
+    expect(bitsModel.facts(cards, s)).toMatchObject({ found: 3 });
+    // Making 9 again doesn't log it twice; values that aren't targets aren't logged.
+    for (const input of [{ clear: true }, { flip: 1 }, { flip: 4 }, { flip: 3 }] as DemoInput[]) s = bitsModel.apply(cards, s, input);
+    expect(s.found).toEqual([9, 21, 31]);
+  });
+
+  it('places: base 10 digits wrap, base 2 bits flip, and the key makes 10', () => {
+    const b10 = demoSpec<PlacesSpec>('bits', 'base10');
+    const b2 = demoSpec<PlacesSpec>('bits', 'base2');
+    expect(placesModel.facts(b10, placesModel.init(b10))).toMatchObject({ value: 2305, changes: 0 });
+    expect(placesModel.facts(b2, placesModel.init(b2))).toMatchObject({ value: 12, digits: '1100' });
+    const up = run(placesModel, b10, [{ bump: 0, by: 1 }, { bump: 2, by: -1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }]);
+    // 2 -> 3 in the 1000s, 0 -> 9 in the 10s, 5 -> 0 after five raises.
+    expect(placesModel.facts(b10, up)).toMatchObject({ value: 3390, changes: 7 });
+    // Flips don't apply to base 10, and bumps don't apply to base 2.
+    expect(placesModel.apply(b10, up, { flip: 0 })).toBe(up);
+    const two = placesModel.init(b2);
+    expect(placesModel.apply(b2, two, { bump: 0, by: 1 })).toBe(two);
+    let s = two;
+    for (const m of key.bits.moves ?? []) if ('demo' in m && m.demo === 'base2') s = placesModel.apply(b2, s, m.input);
+    expect(placesModel.facts(b2, s)).toMatchObject({ value: 10, digits: '1010' });
   });
 
   it('read-walk: 0s add nothing, 1s add their place value, next waits for the end', () => {

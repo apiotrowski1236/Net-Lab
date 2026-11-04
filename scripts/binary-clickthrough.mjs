@@ -82,9 +82,10 @@ async function doInput(step, m, via = 'click') {
   };
   if ('use' in inp) await act(c.locator('.seg button', { hasText: new RegExp(`^${inp.use}$`) }));
   else if ('flip' in inp) {
-    const sel = { switches: '.sw', bits: { cards: '.bcard', board: 'button.pv-bit', wires: '.wire', hex: 'button.pv-bit' }[spec.style] }[spec.kind];
+    const sel = { switches: '.sw', places: 'button.pl-tile', bits: { cards: '.bcard', board: 'button.pv-bit', wires: '.wire', hex: 'button.pv-bit' }[spec.style] }[spec.kind];
     await act(c.locator(sel).nth(inp.flip));
   } else if ('view' in inp) await act(c.locator('.seg button', { hasText: { voltage: 'Voltage', light: 'Lights', bits: 'Bits' }[inp.view] }));
+  else if ('bump' in inp) await act(c.locator('.pl-spin').nth(inp.bump).locator('.pl-step').nth(inp.by > 0 ? 0 : 1));
   else if ('tap' in inp) await act(c.locator(spec.kind === 'compare' ? '.cmp-col' : 'button.pv-bit').nth(inp.tap));
   else if ('next' in inp) await act(c.getByRole('button', { name: /^Next (example|pair)/ }));
   else if ('say' in inp) await act(c.getByRole('button', { name: inp.say ? 'Fits: write 1' : 'Too big: write 0' }));
@@ -127,7 +128,7 @@ async function answer(step, q, { first, expectFb } = {}) {
 /** Planned mistakes, by step and question: the wrong try and the feedback it must get. */
 const MISTAKES = {
   bits: { byte: { first: '255', expectFb: /counting starts at 0/ } },
-  cards: { biggest: { first: '32: all five face up', expectFb: /16 \+ 8 \+ 4 \+ 2 \+ 1 = 31/ } },
+  cards: { biggest: { first: '32', expectFb: /16 \+ 8 \+ 4 \+ 2 \+ 1 = 31/ }, 'no-32': { first: 'only make odd', expectFb: /16 \+ 4 = 20/ } },
   'to-decimal': { backward: { first: 'Forgot to count the 0s', expectFb: /add nothing/ } },
   'practice-decimal': { w1: { first: '80', expectFb: /wrong end/ }, w2: { first: '4', expectFb: /how many 1s/ }, w4: { first: '256', expectFb: /256 is how many patterns/ } },
   'to-binary': { max: { first: '256', expectFb: /one of them is 00000000/ } },

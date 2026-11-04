@@ -53,6 +53,24 @@ export interface BitsSpec extends DemoBase {
   total?: boolean;
   /** Starting bits, e.g. "00000". Default all 0. */
   start?: string;
+  /**
+   * Values to make ('cards'). Each shows as a tracker on the demo, and the
+   * first time the bits add up to one, it is checked off and logged with its
+   * bits below.
+   */
+  targets?: number[];
+}
+
+/**
+ * A number's place values, drawn as an equation: each place's value, the digit
+ * under it, and what that place adds to the total. Base 10 digits go up and
+ * down; base 2 bits flip.
+ */
+export interface PlacesSpec extends DemoBase {
+  kind: 'places';
+  base: 2 | 10;
+  /** Starting digits, which also set the number of places, e.g. "2305" or "1100". */
+  start: string;
 }
 
 /** Worked binary-to-decimal examples: the student taps each 1 to add its place value. */
@@ -105,7 +123,7 @@ export interface NoteSpec extends DemoBase {
   md: string;
 }
 
-export type DemoSpec = SwitchesSpec | BitsSpec | ReadWalkSpec | FitWalkSpec | CompareSpec | CounterSpec | RoundingSpec | AsciiSpec | NoteSpec;
+export type DemoSpec = SwitchesSpec | BitsSpec | PlacesSpec | ReadWalkSpec | FitWalkSpec | CompareSpec | CounterSpec | RoundingSpec | AsciiSpec | NoteSpec;
 
 export type DemoKind = DemoSpec['kind'];
 
@@ -113,8 +131,10 @@ export type DemoKind = DemoSpec['kind'];
 export type DemoInput =
   // switches
   | { use: number }
-  // switches, bits
+  // switches, bits, places (base 2)
   | { flip: number }
+  // places (base 10): raise or lower one digit, wrapping 9 to 0
+  | { bump: number; by: 1 | -1 }
   // bits
   | { view: WireView }
   | { clear: true }
