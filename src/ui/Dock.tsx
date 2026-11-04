@@ -819,6 +819,7 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
   const [tried, setTried] = useState(false);
   const [entered, setEntered] = useState(0);
   const toolsRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<HTMLButtonElement>(null);
   const check = parseFilter(draft);
   const applied = session.captureFilter.value;
   // At high zoom the bar can sit at the bottom of the screen: after Enter, scroll its message,
@@ -849,10 +850,18 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
         Back to the lesson
       </button>
       <div class="capture-buttons">
-        <button class="btn small primary" onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: true })}>
+        <button class="btn small primary" ref={startRef} onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: true })}>
           <Icon name={dev.sniffing ? 'replay' : 'play'} size={14} /> {dev.sniffing ? 'Restart' : 'Start'}
         </button>
-        <button class="btn small" disabled={!dev.sniffing} onClick={() => session.dispatch({ type: 'capture', device: dev.id, on: false })}>
+        <button
+          class="btn small"
+          disabled={!dev.sniffing}
+          onClick={() => {
+            session.dispatch({ type: 'capture', device: dev.id, on: false });
+            // Stop turns off under the keyboard: keep focus on the toolbar, on Start.
+            startRef.current?.focus();
+          }}
+        >
           <Icon name="stop" size={14} /> Stop
         </button>
         {filter && (

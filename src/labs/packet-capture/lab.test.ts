@@ -210,13 +210,13 @@ describe('lesson buttons', () => {
     s.goTo(index('first-capture'));
     let lines = press(s, 'open-school');
     expect(lines()).toEqual([
-      { tone: 'bad', text: 'The capture was off, so it recorded none of this. When this finishes, press Start, then press Open the school website again.' },
+      { tone: 'bad', text: 'The capture was off, so it recorded none of this. When this finishes, press Start, then press "Open the school website" again.' },
       { tone: 'wait', text: 'Loading the homework page…' },
     ]);
     s.sim.runUntilIdle();
     expect(lines()).toEqual([
       { tone: 'good', text: 'The homework page loaded.' },
-      { tone: 'bad', text: 'The capture was off, so it recorded none of this. Press Start, then press Open the school website again.' },
+      { tone: 'bad', text: 'The capture was off, so it recorded none of this. Press Start, then press "Open the school website" again.' },
     ]);
     s.dispatch({ type: 'capture', device: 'laptop', on: true });
     lines = press(s, 'open-school');
@@ -228,7 +228,7 @@ describe('lesson buttons', () => {
     s.dispatch({ type: 'capture', device: 'laptop', on: true });
     expect(lines()).toEqual([
       { tone: 'good', text: 'The homework page loaded.' },
-      { tone: 'wait', text: "Your capture started after this ended. It doesn't have these packets. To record them, press Open the school website again." },
+      { tone: 'wait', text: `Your capture started after this ended. It doesn't have these packets. To record them, press "Open the school website" again.` },
     ]);
   });
 
@@ -242,7 +242,7 @@ describe('lesson buttons', () => {
     const lines = press(s, 'open-school');
     const late = {
       tone: 'bad',
-      text: 'The capture started after you pressed Open the school website, so it missed the first packets. When this finishes, press Restart, then press Open the school website again.',
+      text: 'The capture started after you pressed "Open the school website", so it missed the first packets. When this finishes, press Restart, then press "Open the school website" again.',
     };
     expect(lines()).toEqual([late, { tone: 'wait', text: 'Loading the homework page…' }]);
     s.sim.runUntilIdle();
@@ -252,7 +252,7 @@ describe('lesson buttons', () => {
       { tone: 'good', text: 'The homework page loaded.' },
       {
         tone: 'bad',
-        text: 'The capture started after you pressed Open the school website, so it missed the first packets. Press Restart, then press Open the school website again.',
+        text: 'The capture started after you pressed "Open the school website", so it missed the first packets. Press Restart, then press "Open the school website" again.',
       },
     ]);
     expect(s.goalDone('first-capture', 'page')).toBe(false);
@@ -266,7 +266,7 @@ describe('lesson buttons', () => {
       { tone: 'good', text: 'The homework page loaded. The capture recorded 6 packets for it.' },
       {
         tone: 'bad',
-        text: `Your list also has ${before} packet${before === 1 ? '' : 's'} from before you pressed Open the school website. For a list of this page alone, press Restart, then press Open the school website again.`,
+        text: `Your list also has ${before} packet${before === 1 ? '' : 's'} from before you pressed "Open the school website". For a list of this page alone, press Restart, then press "Open the school website" again.`,
       },
     ]);
     expect(s.goalDone('first-capture', 'page')).toBe(false);
@@ -296,12 +296,12 @@ describe('lesson buttons', () => {
     const lines = press(s, 'busy-minute');
     s.sim.advance(2000);
     s.dispatch({ type: 'capture', device: 'laptop', on: true });
-    const late = 'The capture started after you pressed Leave the laptop alone for a minute, so it missed the first packets.';
-    expect(lines()).toEqual([{ tone: 'bad', text: `${late} When this finishes, press Restart, then press Leave the laptop alone for a minute again.` }]);
+    const late = 'The capture started after you pressed "Leave the laptop alone for a minute", so it missed the first packets.';
+    expect(lines()).toEqual([{ tone: 'bad', text: `${late} When this finishes, press Restart, then press "Leave the laptop alone for a minute" again.` }]);
     s.sim.runUntilIdle();
     expect(lines()).toEqual([
       { tone: 'good', text: 'The minute is over.' },
-      { tone: 'bad', text: `${late} Press Restart, then press Leave the laptop alone for a minute again.` },
+      { tone: 'bad', text: `${late} Press Restart, then press "Leave the laptop alone for a minute" again.` },
     ]);
     expect(s.goalDone('busy', 'busy')).toBe(false);
     s.dispatch({ type: 'capture', device: 'laptop', on: true });
@@ -329,7 +329,7 @@ describe('lesson buttons', () => {
     t.dispatch({ type: 'capture', device: 'laptop', on: true });
     t.sim.runUntilIdle();
     expect(tv()[0]).toEqual({ tone: 'good', text: "The TV is playing the show. It sent and received 8 packets through the router." });
-    expect(tv()[1].text).toMatch(/^The capture started after you pressed The TV plays a show, so it missed the first packets\. Press Restart/);
+    expect(tv()[1].text).toMatch(/^The capture started after you pressed "The TV plays a show", so it missed the first packets\. Press Restart/);
     expect(t.goalDone('cant-see', 'show')).toBe(false);
     t.dispatch({ type: 'capture', device: 'laptop', on: true });
     press(t, 'tv-show');
@@ -344,12 +344,12 @@ describe('lesson buttons', () => {
     s.sim.advance(500);
     const lines = press(s, 'busy-minute');
     const off = 'The capture was off, so it recorded none of this.';
-    expect(lines()).toEqual([{ tone: 'bad', text: `${off} When this finishes, press Start, then press Leave the laptop alone for a minute again.` }]);
+    expect(lines()).toEqual([{ tone: 'bad', text: `${off} When this finishes, press Start, then press "Leave the laptop alone for a minute" again.` }]);
     // No time passes after the last answer: the line can't wait on a clock.
     s.sim.runUntilIdle();
     expect(lines()).toEqual([
       { tone: 'good', text: 'The minute is over.' },
-      { tone: 'bad', text: `${off} Press Start, then press Leave the laptop alone for a minute again.` },
+      { tone: 'bad', text: `${off} Press Start, then press "Leave the laptop alone for a minute" again.` },
     ]);
   });
 
@@ -375,7 +375,7 @@ describe('lesson buttons', () => {
     s.sim.runUntilIdle();
     expect(tv()).toEqual([{ tone: 'good', text: "The TV is playing the show. It sent and received 8 packets through the router. Press Stop, then filter for the TV's address." }]);
     s.dispatch({ type: 'capture', device: 'laptop', on: false });
-    expect(tv()).toEqual([{ tone: 'good', text: "The TV is playing the show. It sent and received 8 packets through the router. Filter for the TV's address." }]);
+    expect(tv()).toEqual([{ tone: 'good', text: 'The TV is playing the show. It sent and received 8 packets through the router.' }]);
 
     const p = fresh();
     playTo('page-story', p);
@@ -384,17 +384,20 @@ describe('lesson buttons', () => {
     const phone = press(p, 'phone-rejoins');
     expect(phone()).toEqual([{ tone: 'wait', text: 'The phone left the Wi-Fi…' }]);
     p.sim.runUntilIdle();
-    expect(phone()).toEqual([{ tone: 'good', text: `The phone got its address, ${IP.phone}, again.` }]);
+    expect(phone()).toEqual([{ tone: 'good', text: `The phone got its address, ${IP.phone}, again. Next, in the Toolkit tab, ping the router from the laptop.` }]);
+    p.dispatch({ type: 'ping', device: 'laptop', ip: IP.router });
+    p.sim.runUntilIdle();
+    expect(phone()).toEqual([{ tone: 'good', text: `The phone got its address, ${IP.phone}, again. Press Stop.` }]);
 
     p.dispatch({ type: 'capture', device: 'laptop', on: false });
     p.sim.advance(500);
     const offPhone = press(p, 'phone-rejoins');
     const off = 'The capture was off, so it recorded none of this.';
-    expect(offPhone()[0]).toEqual({ tone: 'bad', text: `${off} When this finishes, press Start, then press The phone rejoins the Wi-Fi again.` });
+    expect(offPhone()[0]).toEqual({ tone: 'bad', text: `${off} When this finishes, press Start, then press "The phone rejoins the Wi-Fi" again.` });
     p.sim.runUntilIdle();
     expect(offPhone()).toEqual([
       { tone: 'good', text: `The phone got its address, ${IP.phone}, again.` },
-      { tone: 'bad', text: `${off} Press Start, then press The phone rejoins the Wi-Fi again.` },
+      { tone: 'bad', text: `${off} Press Start, then press "The phone rejoins the Wi-Fi" again.` },
     ]);
   });
 });
@@ -477,7 +480,16 @@ describe('typed answers', () => {
     expect(q.expect!.test('443')).toBe(true);
     expect(wrongFeedback(q, '434')).toBe('Close. Check the order of the digits against the TCP layer.');
     expect(wrongFeedback(q, '49159')).toBe("That's the laptop's own port, the From port. The question asks for the port the request went to.");
-    expect(wrongFeedback(q, '80')).toBe("Open the TLS packet the laptop sent and read the TCP layer's To port.");
+    expect(wrongFeedback(q, '80')).toBe("Port 80 is for plain HTTP. This request used HTTPS. Open the TLS packet the laptop sent and read the TCP layer's To port.");
+    expect(wrongFeedback(q, '22')).toBe("Open the TLS packet the laptop sent and read the TCP layer's To port.");
+  });
+
+  it('the weather: any temperature in the answer has to be the right one', () => {
+    const q = text('filter', 'weather');
+    for (const ok of ['sunny', 'Sunny, with a high of 72°F.', '72', 'sunny 72 degrees', 'Today: sunny, high of 72°F']) expect(q.expect!.test(ok)).toBe(true);
+    for (const bad of ['sunny 27', 'sunny, high of 27°F', 'rainy', '172', 'sunny 720']) expect(q.expect!.test(bad)).toBe(false);
+    expect(wrongFeedback(q, 'sunny 27')).toBe('Check the temperature against the page text, digit by digit.');
+    expect(wrongFeedback(q, 'cloudy')).toBe('Open the 200 OK from the weather service and read the page text.');
   });
 });
 
