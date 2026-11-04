@@ -2784,12 +2784,12 @@ button.pv-bit:hover {
   0%,
   30% {
     opacity: 0;
-    transform: translate(26px, -50%);
+    transform: translate(10px, -50%);
     text-decoration-color: transparent;
   }
   42% {
     opacity: 1;
-    transform: translate(26px, -50%);
+    transform: translate(10px, -50%);
     text-decoration-color: transparent;
   }
 }
@@ -3346,8 +3346,8 @@ button.pl-tile:active {
 }
 .cmp-padded {
   margin: 10px 0 0;
-  font-size: 14px;
-  color: var(--ink-2);
+  font-size: 15px;
+  color: var(--ink);
 }
 .cmp-padded code {
   padding: 1px 5px;
@@ -3400,7 +3400,7 @@ button.pl-tile:active {
   width: 12px;
   height: 12px;
   border-radius: 3px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--faint);
 }
 .clr-targets .bc-target {
   gap: 6px;
@@ -3416,7 +3416,7 @@ button.pl-tile:active {
   position: relative;
   height: 76px;
   margin-bottom: 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--faint);
   border-radius: 12px;
   transition: background-color 0.2s ease;
 }

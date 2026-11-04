@@ -886,7 +886,7 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         You've seen bytes stand for numbers, colors, and letters. The bits themselves don't say which one they are. **The program decides what the bits mean.**
 
-        The byte in **One byte, three meanings** is read three ways at once: as a number, as a letter, and as a shade of gray. (Hex isn't a fourth meaning. It's another way to write the number, so it's shown with the number.) Flip the bits and watch all three change together.
+        The byte in **One byte, three meanings** is read three ways at once: as a number, as a letter, and as a shade of gray (a gray between black and white). (Hex isn't a fourth meaning. It's another way to write the number, so it's shown with the number.) Flip the bits and watch all three change together.
       `,
       demos: [
         {
