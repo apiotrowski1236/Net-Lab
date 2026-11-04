@@ -406,6 +406,20 @@ describe('binary-numbers: typed answers', () => {
     expect(text('practice-decimal', 'w4').expect!.test('128+64+32+16+8+4+2+1')).toBe(true);
   });
 
+  it('names the wrong place in typed work, binary to decimal', () => {
+    const fb = (id: string, v: string) => wrongFeedback(text('practice-decimal', id), v);
+    // 01100100: the 8s place holds a 0.
+    expect(fb('w3', '64+32+8')).toBe("The 8s place holds a 0, so don't add 8.");
+    expect(fb('w3', '64 + 32 + 8 = 104.')).toBe("The 8s place holds a 0, so don't add 8.");
+    // 00101101 without the 4s place, with or without a total.
+    expect(fb('w2', '32 + 8 + 1')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
+    expect(fb('w2', '1 + 8 + 32 = 41')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
+    expect(fb('w1', '8 + 2 + 1')).toBe("The 1s place holds a 0, so don't add 1.");
+    expect(fb('w4', '128 + 64 + 32 + 16 + 8 + 4 + 2')).toMatch(/leaves out the 1s place/);
+    // 41 is not the 4s place.
+    expect(fb('w2', '32 + 8 + 41')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
+  });
+
   it('answers the common mistakes, decimal to binary', () => {
     const fb = (id: string, v: string) => wrongFeedback(text('practice-binary', id), v);
     expect(fb('w6', '1101')).toMatch(/write all 8/);

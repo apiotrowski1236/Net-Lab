@@ -51,6 +51,17 @@ function missedPlaces(n: number, bits: string): NonNullable<TextQuestion['wrong'
   return pv.filter((v, i) => bits[i] === '1' && v !== n).map((v) => ({ match: num(n - v), text: `That sum leaves out the ${v}s place, which holds a 1 too.` }));
 }
 
+/** Typed work ("64 + 32 + 8") with a place that has a 0, or missing a place that has a 1: name the place. */
+function placeSlips(bits: string): NonNullable<TextQuestion['wrong']> {
+  const work = '\\s*\\d+(?:\\s*\\+\\s*\\d+)+\\s*(?:=\\s*\\d+)?\\s*\\.?$';
+  const term = (v: number) => `.*(?:^|\\+)\\s*${v}\\s*(?:\\+|=|\\.?\\s*$)`;
+  const pv = placeValues(bits.length);
+  return [
+    ...pv.filter((_, i) => bits[i] === '0').map((v) => ({ match: new RegExp(`^(?=${term(v)})${work}`), text: `The ${v}s place holds a 0, so don't add ${v}.` })),
+    ...pv.filter((_, i) => bits[i] === '1').map((v) => ({ match: new RegExp(`^(?!${term(v)})${work}`), text: `That sum leaves out the ${v}s place, which holds a 1 too.` })),
+  ];
+}
+
 /** Worksheet Part A: binary to decimal. */
 function toDecimal(id: string, n: number, bits: string, ones: number): TextQuestion {
   const back = parseInt(reversed(bits), 2);
@@ -58,7 +69,7 @@ function toDecimal(id: string, n: number, bits: string, ones: number): TextQuest
   const wrong: TextQuestion['wrong'] = [...addingSlip(bits)];
   if (back !== n) wrong.push({ match: num(back), text: 'You read the bits from the wrong end. The rightmost bit is the 1s place, and the leftmost is the 128s place.' });
   wrong.push({ match: num(ones), text: COUNT_ONES });
-  wrong.push(...missedPlaces(n, bits));
+  wrong.push(...missedPlaces(n, bits), ...placeSlips(bits));
   wrong.push({ match: bitsRe(bits), text: "That's the binary number again. Add the place values that have a 1 under them." });
   return {
     id,
@@ -396,6 +407,7 @@ export const binaryNumbersLab: LabDef = {
             { match: num(256), text: 'Close. 256 is how many patterns 8 bits make, counting 0. The biggest number is one less.' },
             { match: num(8), text: COUNT_ONES },
             ...missedPlaces(255, '11111111'),
+            ...placeSlips('11111111'),
             { match: bitsRe('11111111'), text: "That's the binary number again. Add the place values that have a 1 under them." },
           ],
         },
