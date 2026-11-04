@@ -131,6 +131,14 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
   const auto = !!q.expect;
   const done = auto ? !!a?.correct : words > 0;
   const wrong = auto && a?.correct === false;
+  // After a check, bring the verdict into view, as choice questions do.
+  const fb = useRef<HTMLDivElement>(null);
+  const checks = useRef(a?.attempts);
+  useEffect(() => {
+    if (a?.attempts === checks.current) return;
+    checks.current = a?.attempts;
+    fb.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [a?.attempts]);
   return (
     <div class={`qcard ${auto && done ? 'correct' : wrong ? 'wrong' : ''}`}>
       <div class="qprompt">
@@ -171,10 +179,12 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
         </div>
       )}
       {wrong && (
-        <div class="qfeedback bad">{wrongFeedback(q, a?.value ?? '')}</div>
+        <div class="qfeedback bad" ref={fb}>
+          {wrongFeedback(q, a?.value ?? '')}
+        </div>
       )}
       {auto && done && (
-        <div class="qfeedback good">
+        <div class="qfeedback good" ref={fb}>
           <strong>Correct!</strong> {q.explain}
         </div>
       )}
@@ -337,7 +347,18 @@ function Outline({ session, onClose }: { session: LabSession; onClose: () => voi
 // Lesson panel
 // ---------------------------------------------------------------------------
 
-export function LessonPanel({ session, onDevice }: { session: LabSession; onDevice: (id: string) => void }) {
+export function LessonPanel({
+  session,
+  onDevice,
+  demos,
+  narrow = false,
+}: {
+  session: LabSession;
+  onDevice: (id: string) => void;
+  /** A lesson's activities, shown inside the step on a narrow screen (after the goals, before the questions). */
+  demos?: preact.ComponentChildren;
+  narrow?: boolean;
+}) {
   void session.rev.value; // re-render when the session changes
   const just = session.justCompleted.value;
   const p = session.progress;
@@ -346,6 +367,8 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
   const [outline, setOutline] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+  const opened = useRef(false);
   const labels = useMemo(() => {
     const out: Record<string, string> = {};
     for (const d of Object.values(session.sim.devices)) out[d.id] = d.label;
@@ -354,6 +377,14 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
+    if (!opened.current) {
+      opened.current = true;
+      return;
+    }
+    // A new step starts at its title. On a narrow screen the page scrolls, not the lesson,
+    // and keyboard users would otherwise stay on the button at the bottom.
+    window.scrollTo({ top: 0 });
+    title.current?.focus({ preventScroll: true });
   }, [step.id]);
 
   const missing = session.missing();
@@ -449,7 +480,9 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
             </span>
           </div>
         )}
-        <h2 class="step-title">{step.title}</h2>
+        <h2 class="step-title" tabIndex={-1} ref={title}>
+          {step.title}
+        </h2>
         {step.extra && <ExtraCreditBanner session={session} />}
         <Prose src={step.body} labels={labels} onDevice={onDevice} />
 
@@ -494,6 +527,8 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
           </div>
         )}
 
+        {demos}
+
         {step.questions?.map((q) =>
           q.afterGoals && !goalsDone ? (
             <div key={`${step.id}/${q.id}`} class="qcard locked">
@@ -506,7 +541,7 @@ export function LessonPanel({ session, onDevice }: { session: LabSession; onDevi
 
         {step.kind === 'submit' && (
           <div class="callout info small">
-            <Icon name="trophy" size={14} /> Your summary is on the right. {hasEndpoint() ? 'Submit or download it from there.' : 'Download your report from there.'}
+            <Icon name="trophy" size={14} /> Your summary is {narrow ? 'below' : 'on the right'}. {hasEndpoint() ? 'Submit or download it from there.' : 'Download your report from there.'}
           </div>
         )}
 

@@ -1,8 +1,9 @@
+import { useRef } from 'preact/hooks';
 import { fromBits, placeValues } from '../../demos/binary';
 import { readDone, readTerms, type ReadWalkState } from '../../demos/readWalk';
 import type { ReadWalkSpec } from '../../demos/types';
 import { Icon } from '../icons';
-import { placeName, type DemoViewProps } from './parts';
+import { focusInto, placeName, type DemoViewProps } from './parts';
 
 /** Binary to decimal, worked: tap each 1 and its place value joins the sum. */
 export function ReadWalkView({ spec, state: s, send }: DemoViewProps<ReadWalkSpec, ReadWalkState>) {
@@ -11,8 +12,9 @@ export function ReadWalkView({ spec, state: s, send }: DemoViewProps<ReadWalkSpe
   const done = readDone(spec, s);
   const terms = readTerms(spec, s);
   const more = s.ex < spec.examples.length - 1;
+  const root = useRef<HTMLDivElement>(null);
   return (
-    <div class="walk">
+    <div class="walk" ref={root}>
       <div class="walk-top">
         <span class="pill info">
           Example {s.ex + 1} of {spec.examples.length}
@@ -47,7 +49,7 @@ export function ReadWalkView({ spec, state: s, send }: DemoViewProps<ReadWalkSpe
         ))}
       </div>
       <div class="walk-sum" aria-live="polite">
-        {terms.length ? terms.join(' + ') : <span class="muted">Tap each 1 to add its place value.</span>}
+        {terms.length ? terms.join(' + ') : <span class="muted">Tap each box that holds a 1 to add its place value.</span>}
         {done && (
           <>
             {' '}
@@ -57,7 +59,12 @@ export function ReadWalkView({ spec, state: s, send }: DemoViewProps<ReadWalkSpe
       </div>
       {s.zero !== undefined && !done && (
         <p class="walk-note">
-          {placeName(pv[s.zero]).replace(/^t/, 'T')} holds a 0, so it adds nothing. Tap the 1s.
+          {placeName(pv[s.zero]).replace(/^t/, 'T')} holds a 0, so it adds nothing. Tap the boxes that hold a 1.
+        </p>
+      )}
+      {s.again !== undefined && !done && (
+        <p class="walk-note">
+          {placeName(pv[s.again]).replace(/^t/, 'T')} is already in the sum. Tap a 1 you haven't added yet.
         </p>
       )}
       {done && (
@@ -66,7 +73,13 @@ export function ReadWalkView({ spec, state: s, send }: DemoViewProps<ReadWalkSpe
             <Icon name="check" size={14} /> <code>{bits}</code> is <strong>{fromBits(bits)}</strong> in decimal.
           </span>
           {more ? (
-            <button class="btn primary small" onClick={() => send({ next: true })}>
+            <button
+              class="btn primary small"
+              onClick={() => {
+                send({ next: true });
+                focusInto(root.current, '.pv-bit');
+              }}
+            >
               Next example <Icon name="chevronRight" size={14} />
             </button>
           ) : (

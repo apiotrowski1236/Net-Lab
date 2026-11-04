@@ -75,10 +75,6 @@ export function SwitchesView({ spec, state: s, send }: DemoViewProps<SwitchesSpe
               </tr>
             );
           })}
-          <tr>
-            <td>{max + 1}</td>
-            <td class="muted">Predict it</td>
-          </tr>
         </tbody>
       </table>
     </div>

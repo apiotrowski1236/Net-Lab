@@ -22,7 +22,9 @@ export const placesModel: DemoModel<PlacesSpec, PlacesState> = {
       to = 1 - (s.digits[i] ?? 0);
     } else if ('bump' in input && spec.base === 10) {
       i = input.bump;
-      to = ((s.digits[i] ?? 0) + input.by + 10) % 10;
+      // A digit stays between 0 and 9. Wrapping 9 to 0 with no carry would make the total drop.
+      to = Math.min(9, Math.max(0, (s.digits[i] ?? 0) + input.by));
+      if (to === s.digits[i]) return s;
     } else return s;
     if (i < 0 || i >= s.digits.length) return s;
     return { digits: s.digits.map((d, j) => (j === i ? to : d)), changes: s.changes + 1 };

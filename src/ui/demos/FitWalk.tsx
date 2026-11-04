@@ -1,8 +1,9 @@
+import { useRef } from 'preact/hooks';
 import { placeValues } from '../../demos/binary';
 import { fitDone, fitLeft, fitPlaces, type FitWalkState } from '../../demos/fitWalk';
 import type { FitWalkSpec } from '../../demos/types';
 import { Icon } from '../icons';
-import { placeName, type DemoViewProps } from './parts';
+import { focusInto, keepFocus, placeName, type DemoViewProps } from './parts';
 
 /** Decimal to binary with "does it fit?": one place at a time, from the left. */
 export function FitWalkView({ spec, state: s, send }: DemoViewProps<FitWalkSpec, FitWalkState>) {
@@ -21,8 +22,14 @@ export function FitWalkView({ spec, state: s, send }: DemoViewProps<FitWalkSpec,
     if (s.bits[i] === '1') rest -= pv[i];
   }
   const miss = s.miss && s.miss.col === col ? s.miss : undefined;
+  const root = useRef<HTMLDivElement>(null);
+  // The last place removes these buttons: keep focus in the card.
+  const say = (bit: 0 | 1) => {
+    send({ say: bit });
+    keepFocus(root.current, '.walk-done .btn', '.walk-done');
+  };
   return (
-    <div class="walk">
+    <div class="walk" ref={root}>
       <div class="walk-top">
         <span class="pill info">
           Example {s.ex + 1} of {spec.examples.length}
@@ -47,13 +54,13 @@ export function FitWalkView({ spec, state: s, send }: DemoViewProps<FitWalkSpec,
       {!done && (
         <div class="fit-ask">
           <p aria-live="polite">
-            Left to place: <strong>{left}</strong>. Does <strong>{pv[col]}</strong> fit in {left}?
+            Still to place: <strong>{left}</strong>. Does <strong>{pv[col]}</strong> fit in {left}?
           </p>
           <div class="row gap-sm">
-            <button class="btn" onClick={() => send({ say: 1 })}>
+            <button class="btn" onClick={() => say(1)}>
               Fits: write 1
             </button>
-            <button class="btn" onClick={() => send({ say: 0 })}>
+            <button class="btn" onClick={() => say(0)}>
               Too big: write 0
             </button>
           </div>
@@ -86,12 +93,18 @@ export function FitWalkView({ spec, state: s, send }: DemoViewProps<FitWalkSpec,
       )}
 
       {done && (
-        <div class="callout good small walk-done">
+        <div class="callout good small walk-done" tabIndex={-1}>
           <span>
             <Icon name="check" size={14} /> {n} is <code>{s.bits}</code> in binary. Nothing is left over.
           </span>
           {more ? (
-            <button class="btn primary small" onClick={() => send({ next: true })}>
+            <button
+              class="btn primary small"
+              onClick={() => {
+                send({ next: true });
+                focusInto(root.current, '.fit-ask .btn');
+              }}
+            >
               Next example <Icon name="chevronRight" size={14} />
             </button>
           ) : (

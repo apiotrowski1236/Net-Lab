@@ -16,6 +16,7 @@ import {
   type StepDef,
   type ToolSpec,
   type UiEvent,
+  wrongMatch,
 } from '../labs/types';
 import { touch, type Answer, type LabProgress } from '../store/progress';
 import { applyAction, type SimAction } from './actions';
@@ -345,7 +346,9 @@ export class LabSession {
     } else {
       correct = a.value.trim().length > 0;
     }
-    this.progress.answers[key] = { ...a, attempts: a.attempts + 1, correct, updatedAt: Date.now() };
+    const next: Answer = { ...a, attempts: a.attempts + 1, correct, updatedAt: Date.now() };
+    if (!correct && q.kind === 'text' && q.expect && wrongMatch(q, a.value)?.format) next.formatSlips = (a.formatSlips ?? 0) + 1;
+    this.progress.answers[key] = next;
     touch(this.progress, { kind: 'answer', id: `${key}:${correct ? 'right' : 'wrong'}` });
     this.bump();
     return correct;

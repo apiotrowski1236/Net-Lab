@@ -16,7 +16,7 @@ import { buildReport } from '../../store/report';
 import { LABS } from '..';
 import { playStep } from '../solution';
 import { isLesson, wrongFeedback, type ChoiceQuestion, type QuestionDef, type TextQuestion } from '../types';
-import { num, rangeRe } from './answers';
+import { count, num, rangeRe } from './answers';
 import { binaryNumbersLab as lab } from '.';
 import { binaryNumbersSolution as key } from './solution';
 
@@ -178,14 +178,14 @@ describe('binary-numbers: demo models', () => {
     expect(s.found).toEqual([9, 21, 31]);
   });
 
-  it('places: base 10 digits wrap, base 2 bits flip, and the key makes 10', () => {
+  it('places: base 10 digits stop at 0 and 9, base 2 bits flip, and the key makes 10', () => {
     const b10 = demoSpec<PlacesSpec>('bits', 'base10');
     const b2 = demoSpec<PlacesSpec>('bits', 'base2');
     expect(placesModel.facts(b10, placesModel.init(b10))).toMatchObject({ value: 2305, changes: 0 });
     expect(placesModel.facts(b2, placesModel.init(b2))).toMatchObject({ value: 12, digits: '1100' });
     const up = run(placesModel, b10, [{ bump: 0, by: 1 }, { bump: 2, by: -1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }, { bump: 3, by: 1 }]);
-    // 2 -> 3 in the 1000s, 0 -> 9 in the 10s, 5 -> 0 after five raises.
-    expect(placesModel.facts(b10, up)).toMatchObject({ value: 3390, changes: 7 });
+    // 2 -> 3 in the 1000s; the 10s stays 0 (no lowering past 0); 5 -> 9 in the 1s, then stays 9.
+    expect(placesModel.facts(b10, up)).toMatchObject({ value: 3309, changes: 5 });
     // Flips don't apply to base 10, and bumps don't apply to base 2.
     expect(placesModel.apply(b10, up, { flip: 0 })).toBe(up);
     const two = placesModel.init(b2);
@@ -202,8 +202,12 @@ describe('binary-numbers: demo models', () => {
     s = readWalkModel.apply(spec, s, { tap: 0 });
     expect(s).toMatchObject({ added: [], zero: 0 });
     expect(readWalkModel.apply(spec, s, { next: true })).toBe(s);
+    s = run(readWalkModel, spec, [{ tap: 1 }, { tap: 1 }]);
+    // A second tap on a 1 says it's already in the sum, and clears the 0 note.
+    expect(s).toMatchObject({ added: [1], zero: undefined, again: 1 });
     s = run(readWalkModel, spec, [{ tap: 1 }, { tap: 1 }, { tap: 4 }, { tap: 6 }]);
     expect(s.added).toEqual([1, 4, 6]);
+    expect(s.again).toBeUndefined();
     expect(readWalkModel.facts(spec, s)).toEqual({ ex: 0, finished: 1 });
     s = readWalkModel.apply(spec, s, { next: true });
     expect(readWalkModel.facts(spec, s)).toEqual({ ex: 1, finished: 1 });
@@ -344,7 +348,6 @@ describe('binary-numbers: answer key arithmetic', () => {
     expect(16 + 8 + 4 + 2 + 1).toBe(31);
     expect(fromBits('00000011')).toBe(3);
     expect(fromBits('11000000')).toBe(192);
-    expect(right(choice('to-binary', 'max'))).toEqual(['255']);
   });
 });
 
@@ -356,6 +359,17 @@ describe('binary-numbers: typed answers', () => {
     expect(text('limits', 'w12-values').expect!.test('2^6 = 64')).toBe(true);
     expect(text('limits', 'w12-values').expect!.test('64 values')).toBe(true);
     expect(text('switches', 'four').expect!.test('16 patterns')).toBe(true);
+  });
+
+  it('accepts a count written as a power of 2', () => {
+    const re = count(256);
+    for (const ok of ['256', '2^8', '2 ^ 8', '2**8', '2⁸', '2^8 = 256', '2⁸ patterns', '256 patterns']) expect(re.test(ok), ok).toBe(true);
+    for (const bad of ['2^7', '2^81', '28', '2⁸ = 255', '255']) expect(re.test(bad), bad).toBe(false);
+    expect(text('bits', 'byte').expect!.test('2^8')).toBe(true);
+    expect(text('switches', 'four').expect!.test('2⁴')).toBe(true);
+    expect(text('limits', 'w12-values').expect!.test('2**6')).toBe(true);
+    // Not a power of 2: a plain number only.
+    expect(count(100).test('100')).toBe(true);
   });
 
   it('accepts the ways students write ranges', () => {
@@ -375,21 +389,75 @@ describe('binary-numbers: typed answers', () => {
     expect(fb('w4', '8')).toMatch(/how many 1s/);
     // 256 for 11111111.
     expect(fb('w4', '256')).toMatch(/256 is how many patterns/);
+    // A sum that skipped one of the 1s names the place it skipped.
+    expect(fb('w2', '32 + 8 + 4 = 44')).toBe('That sum leaves out the 1s place, which holds a 1 too.');
+    expect(fb('w3', '36')).toMatch(/leaves out the 64s place/);
+    expect(fb('w4', '254')).toMatch(/leaves out the 1s place/);
+    // Counting the 1s wins over a skipped place when they give the same number.
+    expect(fb('w1', '2')).toMatch(/how many 1s/);
+    // The right places with a wrong total: an adding slip.
+    expect(fb('w4', '128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 245')).toBe('Not quite. You picked the right places. Add them up again.');
+    expect(fb('w2', '1+4+8+32=46')).toMatch(/right places/);
     // Anything else gets the general hint.
     expect(fb('w5', '130')).toBe(text('practice-decimal', 'w5').expectHint);
+  });
+
+  it('accepts the work without the total, binary to decimal', () => {
+    const q = text('practice-decimal', 'w2');
+    for (const ok of ['32+8+4+1', '32 + 8 + 4 + 1', '1 + 4 + 8 + 32', '32 + 8 + 4 + 1 = 45', '45']) expect(q.expect!.test(ok), ok).toBe(true);
+    for (const no of ['32 + 8 + 4', '32 + 8 + 1', '32 + 8 + 4 + 1 = 44', '8 + 32 + 4 + 1 + 1']) expect(q.expect!.test(no), no).toBe(false);
+    // A single 1: the number itself.
+    expect(text('practice-decimal', 'w4').expect!.test('128+64+32+16+8+4+2+1')).toBe(true);
+  });
+
+  it('names the wrong place in typed work, binary to decimal', () => {
+    const fb = (id: string, v: string) => wrongFeedback(text('practice-decimal', id), v);
+    // 01100100: the 8s place holds a 0, and the 4s place holds the 1.
+    const both = "The 8s place holds a 0, so don't add 8. The sum also leaves out the 4s place, which holds a 1.";
+    expect(fb('w3', '64+32+8')).toBe(both);
+    expect(fb('w3', '64 + 32 + 8 = 104.')).toBe(both);
+    expect(fb('w3', '64 + 32 + 4 + 8')).toBe("The 8s place holds a 0, so don't add 8.");
+    // 00101101 without the 4s place, with or without a total.
+    expect(fb('w2', '32 + 8 + 1')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
+    expect(fb('w2', '1 + 8 + 32 = 41')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
+    expect(fb('w1', '8 + 2 + 1')).toBe("The 1s place holds a 0, so don't add 1.");
+    // Both slips in one try: name both.
+    expect(fb('w2', '32 + 8 + 2 + 1 = 43')).toBe("The 2s place holds a 0, so don't add 2. The sum also leaves out the 4s place, which holds a 1.");
+    expect(fb('w4', '128 + 64 + 32 + 16 + 8 + 4 + 2')).toMatch(/leaves out the 1s place/);
+    // 41 is not the 4s place.
+    expect(fb('w2', '32 + 8 + 41')).toBe('That sum leaves out the 4s place, which holds a 1 too.');
   });
 
   it('answers the common mistakes, decimal to binary', () => {
     const fb = (id: string, v: string) => wrongFeedback(text('practice-binary', id), v);
     expect(fb('w6', '1101')).toMatch(/write all 8/);
     expect(fb('w7', '110010')).toMatch(/write all 8/);
+    // Some of the 0s in front, not all: still the right bits.
+    expect(fb('w7', '0110010')).toBe('Right bits, but write all 8. Put one more 0 in front.');
+    expect(fb('w6', '001101')).toBe('Right bits, but write all 8. Put 2 more 0s in front.');
     expect(fb('w6', '10110000')).toMatch(/reverse order/);
     expect(fb('w9', '00010011')).toMatch(/reverse order/);
     expect(fb('w6', '13')).toMatch(/only the digits 0 and 1/);
-    expect(fb('w8', '0100110')).toMatch(/exactly 8 bits/);
+    expect(fb('w8', '0100110')).toMatch(/You wrote 7 bits\./);
+    // Seven 1s for 255: don't tell them to add a 0.
+    expect(fb('w10', '1111111')).not.toMatch(/0s in front/);
     expect(fb('w8', '001001101')).toMatch(/exactly 8 bits/);
     expect(fb('w10', '100000000')).toMatch(/That's 256/);
-    expect(fb('w10', '11111110')).toBe(text('practice-binary', 'w10').expectHint);
+    // Any other byte: say what it makes.
+    expect(fb('w10', '11111110')).toBe('Not quite. Your bits make 254, which is 1 less than 255. Ask "does it fit?" at each place again.');
+    expect(fb('w6', '00001111')).toMatch(/make 15, which is 2 more than 13/);
+  });
+
+  it('asks for digits when a number is written in words', () => {
+    const digits = 'Write the number with digits, like 7 instead of seven.';
+    expect(wrongFeedback(text('switches', 'four'), 'sixteen')).toBe(digits);
+    expect(wrongFeedback(text('bits', 'byte'), 'two hundred fifty six')).toBe(digits);
+    expect(wrongFeedback(text('limits', 'w13'), 'Seven')).toBe(digits);
+    expect(wrongFeedback(text('practice-decimal', 'w1'), 'eleven')).toBe(digits);
+    expect(wrongFeedback(text('practice-decimal', 'w4'), 'two hundred fifty-five')).toBe(digits);
+    // Digits still pass, and words with "one" inside them are not number words.
+    expect(text('switches', 'four').expect?.test('16 patterns')).toBe(true);
+    expect(wrongFeedback(text('limits', 'w13'), 'none')).not.toBe(digits);
   });
 
   it('answers the common mistakes about counting and overflow', () => {
@@ -488,6 +556,28 @@ describe('binary-numbers: saving and resuming', () => {
     expect(again.answer('switches', 'four')?.correct).toBe(true);
   });
 
+  it('leaves format slips out of the tries on the report', () => {
+    const s = new LabSession(lab, fresh());
+    const who = { id: 'x', name: 'Test Student', period: '', createdAt: 0 };
+    const tries = (stepId: string, qId: string) => buildReport(lab, s.progress, who, 'submitted').questions.find((q) => q.step === stepId && q.id === qId)?.attempts;
+    const answer = (stepId: string, qId: string, v: string) => {
+      const q = text(stepId, qId);
+      s.setDraft(stepId, q, v);
+      return s.check(stepId, q);
+    };
+    // A number in words, then digits: one try.
+    expect(answer('switches', 'four', 'sixteen')).toBe(false);
+    expect(answer('switches', 'four', '16')).toBe(true);
+    expect(s.answer('switches', 'four')?.attempts).toBe(2);
+    expect(tries('switches', 'four')).toBe(1);
+    // Right bits with 0s missing in front, then all 8: one try. A real mistake still counts.
+    expect(answer('practice-binary', 'w6', '1101')).toBe(false);
+    expect(answer('practice-binary', 'w6', '0001101')).toBe(false);
+    expect(answer('practice-binary', 'w6', '00001100')).toBe(false);
+    expect(answer('practice-binary', 'w6', '00001101')).toBe(true);
+    expect(tries('practice-binary', 'w6')).toBe(2);
+  });
+
   it('builds a report with no network', () => {
     const s = new LabSession(lab, fresh());
     for (let i = 0; i < lab.steps.length; i++) {
@@ -526,11 +616,11 @@ describe('binary-numbers: saving and resuming', () => {
 
   it('reads the color and meaning demos the way the goals expect', () => {
     expect(colorHex('111111111000000000000000')).toBe('FF8000');
-    expect(colorHex('100000000000000010000000')).toBe('800080');
+    expect(colorHex('111111111111111111111111')).toBe('FFFFFF');
     const spec = step('colors').demos![0] as BitsSpec;
     let st = bitsModel.init(spec);
     for (const m of key.colors.moves ?? []) if ('demo' in m) st = bitsModel.apply(spec, st, m.input);
     // Orange comes first: the first green bit on the way to yellow makes FF8000.
-    expect([...(st.found ?? [])].sort()).toEqual([0xffff00, 0xff8000, 0x800080].sort());
+    expect(st.found).toEqual([0xff8000, 0xffff00, 0xffffff]);
   });
 });

@@ -30,9 +30,10 @@ function DemoCard({ session, spec }: { session: LabSession; spec: DemoSpec }) {
 /**
  * The stage of a lesson with no network: the step's demos, top to bottom.
  * Each demo's state lives in the session (and the saved progress), so this
- * redraws from it and keeps nothing of its own.
+ * redraws from it and keeps nothing of its own. `inline` draws them inside the
+ * lesson, for a narrow screen.
  */
-export function DemoStage({ session }: { session: LabSession }) {
+export function DemoStage({ session, inline = false }: { session: LabSession; inline?: boolean }) {
   void session.rev.value;
   const step = session.step;
   const scroller = useRef<HTMLDivElement>(null);
@@ -41,7 +42,7 @@ export function DemoStage({ session }: { session: LabSession }) {
   }, [step.id]);
   const demos = step.demos ?? [];
   return (
-    <div class="demo-stage" ref={scroller}>
+    <div class={`demo-stage ${inline ? 'inline' : ''}`} ref={scroller}>
       <div class="demo-list">
         {demos.map((spec) => (
           <DemoCard key={`${step.id}/${spec.id}`} session={session} spec={spec} />

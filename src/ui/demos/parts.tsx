@@ -32,5 +32,24 @@ export function Bulb({ on, size = 34 }: { on: boolean; size?: number }) {
 /** "1 switch", "2 switches". */
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+/**
+ * A "Next" button goes away when it's pressed, and focus would fall back to the
+ * top of the page. Move it into the new problem instead, once it has drawn.
+ */
+export function focusInto(root: Element | null, selector: string) {
+  requestAnimationFrame(() => root?.querySelector<HTMLElement>(selector)?.focus());
+}
+
+/** After a press that may remove the pressed button: if focus fell out of `root`, put it on the first of `selectors` found. */
+export function keepFocus(root: Element | null, ...selectors: string[]) {
+  requestAnimationFrame(() => {
+    if (!root || root.contains(document.activeElement)) return;
+    for (const sel of selectors) {
+      const el = root.querySelector<HTMLElement>(sel);
+      if (el) return el.focus();
+    }
+  });
+}
+
 /** Spoken name for a place: "the 16s place", "the 1s place". */
 export const placeName = (v: number) => `the ${v}s place`;

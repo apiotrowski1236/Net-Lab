@@ -20,6 +20,20 @@ import { TopBar } from './TopBar';
 
 type Tab = 'inspect' | 'capture' | 'tools' | 'logs';
 
+/** The one-column layout (styles.css, max-width 900px): the lesson on top, the stage under it. */
+const NARROW = '(max-width: 900px)';
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => matchMedia(NARROW).matches);
+  useEffect(() => {
+    const mq = matchMedia(NARROW);
+    const on = () => setNarrow(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return narrow;
+}
+
 const SPEEDS = [0.5, 1, 2, 4];
 /** Network time per real millisecond at 1×: a third of real time, slow enough to follow each packet. */
 const RATE = 1 / 3;
@@ -342,6 +356,10 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
   const jumps = useRef(0);
   const stepId = session.step.id;
   void session.rev.value;
+  const narrow = useNarrow();
+  // On a narrow screen the stage drops below the whole lesson. A lesson's activities
+  // move into the step instead, between its goals and its questions.
+  const inlineDemos = narrow && isLesson(lab) && session.step.kind !== 'submit' && !!session.step.demos?.length;
 
   useEffect(() => () => session.dispose(), [session]);
 
@@ -425,20 +443,27 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
     <div class="player">
       <TopBar session={session} />
       <div class="player-body">
-        <LessonPanel session={session} onDevice={(id) => open(id, true)} />
-        <main class={`stage-col ${session.step.kind === 'submit' ? 'summary-col' : isLesson(lab) ? 'demo-col' : ''}`}>
-          {session.step.kind === 'submit' ? (
-            <Summary session={session} />
-          ) : isLesson(lab) ? (
-            // A lesson with no network: the step's demos take the map's place.
-            <DemoStage session={session} />
-          ) : (
-            <>
-              <Stage session={session} selected={selected} onSelect={select} />
-              <Dock session={session} tab={tab} setTab={setTab} selected={selected} onSelect={(id) => open(id, false)} jump={jump} />
-            </>
-          )}
-        </main>
+        <LessonPanel
+          session={session}
+          onDevice={(id) => open(id, true)}
+          narrow={narrow}
+          demos={inlineDemos ? <DemoStage session={session} inline /> : undefined}
+        />
+        {!inlineDemos && (
+          <main class={`stage-col ${session.step.kind === 'submit' ? 'summary-col' : isLesson(lab) ? 'demo-col' : ''}`}>
+            {session.step.kind === 'submit' ? (
+              <Summary session={session} />
+            ) : isLesson(lab) ? (
+              // A lesson with no network: the step's demos take the map's place.
+              <DemoStage session={session} />
+            ) : (
+              <>
+                <Stage session={session} selected={selected} onSelect={select} />
+                <Dock session={session} tab={tab} setTab={setTab} selected={selected} onSelect={(id) => open(id, false)} jump={jump} />
+              </>
+            )}
+          </main>
+        )}
       </div>
     </div>
   );

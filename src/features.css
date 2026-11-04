@@ -2434,6 +2434,11 @@
 .bcard.up .bcard-bit {
   color: var(--brand-ink);
 }
+.bcard-place {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--ink-2);
+}
 .bits-readout {
   display: flex;
   align-items: center;
@@ -2512,7 +2517,7 @@ button.pv-bit:hover {
 .pv-add {
   min-height: 20px;
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 750;
   color: var(--good-ink);
 }
@@ -2638,6 +2643,8 @@ button.pv-bit:hover {
 
 /* compare */
 .cmp-pad {
+  font-size: 15px;
+  color: var(--ink);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2678,9 +2685,9 @@ button.pv-bit:hover {
 }
 .cmp-head {
   min-height: 17px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
-  color: var(--muted);
+  color: var(--ink-2);
 }
 .cmp-digit {
   min-height: 32px;
@@ -2770,7 +2777,7 @@ button.pv-bit:hover {
   font-weight: 800;
   color: var(--bad);
   text-decoration: line-through;
-  opacity: 0.6;
+  opacity: 0.85;
   transform: translateY(-50%);
   animation: ctr-lost 1.3s ease-out both;
 }
@@ -2779,12 +2786,12 @@ button.pv-bit:hover {
   0%,
   30% {
     opacity: 0;
-    transform: translate(26px, -50%);
+    transform: translate(10px, -50%);
     text-decoration-color: transparent;
   }
   42% {
     opacity: 1;
-    transform: translate(26px, -50%);
+    transform: translate(10px, -50%);
     text-decoration-color: transparent;
   }
 }
@@ -2835,8 +2842,12 @@ button.pv-bit:hover {
   font-size: 15px;
 }
 .hex-cell code {
-  font-size: 11px;
-  color: var(--muted);
+  font-size: 13px;
+  color: var(--ink);
+}
+/* The segmented buttons clip an outside focus ring, so draw it inside. */
+.demo-card .seg button:focus-visible {
+  outline-offset: -4px;
 }
 
 /* ascii */
@@ -2869,6 +2880,14 @@ button.pv-bit:hover {
   .demo-stage {
     overflow: visible;
   }
+}
+/* On a narrow screen the activities sit inside the step, between the goals and the questions. */
+.demo-stage.inline {
+  margin: 16px 0;
+}
+.demo-stage.inline .demo-list {
+  max-width: none;
+  padding: 0;
 }
 @media (max-width: 560px) {
   .demo-list {
@@ -3080,6 +3099,14 @@ button.pl-tile:active {
   border-color: var(--pl-line);
   color: var(--pl-ink);
 }
+.pl-step[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+}
+.pl-step[aria-disabled='true']:hover {
+  border-color: var(--line);
+  color: var(--muted);
+}
 .pl-part {
   position: relative;
   display: flex;
@@ -3091,8 +3118,8 @@ button.pl-tile:active {
   background: var(--surface-2);
 }
 .pl-times {
-  color: var(--muted);
-  font-size: 12.5px;
+  color: var(--ink-2);
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -3107,7 +3134,7 @@ button.pl-tile:active {
 }
 .pl-part.off .pl-times,
 .pl-part.off .pl-product {
-  opacity: 0.45;
+  opacity: 0.6;
 }
 .pl-op {
   position: absolute;
@@ -3316,7 +3343,7 @@ button.pl-tile:active {
 }
 .cmp-digit.drop {
   animation: cmp-drop 0.4s cubic-bezier(0.3, 1.4, 0.5, 1) both;
-  animation-delay: calc(0.6s + var(--d) * 0.18s);
+  animation-delay: calc(0.3s + var(--d) * 0.1s);
 }
 @keyframes cmp-drop {
   from {
@@ -3329,8 +3356,8 @@ button.pl-tile:active {
 }
 .cmp-padded {
   margin: 10px 0 0;
-  font-size: 14px;
-  color: var(--ink-2);
+  font-size: 15px;
+  color: var(--ink);
 }
 .cmp-padded code {
   padding: 1px 5px;
@@ -3339,7 +3366,7 @@ button.pl-tile:active {
 }
 .cmp-padded.appear {
   animation: cmp-fade 0.4s ease-out both;
-  animation-delay: calc(0.8s + var(--d) * 0.18s);
+  animation-delay: calc(0.5s + var(--d) * 0.1s);
 }
 @keyframes cmp-fade {
   from {
@@ -3380,10 +3407,10 @@ button.pl-tile:active {
 
 /* ---------- color: 24 bits as red, green, and blue ---------- */
 .clr-chip {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   border-radius: 3px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--faint);
 }
 .clr-targets .bc-target {
   gap: 6px;
@@ -3392,15 +3419,14 @@ button.pl-tile:active {
   font-weight: 700;
 }
 .clr-targets code {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
-  opacity: 0.85;
 }
 .clr-swatch {
   position: relative;
   height: 76px;
   margin-bottom: 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--faint);
   border-radius: 12px;
   transition: background-color 0.2s ease;
 }
@@ -3489,10 +3515,10 @@ button.pl-tile:active {
   }
 }
 
-/* ---------- meaning: one byte read four ways ---------- */
+/* ---------- meaning: one byte read three ways ---------- */
 .mean-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
@@ -3523,23 +3549,36 @@ button.pl-tile:active {
   font-size: 20px;
 }
 .mean-note {
-  font-size: 13px;
-  color: var(--muted);
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.mean-sub {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--ink-2);
 }
 .mean-swatch {
   width: 100%;
   max-width: 96px;
   height: 44px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--faint);
   border-radius: 8px;
 }
 @media (max-width: 600px) {
   .mean-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .clr-swatch {
     transition: none;
   }
+}
+.bits-hint {
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.round-aside {
+  color: var(--ink-2);
+  font-size: 14px;
 }

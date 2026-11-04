@@ -56,14 +56,16 @@ export const binaryNumbersSolution: LabSolution = {
       ...on('compare', { pad: true }, { tap: 0 }, { pick: 0 }),
     ],
   },
+  limits: {
+    text: { 'w12-values': '64', 'w12-range': '0 to 63', w13: '7' },
+  },
   overflow: {
     // 995 to 999 to 000 is 5 counts; 1100 (12) to 1111 to 0000 is 4.
     moves: [...adds('odometer', 5), ...adds('counter', 4)],
     text: { w14: '0000' },
   },
-  limits: {
+  rounding: {
     moves: on('round', { digits: 4 }),
-    text: { 'w12-values': '64', 'w12-range': '0 to 63', w13: '7' },
   },
   exit: {
     text: {
@@ -76,9 +78,9 @@ export const binaryNumbersSolution: LabSolution = {
     moves: flips('hex', 0, 5, 7),
   },
   colors: {
-    // Red FF to start. Yellow: all of green on. Orange: green down to 80.
-    // Purple: red down to 80, green off, blue up to 80.
-    moves: [...flips('color', 8, 9, 10, 11, 12, 13, 14, 15), ...flips('color', 9, 10, 11, 12, 13, 14, 15), ...flips('color', 1, 2, 3, 4, 5, 6, 7, 8, 16)],
+    // Red FF to start. Orange: green's first bit on (80). Yellow: the rest of green on (FF).
+    // White: all of blue on too.
+    moves: [...flips('color', 8), ...flips('color', 9, 10, 11, 12, 13, 14, 15), ...flips('color', 16, 17, 18, 19, 20, 21, 22, 23)],
   },
   text: {
     moves: on('ascii', { text: 'Hello' }),
