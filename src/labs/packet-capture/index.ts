@@ -669,7 +669,7 @@ export const packetCaptureLab: LabDef = {
         A filter can pick packets by address, too. In Wireshark:
 
         - \`ip.addr == 198.51.100.140\` shows packets to or from that address. Use two equals signs.
-        - \`!\` means "not": \`!arp\` shows everything except ARP.
+        - \`!\` means "not": \`!dns\` shows everything except DNS.
         - \`||\` means "or": \`dns || http\` shows both kinds.
 
         [[chat]] is at 198.51.100.140. Filter for every packet to or from it. Then replace that filter with one that shows everything except ARP.
