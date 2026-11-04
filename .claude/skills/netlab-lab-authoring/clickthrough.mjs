@@ -145,7 +145,8 @@ async function doMove(i, step, m) {
   } else if ('press' in m) {
     const def = step.actions?.find((a) => a.id === m.press);
     if (!def) throw new Error(`No button ${m.press}`);
-    await page.locator('.actions .btn.action', { hasText: def.label }).click();
+    // The button sits in the instructions ([[button:id]]) or in the row under them.
+    await page.locator('.lesson .btn.action', { hasText: def.label }).first().click();
     log(`  press "${def.label}"`);
   } else if ('tool' in m) {
     const a = m.tool;
@@ -232,6 +233,10 @@ try {
     // A new step's question cards reset their text after the first paint. A
     // lesson step has no moves to wait on, so give them that moment.
     await page.waitForTimeout(300);
+    // EACH=1 saves the live app as each step opens, to check the map between steps.
+    if (process.env.EACH) {
+      await page.screenshot({ path: join(OUT, `step-${String(i + 1).padStart(2, '0')}-${step.id}.png`) });
+    }
     if (step.kind === 'submit') break;
     // The model session plays each move too, so openFrame knows its row.
     for (const m of sol[step.id]?.moves ?? []) {

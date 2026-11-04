@@ -143,7 +143,9 @@ export function parseCommand(raw: string): ParseResult {
       const rest: string[] = [];
       for (let i = 0; i < args.length; i++) {
         const a = args[i];
-        if (a === '-sV' || a === '-sv' || a === '-A') versions = true;
+        if (a === '-sV' || a === '-A') versions = true;
+        else if (a.toLowerCase() === '-sv') return { ok: false, cmd: 'nmap', msg: `nmap's options care about capital letters. Type -sV, with a capital V.` };
+        else if (a === '-script' || a.startsWith('-script=')) return { ok: false, cmd: 'nmap', msg: 'Long options start with two dashes: --script vuln' };
         else if (a === '--script=vuln' || (a === '--script' && args[i + 1] === 'vuln')) {
           vuln = versions = true;
           if (a === '--script') i++;
@@ -296,13 +298,15 @@ export const MAX_RUNS = 40;
 
 export const PING_COUNT = 4;
 /** Sim time between ping's echo requests: about a second on screen at 1x (the animation runs at a third of real time). */
-export const PING_GAP_MS = 400;
+export const PING_GAP_MS = 300;
 /** traceroute gives up after this many hops in a row with no answer (a real one keeps going to 30 hops). */
 export const TRACE_SILENT = 2;
-export const TRACE_MAX_HOPS = 12;
+export const TRACE_MAX_HOPS = 30;
 
 /** Ports this nmap knocks on: a short list of common ones. */
 export const NMAP_PORTS = [21, 22, 23, 25, 53, 80, 443, 445, 631, 3389];
+/** Time between nmap's probes: quicker than Sim.scan's default, so a whole network takes a few seconds on screen. */
+export const NMAP_GAP_MS = 40;
 
 /** nmap's own names for services (from its nmap-services file). */
 const NMAP_NAMES: Record<number, string> = {

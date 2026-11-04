@@ -52,7 +52,7 @@ describe('net-tools network', () => {
     const sim = buildLibrary();
     const broken = run(sim, 'pc1', 'traceroute ebooks.example');
     const lines = text(sim, 'pc1', broken);
-    expect(lines[0]).toBe('traceroute to ebooks.example (192.0.2.80), 12 hops max');
+    expect(lines[0]).toBe('traceroute to ebooks.example (192.0.2.80), 30 hops max');
     expect(lines[1]).toMatch(/^ 1 {2}10\.0\.0\.1 {8}0\.\d ms$/);
     expect(lines[2]).toMatch(/^ 2 {2}198\.51\.100\.1 {4}\d\.\d ms$/);
     expect(lines.slice(3)).toEqual([' 3  *', ' 4  *', 'Trace stopped: 2 hops in a row with no answer.']);
@@ -77,7 +77,10 @@ describe('net-tools network', () => {
     expect(vuln).toContain('21/tcp   open   ftp           vsftpd 2.3.4');
     expect(vuln).toContain('|     IDs:  CVE:CVE-2011-2523');
     expect(vuln).toContain('23/tcp   open   telnet        printer telnetd');
-    expect(vuln).toContain('Nmap done: 256 IP addresses (4 hosts up) scanned');
+    // The scanning laptop lists itself too, and every host the library's DNS knows gets its name.
+    expect(vuln).toContain('Nmap scan report for catalog.lakeside.example (10.0.0.20)');
+    expect(vuln).toContain('Nmap scan report for helpdesk.lakeside.example (10.0.0.5)');
+    expect(vuln.find((l) => l.startsWith('Nmap done:'))).toMatch(/^Nmap done: 256 IP addresses \(5 hosts up\) scanned/);
     action('close', 'close-risky').run(sim);
     expect(riskyClosed(sim)).toBe(true);
     const again = text(sim, 'laptop', run(sim, 'laptop', 'nmap 10.0.0.0/24'));
@@ -124,14 +127,27 @@ describe('net-tools buttons', () => {
     expect(dnsFixed(sim)).toBe(false);
     expect(report.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'The IT contractor asks: what does the record say right now? Look it up with nslookup first.' }]);
     run(sim, 'pc1', 'nslookup catalog.lakeside.example');
+    expect(report.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'You have the lookup now. Press the button again to send it.' }]);
     report.run(sim);
     expect(report.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'The IT contractor says the record is fixed. Check their work with nslookup.' }]);
+
+    // The catalog opens only once the fix is checked.
+    const open = action('nslookup', 'open-catalog');
+    open.run(sim);
+    sim.runUntilIdle();
+    expect(open.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'Check the IT contractor’s fix with nslookup first.' }]);
+    run(sim, 'pc1', 'nslookup catalog.lakeside.example');
+    open.run(sim);
+    expect(open.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'Public PC 1 is opening the catalog…' }]);
+    sim.runUntilIdle();
+    expect(open.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'The catalog loads on Public PC 1. Ticket 1 is solved.' }]);
 
     const call = action('traceroute', 'call-isp');
     call.run(sim);
     expect(internetFixed(sim)).toBe(false);
     expect(call.outcome!(sim, 0)[0].tone).toBe('bad');
     run(sim, 'pc1', 'traceroute ebooks.example');
+    expect(call.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'You have the trace now. Press the button again to call.' }]);
     call.run(sim);
     expect(internetFixed(sim)).toBe(true);
 
@@ -140,6 +156,7 @@ describe('net-tools buttons', () => {
     expect(pc2Plugged(sim)).toBe(true);
     expect(unplug.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'Find the connection with netstat -b first, so you can tell IT what you cut off.' }]);
     run(sim, 'pc2', 'netstat -b');
+    expect(unplug.outcome!(sim, 0)).toEqual([{ tone: 'bad', text: 'You found the connection. Press the button again to unplug Public PC 2.' }]);
     unplug.run(sim);
     expect(pc2Plugged(sim)).toBe(false);
   });

@@ -41,6 +41,9 @@ export const NAME = {
   catalog: 'catalog.lakeside.example',
   printer: 'printer.lakeside.example',
   router: 'router.lakeside.example',
+  laptop: 'helpdesk.lakeside.example',
+  pc1: 'pc1.lakeside.example',
+  pc2: 'pc2.lakeside.example',
   ebooks: 'ebooks.example',
 } as const;
 
@@ -62,7 +65,7 @@ const MS = { wan: 4, core: 6, web: 2, far: 38 };
 
 export function buildLibrary(): Sim {
   const lan = { gateway: IP.router, dns: IP.router };
-  const sim = new NetBuilder({ linkMs: 160, procMs: 40, l2Ms: 30, arpTimeoutMs: 1500, pingTimeoutMs: 4000, httpTimeoutMs: 8000, icmpErrors: true })
+  const sim = new NetBuilder({ linkMs: 130, procMs: 40, l2Ms: 30, arpTimeoutMs: 1200, pingTimeoutMs: 4000, httpTimeoutMs: 8000, icmpErrors: true })
     .host('laptop', { label: 'Help desk laptop', icon: 'laptop', x: 110, y: 165, ip: `${IP.laptop}/24`, ...lan })
     .host('pc2', { label: 'Public PC 2', icon: 'desktop', x: 110, y: 335, ip: `${IP.pc2}/24`, ...lan })
     .host('pc1', { label: 'Public PC 1', icon: 'desktop', x: 110, y: 505, ip: `${IP.pc1}/24`, ...lan })
@@ -90,7 +93,7 @@ export function buildLibrary(): Sim {
       ...lan,
       services: [
         { port: 23, proto: 'tcp', app: 'telnet', banner: 'printer telnetd', program: 'telnetd' },
-        { port: 80, proto: 'tcp', app: 'http', banner: 'printer web admin 2.1', program: 'httpd' },
+        { port: 80, proto: 'tcp', app: 'http', banner: 'printer httpd 2.1', program: 'httpd' },
         { port: 631, proto: 'tcp', app: 'ipp', banner: 'CUPS 2.4', program: 'cupsd' },
       ],
     })
@@ -110,7 +113,7 @@ export function buildLibrary(): Sim {
       services: [
         { port: 53, proto: 'udp', app: 'dns', banner: 'dnsmasq 2.90', program: 'dnsmasq' },
         { port: 53, proto: 'tcp', app: 'dns', banner: 'dnsmasq 2.90', program: 'dnsmasq' },
-        { port: 443, proto: 'tcp', app: 'https', banner: 'router admin page', program: 'httpd' },
+        { port: 443, proto: 'tcp', app: 'https', banner: 'lighttpd 1.4.76', program: 'lighttpd' },
       ],
     })
     .router('isp', {
@@ -170,7 +173,14 @@ export function buildLibrary(): Sim {
   // The library router is the library's DNS server: it holds the library's own
   // names, and asks the provider's DNS server about everything else.
   const router = sim.dev('router');
-  router.dnsZone = { [NAME.catalog]: IP.wrongCatalog, [NAME.printer]: IP.printer, [NAME.router]: IP.router };
+  router.dnsZone = {
+    [NAME.catalog]: IP.wrongCatalog,
+    [NAME.printer]: IP.printer,
+    [NAME.router]: IP.router,
+    [NAME.laptop]: IP.laptop,
+    [NAME.pc1]: IP.pc1,
+    [NAME.pc2]: IP.pc2,
+  };
   router.resolver = newResolver(IP.isp, 60_000);
   sim.dev('isp').dnsZone = { [NAME.ebooks]: IP.ebooks };
 

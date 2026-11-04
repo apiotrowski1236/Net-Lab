@@ -4486,3 +4486,8 @@ button.pl-tile:active {
   margin-top: 1px;
   color: var(--warn-solid);
 }
+
+/* net-tools: a command in a goal ("netstat -b") stays on one line. */
+.goal-text code {
+  white-space: nowrap;
+}

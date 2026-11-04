@@ -88,11 +88,25 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
   const last = entries[entries.length - 1];
   const meaning = last?.run ? runMeaning(sim, at, last.run) : undefined;
 
-  // Keep the newest output in view, the way a terminal scrolls.
+  // A scan's progress line counts answers the network doesn't announce: redraw while a command runs.
+  useEffect(() => {
+    if (!busy) return;
+    const id = setInterval(() => redraw((n) => n + 1), 300);
+    return () => clearInterval(id);
+  }, [busy]);
+
+  // Keep the newest output in view, the way a terminal scrolls. A finished result
+  // taller than the screen shows from its first line, so nothing scrolls past unread.
   const size = entries.reduce((n, e) => n + e.out.length + 1, 0);
   useLayoutEffect(() => {
     const el = screen.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    const nodes = el.querySelectorAll<HTMLElement>('.term-entry');
+    const entry = nodes[nodes.length - 1];
+    if (last?.run?.doneAt !== undefined && entry && entry.offsetHeight > el.clientHeight - 40) {
+      el.scrollTop += entry.getBoundingClientRect().top - el.getBoundingClientRect().top - 6;
+    }
   }, [size, at, meaning]);
 
   const addLocal = (line: string, out: TermLine[]) => {

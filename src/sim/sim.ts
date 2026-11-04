@@ -94,7 +94,9 @@ import { canGrant, fromClient, grant, newDhcpClient, newDhcpServer, offer, pickA
 import { addEntry, allocPort, endText, findIn, findOut, forwardFor, natPorts, newNat, type NatForward } from './nat';
 import { newCaptureRun } from './capture';
 import {
+  inScope,
   MAX_RUNS,
+  NMAP_GAP_MS,
   NMAP_PORTS,
   ownIp,
   parseCommand,
@@ -2123,7 +2125,7 @@ export class Sim {
    * a 'scan-done' event fires when the last probe has its answer. Only
    * addresses some device uses get probes (the others never answer).
    */
-  scan(devId: string, target: string, ports: number[] = SCAN_PORTS): number {
+  scan(devId: string, target: string, ports: number[] = SCAN_PORTS, gapMs = SCAN_GAP_MS): number {
     const dev = this.dev(devId);
     const tgt = scanTarget(target);
     if (!tgt) throw new Error(`Bad scan target: ${target}`);
@@ -2148,8 +2150,8 @@ export class Sim {
     }
     let k = 0;
     for (const h of scan.hosts) {
-      this.schedule(SCAN_GAP_MS * k++, () => this.probePing(dev, scan, h.ip));
-      for (const p of scan.ports) this.schedule(SCAN_GAP_MS * k++, () => this.probePort(dev, scan, h.ip, p));
+      this.schedule(gapMs * k++, () => this.probePing(dev, scan, h.ip));
+      for (const p of scan.ports) this.schedule(gapMs * k++, () => this.probePort(dev, scan, h.ip, p));
     }
     return id;
   }
@@ -3255,9 +3257,17 @@ export class Sim {
       for (let i = 0; i < PING_COUNT; i++) this.schedule(i * PING_GAP_MS, () => this.termPingOne(dev, run, i === PING_COUNT - 1));
     } else if (run.kind === 'traceroute') this.traceNext(dev, run);
     else {
-      const id = this.scan(dev.id, run.target, NMAP_PORTS);
+      const id = this.scan(dev.id, run.target, NMAP_PORTS, NMAP_GAP_MS);
       run.scan = id;
       const scan = dev.scans?.find((x) => x.id === id);
+      // Like real nmap, a scan that covers the scanning computer lists it too: it answers itself at once.
+      const own = dev.ifaces.find((i) => i.ip && (i.ip === run.target || inScope([run.target], i.ip)))?.ip;
+      if (scan && own && !scan.hosts.some((h) => h.ip === own)) {
+        const open = new Set(listening(dev).filter((s) => s.proto === 'tcp').map((s) => s.port));
+        const banners = Object.fromEntries(listening(dev).filter((s) => s.banner && open.has(s.port)).map((s) => [s.port, s.banner!]));
+        scan.hosts.push({ ip: own, ping: 'open', ports: Object.fromEntries(NMAP_PORTS.map((p) => [p, open.has(p) ? 'open' : 'closed'])), banners });
+        scan.hosts.sort((a, b) => ipToInt(a.ip) - ipToInt(b.ip));
+      }
       if (scan?.doneAt !== undefined) this.termDone(dev, run);
       else this.termWaiting.set(`s${id}`, { device: dev.id, run: run.id });
     }

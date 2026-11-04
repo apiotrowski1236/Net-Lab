@@ -94,7 +94,10 @@ function ChoiceCard({ session, step, q, labels, onDevice }: { session: LabSessio
           .filter((o) => o.feedback)
           .map((o) => (q.multi && wrongPicks.length > 1 ? `"${o.text}": ${o.feedback}` : o.feedback))
           .join(' ')
-      : 'Everything you picked is right, but something is missing. Pick every answer that applies.';
+      : q.options
+          .filter((o) => o.correct && !picked.has(o.id) && o.missed)
+          .map((o) => o.missed)
+          .join(' ') || 'Everything you picked is right, but something is missing. Pick every answer that applies.';
   const fb = useVerdictInView(a?.attempts);
   return (
     <div class={`qcard ${done ? 'correct' : wrong ? 'wrong' : ''}`}>
@@ -411,6 +414,9 @@ export function LessonPanel({
     for (const d of Object.values(session.sim.devices)) out[d.id] = d.label;
     return out;
   }, [session.sim]);
+  // A button the instructions already show ([[button:id]]) isn't repeated under them.
+  const lockedQs = (step.questions ?? []).filter((q) => q.afterGoals);
+  const rowActions = (step.actions ?? []).filter((a) => !step.body.includes(`[[button:${a.id}]]`));
   const actionLabels = useMemo<MdActions>(() => ({ labels: Object.fromEntries((step.actions ?? []).map((a) => [a.id, a.label])), live: true }), [step]);
 
   useEffect(() => {
@@ -537,9 +543,9 @@ export function LessonPanel({
             Go to the capture controls
           </button>
         )}
-        {step.actions && step.actions.length > 0 && (
+        {rowActions.length > 0 && (
           <div class="actions">
-            {step.actions.map((a) => (
+            {rowActions.map((a) => (
               <button key={a.id} class="btn action" onClick={() => session.runStepAction(a.id)}>
                 <Icon name="play" size={14} /> {a.label}
               </button>
@@ -582,9 +588,12 @@ export function LessonPanel({
 
         {step.questions?.map((q) =>
           q.afterGoals && !goalsDone ? (
-            <div key={`${step.id}/${q.id}`} class="qcard locked">
-              <Icon name="lock" size={14} /> A question about what happens unlocks when you finish the goals above.
-            </div>
+            // Several locked questions share one notice.
+            q === lockedQs[0] && (
+              <div key={`${step.id}/${q.id}`} class="qcard locked">
+                <Icon name="lock" size={14} /> {lockedQs.length > 1 ? `${lockedQs.length} questions about what happens unlock` : 'A question about what happens unlocks'} when you finish the goals above.
+              </div>
+            )
           ) : (
             <QuestionCard key={`${step.id}/${q.id}`} session={session} step={step} q={q} labels={labels} onDevice={onDevice} />
           ),

@@ -46,6 +46,8 @@ export interface ChoiceOption {
   feedback?: string;
   /** Keep at the end when options are shuffled (for "Both" or "None of these"). */
   last?: boolean;
+  /** Select-all questions: a nudge shown when this right answer is the one left out. */
+  missed?: string;
 }
 
 export interface ChoiceQuestion {

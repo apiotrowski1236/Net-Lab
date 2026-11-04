@@ -19,7 +19,7 @@ The student volunteers at the Lakeside Public Library's help desk after school. 
 
 1. The online catalog won't load on the public computers (a wrong DNS record).
 2. The e-book site won't load (a cut cable out on the internet, past the library's provider).
-3. A patron saw the mouse on Public PC 2 move by itself (a remote-control program).
+3. A visitor saw the mouse on Public PC 2 move by itself (a remote-control program).
 
 Then the library director signs a permission letter, and the student maps the library network with
 `nmap` and finds two risky services: an FTP server with a known backdoor and a printer's Telnet login.

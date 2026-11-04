@@ -1,3 +1,4 @@
+import { sameSubnet } from '../sim/addr';
 import { scanDone, scanFindings, type Scan } from '../sim/services';
 import type { Sim } from '../sim/sim';
 import {
@@ -130,6 +131,14 @@ function netstatLines(run: NetstatRun): TermLine[] {
   return out;
 }
 
+/** The name a DNS record gives this address, if any. */
+function nameOf(sim: Sim, ip: string): string | undefined {
+  for (const d of Object.values(sim.devices)) {
+    for (const [name, addr] of Object.entries(d.dnsZone ?? {})) if (addr === ip) return name;
+  }
+  return undefined;
+}
+
 function nmapScan(sim: Sim, devId: string, run: NmapRun): Scan | undefined {
   return run.scan === undefined ? undefined : sim.devices[devId]?.scans?.find((s) => s.id === run.scan);
 }
@@ -149,7 +158,9 @@ function nmapLines(sim: Sim, devId: string, run: NmapRun): TermLine[] {
   const found = scanFindings(scan);
   for (const h of found) {
     const host = scan.hosts.find((x) => x.ip === h.ip);
-    out.push(L(''), L(`Nmap scan report for ${run.lookup?.name && found.length === 1 ? `${run.lookup.name} (${h.ip})` : h.ip}`, 'head'));
+    // Like real nmap, look up each address's name (here, straight from the network's DNS records).
+    const name = (found.length === 1 && run.lookup?.name) || nameOf(sim, h.ip);
+    out.push(L(''), L(`Nmap scan report for ${name ? `${name} (${h.ip})` : h.ip}`, 'head'));
     const lat = roundTripMs(sim, devId, h.ip, Number(h.ip.split('.')[3] ?? 0)) / 1000;
     out.push(L(`Host is up (${lat.toFixed(5)}s latency).`));
     if (!h.open.length) {
@@ -200,13 +211,16 @@ export function runMeaning(sim: Sim, devId: string, run: TermRun): string | unde
       const label = who(sim, ip);
       if (got.length === run.probes.length) {
         const avg = got.reduce((a, p) => a + (p.ms ?? 0), 0) / got.length;
-        return `${named}${label ?? ip} answered all ${got.length} pings: it's on, and every cable and router between here and there works, both ways. A round trip took about ${fmtMs(avg)}.`;
+        // On this computer's own network there's no router on the way, only cables and a switch.
+        const local = sim.devices[devId]?.ifaces.some((i) => i.ip && i.prefix !== undefined && sameSubnet(i.ip, ip, i.prefix));
+        const path = local ? 'cable and switch' : 'cable and router';
+        return `${named}${label ?? ip} answered all ${got.length} pings: it's on, and every ${path} between here and there works, both ways. A round trip took about ${fmtMs(avg)}.`;
       }
       if (got.length) return `${named}Only ${got.length} of ${run.probes.length} pings came back. Something on the way is losing packets.`;
       const u = run.probes.find((p) => p.status === 'unreachable');
       if (u?.why === 'local') return `${me} couldn't send anything. Check its cable and its address.`;
       if (u?.why === 'host' && u.from && sim.deviceByIp(u.from)?.id === devId) {
-        return `${named}No device has the address ${ip}. ${me} asked its local network "who has ${ip}?" and nobody answered.`;
+        return `${named}No device has the address ${ip}. ${me} asked its local network "who has ${ip}?" and nobody answered. The "Reply from" lines come from ${me} itself, reporting that it gave up.`;
       }
       if (u?.why === 'host') return `${named}${who(sim, u.from) ?? u.from} reached ${ip}'s network, but no device there has that address.`;
       if (u?.why === 'net') return `${named}${who(sim, u.from) ?? u.from} has no route to ${ip}'s network.`;

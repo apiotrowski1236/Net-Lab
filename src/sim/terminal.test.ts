@@ -36,6 +36,8 @@ describe('parseCommand', () => {
     expect(msg('ping 10.0.0.1/24')).toBe('ping takes one address, with no slash: ping 10.0.0.1');
     expect(msg('netstat -z')).toBe("This netstat knows -a (also ports waiting for connections) and -b (the program behind each one). It doesn't know -z.");
     expect(msg('nmap -p 22 10.0.0.1')).toBe("This nmap knows -sV (find each service's version) and --script vuln (check for known problems). It doesn't know -p.");
+    expect(msg('nmap -sv 10.0.0.0/24')).toBe("nmap's options care about capital letters. Type -sV, with a capital V.");
+    expect(msg('nmap -script vuln 10.0.0.0/24')).toBe('Long options start with two dashes: --script vuln');
     expect(msg('nmap 10.0.0.0/33')).toBe("10.0.0.0/33 isn't a network. Write a network like 10.0.0.0/24.");
   });
 });
