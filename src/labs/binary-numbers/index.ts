@@ -3,7 +3,7 @@ import type { BitsSpec } from '../../demos/types';
 import { demoFact } from '../helpers';
 import { md } from '../md';
 import type { LabDef, TextQuestion } from '../types';
-import { bitsRe, count, exactBits, longBits, notBinary, num, rangeRe, reversed } from './answers';
+import { bitsRe, count, exactBits, longBits, notBinary, num, rangeRe, reversed, SPELLED } from './answers';
 
 /**
  * Binary Numbers (AP CSP, topic 2.1). A lesson with no network: every step's
@@ -75,7 +75,7 @@ function placeSlips(bits: string): NonNullable<TextQuestion['wrong']> {
 function toDecimal(id: string, n: number, bits: string, ones: number): TextQuestion {
   const back = parseInt(reversed(bits), 2);
   const sum = sumSource(bits);
-  const wrong: TextQuestion['wrong'] = [...addingSlip(bits)];
+  const wrong: TextQuestion['wrong'] = [SPELLED, ...addingSlip(bits)];
   if (back !== n) wrong.push({ match: num(back), text: 'You read the bits from the wrong end. The rightmost bit is the 1s place, and the leftmost is the 128s place.' });
   wrong.push({ match: num(ones), text: COUNT_ONES });
   wrong.push(...missedPlaces(n, bits), ...placeSlips(bits));
@@ -198,6 +198,7 @@ export const binaryNumbersLab: LabDef = {
           placeholder: 'Type a number',
           expect: count(16),
           wrong: [
+            SPELLED,
             { match: num(10), text: "Adding a switch doesn't add 2 each time. Look at 2, 4, 8: what happens to the count when you add a switch?" },
             { match: num(12), text: "Adding a switch doesn't add 4 each time. Look at 2, 4, 8: what happens to the count when you add a switch?" },
             { match: num(9), text: "The count doesn't go up by 1. Look at 2, 4, 8: what happens to the count when you add a switch?" },
@@ -282,6 +283,7 @@ export const binaryNumbersLab: LabDef = {
           placeholder: 'Type a number',
           expect: count(256),
           wrong: [
+            SPELLED,
             { match: num(255), text: "255 is the biggest number a byte can hold, because counting starts at 0. How many patterns is that, counting 0?" },
             { match: num(16), text: '2 × 8 = 16. But each bit doubles the count, so multiply eight 2s together.' },
             { match: num(8), text: '8 is the number of bits. Keep doubling down the table: 16 for 4 bits, 32 for 5, and on to 8 bits.' },
@@ -332,7 +334,7 @@ export const binaryNumbersLab: LabDef = {
           options: [
             { id: 'thirty-one', text: '31', correct: true },
             { id: 'thirty-two', text: '32', feedback: 'Add them: 16 + 8 + 4 + 2 + 1 = 31. Even with every card face up, the dots stop at 31.' },
-            { id: 'sixteen', text: '16', feedback: 'You made 21 and 31, which are bigger than 16. Face-up cards add together.' },
+            { id: 'sixteen', text: '16', feedback: 'Face-up cards add together, so they can make more than 16. The goals ask for 21 and 31, which are both bigger.' },
             { id: 'five', text: '5', feedback: 'Five is how many cards there are. Turn them all face up and count the dots.' },
           ],
           explain: 'All five face up: 16 + 8 + 4 + 2 + 1 = 31.',
@@ -419,6 +421,7 @@ export const binaryNumbersLab: LabDef = {
         {
           ...toDecimal('w4', 255, '11111111', 8),
           wrong: [
+            SPELLED,
             ...addingSlip('11111111'),
             { match: num(256), text: 'Close. 256 is how many patterns 8 bits make, counting 0. The biggest number is one less.' },
             { match: num(8), text: COUNT_ONES },
@@ -569,6 +572,7 @@ export const binaryNumbersLab: LabDef = {
           placeholder: 'Type a number',
           expect: count(64),
           wrong: [
+            SPELLED,
             { match: num(12), text: '2 × 6 = 12. But each bit doubles the count, so multiply six 2s together.' },
             { match: num(36), text: '6 × 6 = 36. Multiply six 2s together instead.' },
             { match: num(63), text: '63 is the biggest value. Count the 0 too: how many values is that?' },
@@ -597,6 +601,7 @@ export const binaryNumbersLab: LabDef = {
           placeholder: 'Type a number',
           expect: num(7),
           wrong: [
+            SPELLED,
             { match: num(6), text: "6 bits make 2⁶ = 64 codes. That's too few for 100 items." },
             { match: num(8), text: '8 bits work, but 7 bits already make 2⁷ = 128 codes, which is enough for 100.' },
             { match: num(100), text: "You don't need one bit per item. Each bit doubles the number of codes." },
@@ -873,7 +878,9 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         Text is stored as numbers too. **ASCII** is a code that gives each letter, digit, and symbol a number from 0 to 127. Capital A is 65, B is 66, and the rest of the capital letters follow in order. Lowercase letters start at 97, so a is 97.
 
-        Each character takes one byte. (ASCII needs only 7 bits, because 2⁷ = 128, so the first bit of each byte is 0.) Letters with accents, like é, aren't in ASCII. Computers today use **Unicode**, which starts with the same codes as ASCII and adds é, emoji, and every alphabet. Those extra characters take more than one byte.
+        Each character takes one byte. (ASCII needs only 7 bits, because 2⁷ = 128, so the first bit of each byte is 0.) Letters with accents, like é, aren't in ASCII.
+
+        Computers today use **Unicode**, which starts with the same codes as ASCII and adds é, emoji, and every alphabet. Those extra characters take more than one byte.
 
         Type a word in the **ASCII** card to see its bytes.
       `,

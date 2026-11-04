@@ -37,5 +37,12 @@ export const shortBits = (n: number) => new RegExp(`^\\s*(?:[01]\\s*){1,${n - 1}
 export const exactBits = (n: number) => new RegExp(`^\\s*(?:[01]\\s*){${n}}$`);
 /** More than `n` binary digits. */
 export const longBits = (n: number) => new RegExp(`^\\s*(?:[01]\\s*){${n + 1},}$`);
+const NUMBER_WORDS =
+  'zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand';
+/** A number written in words ("sixteen") with no digits: a format slip, not a math slip. */
+export const SPELLED = {
+  match: new RegExp(`^[^\\d]*\\b(?:${NUMBER_WORDS})\\b[^\\d]*$`, 'i'),
+  text: 'Write the number with digits, like 7 instead of seven.',
+};
 /** Any digit that isn't 0 or 1. */
 export const notBinary = /[2-9]/;

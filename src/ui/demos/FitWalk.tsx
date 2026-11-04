@@ -54,7 +54,7 @@ export function FitWalkView({ spec, state: s, send }: DemoViewProps<FitWalkSpec,
       {!done && (
         <div class="fit-ask">
           <p aria-live="polite">
-            Left to place: <strong>{left}</strong>. Does <strong>{pv[col]}</strong> fit in {left}?
+            Still to place: <strong>{left}</strong>. Does <strong>{pv[col]}</strong> fit in {left}?
           </p>
           <div class="row gap-sm">
             <button class="btn" onClick={() => say(1)}>

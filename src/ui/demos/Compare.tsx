@@ -130,10 +130,10 @@ export function CompareView({ spec, state: s, send }: DemoViewProps<CompareSpec,
 
       {s.found && !s.done && (
         <div class="row gap-sm cmp-pick">
-          <button class="btn" onClick={() => pick(0)}>
+          <button class="btn" aria-label={`${a} is bigger`} onClick={() => pick(0)}>
             <code>{a}</code> is bigger
           </button>
-          <button class="btn" onClick={() => pick(1)}>
+          <button class="btn" aria-label={`${b} is bigger`} onClick={() => pick(1)}>
             <code>{b}</code> is bigger
           </button>
         </div>

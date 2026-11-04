@@ -448,6 +448,18 @@ describe('binary-numbers: typed answers', () => {
     expect(fb('w6', '00001111')).toMatch(/make 15, which is 2 more than 13/);
   });
 
+  it('asks for digits when a number is written in words', () => {
+    const digits = 'Write the number with digits, like 7 instead of seven.';
+    expect(wrongFeedback(text('switches', 'four'), 'sixteen')).toBe(digits);
+    expect(wrongFeedback(text('bits', 'byte'), 'two hundred fifty six')).toBe(digits);
+    expect(wrongFeedback(text('limits', 'w13'), 'Seven')).toBe(digits);
+    expect(wrongFeedback(text('practice-decimal', 'w1'), 'eleven')).toBe(digits);
+    expect(wrongFeedback(text('practice-decimal', 'w4'), 'two hundred fifty-five')).toBe(digits);
+    // Digits still pass, and words with "one" inside them are not number words.
+    expect(text('switches', 'four').expect?.test('16 patterns')).toBe(true);
+    expect(wrongFeedback(text('limits', 'w13'), 'none')).not.toBe(digits);
+  });
+
   it('answers the common mistakes about counting and overflow', () => {
     expect(wrongFeedback(text('bits', 'byte'), '255')).toMatch(/counting starts at 0/);
     expect(wrongFeedback(text('overflow', 'w14'), '10000')).toMatch(/needs 5 bits/);
