@@ -286,9 +286,28 @@ const busyStarts = new WeakMap<Sim, number>();
 /** How long the busy minute's packets take, in ms of network time (the last answer is back by about 15.7 s). */
 const BUSY_MS = 17000;
 export const busyStart = (sim: Sim): number | undefined => busyStarts.get(sim);
+/**
+ * When the busy minute that started at `from` was over: when the last answer
+ * the laptop's apps wait for came through the router, whether or not the
+ * capture was on. That's an event, so the lines under the button redraw right
+ * then. Undefined while it runs.
+ */
+export function busyDoneAt(sim: Sim, from: number): number | undefined {
+  const ids = new Set<number>();
+  let last = 0;
+  for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= from; i--) {
+    const e = sim.events[i];
+    const app = e.type === 'forwarded' && e.device === 'router' && e.frame.ip?.dst === IP.laptop ? e.frame.ip.app : undefined;
+    if (app?.kind !== 'http-res') continue;
+    ids.add(app.reqId);
+    last = Math.max(last, e.t);
+  }
+  if (ids.size >= BUSY_ANSWERS) return last;
+  return sim.t >= from + BUSY_MS ? from + BUSY_MS : undefined;
+}
 export const busyRunning = (sim: Sim): boolean => {
   const s = busyStarts.get(sim);
-  return s !== undefined && sim.t < s + BUSY_MS;
+  return s !== undefined && busyDoneAt(sim, s) === undefined;
 };
 
 /** How the busy minute's chat and video traffic is spaced (ms). */
@@ -296,6 +315,8 @@ const GAP = 400;
 /** The chat app checks for messages this many times; the video app loads this many pieces. */
 export const CHAT_CHECKS = 8;
 export const VIDEO_PIECES = 6;
+/** Every answer the laptop's apps get in the busy minute: chat, video, weather, and the school page. */
+export const BUSY_ANSWERS = CHAT_CHECKS + VIDEO_PIECES + 2;
 
 /**
  * A minute on the family laptop with nobody touching it, squeezed into about

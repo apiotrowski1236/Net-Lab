@@ -75,14 +75,7 @@ function ChoiceCard({ session, step, q, labels, onDevice }: { session: LabSessio
           .map((o) => (q.multi && wrongPicks.length > 1 ? `"${o.text}": ${o.feedback}` : o.feedback))
           .join(' ')
       : 'Everything you picked is right, but something is missing. Pick every answer that applies.';
-  // After a check, bring the verdict into view (it can land below the fold). Not when revisiting a step.
-  const fb = useRef<HTMLDivElement>(null);
-  const checks = useRef(a?.attempts);
-  useEffect(() => {
-    if (a?.attempts === checks.current) return;
-    checks.current = a?.attempts;
-    fb.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [a?.attempts]);
+  const fb = useVerdictInView(a?.attempts);
   return (
     <div class={`qcard ${done ? 'correct' : wrong ? 'wrong' : ''}`}>
       <div class="qprompt">
@@ -117,18 +110,37 @@ function ChoiceCard({ session, step, q, labels, onDevice }: { session: LabSessio
         </div>
       )}
       {wrong && (
-        <div class="qfeedback bad" ref={fb}>
+        <div class="qfeedback bad" ref={fb} tabIndex={-1}>
           {feedback || (isLesson(session.lab) ? 'Not quite. Read the step again, then pick another answer.' : 'Not quite. Look at the network again, then pick another answer.')}
         </div>
       )}
       {done && (
-        <div class="qfeedback good" ref={fb}>
+        <div class="qfeedback good" ref={fb} tabIndex={-1}>
           <strong>Correct!</strong> {q.explain}
           <div class="muted small change-note">You can still change your answer.</div>
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * After a check, bring the verdict into view (it can land below the fold). Not when revisiting a step.
+ * A right answer removes the Check button; if it had the focus, the verdict takes it, so a keyboard
+ * user isn't sent back to the top of the page.
+ */
+function useVerdictInView(attempts: number | undefined) {
+  const fb = useRef<HTMLDivElement>(null);
+  const checks = useRef(attempts);
+  useEffect(() => {
+    if (attempts === checks.current) return;
+    checks.current = attempts;
+    const el = fb.current;
+    if (!el) return;
+    if (!document.activeElement || document.activeElement === document.body) el.focus({ preventScroll: true });
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [attempts]);
+  return fb;
 }
 
 function TextCard({ session, step, q, labels, onDevice }: { session: LabSession; step: StepDef; q: TextQuestion; labels: Record<string, string>; onDevice: (id: string) => void }) {
@@ -139,14 +151,7 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
   const auto = !!q.expect;
   const done = auto ? !!a?.correct : words > 0;
   const wrong = auto && a?.correct === false;
-  // After a check, bring the verdict into view, as choice questions do.
-  const fb = useRef<HTMLDivElement>(null);
-  const checks = useRef(a?.attempts);
-  useEffect(() => {
-    if (a?.attempts === checks.current) return;
-    checks.current = a?.attempts;
-    fb.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [a?.attempts]);
+  const fb = useVerdictInView(a?.attempts);
   return (
     <div class={`qcard ${auto && done ? 'correct' : wrong ? 'wrong' : ''}`}>
       <div class="qprompt">
@@ -187,12 +192,12 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
         </div>
       )}
       {wrong && (
-        <div class="qfeedback bad" ref={fb}>
+        <div class="qfeedback bad" ref={fb} tabIndex={-1}>
           {wrongFeedback(q, a?.value ?? '')}
         </div>
       )}
       {auto && done && (
-        <div class="qfeedback good" ref={fb}>
+        <div class="qfeedback good" ref={fb} tabIndex={-1}>
           <strong>Correct!</strong> {q.explain}
         </div>
       )}

@@ -787,7 +787,7 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
                 ))
               ) : (
                 <div class="dock-empty small">
-                  <p>Click a packet, or Tab to it and press Enter, to open it up.</p>
+                  <p>{rows.length ? 'Click a packet, or Tab to it and press Enter, to open it up.' : 'No packet to open.'}</p>
                 </div>
               )}
             </div>
