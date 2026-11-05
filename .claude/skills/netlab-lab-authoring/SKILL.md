@@ -255,13 +255,41 @@ Limits: 5,000,000 steps, 2,000 output lines, 200,000 characters of output, and 1
 
 ### A lab with a page (lab 3)
 
-The base leaves these hooks, and the page itself is yours to build:
+`src/dom` is a small DOM for labs where a script changes a web page, and `src/labs/js-dom/` is the lab to copy. It runs in the pure model, in the browser and in vitest, and its behavior is tested against jsdom (`src/dom/differential.test.ts`). The HTML parser is forgiving like a browser's. `<script>` tags are skipped, and the interpreter runs the `.js` files instead.
 
-- `JsSpec.hosts: (rt, files) => Record<string, HostObject>` adds globals such as `document`. `files` holds the student's current files, so a host can read `page.html`. Each run, hidden runs included, gets new ones.
-- `HostObject` (`src/js/values.ts`) is an abstract class, so extend it: `label()`, `allow: { get, set, call }`, `get(name, rt)`, `set(name, value, rt)`, `call(name, args, rt)`, and `items()` for `for...of`. A name outside `allow` stops as not available. `rt.call(fn, self, args)` runs a student callback. Tests in `src/js/run.test.ts` under "host objects" show a small fake `document`.
-- Languages: add `html` and `css` to `LANGUAGES` in `src/ui/demos/codeEditor.ts`, one line each, after installing `@codemirror/lang-html` and `@codemirror/lang-css`. Then pass `EditorPane` a function: `language={(file) => (file.endsWith('.css') ? 'css' : file.endsWith('.html') ? 'html' : 'javascript')}`. Language is per file, and the lazy chunk stays lazy.
-- Preview: `.js-panes` in `src/ui/demos/Js.tsx` is a column around the output pane, so a preview pane can go above it. `RunResult` doesn't yet carry page state: add what the preview needs to `JsLast`, keeping it plain JSON.
-- Files that don't end in `.js` are already skipped by the interpreter and kept across a `from` chain.
+```ts
+import { pageHosts, pageOfFiles } from '../../dom';
+
+const page: JsSpec = {
+  kind: 'js',
+  id: 'list',
+  title: 'Your code',
+  files: [
+    { name: 'index.html', text: HTML, locked: true }, // locked, so the page has to come from the script
+    { name: 'style.css', text: STYLE },
+    { name: 'script.js', text: STARTER },
+  ],
+  open: 'script.js',
+  hosts: pageHosts,        // gives the code `document`
+  startPage: pageOfFiles,  // turns on the preview pane
+  checks: [ITEMS],
+  report: true,
+  from: { step: 'one', demo: 'one', files: ['style.css'] },
+};
+```
+
+- **One script per step.** A chained `prompt()` would fire on every later Run. Carry `style.css` with `from`, and give each step its own locked `index.html` with only the sections that step uses.
+- **Judge the page, not the source.** `c.page` is the page after the student's Run, and `c.run()` returns `page` too. A check that reads the page passes `textContent`, `innerHTML`, `append`, and `for...of` alike.
+- `PageView` (`src/dom/view.ts`): `all`, `find`, `count`, `exists`, `text`, `texts`, `attr`, `style`, `html`, `made` (elements the script added), and `firstOnly()`, which returns a note when a `querySelector` found the first of several. `PageNode`: `tag`, `id`, `classes`, `text`, `html`, `outer`, `original` (came from the HTML file), `attr()`, `style()`, `all()`. `style('background-color')` also looks in `background`.
+- **Hidden runs.** `c.run({ data })` replaces arrays. `c.run({ files: { 'index.html': OTHER } })` runs on other HTML, which catches a list typed by hand. `c.run({ clicks: ['#more', '#more'] })` plays clicks after the last line. A click target is a CSS selector or a path like `1.0.3`.
+- **A student may change the data on purpose.** Compare a page to the variable as it ended (`r.vars.favorites`), not to the data you passed in, so `favorites.push("x")` still passes.
+- **Notes.** Rule ids are in `PAGE_RULES` (`src/dom/notes.ts`), and `lintOff` takes them too: `id-with-hash`, `class-with-dot`, `class-no-rule`, `selector-no-prefix`, `selector-nothing`, `not-a-property`, `style-unknown`, `style-bad-value`, `never-added`, `list-property`, `moved-same-element`, `tags-as-text`, `element-as-text`, `handler-called`. A check can read them with `c.notes.some((n) => n.rule === 'never-added')` and give its own wording. A runtime error's help comes from `Page.explain` in the same file, and a null from a wrong id lists the ids on the page.
+- **Check hints draw backticks only.** A `**` shows as asterisks there. Goal hints go through markdown, so bold works in those.
+- **Clicks** are a recorded input, `{ click: target }`, through the pure model. Each click re-runs the program with the same seed and plays the clicks in order, so reload and the answer key replay the same way. An answer-key click must be a CSS selector, because the click-through needs one. The model ignores a click when the code changed since Run, at a prompt, or after an error, and takes at most 300. Facts add `clicks` and `made`.
+- **The preview** (`src/dom/preview.ts`, `Preview` in `src/ui/demos/Js.tsx`) is a sandboxed `iframe` with `srcdoc`, with `allow-scripts` for its own bridge and no `allow-same-origin`. The sanitizer removes student scripts and inline `on...` attributes, a nonce CSP backs it up, and the bridge posts clicks and stops links and forms. Images may load from anywhere, so a student can use a picture from the web, but a lab's own content can't depend on that: the site works offline. A page too long to save (`MAX_SAVED`) is rebuilt by running the code again. `[data-preview]` is the queryable container, and the click-through reaches inside with `frameLocator`.
+- **Room.** The preview shares a column with the output, and it grows when the output has little to say. Keep a page's header short, or generated content starts below the fold at 1366x768. Long code goes in a fenced block: inline `code` in a step body doesn't wrap.
+- **Limits.** A page holds 12,000 elements (error code `page-too-big`). `HostObject` (`src/js/values.ts`) is an abstract class: `label()`, `allow: { get, set, call }`, `get`, `set`, `call`, and `items()` for `for...of`, plus optional `read`, `write`, `asString`, and `pageHooks`. A name outside `allow` stops as not available. `RunOptions.after` runs after the last line.
+- **Left out.** Anything needing layout (`getBoundingClientRect`, `offsetWidth`, computed styles), shorthand expansion (`margin` doesn't set `margin-top`), `window`, `this` in handlers, events other than `click` and `DOMContentLoaded`, typing in an `<input>` in the preview, inline `onclick` attributes, `createElementNS`, `<template>` contents, framesets, and the parser's adoption-agency reshuffle for a block inside a formatting tag. `innerText` acts as `textContent`, and `src` and `href` read back as written. Each stops with the "not available in this editor" message or is listed in `src/dom/html.ts`.
 
 ## Tools per step and the answer key
 
@@ -278,7 +306,7 @@ The base leaves these hooks, and the page itself is yours to build:
 npm run -s typecheck && npm test
 npm run e2e                                   # needs CHROME_PATH=/usr/bin/google-chrome-stable here
 LAB=<id> npm run playthrough                  # plus THEME=dark SIZE=small
-LAB=<id> node .claude/skills/netlab-lab-authoring/clickthrough.mjs   # after npm run build; also SPEED=1
+LAB=<id> node .claude/skills/netlab-lab-authoring/clickthrough.mjs   # after npm run build; also SPEED=1. A coding lab goes on through its optional step.
 ```
 
 - `walkthrough.test.ts` plays every answer key, then checks reload replay, reset, version change, and tool offers.
