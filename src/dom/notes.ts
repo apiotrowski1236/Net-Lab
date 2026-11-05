@@ -1,7 +1,7 @@
 import type { JsError, LintNote, Runtime } from '../js';
 import { closestName } from '../js/help';
 import { CSS_PROPERTIES, camelProperties, cssName } from './style';
-import { allElements, isConnected, rootOf, type DomDocument, type DomElement, type DomNode, type DomParent } from './tree';
+import { allElements, isConnected, rootOf, textOf, type DomDocument, type DomElement, type DomNode, type DomParent } from './tree';
 
 /**
  * The mistakes a browser lets pass. `el.textcontent = "x"` is a legal line that
@@ -10,7 +10,7 @@ import { allElements, isConnected, rootOf, type DomDocument, type DomElement, ty
  * the help on an error, so "Cannot set properties of null" can name the ids that
  * do exist. Rule ids, for `lintOff`, are in PAGE_RULES.
  */
-export const PAGE_RULES = ['id-with-hash', 'class-with-dot', 'selector-no-prefix', 'selector-nothing', 'not-a-property', 'style-unknown', 'style-bad-value', 'never-added', 'list-property', 'moved-same-element', 'tags-as-text', 'element-as-text', 'handler-called'] as const;
+export const PAGE_RULES = ['id-with-hash', 'class-with-dot', 'class-no-rule', 'selector-no-prefix', 'selector-nothing', 'not-a-property', 'style-unknown', 'style-bad-value', 'never-added', 'list-property', 'moved-same-element', 'tags-as-text', 'element-as-text', 'handler-called'] as const;
 
 interface Place {
   file: string;
@@ -81,6 +81,7 @@ function foundNothing(doc: DomDocument, l: Lookup): string {
   }
   const dot = /^\.([\w-]+)$/.exec(q);
   if (dot) {
+    if (!classes.includes(dot[1]) && allElements(doc).some((e) => e.tag === dot[1])) return `${call} looks for the class ${dot[1]}, and no element has it. To find <${dot[1]}> tags, write ${quote(dot[1])} with no dot.`;
     const near = closestName(dot[1], classes);
     const list = classes.length ? `The classes on this page are ${listNames(classes)}.` : 'No element on this page has a class.';
     return `${call} found no element, so it gave back null. ${list}${near ? ` Did you mean ${quote(`.${near}`)}?` : ''}`;
@@ -102,6 +103,7 @@ export class PageLog {
   private readonly addedHere = new Map<DomNode, Map<number, { parent: DomParent; times: number; file: string }>>();
   /** Things that have been on the page, so taking one off isn't "never added". */
   private readonly placed = new Set<DomNode>();
+  private readonly usedClasses: (Place & { name: string })[] = [];
   readonly firstOfMany: FirstOfMany[] = [];
   /** The last name read from a host that it doesn't have, for `x is not a function`. */
   private missed?: { on: 'document' | 'element' | 'list' | 'collection' | 'text'; name: string };
@@ -155,6 +157,30 @@ export class PageLog {
 
   classWithDot(call: string, name: string): void {
     this.note('class-with-dot', `A class name has no dot here. The dot belongs only in a CSS selector. Write ${call}(${quote(name.slice(1))}).`);
+  }
+
+  /** The script gave an element this class. */
+  classGiven(name: string): void {
+    if (!name.startsWith('.')) this.usedClasses.push({ name, ...this.here() });
+  }
+
+  /** A class no CSS uses changes nothing on the page, which looks the same as code that didn't run. */
+  private unruledClasses(): LintNote[] {
+    const css = this.files.filter((f) => f.name.endsWith('.css'));
+    if (!css.length) return [];
+    const inline = allElements(this.doc()).flatMap((e) => (e.tag === 'style' ? [textOf(e)] : []));
+    const known = new Set([...css.map((f) => f.text), ...inline].flatMap((t) => [...t.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1])));
+    if (!known.size) return [];
+    const scripts = this.files.filter((f) => f.name.endsWith('.js')).map((f) => f.text);
+    const out = new Map<string, LintNote>();
+    for (const u of this.usedClasses) {
+      // A class the script looks up again is a marker for the script, and needs no rule.
+      if (known.has(u.name) || scripts.some((t) => t.includes(`.${u.name}"`) || t.includes(`.${u.name}'`))) continue;
+      const near = closestName(u.name, known);
+      const name = css[0].name;
+      out.set(`${u.file}:${u.line}:${u.name}`, { rule: 'class-no-rule', file: u.file, line: u.line, text: `No rule in ${name} uses the class ${u.name}, so this class changes nothing on the page.${near ? ` Did you mean ${near}?` : ''}` });
+    }
+    return [...out.values()];
   }
 
   notProperty(name: string, meant: string): void {
@@ -243,7 +269,7 @@ export class PageLog {
   }
 
   notes(): LintNote[] {
-    return [...this.found.values(), ...(this.cut ? [] : this.neverAdded())].sort((a, b) => (a.file === b.file ? a.line - b.line : a.file.localeCompare(b.file)));
+    return [...this.found.values(), ...this.unruledClasses(), ...(this.cut ? [] : this.neverAdded())].sort((a, b) => (a.file === b.file ? a.line - b.line : a.file.localeCompare(b.file)));
   }
 
   private lineOf(file: string, line: number): string {

@@ -543,7 +543,10 @@ class ElementHost extends NodeHost {
     }
     if (name in REFLECT) {
       const text = rt.str(value);
-      if (name === 'className' && /(?:^|\s)\.\w/.test(text)) page.log.classWithDot('el.className =', text);
+      if (name === 'className') {
+        if (/(?:^|\s)\.\w/.test(text)) page.log.classWithDot('el.className =', text);
+        for (const k of text.split(/\s+/).filter(Boolean)) page.log.classGiven(k);
+      }
       page.setAttr(el, REFLECT[name], text);
       return;
     }
@@ -590,7 +593,10 @@ class ElementHost extends NodeHost {
         const attr = rt.str(args[0]);
         if (!/^[^\s<>"'/=]+$/.test(attr)) rt.fail('DOMException', `Failed to execute 'setAttribute' on 'Element': '${attr}' is not a valid attribute name.`, 'bad-attribute', 'An attribute name is one word, with no spaces or marks.');
         const text = rt.str(args[1]);
-        if (attr.toLowerCase() === 'class' && /(?:^|\s)\.\w/.test(text)) page.log.classWithDot('setAttribute("class",', text);
+        if (attr.toLowerCase() === 'class') {
+          if (/(?:^|\s)\.\w/.test(text)) page.log.classWithDot('setAttribute("class",', text);
+          for (const k of text.split(/\s+/).filter(Boolean)) page.log.classGiven(k);
+        }
         page.setAttr(el, el.ns === 'html' ? attr.toLowerCase() : attr, text);
         return undefined;
       }
@@ -967,7 +973,10 @@ class ClassListHost extends HostObject {
     const t = rt.str(v);
     if (!t) rt.fail('DOMException', `Failed to execute '${method}' on 'DOMTokenList': The token provided must not be empty.`, 'bad-token', 'A class name can\'t be empty.');
     if (/[ \t\n\f\r]/.test(t)) rt.fail('DOMException', `Failed to execute '${method}' on 'DOMTokenList': The token provided ('${t}') contains HTML space characters, which are not valid in tokens.`, 'bad-token', `A class name is one word. To add two classes, give ${method} two strings, with a comma between them.`);
-    if (t.startsWith('.') && (method === 'add' || method === 'toggle')) this.page.log.classWithDot(`classList.${method}`, t);
+    if (method === 'add' || method === 'toggle') {
+      if (t.startsWith('.')) this.page.log.classWithDot(`classList.${method}`, t);
+      this.page.log.classGiven(t);
+    }
     return t;
   }
 

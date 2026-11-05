@@ -88,6 +88,26 @@ describe('a note where a browser says nothing', () => {
     });
   }
 
+  describe('a class with no rule', () => {
+    const styled: JsSpec = { ...spec, files: spec.files.map((f) => (f.name === 'style.css' ? { ...f, text: '.highlight { color: gold; }' } : f)) };
+    const notes = (code: string) => jsModel.apply(styled, jsModel.apply(styled, jsModel.init(styled), { edit: 'script.js', code }), { run: true }).notes;
+
+    test('offers the closest class in the CSS', () => {
+      expect(notes(`${E}e.classList.add("highlght");`)?.[0].text).toBe('No rule in style.css uses the class highlght, so this class changes nothing on the page. Did you mean highlight?');
+    });
+    test('names the class when nothing is close', () => {
+      expect(notes(`${E}e.className = "zzz";`)?.[0].text).toBe('No rule in style.css uses the class zzz, so this class changes nothing on the page.');
+    });
+    test('a class with a rule draws no note', () => expect(notes(`${E}e.classList.add("highlight");`)).toBeUndefined());
+    test('a class the script looks up again draws no note', () => expect(notes(`${E}e.classList.add("seen");\nlet a = document.querySelectorAll(".seen");`)).toBeUndefined());
+  });
+
+  test('a stylesheet with no classes draws no class note', () => expect(run(`${E}e.classList.add("on");`).notes).toBeUndefined());
+
+  test('a dot on a tag name says so', () => {
+    expect(run('document.querySelector(".h2").textContent = "x";').last?.error?.help).toBe('querySelector(".h2") looks for the class h2, and no element has it. To find <h2> tags, write "h2" with no dot.');
+  });
+
   test('a note stays off for a step that sets lintOff', () => {
     const off = { ...spec, lintOff: ['not-a-property'] };
     const s = jsModel.apply(off, jsModel.apply(off, jsModel.init(off), { edit: 'script.js', code: `${E}e.textcontent = "x";` }), { run: true });

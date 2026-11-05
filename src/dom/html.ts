@@ -711,9 +711,6 @@ class Builder {
     }
   }
 
-  private frameIn(): void {
-    /* A hook for frameset pages, which this parser leaves out. */
-  }
 
   private inSelect(): boolean {
     return !!this.inScope((e) => this.isTag(e, 'select'), new Set(['html', 'table', 'td', 'th', 'caption']));
