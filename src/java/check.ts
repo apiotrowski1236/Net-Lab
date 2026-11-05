@@ -489,7 +489,7 @@ class Checker {
         let elem: JType = ERROR;
         if (t.k === 'array') elem = t.of;
         else if (t.k === 'class' && (t.name === 'ArrayList' || t.name === 'List')) elem = t.args[0] ?? OBJECT;
-        else if (t.k !== 'error') this.err('bad-foreach', 'for-each not applicable to expression type', s.iter.pos, 'A for-each loop goes through an array or an ArrayList.', ['  required: array or java.lang.Iterable', `  found:    ${typeName(t)}`]);
+        else if (t.k !== 'error') this.err('bad-foreach', 'for-each not applicable to expression type', s.iter.pos, 'A for loop with a colon goes through an array or an ArrayList.', ['  required: array or java.lang.Iterable', `  found:    ${typeName(t)}`]);
         c.scopes.push(new Map());
         const vt = this.resolve(s.type, s.pos.file, c.cls.name);
         if (!fits(elem, vt, true)) this.mismatch(elem, vt, s.iter.pos);

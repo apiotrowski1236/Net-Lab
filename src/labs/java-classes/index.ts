@@ -48,14 +48,12 @@ export const javaClassesLab: LabDef = {
       id: 'why',
       title: 'Too many variables',
       body: md`
-        Programs keep track of things: players in a game, songs in an app, students in a class. In this lab you'll teach Java about a new kind of thing, by writing a **class**.
+        In this lab, you'll write your own Java **classes**. A class defines a new data type, such as Song or BankAccount.
 
-        First, see the problem a class solves. This code tracks two players in a game. Each player has a name and a health number, so each player needs two variables.
+        This code tracks two players in a game without using a class. Each player has a name and a health number, so each player needs two variables.
 
         1. Press **Run**. Read what it prints.
         2. Add a third player named Linus, with 90 health. Print Linus too, then press **Run** again.
-
-        Before Java runs your code, it checks all of it. This is called **compiling**. If it finds a mistake, it shows an error, and nothing runs.
       `,
       demos: [{ kind: 'java', id: 'loose', title: 'Tracking players', files: code.LOOSE, checks: [code.THIRD_PLAYER] }],
       goals: [
@@ -66,7 +64,7 @@ export const javaClassesLab: LabDef = {
         {
           id: 'fifty',
           kind: 'choice',
-          prompt: 'A real game has 50 players. Each player has a name, a health number, and a score. How many separate variables would this style of code need?',
+          prompt: 'Imagine a game with 50 players. Each player has a name, a health number, and a score. How many separate variables would this style of code need?',
           options: [
             { id: '3', text: '3', feedback: 'That covers one player. Each of the 50 players needs their own three.' },
             { id: '50', text: '50', feedback: 'That gives each player one variable, but each player has three values to keep.' },
@@ -83,14 +81,16 @@ export const javaClassesLab: LabDef = {
       id: 'what',
       title: 'Classes and objects',
       body: md`
-        A **class** is a blueprint: a plan that describes one kind of thing. An **object** is one thing built from that plan. One class can make as many objects as you need.
+        A **class** is a blueprint that describes a type of data, like a player in a game. An **object** is one player built from that blueprint. One class can make as many objects as you need.
 
-        A class says two things about every object it makes:
+        A class defines two parts of every object it makes:
 
         - **Attributes** are the data each object keeps. A player has a name and health.
         - **Behaviors** are what each object can do. A player can take damage.
 
         Try it. Press **new Player** to make two objects. Then press **takeDamage(10)** on only one of them, and watch the other. (This demo stops at three objects. A real program can make more.)
+
+        Classes solve the problem from step 1. Each object keeps its own name and health together, so the code can't mix up one player's data with another's. You write a method like takeDamage once, and every Player object can use it. To give every player a score, you change the class once, instead of adding a new variable for each player.
 
         **When should you write a class?**
 
@@ -137,20 +137,16 @@ export const javaClassesLab: LabDef = {
       id: 'anatomy',
       title: 'Read a real class',
       body: md`
-        Here is the Player class in real Java. Open the **Player.java** tab and find each part. Comments in the code name them too.
+        Here is the Player class. Open the **Player.java** tab, and use its comments to find each part below.
 
         | Part | What it does |
         | --- | --- |
         | \`public class Player\` | Starts the class. The file has the same name. |
-        | **Instance variables** | The attributes. Every object gets its own copy. |
+        | **Instance variables** | The attributes. Each object stores its own values. |
         | **Constructor** | Sets up a new object. It has the same name as the class. |
         | **Methods** | The behaviors. Other code calls them with a dot. |
 
-        **Main.java** is a second class. Java starts every program at its \`main\` method. Main uses Player to make objects.
-
-        You don't need every word yet. Later steps explain private, return, and void.
-
-        Notice how much shorter Main is than your code from step 1. Now add Linus: one line makes the object, with the name "Linus" and 90 health. One more line prints it. Press **Run**.
+        Notice how much shorter Main is than your code from step 1. Now add Linus in **Main.java**. Make a Player with the name "Linus" and 90 health, then print Linus the same way as the other two players. Press **Run**.
       `,
       demos: [{ kind: 'java', id: 'players', title: 'Two classes working together', files: code.PLAYERS, checks: [code.THIRD_OBJECT] }],
       goals: [
@@ -188,15 +184,13 @@ export const javaClassesLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'trace',
-      title: 'Watch an object get built',
+      title: 'Constructing an object',
       body: md`
         Now watch a Player program run one line at a time.
 
         Press **Step through**, then keep pressing **Next** until the program ends. The marked line is the one **about to run**. The picture plays what that line does until you press **Next**. The blue bar beside the code and the \`Next:\` label show where Java goes after it.
 
-        Read the sentence that explains each line. It names each new idea as it happens.
-
-        Press **Pause** to stop the movement and see how things look after the line runs. Press **Back a line** any time.
+        The caption explains what each line does. Read it before you press **Next**.
       `,
       demos: [{ kind: 'java', id: 'trace', title: 'One line at a time', files: code.TRACED, step: true }],
       goals: [{ id: 'end', label: 'Step through to the end of the program.', hint: 'Press **Step through**, then keep pressing **Next** until it stops.', check: demoFact('trace', (f) => f.finished === true) }],
@@ -220,7 +214,7 @@ export const javaClassesLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'private',
-      title: 'Why private?',
+      title: 'Public vs private',
       body: md`
         Player's instance variables say **private**. Only code inside the Player class can use or change them. **public** means any class can use it.
 
@@ -261,21 +255,21 @@ export const javaClassesLab: LabDef = {
       body: md`
         Now you write the class. Each song in a music app has a title, an artist, and a play count.
 
-        Press **Run** first. You'll get an error, because Main passes two values, and no constructor takes them yet. That's fine. Errors show you what's left.
+        Press **Run** first. You'll get an error, because Main passes two values, and no constructor takes them yet. That's fine. The errors show you what's left for you to implement.
 
         A class with no constructor gets a **default constructor** from Java, which takes no values. Once you write your own, Java stops supplying that one.
 
         A **parameter** is a variable that gets its value when the constructor is called. Main passes "Neon Rain", so \`songTitleIn\` will hold "Neon Rain".
 
-        Work in **Song.java**, and press **Run** after each part. **Player.java** is there to read as a pattern. The checks tell you what's left.
+        Work in **Song.java**, and press **Run** after each part. You can refer to **Player.java** to remember how a class is structured, but we won't need the code in **Player.java** for this step.
 
         1. Declare three private instance variables, which means naming each one and giving its type: \`title\` and \`artist\` are Strings, and \`plays\` is an int. Follow Player: \`private String name;\`
         2. Write a constructor with two String parameters, \`songTitleIn\` and \`songArtistIn\`. Constructor parameters in this lab end in In, so you can tell them apart from the instance variables.
-        3. Inside it, store each parameter in its instance variable, and set \`plays\` to 0. The variable on the left of \`=\` gets the value.
+        3. Inside it, store each parameter in its instance variable, and set \`plays\` to 0.
       `,
       demos: [songEditor],
       goals: [
-        passed('song', code.SONG_FIELDS, 'Declare the three private instance variables.', 'Inside the class, above the constructor: `private String title;` and so on. Each line ends with a semicolon.'),
+        passed('song', code.SONG_FIELDS, 'Declare the three private instance variables.', 'Inside the class, above the constructor: `private String title;` and so on. Don\'t forget the semicolon!'),
         passed('song', code.SONG_CTOR, 'Write the constructor.', 'A constructor has the same name as the class: `public Song(String songTitleIn, String songArtistIn) { }`'),
         passed('song', code.SONG_SETS, 'Store both values, and start plays at 0.', 'Inside the constructor: `title = songTitleIn;`'),
       ],
@@ -300,7 +294,7 @@ export const javaClassesLab: LabDef = {
       id: 'getters',
       title: 'Accessors: let others read',
       body: md`
-        Song's data is private, so Main can't read it. An **accessor** is a method that lets other classes read a value:
+        Song's data is private, so Main can't read it. An **accessor** (or **getter**) is a method that lets other classes read a value:
 
         \`\`\`java
         public int getHealth() {
@@ -312,7 +306,7 @@ export const javaClassesLab: LabDef = {
         }
         \`\`\`
 
-        The word before the name, \`int\` or \`String\`, is the **return type**: what kind of value the method gives back. \`return\` ends the method and hands the value to the code that called it.
+        The word before the name, \`int\` or \`String\`, is the **return type**.
 
         To build text, join the parts with \`+\`, and put the spaces inside the quotes: \`name + " has " + health\` gives \`Ada has 70\`.
 
@@ -347,7 +341,7 @@ export const javaClassesLab: LabDef = {
       id: 'mutators',
       title: 'Mutators: let others change',
       body: md`
-        An **accessor** reads. A **mutator** is a method that changes an instance variable. It is often **void**, which means it gives back no value at all, not even 0.
+        An accessor reads data from the class. A **mutator** (or **setter**) writes data, just like setting the value of a regular Java variable, except it's written to the storage inside the class object. These usually have the **void** return type, meaning they don't return a value.
 
         Open **Player.java** and find \`takeDamage\`. It is a mutator. Its line \`health = health - amount;\` computes a new value from the old one, then stores it.
 
@@ -378,17 +372,15 @@ export const javaClassesLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'this',
-      title: 'Same name, two variables: this',
+      title: 'What is "this"?',
       body: md`
         Someone wrote this Pet class, and it has a bug. Press **Run**, and look at what it prints.
 
         Press **Step through**, then press **Next** until you've seen the constructor's two lines. Then press **Stop**.
 
-        Here is the bug. Both the parameter and the instance variable are called \`name\`, because Pet's author did not use the In ending. Inside the constructor, \`name\` means the parameter, which **hides** the instance variable. So \`name = name;\` copies the parameter onto itself.
+        Here is the bug. Both the parameter and the instance variable are called \`name\`, because Pet's author did not use the In ending. Inside the constructor, \`name\` means the parameter, which **hides** the instance variable. So \`name = name;\` copies the parameter onto itself. This is why we use the In ending: if the parameter was named \`nameIn\`, neither we nor Java would get confused between the two.
 
         **this** refers to the current object, the one the code is working on. \`this.name\` always means the instance variable. Fix the constructor: write \`this.name = name;\` and do the same for age. Press **Run**.
-
-        **Scope** is the part of the code where a name works. A parameter works only inside its own constructor or method: its box goes away when that code ends. A **local variable**, one declared inside a method, works only inside the braces { } that hold it. An instance variable works anywhere in the class.
       `,
       demos: [{ kind: 'java', id: 'pets', title: 'Fix the Pet class', files: code.PET, checks: [code.PET_FIXED], step: true, report: true }],
       goals: [passed('pets', code.PET_FIXED, 'Fix the constructor with this.', '`this.name = name;`')],
@@ -403,7 +395,7 @@ export const javaClassesLab: LabDef = {
             { id: 'public', text: 'Only if the parameter is public', feedback: 'Local variables and parameters can\'t be public or private at all.' },
             { id: 'this', text: 'Yes, if it writes this.age', feedback: 'this.age is the instance variable, and getSummary can use that. The parameter is already gone.' },
           ],
-          explain: 'getSummary uses the instance variable age. That is why the constructor has to store the parameter there.',
+          explain: 'A parameter exists only inside its own constructor or method. The same goes for a local variable, one declared inside a method. getSummary uses the instance variable age. That is why the constructor has to store the parameter there.',
         },
       ],
     },
@@ -413,13 +405,13 @@ export const javaClassesLab: LabDef = {
       id: 'scratch',
       title: 'On your own: BankAccount',
       body: md`
-        Now write a whole class on your own in **BankAccount.java**. **Player.java** is there if you want to check a pattern. **Main.java** is already written, and it calls the constructor and all three methods.
+        Now you have all the skills you need to write a whole class on your own. Open **BankAccount.java** and implement the class per the instructions below. Remember that you can refer to **Player.java** if you need to see a working example of a class. **Main.java** is already written, and it calls the constructor and all three methods.
 
         - **Instance variables:** \`owner\`, a String, and \`balance\`, an int. Both private.
         - **Constructor:** Takes the owner and the starting balance. End each parameter's name in In.
         - \`public int getBalance()\` returns the balance.
         - \`public void deposit(int amount)\` adds to the balance.
-        - \`public void withdraw(int amount)\` subtracts from the balance, but only if there's enough. With a balance of 50, taking out 50 is allowed, and taking out 51 changes nothing.
+        - \`public void withdraw(int amount)\` subtracts from the balance, but only if there's enough. With a balance of 50, taking out 50 is allowed. If the withdrawal amount is larger than the account balance, we should ignore the request and make no change to the account balance.
 
         In an if, \`<=\` means less than or equal to.
 
@@ -427,7 +419,7 @@ export const javaClassesLab: LabDef = {
       `,
       demos: [{ kind: 'java', id: 'bank', title: 'Write the BankAccount class', files: code.BANK, checks: bankChecks, step: true, report: true }],
       goals: [
-        passed('bank', code.BANK_CTOR, 'Write the instance variables and the constructor.', 'Song is your pattern: private instance variables, then a constructor with no return type.'),
+        passed('bank', code.BANK_CTOR, 'Write the instance variables and the constructor.', 'Look back at how you wrote Song. Start with the private instance variables, then write a constructor with no return type.'),
         passed('bank', code.BANK_WITHDRAW, 'Write getBalance, deposit, and withdraw.', 'In withdraw, use an if: `if (amount <= balance) { ... }`'),
       ],
       questions: [
@@ -441,7 +433,7 @@ export const javaClassesLab: LabDef = {
             { id: 'faster', text: 'Because code in a class runs faster', feedback: 'Speed is the same. The point is where the rule lives.' },
             { id: 'private', text: 'Because if statements have to be in private methods', feedback: 'withdraw is public, and an if can go in any method.' },
           ],
-          explain: 'The class guards its own data. That is data encapsulation at work: one rule, in one place, for every object.',
+          explain: 'The class guards its own data. That is data encapsulation: the rule sits in one place, and it protects every object.',
         },
       ],
     },
@@ -495,7 +487,7 @@ export const javaClassesLab: LabDef = {
         }
         \`\`\`
 
-        \`add\` puts an item at the end of the list. A **for-each loop** runs once per item, and \`p\` holds that item. \`pets.get(0)\` gives back the first item.
+        \`add\` puts an item at the end of the list. This for loop runs once per item, and \`p\` holds that item. \`pets.get(0)\` gives back the first item.
 
         To find the biggest, keep the best one so far, and replace it when you find a bigger one. With ages 5, 8, and 3, best starts at 5. 8 is bigger than 5, so best becomes 8. 3 is not bigger than 8, so best stays 8. In **Playlist.java**, best is a whole Song, since \`getMostPlayed\` returns a Song.
 
@@ -510,8 +502,8 @@ export const javaClassesLab: LabDef = {
       demos: [{ kind: 'java', id: 'list', title: 'Write the Playlist class', files: code.PLAYLIST, checks: listChecks, step: true, report: true, from: { step: 'mutators', demo: 'song', files: ['Song.java'] } }],
       goals: [
         passed('list', code.LIST_ADD, 'Write add.', '`songs.add(song);`'),
-        passed('list', code.LIST_TOTAL, 'Write getTotalPlays.', 'Start a total at 0, then add each song\'s getPlays() in a for-each loop.'),
-        passed('list', code.LIST_MOST, 'Write getMostPlayed.', 'Start with `Song best = songs.get(0);`. In a for-each loop, if a song has more plays than best, store it in best. Compare getPlays() on both. Return best at the end.'),
+        passed('list', code.LIST_TOTAL, 'Write getTotalPlays.', 'Start a total at 0, then add each song\'s getPlays() in a for loop.'),
+        passed('list', code.LIST_MOST, 'Write getMostPlayed.', 'Start with `Song best = songs.get(0);`. In a for loop, if a song has more plays than best, store it in best. Compare getPlays() on both. Return best at the end.'),
       ],
     },
   ],

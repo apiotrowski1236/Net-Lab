@@ -18,7 +18,7 @@ export function runtimeHelp(short: string): string {
     case 'StackOverflowError':
       return 'A method kept calling itself and never stopped. Check that it has a way to finish.';
     case 'ConcurrentModificationException':
-      return "A for-each loop can't add to or remove from the list it's going through. Use a regular for loop.";
+      return "A for loop like for (Song s : songs) can't add to or remove from the list it's going through. Use a for loop with an index instead.";
     case 'NegativeArraySizeException':
       return "An array can't have a negative size.";
     default:
