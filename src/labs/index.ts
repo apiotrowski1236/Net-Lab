@@ -16,10 +16,11 @@ import { logsLab } from './logs';
 import { binaryNumbersLab } from './binary-numbers';
 import { javaClassesLab } from './java-classes';
 import { jsArraysLab } from './js-arrays';
+import { jsLoopsLab } from './js-loops';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [homeNetworkLab, packetCaptureLab, wiresharkLab, buildNetworkLab, netToolsLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab, binaryNumbersLab, javaClassesLab, jsArraysLab];
+export const LABS: LabDef[] = [homeNetworkLab, packetCaptureLab, wiresharkLab, buildNetworkLab, netToolsLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab, binaryNumbersLab, javaClassesLab, jsArraysLab, jsLoopsLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the

@@ -152,7 +152,7 @@ const sum: JsSpec = {
 ### Three layers of mistake catching
 
 1. **Errors.** Automatic. A student sees V8's exact wording plus plain help, with a link to the line and the output from before the crash. Syntax help covers commas in a `for` header, a missing `)` or `}` (naming the line that opened it), capitalized keywords, `elif` and `elseif`, curly quotes, unterminated strings, `const` with no value, `let` twice, and reserved words. Runtime help offers "did you mean" from names in scope.
-2. **Notes.** Automatic. `src/js/lint.ts` runs when a run finishes and lists "Something to check" under the output. Rule ids, for `lintOff`:
+2. **Notes.** Automatic. `src/js/lint.ts` runs when a run finishes and lists "Something to check" under the output. While a prompt waits after at least one answer, the rules in `WAITING_RULES` show too, so a loop that can't end says why. Rule ids, for `lintOff`:
    - `assign-in-condition`: `if (x = 5)`.
    - `semicolon-after-header`: `for (...);`, `while (...);`, `if (...);`.
    - `while-unchanged`: nothing in the body changes the condition's variables. Fires only when the run didn't finish.
@@ -163,6 +163,7 @@ const sum: JsSpec = {
    - `shadowed-name`: `let total` in a block hides an outer `total`.
    - `reset-in-loop`: a running total or counter set back to its start inside the loop that adds to it.
    - `prompt-plus`: `+` joined a prompt() answer as text where a number was meant.
+   - `prompt-compare`: `===` or `!==` compared a prompt() answer with a number, which never matches.
    - `alert-extra-args`: `alert("a", b)`.
    - `misspelled-property`: a read that gave undefined and sits close to a real name, like `arr.lenght`.
 3. **Checks.** Yours, one list per demo.
@@ -209,7 +210,7 @@ const TOTAL: JsCheck = {
   - It works on `let`, `const`, and `var` with a value, a `let a;` set on a later line, and a variable with no declaration.
   - The program can still change the value afterward. A `prompt()` in the replaced value isn't asked.
   - Variables inside a function or a block are not replaced. Check `dataMissing`, which lists names the program never gave a first value to, usually because the student renamed one. Say so in the note.
-- Facts for a check: `facts.loops` (`{ file, line, runs }`, how many passes each loop made), `facts.builtinCalls`, `facts.prompts`, `facts.indexAtLength`, `facts.promptPlus`, `facts.misspelled`.
+- Facts for a check: `facts.loops` (`{ file, line, runs }`, how many passes each loop made), `facts.builtinCalls`, `facts.prompts`, `facts.indexAtLength`, `facts.promptPlus`, `facts.promptCompare`, `facts.misspelled`.
 - It can't hang. Each hidden run gets 400,000 steps, and all of them together get 1,500,000 per Run. Past that, `run` returns status `'limit'` at once. The same options return the same result without running again, so call it freely.
 
 ### Facts for goals
@@ -231,6 +232,7 @@ ask: { moves: on('tip', { edit: 'script.js', code: TIP }, { run: true }, { answe
 
 - `{ edit: file, code }`, then `{ run: true }`. Edits don't run anything. Editing while a prompt waits drops the prompt.
 - `{ answer: string | null }`, once per prompt, after the Run. Null is **Cancel**. A confirm takes `{ answer: '' }` for **OK**. Each answer reruns from the top with the same seed, so `Math.random` gives the same numbers throughout one Run. A Run clears the answers.
+- `{ stop: true }` presses **Stop** on a waiting prompt. A loop around a prompt never reaches the step limit, and Cancel, Run, and a reload all land on the same prompt, so this is how a student leaves one. The run ends where it stood, and it gets its notes and checks with `c.status` set to `'waiting'`.
 - `{ hint: id }` works only for the first unmet check. `{ tab: file }` opens a tab, which `opened:<file>` reports.
 - Step through: `{ stepping: true }`, then `{ seek: 1 }`, `{ seek: 2 }`, and so on, then `{ stepping: false }`. The click-through presses **Next** once per seek, so count up by one. A prompt in a step-through takes `{ answer }` at the step that waits, and the same step number then shows what came next.
 - A lab needs its click-through at 4× and 1× like any other.

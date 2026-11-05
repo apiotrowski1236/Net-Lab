@@ -16,7 +16,10 @@ export interface LintNote {
   text: string;
 }
 
-export const LINT_RULES = ['assign-in-condition', 'semicolon-after-header', 'while-unchanged', 'index-at-length', 'assign-push', 'method-no-parens', 'result-unused', 'shadowed-name', 'reset-in-loop', 'prompt-plus', 'alert-extra-args', 'misspelled-property'] as const;
+export const LINT_RULES = ['assign-in-condition', 'semicolon-after-header', 'while-unchanged', 'index-at-length', 'assign-push', 'method-no-parens', 'result-unused', 'shadowed-name', 'reset-in-loop', 'prompt-plus', 'prompt-compare', 'alert-extra-args', 'misspelled-property'] as const;
+
+/** Rules that can say why a loop around a prompt will never end, so they show while the prompt waits. */
+export const WAITING_RULES: readonly string[] = ['assign-in-condition', 'while-unchanged', 'shadowed-name', 'prompt-compare'];
 
 const MUTATORS = new Set(['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'fill']);
 /** Built-ins that hand back a new value and leave everything else alone. */
@@ -384,6 +387,11 @@ function declaredOutside(name: string, loop: Loop, c: Ctx): boolean {
   return found;
 }
 
+function promptCompare(n: Node, c: Ctx): void {
+  if (n.k !== 'binary' || !c.run?.facts.promptCompare.some((f) => f.file === n.pos.file && f.off === n.pos.off)) return;
+  c.add('prompt-compare', n.pos.line, `prompt() always gives back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Turn the answer into a number first: let age = Number(prompt("How old are you?"));`);
+}
+
 function alertExtraArgs(n: Node, c: Ctx, alertIsMine: boolean): void {
   if (alertIsMine || n.k !== 'call' || n.callee.k !== 'id' || n.callee.name !== 'alert' || n.args.length < 2) return;
   const parts = n.args.map((a) => c.text(a)).join(' + ');
@@ -445,6 +453,7 @@ function lintAll(programs: Program[], run: RunResult | undefined, off: readonly 
       methodNoParens(n, c);
       resultUnused(n, c);
       resetInLoop(n, c);
+      promptCompare(n, c);
       alertExtraArgs(n, c, alertIsMine);
     });
     indexAtLength(c);

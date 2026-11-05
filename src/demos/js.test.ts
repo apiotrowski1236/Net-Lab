@@ -91,6 +91,66 @@ describe('prompts', () => {
     expect(jsModel.apply(d, s, { answer: 'x' })).toBe(s);
   });
 
+  describe('a loop that keeps asking', () => {
+    const trap = spec('let guess = 0;\nwhile (guess !== 7) {\n  guess = prompt("Guess");\n}\nconsole.log("got it");\n');
+
+    it('has no way out through Cancel or Run', () => {
+      const s = play(trap, [{ run: true }, { answer: '7' }, { answer: null }]);
+      expect(s.waiting?.message).toBe('Guess');
+      expect(jsModel.apply(trap, s, { run: true }).waiting?.message).toBe('Guess');
+    });
+
+    it('ends at Stop, and keeps what the run printed', () => {
+      const s = play(trap, [{ run: true }, { answer: '7' }, { stop: true }]);
+      expect(s.waiting).toBeUndefined();
+      expect(s.last?.status).toBe('waiting');
+      expect(s.last?.lines.map((l) => l.answer)).toEqual(['7']);
+      expect(jsModel.facts(trap, s).waiting).toBe(false);
+    });
+
+    it('judges the run it stopped, since the checks would otherwise never run', () => {
+      const d2: JsSpec = { ...trap, checks: [{ id: 'never', label: 'Stop asking', test: (c) => (c.run({ prompts: ['7'] }).status === 'waiting' ? 'It keeps asking.' : undefined) }] };
+      expect(play(d2, [{ run: true }, { answer: '7' }]).checks).toBeUndefined();
+      expect(play(d2, [{ run: true }, { answer: '7' }, { stop: true }]).checks).toEqual([{ id: 'never', ok: false, note: 'It keeps asking.' }]);
+    });
+
+    it('says why as soon as the loop asks again', () => {
+      expect(play(trap, [{ run: true }]).notes).toBeUndefined();
+      expect(play(trap, [{ run: true }, { answer: '7' }]).notes?.map((n) => `${n.rule}:${n.line}`)).toEqual(['prompt-compare:2']);
+    });
+
+    it('says why when the answer is never saved', () => {
+      const lost = spec('let age = 0;\nwhile (age < 13) {\n  prompt("Age?");\n}\n');
+      expect(play(lost, [{ run: true }, { answer: '14' }]).notes?.map((n) => n.rule)).toEqual(['while-unchanged']);
+    });
+
+    it('says why when the loop reads its own variable', () => {
+      const shadow = spec('let age = 0;\nwhile (age < 13) {\n  let age = Number(prompt("Age?"));\n}\n');
+      expect(play(shadow, [{ run: true }, { answer: '14' }]).notes?.map((n) => n.rule)).toEqual(['while-unchanged', 'shadowed-name']);
+    });
+
+    it('says why when the condition assigns', () => {
+      const assign = spec('let code = "";\nwhile (code = "pixel") {\n  code = prompt("Code?");\n}\n');
+      expect(play(assign, [{ run: true }, { answer: 'pixel' }]).notes?.map((n) => n.rule)).toContain('assign-in-condition');
+    });
+
+    it('stays quiet on a loop that can end, and on notes that wait for a whole run', () => {
+      const fine = spec('let code = "";\nlet a = [1];\na.length;\nwhile (code !== "pixel") {\n  code = prompt("Code?");\n}\n');
+      expect(play(fine, [{ run: true }, { answer: 'no' }]).notes).toBeUndefined();
+      expect(play(fine, [{ run: true }, { answer: 'no' }, { answer: 'pixel' }]).notes?.map((n) => n.rule)).toEqual(['result-unused']);
+    });
+
+    it('does nothing when no prompt is waiting', () => {
+      const s = play(d, []);
+      expect(jsModel.apply(d, s, { stop: true })).toBe(s);
+    });
+
+    it('leaves a step-through to its own Stop', () => {
+      const s = play(d, [{ stepping: true }]);
+      expect(jsModel.apply(d, s, { stop: true })).toBe(s);
+    });
+  });
+
   it('drops the prompt when the code changes', () => {
     const s = play(d, [{ run: true }, { edit: 'script.js', code: 'console.log(1);\n' }]);
     expect(s.waiting).toBeUndefined();

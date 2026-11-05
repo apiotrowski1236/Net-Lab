@@ -166,6 +166,9 @@ async function doDemo(id, input) {
     if (input.answer !== null && (await text.count())) await text.fill(input.answer);
     await box.getByRole('button', { name: input.answer === null ? 'Cancel' : 'OK', exact: true }).click();
     log(`  answer the prompt: ${input.answer === null ? 'Cancel' : `OK ${JSON.stringify(input.answer)}`}`);
+  } else if ('stop' in input) {
+    await stage.locator('.js-stop').click();
+    log('  press Stop on the prompt');
   } else if ('hint' in input) {
     await stage.locator('.js-hint').click();
     log(`  press Hint (${input.hint})`);

@@ -1,4 +1,4 @@
-import { lint, parseFiles, Query, runProgram, type JsError, type Limit, type LintNote, type OutputLine, type Program, type RunFacts, type RunOptions, type RunResult, type TraceStep, type Waiting } from '../js';
+import { lint, parseFiles, Query, runProgram, WAITING_RULES, type JsError, type Limit, type LintNote, type OutputLine, type Program, type RunFacts, type RunOptions, type RunResult, type TraceStep, type Waiting } from '../js';
 import type { DemoFacts, DemoInput, DemoModel, JsCheck, JsFile, JsSpec } from './types';
 
 /** What the last Run did, as saved and shown. */
@@ -87,7 +87,7 @@ export interface JsCheckRun {
 const CHECK_STEPS = 400_000;
 /** Steps all the hidden runs of one Run may take together, so a long list of checks can't freeze the page. */
 const CHECK_TOTAL = 1_500_000;
-const NO_FACTS: RunFacts = { indexAtLength: [], promptPlus: [], misspelled: [], loops: [], builtinCalls: [], prompts: 0 };
+const NO_FACTS: RunFacts = { indexAtLength: [], promptPlus: [], promptCompare: [], misspelled: [], loops: [], builtinCalls: [], prompts: 0 };
 
 const printed = (lines: readonly OutputLine[]): JsCheckLine[] => lines.flatMap((l) => (l.kind === 'log' || l.kind === 'alert' ? [{ kind: l.kind, text: l.text, line: l.line, ...(l.error ? { error: l.error } : {}) }] : []));
 
@@ -190,15 +190,18 @@ const lastOf = (r: RunResult): JsLast => ({ status: r.status, lines: r.lines, er
 /** Parts of the state a syntax error sets. Nothing ran, so old checks are held, not rerun. */
 const stoppedBy = (spec: JsSpec, error: JsError): Pick<JsState, 'last' | 'notes' | 'held' | 'waiting' | 'answers' | 'edited'> => ({ last: { status: 'error', lines: [], error }, notes: undefined, held: !!spec.checks?.length, waiting: undefined, answers: [], edited: false });
 
-/** Runs from the top with these answers, up to the next unanswered prompt or the end. */
-function execute(spec: JsSpec, s: JsState, seed: number, answers: JsState['answers']): JsState {
+/** Runs from the top with these answers, up to the next unanswered prompt or the end. `stop`: the student ended the run at that prompt, so it's judged as it stands. */
+function execute(spec: JsSpec, s: JsState, seed: number, answers: JsState['answers'], stop = false): JsState {
   const { programs, error } = parseFiles(s.files);
   if (error) return { ...s, runs: seed, at: undefined, ...stoppedBy(spec, error) };
   const hosts = hostsFor(spec, s.files);
   const r = runProgram(programs, { seed, answers, hosts });
   const base: JsState = { ...s, runs: seed, answers, last: lastOf(r), waiting: undefined, notes: undefined, held: false, edited: false, at: undefined };
-  // Notes and checks judge a whole run, so they wait for the last answer.
-  if (r.status === 'waiting') return { ...base, waiting: r.waiting };
+  // Notes and checks judge a whole run, so they wait for the last answer. A loop that can't end has no last answer, so the notes that explain one show as soon as it asks again.
+  if (r.status === 'waiting' && !stop) {
+    const live = answers.length ? lint(programs, r, spec.lintOff).filter((n) => WAITING_RULES.includes(n.rule)) : [];
+    return { ...base, waiting: r.waiting, notes: live.length ? live : undefined };
+  }
   const notes = lint(programs, r, spec.lintOff);
   return { ...base, notes: notes.length ? notes : undefined, checks: runChecks(spec, () => new JsCheckCtx(programs, r, notes, hosts)) };
 }
@@ -252,6 +255,8 @@ export const jsModel: DemoModel<JsSpec, JsState> = {
       // The rerun carries on past the prompt, so the same step number now shows what came next.
       return { ...s, answers: [...s.answers, input.answer] };
     }
+    // A prompt in a loop can ask forever: Cancel and Run both land on it again, and it survives a reload.
+    if ('stop' in input) return s.waiting ? execute(spec, s, s.runs, s.answers, true) : s;
     if ('stepping' in input) {
       if (!input.stepping) return s.at === undefined ? s : { ...s, at: undefined, answers: [] };
       const { error } = parseFiles(s.files);

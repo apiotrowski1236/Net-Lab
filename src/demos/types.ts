@@ -255,6 +255,7 @@ export type DemoInput =
   | { seek: number }
   // js, which also takes the java inputs above
   | { answer: string | null }
+  | { stop: true }
   | { hint: string }
   // objects
   | { make: true }
