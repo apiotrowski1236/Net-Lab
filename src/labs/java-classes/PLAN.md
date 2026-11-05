@@ -23,3 +23,9 @@ Overriding `toString` is excluded from the course (CED 1.15.A.5), so the lab use
 | 13 | playlist | extra | Writes a Playlist that has an ArrayList of Song |
 
 The runner is a compiler and interpreter for the Java subset AP CSA uses (`src/java`). `src/java/differential.test.ts` compares it with a real JDK through `scripts/java-oracle/Oracle.java`, and skips itself where `javac` isn't installed.
+
+## Step-through animation
+
+The interpreter records what each line does as `beats` on its trace step (`src/java/run.ts`). `planStep` in `src/demos/javaPlan.ts` turns one step and the next into a timed plan, and `Stepper` in `src/ui/demos/Java.tsx` plays it on a loop until the student moves on. A for loop's update and a for-each's next item belong to the loop's own line.
+
+**Pause** and `prefers-reduced-motion` show the picture before the line runs, with the action written out in the strip. The caption says the same action in sentences, so nothing depends on watching the motion.

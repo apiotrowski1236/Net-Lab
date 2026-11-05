@@ -6,9 +6,10 @@ import { Annotation, Compartment, EditorState, RangeSetBuilder, StateEffect, Sta
 import { Decoration, drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, type DecorationSet } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 
-/** Lines to color: the one about to run, and any with an error. */
+/** Lines to color: the one about to run, the one after it, and any with an error. */
 export interface LineMarks {
   run?: number;
+  next?: number;
   errors?: number[];
 }
 
@@ -31,11 +32,13 @@ const setMarks = StateEffect.define<LineMarks>();
 const fromOutside = Annotation.define<boolean>();
 
 const RUN = Decoration.line({ class: 'cm-java-run' });
+const NEXT = Decoration.line({ class: 'cm-java-next' });
 const ERR = Decoration.line({ class: 'cm-java-err' });
 
 function decorate(doc: Text, m: LineMarks): DecorationSet {
   const lines = new Map<number, Decoration>();
   for (const l of m.errors ?? []) lines.set(l, ERR);
+  if (m.next) lines.set(m.next, NEXT);
   if (m.run) lines.set(m.run, RUN);
   const b = new RangeSetBuilder<Decoration>();
   for (const l of [...lines.keys()].sort((x, y) => x - y)) if (l >= 1 && l <= doc.lines) b.add(doc.line(l).from, doc.line(l).from, lines.get(l)!);
@@ -73,6 +76,7 @@ const theme = EditorView.theme({
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'var(--code-select)' },
   '.cm-matchingBracket': { backgroundColor: 'var(--code-select)', outline: 'none' },
   '.cm-java-run': { backgroundColor: 'var(--warn-soft)', boxShadow: 'inset 3px 0 0 var(--warn)' },
+  '.cm-java-next': { backgroundColor: 'var(--brand-soft)', boxShadow: 'inset 3px 0 0 var(--brand-line)' },
   '.cm-java-err': { backgroundColor: 'var(--bad-soft)', boxShadow: 'inset 3px 0 0 var(--bad)' },
 });
 

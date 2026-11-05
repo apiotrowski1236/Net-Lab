@@ -190,7 +190,9 @@ export const javaClassesLab: LabDef = {
       body: md`
         Now watch the same code run one line at a time.
 
-        Press **Step through**, then press **Next** again and again. The marked line is the one **about to run**.
+        Press **Step through**, then press **Next** again and again. The marked line is the one **about to run**. The memory picture plays what that line does, over and over, until you press **Next**. **Next:** names the line Java goes to after it.
+
+        Press **Pause** to stop the movement and read the line's work as text.
 
         Watch for these:
 
