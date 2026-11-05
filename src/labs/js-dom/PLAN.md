@@ -4,7 +4,7 @@ Status: built. Code is in this folder and `src/dom/`.
 
 Intro CS, third JavaScript lab, after arrays and loops. Students have made personal websites in HTML and CSS, and they know variables, prompt, alert, if/else, arrays, and loops. They have not learned functions or objects. The point is automation: a loop can build what would take hours to write by hand.
 
-Tabs are `index.html` (read only in every step), `style.css` (carries from step to step), and `script.js`. Each step starts a new `script.js`, because a chained `prompt()` would fire on every later Run. The page shows the sections a step needs, so a student never faces empty headings.
+Tabs are `index.html` (read only in every step), `style.css` (carries from step to step), and `script.js`. Syntax reminders sit in the step text, not in a `note` demo, so the editor, preview, and output fit on one screen at 1366x768. Each step starts a new `script.js`, because a chained `prompt()` would fire on every later Run. The page shows the sections a step needs, so a student never faces empty headings.
 
 ## Mistakes each step catches
 
@@ -61,7 +61,7 @@ Where a line says "shared", the words come from `src/dom/notes.ts` or `src/js/he
 
 ## Steps
 
-1. hello: find by id, set `textContent`, on the heading and tagline.
+1. hello: find by id, set `textContent`, on the heading and tagline. One prediction question: the file stays as it was after a Run.
 2. look: `style` or `classList`, and a `prompt()` answer on the page.
 3. one: `createElement` and `appendChild`.
 4. list: an array becomes a list, and one new string makes one new item. One prediction question.
