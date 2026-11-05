@@ -17,8 +17,8 @@ const list = (s: string) => new Set(s.split(' '));
 
 /** Names real values have that this editor leaves out. */
 export const NOT_OBJECT = list('constructor __proto__ prototype __defineGetter__ __defineSetter__ __lookupGetter__ __lookupSetter__ hasOwnProperty isPrototypeOf propertyIsEnumerable toLocaleString valueOf');
-export const NOT_ARRAY = list('at copyWithin entries findLast findLastIndex flat flatMap keys reduceRight toLocaleString toReversed toSorted toSpliced values with');
-export const NOT_STRING = list('anchor at big blink bold charCodeAt codePointAt fixed fontcolor fontsize isWellFormed italics link localeCompare match matchAll normalize replaceAll search small strike sub substr sup toLocaleLowerCase toLocaleUpperCase toWellFormed trimEnd trimLeft trimRight trimStart');
+export const NOT_ARRAY = list('copyWithin entries findLast findLastIndex flat flatMap keys reduceRight toLocaleString toReversed toSorted toSpliced values with');
+export const NOT_STRING = list('anchor big blink bold charCodeAt codePointAt fixed fontcolor fontsize isWellFormed italics link localeCompare match matchAll normalize replaceAll search small strike sub substr sup toLocaleLowerCase toLocaleUpperCase toWellFormed trimEnd trimLeft trimRight trimStart');
 export const NOT_NUMBER = list('toExponential toPrecision toLocaleString');
 export const NOT_FUNCTION = list('apply bind call caller arguments');
 export const NOT_MATH = list('acos acosh asin asinh atan atan2 atanh cbrt clz32 cos cosh exp expm1 fround hypot imul log log10 log1p log2 sign sin sinh tan tanh E LN10 LN2 LOG10E LOG2E SQRT1_2 SQRT2');
@@ -97,7 +97,14 @@ function truthy(v: Value): boolean {
   return !!v;
 }
 
+/** The position `at` reads: negative numbers count back from the end. */
+const atIndex = (a: Value[], length: number, rt: Runtime) => {
+  const i = Math.trunc(rt.num(a[0])) || 0;
+  return i < 0 ? i + length : i;
+};
+
 const ARRAY_RAW: Record<string, (s: JsArray, a: Value[], rt: Runtime) => Value> = {
+  at: (s, a, rt) => s.items[atIndex(a, s.items.length, rt)],
   push(s, a) {
     return s.items.push(...a);
   },
@@ -270,6 +277,7 @@ const STRING_PLAIN = ['charAt', 'indexOf', 'lastIndexOf', 'includes', 'startsWit
 
 const STRING_RAW: Record<string, (s: string, a: Value[], rt: Runtime) => Value> = {
   toString: (s: string) => s,
+  at: (s, a, rt) => s[atIndex(a, s.length, rt)],
   split(s, a, rt) {
     rt.charge(s.length);
     const [sep, limit] = a.map((v) => rt.prim(v));

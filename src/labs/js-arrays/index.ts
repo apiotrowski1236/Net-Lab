@@ -142,17 +142,14 @@ export const jsArraysLab: LabDef = {
         3. The first song finished playing. Remove it with \`shift\`, and print that song.
         4. The seniors want "Senior Sunset" next. Add it to the front with \`unshift\`.
 
-        The **Array methods** table under the editor lists what each method does and what it gives back.
+        Here is what each method does and what it gives back:
+
+        - \`push(x)\` adds \`x\` to the end and gives back the new length.
+        - \`pop()\` removes the last item and gives it back.
+        - \`unshift(x)\` adds \`x\` to the front and gives back the new length.
+        - \`shift()\` removes the first item and gives it back.
       `,
-      demos: [
-        edges,
-        {
-          kind: 'note',
-          id: 'methods',
-          title: 'Array methods',
-          md: ['| Method | What it does | What it gives back |', '| --- | --- | --- |', '| `push(x)` | Adds `x` to the end | The new length |', '| `pop()` | Removes the last item | The removed item |', '| `unshift(x)` | Adds `x` to the front | The new length |', '| `shift()` | Removes the first item | The removed item |'].join('\n'),
-        },
-      ],
+      demos: [edges],
       goals: eachCheck(edges),
     },
 

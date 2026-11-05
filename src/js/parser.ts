@@ -824,7 +824,7 @@ class Parser {
           case 'this':
             return this.notAvailable('this is not available in this editor. Pass the value in as a parameter instead.');
           case 'new':
-            return this.notAvailable('new is not available in this editor.');
+            return this.notAvailable(this.peek().v === 'Array' ? 'new is not available in this editor. To make an array, use square brackets: let list = [];' : 'new is not available in this editor.');
           case 'class':
             return this.notAvailable('class is not available in this editor.');
           case 'super':

@@ -77,6 +77,7 @@ function pickMistake(c: JsCheckCtx, runs: Run[], items: string[], name: string):
     if (/\+\s*1/.test(code)) return `\`Math.floor(Math.random() * ${name}.length)\` is already a good index. Adding 1 skips the first song and can land past the end.`;
     return `Your program sometimes reads an index with no song in it, and prints undefined. Use \`Math.floor(Math.random() * ${name}.length)\` for the index.`;
   }
+  if (runs.some((r) => items.filter((s) => printed(r.output, items, s)).length > 1)) return 'Your program prints more than one song. Print only the one song at the random index.';
   const picked = items.flatMap((s, i) => (lines.some((t) => t.includes(s)) ? [i] : []));
   if (!picked.length) {
     if (new Set(lines.filter((t) => /\b\d+\b/.test(t))).size > 1) return `That prints the index. Print the song at that index with square brackets, like \`${name}[spot]\`.`;

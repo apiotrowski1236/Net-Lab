@@ -339,6 +339,7 @@ describe('step 7: show', () => {
     ['a fixed multiplier', pick('let spot = Math.floor(Math.random() * 5);'), 'Your pick never reaches the end of a longer list. Multiply by `playlist.length` instead of a fixed number.'],
     ['printing the index', pick('let spot = Math.floor(Math.random() * playlist.length);', 'console.log(spot);'), 'That prints the index. Print the song at that index with square brackets, like `playlist[spot]`.'],
     ['the same song every time', pick('let spot = 2;'), 'Your program picks the same song on every run. Use `Math.random()` to work out the index.'],
+    ['printing every song in a loop', pick('for (let i = 0; i < playlist.length; i++) {', 'console.log(playlist[i]);\n}'), 'Your program prints more than one song. Print only the one song at the random index.'],
     ['floor too soon', pick('let spot = Math.floor(Math.random()) * playlist.length;'), '`Math.floor(Math.random())` is always 0, because it rounds down before you multiply. Put the whole multiplication inside `Math.floor(...)`.'],
     ['lowercase math', pick('let spot = math.floor(math.random() * playlist.length);'), STOPPED(5)],
   ]);

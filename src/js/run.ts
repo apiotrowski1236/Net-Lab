@@ -793,7 +793,7 @@ class Interp implements Runtime {
 
   private store(b: Binding, name: string, v: Value, pos: Pos): void {
     if (b.tdz) this.throwError('ReferenceError', `Cannot access '${name}' before initialization`, 'tdz', pos, `${name} is used before the line that declares it. Move the let or const line above this line.`);
-    if (b.kind === 'const') this.throwError('TypeError', 'Assignment to constant variable.', 'const-assign', pos, `${name} was declared with const, so it can't be given a new value. Change const to let where ${name} is declared.`);
+    if (b.kind === 'const') this.throwError('TypeError', 'Assignment to constant variable.', 'const-assign', pos, b.v instanceof JsArray ? `${name} was declared with const, so it can't be given a whole new array. You can still change it one item at a time, with an index or a method like push. If you do want a new array, change const to let where ${name} is declared.` : `${name} was declared with const, so it can't be given a new value. Change const to let where ${name} is declared.`);
     if (b.kind === 'self' || b.kind === 'fixed') return;
     if (this.pinned.size && this.pinned.has(name) && this.frames.length === 1) {
       this.pinned.delete(name);

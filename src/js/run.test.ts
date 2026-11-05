@@ -11,6 +11,8 @@ const stopText = (code: string) => {
 describe('language this editor leaves out', () => {
   const cases: [string, string][] = [
     ['class A {}', 'class is not available in this editor.'],
+    ['let a = new Array();', 'new is not available in this editor. To make an array, use square brackets: let list = [];'],
+    ['let a = new Map();', 'new is not available in this editor.'],
     ['try { } catch (e) { }', 'try and catch are not available in this editor.'],
     ['throw 5;', 'throw is not available in this editor.'],
     ['let f = async () => 1;', 'async functions are not available in this editor.'],
@@ -41,7 +43,6 @@ describe('language this editor leaves out', () => {
     ['String.fromCharCode(65);', 'String.fromCharCode is not available in this editor.'],
     ['console.table([]);', 'console.table is not available in this editor.'],
     ['[1].flat();', 'flat is not available in this editor.'],
-    ['[1].at(0);', 'at is not available in this editor.'],
     ['"a".charCodeAt(0);', 'charCodeAt is not available in this editor.'],
     ['"a".replaceAll("a", "b");', 'replaceAll is not available in this editor.'],
     ['"a".match("a");', 'match is not available in this editor.'],
@@ -449,6 +450,7 @@ describe('help on runtime errors', () => {
   });
   test('const', () => {
     expect(help('const c = 1;\nc = 2;')).toBe("c was declared with const, so it can't be given a new value. Change const to let where c is declared.");
+    expect(help('const a = [1];\na = [2];')).toBe("a was declared with const, so it can't be given a whole new array. You can still change it one item at a time, with an index or a method like push. If you do want a new array, change const to let where a is declared.");
   });
   test('used before its line', () => {
     expect(help('console.log(x);\nlet x = 1;')).toBe('x is used before the line that declares it. Move the let or const line above this line.');

@@ -86,6 +86,8 @@ const STRINGS = [
 ];
 
 const ARRAYS = [
+  'let a = [1, 2, 3]; console.log(a.at(0), a.at(-1), a.at(3), a.at(-4), a.at(1.5), a.at(), a.at("1"), [].at(0))',
+  'let s = "abc"; console.log(s.at(0), s.at(-1), s.at(3), s.at(-4), s.at(1.5), s.at())',
   'let a = [1, 2, 3]; console.log(a, a.length, a[0], a[3], a[-1], a["1"], a["length"], a[1.5])',
   'let a = []; a[3] = 1; console.log(a, a.length, a[1], 1 in a, 3 in a); a.length = 1; console.log(a); a.length = 5; console.log(a)',
   'let a = [1, , 3]; console.log(a, a.length, a[1], 1 in a, 0 in a); a.forEach((x, i) => console.log(i, x))',

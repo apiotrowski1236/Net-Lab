@@ -140,28 +140,20 @@ export const jsLoopsLab: LabDef = {
 
         1. Print each player's place in line, like \`1. Maya\`.
         2. It is double-token hour. Double every number inside \`tokens\`, then print \`tokens\` after the loop.
+
+        Use the counting \`for\` when you need the index, and \`for...of\` when you only need each item:
+
+        \`\`\`js
+        for (let i = 0; i < list.length; i++) {
+          console.log(list[i]);
+        }
+
+        for (const item of list) {
+          console.log(item);
+        }
+        \`\`\`
       `,
-      demos: [
-        lineEditor,
-        {
-          kind: 'note',
-          id: 'walk',
-          title: 'Two ways to walk an array',
-          md: [
-            '```js',
-            'for (let i = 0; i < list.length; i++) {',
-            '  console.log(list[i]);',
-            '}',
-            '',
-            'for (const item of list) {',
-            '  console.log(item);',
-            '}',
-            '```',
-            '',
-            'Use `for...of` when you only need each item. Use the counting `for` when you need the index.',
-          ].join('\n'),
-        },
-      ],
+      demos: [lineEditor],
       goals: [passed('line', code.PLACES, 'Print each player with their place in line.'), passed('line', code.DOUBLED, 'Double every number inside tokens.')],
     },
 

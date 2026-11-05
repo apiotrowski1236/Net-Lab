@@ -98,6 +98,13 @@ document.getElementById("more").addEventListener("click", function () { console.
     expect(s.last?.page?.body).toContain('>Ann<');
   });
 
+  test('Stop at a prompt keeps the page so far and judges the run as it stands', () => {
+    const s = play(make('let t = document.getElementById("more");\nt.textContent = "changed";\nwhile (true) {\n  prompt("Again?");\n}'), { run: true }, { answer: 'x' }, { stop: true });
+    expect(s.waiting).toBeUndefined();
+    expect(s.last?.status).toBe('waiting');
+    expect(s.last?.page).toBeDefined();
+  });
+
   test('an error in a handler stops the run where it happened', () => {
     const s = play(make('document.getElementById("more").addEventListener("click", function () {\n  document.getElementById("nope").remove();\n});'), { run: true }, { click: '#more' });
     expect(s.last?.error?.pos.line).toBe(2);
