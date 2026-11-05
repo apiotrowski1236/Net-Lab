@@ -26,6 +26,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # src/java/differential.test.ts compares the in-browser Java against the
+      # real javac and java, and its messages follow JDK 21. The runner's default
+      # java is older and words its errors differently.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
       - run: npm ci
       - run: npm test
       - run: npm run build
