@@ -1,6 +1,7 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { cursorLineEnd, defaultKeymap, history, historyKeymap, indentWithTab, selectLineEnd } from '@codemirror/commands';
 import { java } from '@codemirror/lang-java';
+import { javascript } from '@codemirror/lang-javascript';
 import { bracketMatching, HighlightStyle, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { Annotation, Compartment, EditorState, RangeSetBuilder, StateEffect, StateField, type Extension, type Text } from '@codemirror/state';
 import { Decoration, drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, type Command, type DecorationSet } from '@codemirror/view';
@@ -94,41 +95,61 @@ const theme = EditorView.theme({
   '.cm-java-err': { backgroundColor: 'var(--bad-soft)', boxShadow: 'inset 3px 0 0 var(--bad)' },
 });
 
-export function createEditor(parent: HTMLElement, onChange: (text: string) => void): CodeEditor {
+/** No { in any of these: retyping a line that ends in { would add a } nobody sees. */
+const BRACKETS = ['(', '[', "'", '"'];
+
+/** The languages the editor can highlight. A new one is one line here, in this lazy-loaded file. */
+const LANGUAGES = {
+  java: { support: () => java(), brackets: BRACKETS },
+  javascript: { support: () => javascript(), brackets: [...BRACKETS, '`'] },
+} satisfies Record<string, { support: () => Extension; brackets: string[] }>;
+
+export type CodeLanguage = keyof typeof LANGUAGES;
+
+export interface EditorOptions {
+  /** One language, or a choice for each file, so a project can mix them. */
+  language: CodeLanguage | ((file: string) => CodeLanguage);
+  /** What a screen reader calls the editor. */
+  label: string;
+}
+
+export function createEditor(parent: HTMLElement, onChange: (text: string) => void, { language, label }: EditorOptions): CodeEditor {
   const locked = new Compartment();
   let name = '';
   const states = new Map<string, EditorState>();
 
   const lockFor = (readOnly: boolean): Extension => [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)];
 
-  const extensions = (readOnly: boolean): Extension[] => [
-    lineNumbers(),
-    highlightActiveLineGutter(),
-    history(),
-    drawSelection(),
-    indentUnit.of('  '),
-    EditorState.tabSize.of(2),
-    indentOnInput(),
-    bracketMatching(),
-    // No { here: retyping a line that ends in { would add a } nobody sees.
-    EditorState.languageData.of(() => [{ closeBrackets: { brackets: ['(', '[', "'", '"'] } }]),
-    closeBrackets(),
-    highlightActiveLine(),
-    EditorView.lineWrapping,
-    syntaxHighlighting(highlight),
-    java(),
-    // Home and End go to the ends of the code's line, not of the row a long line wrapped to.
-    keymap.of([{ key: 'Home', run: home(false), shift: home(true) }, { key: 'End', run: cursorLineEnd, shift: selectLineEnd }, ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
-    EditorView.contentAttributes.of({ 'aria-label': 'Java code. Press Escape, then Tab, to leave the editor.', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off' }),
-    EditorView.updateListener.of((u) => {
-      if (u.docChanged && u.transactions.some((tr) => !tr.annotation(fromOutside))) onChange(u.state.doc.toString());
-    }),
-    markField,
-    locked.of(lockFor(readOnly)),
-    theme,
-  ];
+  const extensions = (readOnly: boolean, file: string): Extension[] => {
+    const { support, brackets } = LANGUAGES[typeof language === 'string' ? language : language(file)];
+    return [
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      history(),
+      drawSelection(),
+      indentUnit.of('  '),
+      EditorState.tabSize.of(2),
+      indentOnInput(),
+      bracketMatching(),
+      EditorState.languageData.of(() => [{ closeBrackets: { brackets } }]),
+      closeBrackets(),
+      highlightActiveLine(),
+      EditorView.lineWrapping,
+      syntaxHighlighting(highlight),
+      support(),
+      // Home and End go to the ends of the code's line, not of the row a long line wrapped to.
+      keymap.of([{ key: 'Home', run: home(false), shift: home(true) }, { key: 'End', run: cursorLineEnd, shift: selectLineEnd }, ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+      EditorView.contentAttributes.of({ 'aria-label': `${label}. Press Escape, then Tab, to leave the editor.`, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off' }),
+      EditorView.updateListener.of((u) => {
+        if (u.docChanged && u.transactions.some((tr) => !tr.annotation(fromOutside))) onChange(u.state.doc.toString());
+      }),
+      markField,
+      locked.of(lockFor(readOnly)),
+      theme,
+    ];
+  };
 
-  const view = new EditorView({ parent, state: EditorState.create({ extensions: extensions(false) }) });
+  const view = new EditorView({ parent, state: EditorState.create({ extensions: extensions(false, '') }) });
 
   const setText = (text: string) => {
     if (view.state.doc.toString() === text) return;
@@ -142,7 +163,7 @@ export function createEditor(parent: HTMLElement, onChange: (text: string) => vo
       if (name !== file) {
         name = file;
         const saved = states.get(file);
-        view.setState(saved ?? EditorState.create({ doc: text, extensions: extensions(readOnly) }));
+        view.setState(saved ?? EditorState.create({ doc: text, extensions: extensions(readOnly, file) }));
       }
       setText(text);
       view.dispatch({ effects: locked.reconfigure(lockFor(readOnly)) });
