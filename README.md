@@ -58,14 +58,11 @@ NetLab serves several courses, each with its own home page: Intro to Computer Sc
 - Each step starts with a "Builds on step N" row. **Reread** opens the previous step; **Watch again** replays it.
 - **Guide** (top of the lesson) opens every step of the lab on one page in a new tab: the reading, the buttons, the goals, the hints, and the questions (no answers). Students keep it open for notes. Print it for a paper reference; it always prints in black on white. The address is `#/cyber/guide/on-path` or `#/cyber/guide/route-hijack`.
 
-### Teacher override
+### Step override
 
-If a step is broken for a student (a bug, a browser problem), you can unlock **Continue** with a password.
+If a step is broken for a student (a bug, a browser problem), they can skip it. Clicking the unfinished step's Continue button 7 times in a row, with no more than 1.5 seconds between clicks, opens a dialog that asks whether to override and skip the step. It warns that a step skipped this way earns no credit without the teacher's permission, and it requires a short reason.
 
-1. Set a password once: run `npm run set-password`, or open the site's `#/teacher` page, which makes the line for you. Either way, only a salted SHA-256 hash goes in `config.json`, never the password. Use at least 8 characters and nothing you use elsewhere: students can read `config.json`, so a short password could be guessed offline.
-2. On a stuck step, a small **Teacher override** link appears under the step. Type the password and, if you like, a note about what went wrong.
-
-The step's unfinished goals stay unchecked and earn no points. The report, the downloaded file, and the Google Sheet all flag the step as unlocked by a teacher, with the time and your note. Wrong passwords are counted on the report too, and three wrong in a row lock the override for a minute. With no password set, students never see the link.
+The step's unfinished goals stay unchecked and earn no points. The summary, the downloaded report, and the Google Sheet all show the step as **Did not complete (override)**, with the student's reason. The report also has the time. You decide while grading whether the skip was approved, and give any credit in your own score. If the student goes back and finishes the step, the flag goes away, because the step earned its credit.
 
 ### Finishing a lab
 
@@ -117,7 +114,7 @@ Reports land in a Google Sheet, one tab per lab and one row per student. Rows up
 5. Paste it into `public/config.json` as `submitEndpoint` and rebuild (or edit `config.json` directly on the server; no rebuild needed).
 6. Open the URL in a browser. It should say `NetLab receiver is running.`
 
-Each row has the student's name and period, status (`in-progress` or `submitted`), auto-checked score, goals done, step reached, active minutes, timestamps, and one column per question with the student's answer. Auto-checked answers are tagged `[correct]` or `[not yet]`. **Teacher overrides** lists any steps unlocked with the override password, and **Wrong override passwords** counts failed tries; both cells turn yellow when they aren't empty, and answers in an overridden step are tagged `[step overridden]`. **Work ID** and **Restored from file** come from [restoring from a report file](#restoring-from-a-report-file); they turn red when work looks copied. Grade in the **Teacher score** and **Teacher notes** columns. NetLab never overwrites those two.
+Each row has the student's name and period, status (`in-progress` or `submitted`), auto-checked score, goals done, step reached, active minutes, timestamps, and one column per question with the student's answer. Auto-checked answers are tagged `[correct]` or `[not yet]`. **Did not complete (override)** lists any steps skipped with the override, with the student's reason. The cell turns yellow when it isn't empty, and answers in those steps are tagged `[step overridden]`. **Work ID** and **Restored from file** come from [restoring from a report file](#restoring-from-a-report-file); they turn red when work looks copied. Grade in the **Teacher score** and **Teacher notes** columns. NetLab never overwrites those two.
 
 If you set up the sheet before these columns existed, paste the new `Code.gs` over the old one and choose **Deploy > Manage deployments > Edit > Version: New version**. The URL stays the same.
 
@@ -125,7 +122,7 @@ If you set up the sheet before these columns existed, paste the new `Code.gs` ov
 
 ### Option 2: Report file
 
-With no `submitEndpoint` set, one button, **Download my report**, marks the lab finished and downloads the report. Students hand in that file themselves, where `handInTo` says (PowerSchool). The summary names the file and reminds them that their teacher doesn't have it until they do. The report is one HTML file. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, the Work ID, any teacher overrides, and any restores. The same file restores the student's work if their browser loses it.
+With no `submitEndpoint` set, one button, **Download my report**, marks the lab finished and downloads the report. Students hand in that file themselves, where `handInTo` says (PowerSchool). The summary names the file and reminds them that their teacher doesn't have it until they do. The report is one HTML file. It opens in any browser and prints cleanly. It lists every step with its goals and answers, the auto-checked score, timestamps, the Work ID, any steps skipped with the override, and any restores. The same file restores the student's work if their browser loses it.
 
 #### Checking a report for edits
 
@@ -143,8 +140,7 @@ With no server there is no secret, so this catches hand edits only. A student wh
   "periods": [],
   "submitEndpoint": "",
   "handInTo": "PowerSchool",
-  "autoSyncMinutes": 2,
-  "teacherPasswordHash": ""
+  "autoSyncMinutes": 2
 }
 ```
 
@@ -155,7 +151,6 @@ With no server there is no secret, so this catches hand edits only. A student wh
 | `submitEndpoint` | Google Apps Script URL (see above). Empty means students download their report and hand it in. |
 | `handInTo` | Where students upload the downloaded report, such as `"PowerSchool"`. Empty says "the way your teacher asked". |
 | `autoSyncMinutes` | How often in-progress copies go to the sheet. `0` turns that off (submits still send). |
-| `teacherPasswordHash` | Turns on the teacher override (see above). Empty means no override. |
 
 The app re-reads `config.json` each time it opens (and remembers the last copy when offline), so you can change settings on the server without rebuilding.
 
@@ -170,7 +165,7 @@ npm run playthrough  # build, then page through every lab's answer key in Chromi
 
 `npm test` plays every lab from the first step to the last using its solution file and fails if any step can't be finished. It also checks that a reload rebuilds the same network, that **Reset network** keeps answers, and that a student can't skip ahead.
 
-`npm run e2e` builds the site, opens it in headless Chromium at 13-inch MacBook Air size (1440×800; `SIZE=small` for 1366×768, `THEME=light` for the light theme), plays the first steps of a lab through the real interface, changes an answer, replays a step, reloads to confirm the work was saved, goes offline to confirm the app still loads, opens the guide (screen and print), types a wrong and a right address into the ARP spoofer, uses the teacher override, submits and downloads from the summary page, and restores the work from that download on a fresh browser (and refuses it for a different student or after the file is edited). It also opens every lab and its guide, signs in new students to different classes, switches classes from the menu under the name, and checks that old `#/lab/<id>` addresses and a returning student's last lab still open. It writes screenshots to `screenshots/`. It needs a Chromium for Playwright. If it can't find one, run `npx playwright-core install chromium` or set `CHROME_PATH` to a Chrome binary.
+`npm run e2e` builds the site, opens it in headless Chromium at 13-inch MacBook Air size (1440×800; `SIZE=small` for 1366×768, `THEME=light` for the light theme), plays the first steps of a lab through the real interface, changes an answer, replays a step, reloads to confirm the work was saved, goes offline to confirm the app still loads, opens the guide (screen and print), types a wrong and a right address into the ARP spoofer, spams an unfinished step's button to use the override, submits and downloads from the summary page, and restores the work from that download on a fresh browser (and refuses it for a different student or after the file is edited). It also opens every lab and its guide, signs in new students to different classes, switches classes from the menu under the name, and checks that old `#/lab/<id>` addresses and a returning student's last lab still open. It writes screenshots to `screenshots/`. It needs a Chromium for Playwright. If it can't find one, run `npx playwright-core install chromium` or set `CHROME_PATH` to a Chrome binary.
 
 `npm run playthrough` plays each lab's solution file in Node, loads the finished work into the built app, and pages through every step with **Continue**. Each step must show its goals done, with no sideways scrolling and no page errors. That also proves the saved actions replay to the same network in the browser. `LAB=<id>` checks one lab. Screenshots go to `screenshots/playthrough/`.
 
@@ -221,7 +216,6 @@ public/config.json           teacher settings
 receivers/google-apps-script Google Sheets receiver
 scripts/e2e.mjs              browser check + screenshots
 scripts/playthrough.mjs      every lab's answer key, step by step, in the browser
-scripts/set-password.mjs     sets the teacher override password
 .github/workflows/deploy.yml GitHub Pages build and deploy
 sw/sw-template.js            offline service worker (filled in at build time)
 src/
@@ -241,7 +235,7 @@ src/
     route-hijack/            Advertise a Bad Route (scenario, lesson, solution)
     walkthrough.test.ts      plays every lab start to finish
   runtime/                   one student's session: goals, answers, step replay, tool input checks
-  store/                     local saving, profile, reports, report check codes, submission outbox, teacher override, restore from a report file
+  store/                     local saving, profile, reports, report check codes, submission outbox, restore from a report file
   ui/                        Preact components (lab player, summary, guide, teacher page with the report checker)
   styles.css                 themes and core layout
   features.css               replay, summary, guide, override, and tool-input styles

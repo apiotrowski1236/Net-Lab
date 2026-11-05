@@ -3,7 +3,7 @@
 //
 // Plays the start of the on-path lab through the real UI, reloads to prove the
 // work was saved, goes offline to prove the service worker serves the app,
-// then checks replay, the lab guide, typed tool inputs, the teacher override,
+// then checks replay, the lab guide, typed tool inputs, the step override,
 // the summary page with its download, and restoring work from that download
 // (plus refusing another student's file or an edited one), and opens every lab and
 // its guide. Also checks the courses: picking a class at sign-in, the class menu
@@ -21,7 +21,6 @@
 // The window is a 13-inch MacBook Air (1440x800), what most students use.
 // SIZE=small uses a 1366x768 laptop instead. SCALE=2 takes retina screenshots.
 
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -103,22 +102,13 @@ const expectHash = async (hash, what) => {
 const savedProfile = () => page.evaluate(() => JSON.parse(localStorage.getItem('netlab:v1:profile')));
 const COURSES = ['Intro to Computer Science', 'AP Computer Science Principles', 'AP Computer Science A', 'AP Cybersecurity'];
 
-// A teacher override password for the tests. Keep the salt in sync with src/store/override.ts.
-const TEACHER_PASSWORD = 'e2e teacher password';
-const TEACHER_HASH = createHash('sha256').update('netlab-teacher-override:v1:' + TEACHER_PASSWORD).digest('hex');
-
 /**
  * A fresh browser (no service worker) with a student already signed in and
- * partway through the on-path lab, and an override password in config.json.
+ * partway through the on-path lab.
  */
 async function seeded(progress, who = {}) {
   const ctx = await browser.newContext({ ...VIEW, serviceWorkers: 'block', acceptDownloads: true });
   await setTheme(ctx);
-  await ctx.route('**/config.json', async (route) => {
-    const res = await route.fetch();
-    const json = { ...(await res.json()), teacherPasswordHash: TEACHER_HASH };
-    await route.fulfill({ response: res, json });
-  });
   const now = Date.now();
   const full = {
     labId: 'on-path',
@@ -288,17 +278,23 @@ try {
     await goalsDone(2);
     await next();
 
-    step('teacher override unlocks a stuck step and is flagged');
-    await page.getByRole('button', { name: 'Teacher override' }).click();
-    await page.fill('.modal input[type=password]', 'wrong guess');
-    await page.getByRole('button', { name: 'Unlock this step' }).click();
-    await page.waitForSelector('.modal .error');
-    await page.fill('.modal input[type=password]', TEACHER_PASSWORD);
-    await page.fill('.modal input:not([type=password])', 'Packets never arrived');
+    step('spamming Continue on an unfinished step offers the override, and the step is flagged');
+    const stuck = await page.locator('.lesson-nav .btn.primary').boundingBox();
+    const [x, y] = [stuck.x + stuck.width / 2, stuck.y + stuck.height / 2];
+    for (let i = 0; i < 6; i++) await page.mouse.click(x, y);
+    if (await page.locator('.modal').count()) throw new Error('The override should wait for the seventh click');
+    await page.mouse.click(x, y);
+    await page.waitForSelector('.modal');
+    // Clicks that land after it opens don't close or confirm it.
+    for (let i = 0; i < 5; i++) await page.mouse.click(x, y);
+    const skip = page.getByRole('button', { name: 'Override and skip' });
+    if (await skip.isEnabled()) throw new Error('The override needs a reason');
+    await page.fill('.modal input', 'Packets never arrived');
     await shot('override-dialog');
-    await page.getByRole('button', { name: 'Unlock this step' }).click();
+    await skip.click();
     await page.waitForSelector('.modal', { state: 'detached' });
-    await page.waitForSelector('text=unlocked this step with an override');
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.waitForSelector('text=skipped this step with an override');
     if (!(await page.getByRole('button', { name: 'Continue' }).isEnabled())) throw new Error('Continue should be enabled after the override');
     await page.waitForTimeout(300); // let the button finish its color change
     await shot('override-done');
@@ -309,7 +305,7 @@ try {
   step('summary page: submit and download');
   {
     const answers = { 'welcome/which-changes': { value: 'ip', attempts: 1, correct: true, updatedAt: Date.now() } };
-    const { ctx, pg } = await seeded({ step: 12, maxStep: 12, answers, overrides: { broken: { at: Date.now(), note: 'Packets never arrived' } }, overrideFailures: 1 });
+    const { ctx, pg } = await seeded({ step: 12, maxStep: 12, answers, overrides: { broken: { at: Date.now(), note: 'Packets never arrived' } } });
     const p = page;
     page = pg;
     await page.goto(`${url}#/cyber/lab/on-path`);
@@ -323,7 +319,7 @@ try {
     // Playwright's WebKit on Linux turns spaces into underscores; browsers on Macs and PCs keep them.
     if (!/^Riley[ _]Seeded[ _]-[ _].+\.html$/.test(name)) throw new Error(`Unexpected download name "${name}"`);
     const html = readFileSync(await dl.path(), 'utf8');
-    for (const must of ['Teacher override', 'Packets never arrived', 'Wrong teacher override passwords typed', 'Riley Seeded</span> &middot; Period 2 &middot; AP Cybersecurity', 'Check code <b id="netlab-check">']) {
+    for (const must of ['Did not complete (override)', 'Reason: Packets never arrived', 'Riley Seeded</span> &middot; Period 2 &middot; AP Cybersecurity', 'Check code <b id="netlab-check">']) {
       if (!html.includes(must)) throw new Error(`Downloaded report is missing "${must}"`);
     }
     await page.setContent(html);

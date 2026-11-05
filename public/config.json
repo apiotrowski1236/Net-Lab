@@ -3,6 +3,5 @@
   "periods": [],
   "submitEndpoint": "",
   "handInTo": "PowerSchool",
-  "autoSyncMinutes": 2,
-  "teacherPasswordHash": ""
+  "autoSyncMinutes": 2
 }

@@ -1,16 +1,5 @@
-import { config } from './profile';
-
-// Teacher override: a password that unlocks Continue on a step that's stuck
-// (a bug, a browser problem, a network that won't behave). config.json holds
-// only a salted SHA-256 hash of the password, never the password itself.
-//
-// Make a hash with `npm run set-password`, or on the app's #/teacher page.
-
-/** Changing this invalidates every existing hash. Keep in sync with scripts/set-password.mjs. */
-export const OVERRIDE_SALT = 'netlab-teacher-override:v1:';
-
 // SHA-256 in plain JS. crypto.subtle only exists on https:// and localhost,
-// and the override has to work on a classroom laptop served over plain http too.
+// and reports have to work on a classroom laptop served over plain http too.
 const K = new Uint32Array([
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
   0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -64,13 +53,3 @@ export function sha256Hex(text: string): string {
   }
   return Array.from(h, (x) => x.toString(16).padStart(8, '0')).join('');
 }
-
-export const hashOverridePassword = (password: string): string => sha256Hex(OVERRIDE_SALT + password.trim());
-
-const configuredHash = (): string => (config.value.teacherPasswordHash ?? '').trim().toLowerCase();
-
-/** True when the teacher has set an override password in config.json. */
-export const overrideEnabled = (): boolean => /^[0-9a-f]{64}$/.test(configuredHash());
-
-export const overridePasswordMatches = (password: string): boolean =>
-  overrideEnabled() && password.trim().length > 0 && hashOverridePassword(password) === configuredHash();

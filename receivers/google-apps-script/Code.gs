@@ -16,8 +16,9 @@
  * latest work. The "Teacher score" and "Teacher notes" columns are never
  * overwritten: grade there.
  *
- * "Teacher overrides" lists steps unlocked with the teacher override password,
- * and is highlighted when it isn't empty. So is "Wrong override passwords".
+ * "Did not complete (override)" lists steps a student skipped with the override,
+ * with the student's reason, and is highlighted when it isn't empty. You decide
+ * if each skip was approved, and grade in "Teacher score".
  *
  * "Work ID" identifies one student's attempt at a lab, and stays the same when
  * a student restores their work from a downloaded report. It turns red when
@@ -91,13 +92,12 @@ function upsert(r) {
       r.goals.filter(function (g) { return g.done && !g.extra; }).length + ' / ' + r.goals.filter(function (g) { return !g.extra; }).length,
     'Step reached': r.stepReached + ' / ' + r.lab.steps,
     'Active minutes': r.activeMinutes,
-    // Steps a teacher unlocked with the override password. Their goals stay unchecked.
-    'Teacher overrides': (r.overrides || [])
+    // Steps a student skipped with the override. Their unfinished goals stay unchecked.
+    'Did not complete (override)': (r.overrides || [])
       .map(function (o) {
         return 'Step ' + o.number + ' (' + o.title + ')' + (o.note ? ': ' + o.note : '');
       })
       .join('; '),
-    'Wrong override passwords': r.overrideFailures || 0,
     'Work ID': r.workId || '',
     'Restored from file': (r.restores || [])
       .map(function (x) {
@@ -150,13 +150,12 @@ function upsert(r) {
   });
   sh.getRange(row, 1, 1, width).setValues([values]);
 
-  // Make overrides and wrong passwords hard to miss.
+  // Make overrides hard to miss.
   var flag = function (name, on) {
     var c = headers.indexOf(name);
     if (c >= 0) sh.getRange(row, c + 1).setBackground(on ? '#fde68a' : null);
   };
-  flag('Teacher overrides', cells['Teacher overrides'] !== '');
-  flag('Wrong override passwords', cells['Wrong override passwords'] > 0);
+  flag('Did not complete (override)', cells['Did not complete (override)'] !== '');
   var copied = (r.restores || []).some(function (x) { return x.otherName; });
   flag('Restored from file', cells['Restored from file'] !== '');
   if (copied) sh.getRange(row, headers.indexOf('Restored from file') + 1).setBackground('#fca5a5');

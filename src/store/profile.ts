@@ -21,8 +21,6 @@ export interface AppConfig {
   handInTo: string;
   /** Send an in-progress copy to the teacher this often (minutes). 0 = only on submit. */
   autoSyncMinutes: number;
-  /** Salted SHA-256 of the teacher override password (see store/override.ts). Empty = no override. */
-  teacherPasswordHash: string;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -31,7 +29,6 @@ const DEFAULT_CONFIG: AppConfig = {
   submitEndpoint: '',
   handInTo: '',
   autoSyncMinutes: 2,
-  teacherPasswordHash: '',
 };
 
 function newId(): string {

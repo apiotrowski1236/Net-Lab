@@ -12,7 +12,6 @@ import { Icon } from './icons';
 import { inlineMarkdown, renderMarkdown, type MdActions } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
 import { hoverDevice } from './NetworkCanvas';
-import { overrideEnabled } from '../store/override';
 import { hasEndpoint } from '../store/outbox';
 import { OverrideDialog } from './Override';
 import { guideHref } from '../routes';
@@ -385,7 +384,7 @@ function Outline({ session, onClose }: { session: LabSession; onClose: () => voi
                   {complete ? <Icon name="check" size={12} /> : overridden ? <Icon name="unlock" size={12} /> : i + 1}
                 </span>
                 <span>{s.title}</span>
-                {overridden && <span class="pill warn tiny">teacher override</span>}
+                {overridden && <span class="pill warn tiny">override</span>}
               </button>
             </li>
           );
@@ -446,7 +445,7 @@ export function LessonPanel({
   const missing = session.missing();
   const overridden = session.overridden();
   const canContinue = session.stepComplete(p.step);
-  // A teacher override opens the step's questions too.
+  // An override opens the step's questions too.
   const goalsDone = !!overridden || (step.goals ?? []).every((g) => session.goalDone(step.id, g.id));
   const unlocked = (q: QuestionDef) =>
     !q.afterGoals || !!overridden || (q.afterGoals === true ? goalsDone : q.afterGoals.every((id) => session.goalDone(step.id, id)));
@@ -543,7 +542,7 @@ export function LessonPanel({
         )}
         {overridden && (
           <div class="callout warn small">
-            <Icon name="unlock" size={14} /> Your teacher unlocked this step with an override. Your report shows that. You can still finish the goals and questions.
+            <Icon name="unlock" size={14} /> You skipped this step with an override, so your report shows it as not completed. Finish the goals and questions to clear that.
           </div>
         )}
         {prev && !reviewing && step.kind !== 'submit' && prev.kind !== 'submit' && (
@@ -646,13 +645,6 @@ export function LessonPanel({
 
         {step.extra && isLast && session.stepComplete(p.step) && <ExtraCreditDone session={session} />}
 
-        {!canContinue && step.kind !== 'submit' && overrideEnabled() && (
-          <div class="override-row">
-            <button class="link-btn" onClick={() => setOverrideOpen(true)}>
-              <Icon name="unlock" size={12} /> Teacher override
-            </button>
-          </div>
-        )}
       </div>
       {overrideOpen && <OverrideDialog session={session} onClose={() => setOverrideOpen(false)} />}
 
@@ -670,7 +662,11 @@ export function LessonPanel({
             <button
               class={`btn primary big ${canContinue ? 'ready' : 'todo'}`}
               aria-disabled={!canContinue}
-              onClick={() => (canContinue ? session.goTo(p.step + 1) : showWhatsLeft())}
+              onClick={() => {
+                if (canContinue) session.goTo(p.step + 1);
+                else if (session.blockedClick()) setOverrideOpen(true);
+                else showWhatsLeft();
+              }}
               title={canContinue ? '' : `Still to do: ${missing.join(', ')}. Click to see what's left.`}
             >
               {canContinue ? 'Continue' : `Finish ${missing.join(' and ')}`} {canContinue && <Icon name="chevronRight" />}

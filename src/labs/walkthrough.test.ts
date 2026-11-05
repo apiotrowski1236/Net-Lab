@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { LabSession } from '../runtime/session';
+import { LabSession, SKIP_CLICKS } from '../runtime/session';
 import { checkAddress, checkCable, checkGateway, checkPing, checkPrefix, checkRoute, checkSpoofClaim, checkStaticArp } from '../runtime/toolInput';
 import { applyBackup, makeBackup, readBackup } from '../store/backup';
-import { hashOverridePassword, OVERRIDE_SALT, sha256Hex } from '../store/override';
 import type { Profile } from '../store/profile';
 import { peekProgress, type LabProgress } from '../store/progress';
 import { buildReport } from '../store/report';
 import { checkReport } from '../store/reportCheck';
+import { sha256Hex } from '../store/sha256';
 import { pingFailText } from '../ui/describe';
 import { reportHtml } from '../ui/Submit';
 import { LABS } from '.';
@@ -353,11 +353,9 @@ describe('build-network lab details', () => {
     const s = openStep('addresses');
     playMove(s, { tool: { type: 'set-ip', device: 'alice', iface: 'eth0', cidr: '192.168.10.1/24' } });
     playMove(s, { tool: { type: 'set-ip', device: 'ben', iface: 'eth0', cidr: '192.168.10.50/24' } });
-    // Skip the rest of the lab with teacher overrides; every setup runs on the way.
-    const verify = () => true;
+    // Skip the rest of the lab with overrides; every setup runs on the way.
     for (let i = at('addresses'); i < at('fix'); i++) {
-      expect(s.tryOverride('x', '', verify)).toBe('ok');
-      s.goTo(i + 1);
+      s.skipStep('Stuck');
       s.sim.runUntilIdle();
     }
     expect(s.step.id).toBe('fix');
@@ -481,40 +479,57 @@ describe('typed tool inputs', () => {
   });
 });
 
-describe('teacher override', () => {
+describe('step override', () => {
   const lab = LABS.find((l) => l.id === 'on-path')!;
-  const verify = (pw: string) => hashOverridePassword(pw) === hashOverridePassword('correct horse');
+  const who = { name: 'T', period: 'P', createdAt: 0 };
 
   it('hashes with real SHA-256', () => {
-    for (const text of ['', 'abc', 'netlab-teacher-override:v1:correct horse', 'é ü 漢字', 'x'.repeat(200)]) {
+    for (const text of ['', 'abc', 'é ü 漢字', 'x'.repeat(200)]) {
       expect(sha256Hex(text)).toBe(createHash('sha256').update(text, 'utf8').digest('hex'));
     }
-    expect(hashOverridePassword('  correct horse ')).toBe(createHash('sha256').update(`${OVERRIDE_SALT}correct horse`).digest('hex'));
   });
 
-  it('unlocks Continue on a stuck step and shows on the report', () => {
+  it('opens after enough clicks in a row, and a pause starts the count over', () => {
+    const s = new LabSession(lab, freshProgress(lab));
+    expect(SKIP_CLICKS).toBeGreaterThanOrEqual(5);
+    expect(SKIP_CLICKS).toBeLessThanOrEqual(10);
+    let t = 1_000_000;
+    const click = (gap = 200) => s.blockedClick((t += gap));
+    for (let i = 1; i < SKIP_CLICKS; i++) expect(click()).toBe(false);
+    expect(click(5000)).toBe(false); // the pause lost the first clicks
+    for (let i = 2; i < SKIP_CLICKS; i++) expect(click()).toBe(false);
+    expect(click()).toBe(true);
+    expect(click()).toBe(false); // and it starts over after opening
+  });
+
+  it('skips a stuck step and shows it as not completed on the report', () => {
     const s = new LabSession(lab, freshProgress(lab));
     s.goTo(1);
     expect(s.progress.step).toBe(0);
-    expect(s.tryOverride('nope', '', verify)).toBe('wrong');
-    expect(s.tryOverride('correct horse', 'Map would not load', verify)).toBe('ok');
-    expect(s.missing()).not.toEqual([]); // the goals are still not done
-    s.goTo(1);
+    s.skipStep('  Map would not load ');
     expect(s.progress.step).toBe(1);
-    const r = buildReport(lab, s.progress, { id: s.progress.studentId, name: 'T', period: 'P', createdAt: 0 }, 'in-progress');
+    expect(s.overridden(0)).toBe(true);
+    expect(s.missing(0)).not.toEqual([]); // the goals are still not done
+    const r = buildReport(lab, s.progress, { id: s.progress.studentId, ...who }, 'in-progress');
     expect(r.overrides).toEqual([expect.objectContaining({ step: lab.steps[0].id, number: 1, note: 'Map would not load' })]);
-    expect(r.overrideFailures).toBe(1);
     expect(r.goals.filter((g) => g.step === lab.steps[0].id).every((g) => g.overridden && !g.done)).toBe(true);
     expect(r.score.auto).toBe(0);
+    const html = reportHtml(lab, r);
+    expect(html).toContain('Did not complete (override), 1 step:');
+    expect(html).toContain('Reason: Map would not load');
   });
 
-  it('locks for a minute after three wrong passwords', () => {
+  it('stops flagging a step the student goes back and finishes', () => {
     const s = new LabSession(lab, freshProgress(lab));
-    const t0 = 1_000_000;
-    for (let i = 0; i < 3; i++) expect(s.tryOverride('nope', '', verify, t0)).toBe('wrong');
-    expect(s.tryOverride('correct horse', '', verify, t0 + 1000)).toBe('wait');
-    expect(s.tryOverride('correct horse', '', verify, t0 + 61_000)).toBe('ok');
-    expect(s.progress.overrideFailures).toBe(3);
+    s.skipStep('Stuck');
+    s.goTo(0);
+    playStep(s, onPathSolution[lab.steps[0].id]);
+    expect(s.missing(0)).toEqual([]);
+    expect(s.overridden(0)).toBe(false);
+    const r = buildReport(lab, s.progress, { id: s.progress.studentId, ...who }, 'in-progress');
+    expect(r.overrides).toEqual([]);
+    expect(r.goals.some((g) => g.overridden)).toBe(false);
+    expect(reportHtml(lab, r)).not.toContain('Did not complete');
   });
 });
 
