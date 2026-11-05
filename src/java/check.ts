@@ -815,7 +815,7 @@ class Checker {
       const need = sameLength[0].params;
       const i = need.findIndex((p, j) => !fits(found[j], p, true));
       if (i >= 0) {
-        this.mismatch(found[i], need[i], args[i].pos);
+        this.mismatch(found[i], need[i], args[i].pos, args[i]);
         return;
       }
     }
@@ -1260,6 +1260,7 @@ class Checker {
         return u.k === 'char' ? INT : u;
       }
       case 'incdec': {
+        this.writing = e.e;
         const t = this.expr(e.e);
         if (t.k === 'error') return ERROR;
         if (e.e.k !== 'name' && e.e.k !== 'field' && e.e.k !== 'index') {

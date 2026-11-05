@@ -9,6 +9,7 @@ function trace(main: string, cls = '') {
 }
 
 const plans = (steps: ReturnType<typeof trace>) => steps.map((s, i) => planStep(s, steps[i + 1], false, firstTimeAt(steps, i)));
+const words = (steps: ReturnType<typeof trace>) => plans(steps).map((p) => p.say).join('\n');
 
 const BOX = `class Box {
   private int size;
@@ -174,7 +175,43 @@ describe('planStep', () => {
   });
 });
 
+describe('captions', () => {
+  test('a program that crashes does not say it reached its end', () => {
+    const steps = trace('int zero = 0;\nint z = 1 / zero;');
+    const last = planStep(steps[steps.length - 1], undefined, false, {}, 'ArithmeticException').say;
+    expect(last).toContain('The program stops with an error: `ArithmeticException`.');
+    expect(last).not.toContain('This is the end of the program.');
+  });
+
+  test('a for-each left by break still has items', () => {
+    const say = words(trace('int[] a = {1, 2, 3};\nfor (int x : a) {\nif (x == 2) {\nbreak;\n}\n}'));
+    expect(say).toContain('break leaves the loop.');
+    expect(say).not.toContain('There are no more items');
+  });
+
+  test('a for-each that finishes says so', () => {
+    expect(words(trace('int[] a = {1};\nfor (int x : a) {\nint y = x;\n}'))).toContain('There are no more items, so the loop ends.');
+  });
+
+  test('a static variable that changes is not created again', () => {
+    const steps = trace('C.bump();\nC.bump();', 'class C {\n  static int count = 0;\n  static void bump() {\n    count = count + 1;\n    count++;\n  }\n}');
+    const say = words(steps);
+    expect(say).toContain('count becomes 1.');
+    expect(say).not.toContain('count is created');
+  });
+
+  test('a field with a starting value says so on its own line', () => {
+    const say = words(trace('Tape t = new Tape();', 'class Tape {\n  private int plays = 5;\n}'));
+    expect(say).toContain('plays in Tape #1 becomes 5.');
+  });
+});
+
 describe('the trace', () => {
+  test('a plain Object can be stepped through', () => {
+    const steps = trace('Object o = new Object();\nint a = 1;');
+    expect(steps[steps.length - 1].objects).toMatchObject([{ label: 'Object', fields: [] }]);
+  });
+
   test('values a line produces come before the step that shows them', () => {
     const steps = trace('int a = 1;\na = a + 1;');
     expect(steps[1].frames[0].vars.find((v) => v.name === 'a')?.value).toEqual({ t: 'value', text: '1' });

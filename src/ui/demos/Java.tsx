@@ -318,10 +318,10 @@ function Box({ b, cls, none, names, glows }: { b: PlanBox; cls: string; none: st
 }
 
 /** One step of the program: what the marked line does, played on a loop over the memory it changes. */
-function Stepper({ steps, at, output, cut }: { steps: TraceStep[]; at: number; output: string; cut: boolean }) {
+function Stepper({ steps, at, output, cut, crash }: { steps: TraceStep[]; at: number; output: string; cut: boolean; crash?: string }) {
   const step = steps[at];
   const next = steps[at + 1];
-  const plan = useMemo(() => planStep(step, next, cut, firstTimeAt(steps, at)), [steps, at, cut]);
+  const plan = useMemo(() => planStep(step, next, cut, firstTimeAt(steps, at), crash), [steps, at, cut, crash]);
   const root = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -603,7 +603,7 @@ export function JavaView({ spec, state: s, send }: DemoViewProps<JavaSpec, JavaS
         <Editor file={file} readOnly={stepping || !!file.locked} runLine={step?.line} nextLine={step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
         <div class="java-side">
           {step ? (
-            <Stepper steps={trace!.steps} at={s.at!} output={trace!.output} cut={!!trace?.cut} />
+            <Stepper steps={trace!.steps} at={s.at!} output={trace!.output} cut={!!trace?.cut} crash={trace?.crash} />
           ) : (
             <>
               <h4>Output</h4>

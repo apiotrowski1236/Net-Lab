@@ -4831,23 +4831,7 @@ button.pl-tile:active {
   .java-main.stepping .java-editor {
     height: 220px;
   }
-  /* A code block in a lesson keeps its lines, and scrolls on its own if one is too long. */
-.prose pre {
-  margin: 8px 0;
-  max-width: 100%;
-  padding: 8px 10px;
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--input-bg);
-}
-.prose pre code {
-  padding: 0;
-  border: none;
-  background: none;
-  white-space: pre;
-}
-.java-bar {
+  .java-bar {
     position: sticky;
     top: 0;
     z-index: 4;

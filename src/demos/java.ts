@@ -151,6 +151,9 @@ export interface JavaTrace {
   output: string;
   /** The program ran past the last step shown. */
   cut: boolean;
+  /** The exception that ended the program. */
+  crash?: string;
+  noMain: boolean;
 }
 
 let traced: { key: string; trace: JavaTrace } | undefined;
@@ -161,7 +164,7 @@ export function traceOf(spec: JavaSpec, files: JavaFile[]): JavaTrace {
   if (traced?.key !== key) {
     const { program } = compile(sources(files));
     const r = program && runProgram(program, { mainClass: spec.main, trace: true });
-    traced = { key, trace: { steps: r?.trace ?? [], output: r?.output ?? '', cut: !!r?.traceCut } };
+    traced = { key, trace: { steps: r?.trace ?? [], output: r?.output ?? '', cut: !!r?.traceCut, crash: r?.exception?.short, noMain: r?.status === 'no-main' } };
   }
   return traced.trace;
 }
@@ -198,6 +201,7 @@ export const javaModel: DemoModel<JavaSpec, JavaState> = {
       if (!input.stepping) return s.at === undefined ? s : { ...s, at: undefined };
       const { errors } = compile(sources(s.files));
       if (errors.length) return { ...s, last: compileErrors(s.files, errors), edited: false, ...checksWithoutMain(spec, s, errors) };
+      if (traceOf(spec, s.files).noMain) return { ...s, last: { kind: 'no-main', output: '' }, edited: false };
       return { ...s, at: 0, far: Math.max(s.far ?? 0, 0) };
     }
     if ('seek' in input) {

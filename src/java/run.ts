@@ -411,11 +411,12 @@ class Interp implements Rt {
     const objects: TraceObject[] = [...seen.values()]
       .map((v): TraceObject => {
         if (v instanceof JObj) {
-          const c = this.p.classes.get(v.cls)!;
+          // A plain `new Object()` has no class of the student's, and no fields.
+          const c = this.p.classes.get(v.cls);
           return {
             id: v.id,
             label: v.cls,
-            fields: [...c.fields.values()].filter((f) => !f.isStatic).map((f) => ({ name: f.name, value: this.shown(v.fields[f.name], f.type) })),
+            fields: [...(c?.fields.values() ?? [])].filter((f) => !f.isStatic).map((f) => ({ name: f.name, value: this.shown(v.fields[f.name], f.type) })),
           };
         }
         if (v instanceof JArr) return { id: v.id, label: `${this.typeLabel(v.elem)}[${v.items.length}]`, fields: v.items.map((x, i) => ({ name: String(i), value: this.shown(x, v.elem) })) };
@@ -643,7 +644,13 @@ class Interp implements Rt {
         for (const f of c.fields.values()) {
           if (f.isStatic || !f.decl.init) continue;
           this.tick(f.decl.pos.file, f.decl.pos.line);
-          o.fields[f.name] = this.eval(f.decl.init);
+          const p = this.peek(f.decl.init);
+          const value = this.eval(f.decl.init);
+          o.fields[f.name] = value;
+          if (this.tracing) {
+            this.evaluated(p, value, f.type);
+            this.beat({ k: 'write', name: f.name, to: { obj: o.id, name: f.name }, value: this.shown(value, f.type) });
+          }
         }
       }
       if (m) {
@@ -760,7 +767,10 @@ class Interp implements Rt {
             this.beat({ k: 'write', name: s.name, to: { frame: f.id, name: s.name }, value: this.shown(v, this.typeOfSlot(f, s.slot!)) });
           }
           const sig = this.loopBody(s.body);
-          if (sig === BREAK) break;
+          if (sig === BREAK) {
+            f.slots[s.slot!] = undefined;
+            return NORMAL;
+          }
           if (sig === RETURN) return RETURN;
           if (this.tracing) this.record(s.pos.file, s.pos.line);
           this.bump();

@@ -123,7 +123,7 @@ function listed(parts: string[]): string {
   return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
-function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, first: FirstTime, speed: number): StepPlan {
+function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, first: FirstTime, crash: string | undefined, speed: number): StepPlan {
   const after = next ?? step;
   const frames = mergeFrames(step.frames, after.frames, step.frames[step.frames.length - 1]?.id);
   const objects = mergeObjects(step.objects, after.objects);
@@ -176,7 +176,7 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, firs
         const place = b.to && 'obj' in b.to && !/^\d/.test(b.to.name) ? `${b.to.name} in ${objectLabel.get(b.to.obj) ?? 'the object'}` : b.name;
         if (b.hides) say.push(`${b.name} here is the ${b.hides.kind}, not the instance variable, so it ${row && same(row.before, row.after) ? 'stays' : 'becomes'} ${held(b.value)}. ${objectLabel.get(b.hides.obj) ?? 'The object'} does not change.`);
         else if (b.value.t === 'ref') say.push(first.reference ? `${place} now holds a reference to ${held(b.value)}: where the object is, not the object itself.` : `${place} now refers to ${held(b.value)}.`);
-        else say.push(b.declares || row?.before === undefined ? `${place} is created and gets ${held(b.value)}.` : `${place} becomes ${held(b.value)}.`);
+        else say.push(b.declares || (row && row.before === undefined) ? `${place} is created and gets ${held(b.value)}.` : `${place} becomes ${held(b.value)}.`);
         const self = selfOf(step);
         if (first.self && self && b.to && 'obj' in b.to) say.push(`The word \`this\` means the object the code is working on. Here that is ${held(self.value)}.`);
         cursor = 'strip';
@@ -291,14 +291,14 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, firs
   if (next) {
     if (!say.length) say.push(`Java moves on to line ${next.line}.`);
   } else {
-    say.push(cut ? 'This program has more steps than can be shown.' : 'This is the end of the program.');
+    say.push(cut ? 'This program has more steps than can be shown.' : crash ? `The program stops with an error: \`${crash}\`.` : 'This is the end of the program.');
   }
   const flow = next && (next.file === step.file ? `Next: line ${next.line}` : `Next: ${next.file}, line ${next.line}`);
   return { total, frames, objects, texts, chips, glows, say: say.join('\n'), flow, flowAt, printed, printAt };
 }
 
-/** Works out how to play what the marked line does: `next` is the step after it. */
-export function planStep(step: TraceStep, next: TraceStep | undefined, cut = false, first: FirstTime = {}): StepPlan {
-  const plan = layout(step, next, cut, first, 1);
-  return plan.total > LONGEST ? layout(step, next, cut, first, LONGEST / plan.total) : plan;
+/** Works out how to play what the marked line does: `next` is the step after it, and `crash` the exception that ended the program. */
+export function planStep(step: TraceStep, next: TraceStep | undefined, cut = false, first: FirstTime = {}, crash?: string): StepPlan {
+  const plan = layout(step, next, cut, first, crash, 1);
+  return plan.total > LONGEST ? layout(step, next, cut, first, crash, LONGEST / plan.total) : plan;
 }

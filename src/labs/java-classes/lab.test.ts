@@ -75,6 +75,16 @@ describe('step-through', () => {
   const steps = traceOf(s, javaModel.init(s).files).steps;
   const main = (i: number) => steps[i].frames[0].vars.map((v) => v.name);
 
+  test('code with no main says so instead of starting an empty step-through', () => {
+    const start = javaModel.init(s);
+    const main = start.files.find((f) => f.name === 'Main.java')!;
+    const state = { ...start, files: start.files.map((f) => (f === main ? { ...f, locked: false, text: main.text.replace('void main', 'void mane') } : f)) };
+    const r = javaModel.apply(s, state, { stepping: true });
+    expect(r.at).toBeUndefined();
+    expect(r.last?.kind).toBe('no-main');
+    expect(javaModel.facts(s, r).finished).toBe(false);
+  });
+
   test('the last step still shows both players, since step 4 sends students there to compare', () => {
     const last = steps[steps.length - 1];
     expect(main(steps.length - 1)).toEqual(['ada', 'grace']);
@@ -119,6 +129,20 @@ describe('private', () => {
     const r = withEdits(s, { 'Main.java': code });
     expect(r.last?.errors?.[0]).toMatchObject({ code: 'private-access', help: 'health is private, so only code inside Player can change it. Call a public method of Player that changes it.' });
     expect(javaModel.facts(s, r).errors).toBe('private-access');
+  });
+
+  test('ada.health-- is a change too, so a getter is not offered as the way out', () => {
+    const s = spec('private', 'guard');
+    const code = javaModel.init(s).files[0].text.replace('// Your line goes here.', 'ada.health--;');
+    const r = withEdits(s, { 'Main.java': code });
+    expect(r.last?.errors?.[0]).toMatchObject({ code: 'private-access', help: 'health is private, so only code inside Player can change it. Call a public method of Player that changes it.' });
+  });
+
+  test('a quoted number passed to a method still gets the quotes hint', () => {
+    const s = spec('private', 'guard');
+    const code = javaModel.init(s).files[0].text.replace('// Your line goes here.', 'ada.takeDamage("5");');
+    const r = withEdits(s, { 'Main.java': code });
+    expect(r.last?.errors?.[0].help).toContain('Text in double quotes is a String');
   });
 
   test('a locked file cannot be edited', () => {
