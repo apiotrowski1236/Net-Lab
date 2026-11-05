@@ -107,6 +107,8 @@ export interface RunResult {
   facts: RunFacts;
   /** Names in `data` the program never gave a first value to. */
   dataMissing: string[];
+  /** How much of the step budget the run used. */
+  steps: number;
   trace?: TraceStep[];
 }
 
@@ -477,13 +479,13 @@ class Interp implements Runtime {
     } catch (e) {
       out = this.stopped(e);
     }
-    return { ...out, lines: this.lines, vars: this.finalVars(), facts: this.finishFacts(), dataMissing: [...this.pending.keys()].filter((k) => !this.taken.has(k)), ...(this.trace ? { trace: this.trace } : {}) };
+    return { ...out, lines: this.lines, vars: this.finalVars(), facts: this.finishFacts(), dataMissing: [...this.pending.keys()].filter((k) => !this.taken.has(k)), steps: this.steps, ...(this.trace ? { trace: this.trace } : {}) };
   }
 
   private stopped(e: unknown): Pick<RunResult, 'status' | 'error' | 'limit' | 'waiting'> {
     let how: Stop['how'];
     if (e instanceof Stop) how = e.how;
-    else if (isStackOverflow(e)) how = { error: this.errorAt('RangeError', 'Maximum call stack size exceeded', 'stack', this.here, 'Your function keeps calling itself and never stops. A function that calls itself needs an if statement that ends the calls.') };
+    else if (isStackOverflow(e)) how = { error: this.errorAt('RangeError', 'Maximum call stack size exceeded', 'stack', this.here, this.userCalls ? 'Your function keeps calling itself and never stops. A function that calls itself needs an if statement that ends the calls.' : 'This line is too long for the editor to work out. Split it into shorter lines.') };
     else if (e instanceof RangeError) how = { error: this.errorAt('RangeError', e.message, 'range', this.here) };
     else how = { error: this.errorAt('InternalError', 'This editor ran into a problem it could not handle.', 'internal', this.here, String(e)) };
     if ('cut' in how) {
@@ -1713,7 +1715,8 @@ function valueWord(v: Value): string {
   return shownText(v);
 }
 
-function isStackOverflow(e: unknown): boolean {
+/** The browser's own stack ran out. Very deep student code can do this, and it must never escape as a crash. */
+export function isStackOverflow(e: unknown): boolean {
   if (typeof e !== 'object' || e === null) return false;
   const { name, message } = e as Error;
   return (name === 'RangeError' && /call stack/i.test(message)) || name === 'InternalError';

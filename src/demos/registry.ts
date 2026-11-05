@@ -4,6 +4,7 @@ import { compareModel } from './compare';
 import { counterModel } from './counter';
 import { fitWalkModel } from './fitWalk';
 import { javaModel } from './java';
+import { jsModel } from './js';
 import { objectsModel } from './objects';
 import { placesModel } from './places';
 import { readWalkModel } from './readWalk';
@@ -30,6 +31,7 @@ export const DEMO_MODELS: { [K in DemoKind]: DemoModel<Extract<DemoSpec, { kind:
   ascii: asciiModel,
   note: noteModel,
   java: javaModel,
+  js: jsModel,
   objects: objectsModel,
 };
 

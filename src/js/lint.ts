@@ -1,6 +1,6 @@
 import { isLoop, textOf, walk, walkProgram, type Block, type Expr, type Fn, type Loop, type Node, type Program, type Stmt } from './ast';
 import { ARRAY_METHODS, NUMBER_METHODS, STRING_METHODS } from './lib';
-import type { RunResult } from './run';
+import { isStackOverflow, type RunResult } from './run';
 
 /**
  * The shared mistake detector. It reads the syntax tree and what happened during
@@ -393,6 +393,16 @@ function declaresAlert(programs: Program[]): boolean {
 
 /** Everything worth a note, in line order. `off` lists rules to skip. */
 export function lint(programs: Program[], run: RunResult | undefined, off: readonly string[] = []): LintNote[] {
+  try {
+    return lintAll(programs, run, off);
+  } catch (e) {
+    // Notes are extras. A tree too deep to walk still has its run result to show.
+    if (isStackOverflow(e)) return [];
+    throw e;
+  }
+}
+
+function lintAll(programs: Program[], run: RunResult | undefined, off: readonly string[]): LintNote[] {
   const notes: LintNote[] = [];
   const skip = new Set(off);
   const alertIsMine = declaresAlert(programs);
