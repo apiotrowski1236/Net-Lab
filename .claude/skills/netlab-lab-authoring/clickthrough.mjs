@@ -175,6 +175,14 @@ async function doDemo(id, input) {
   } else if ('hit' in input) {
     await stage.locator('.objects-card').nth(input.hit).locator('button').click();
     log(`  hit object ${input.hit}`);
+  } else if ('click' in input) {
+    // The page is in a sandboxed iframe. A click re-runs the program, and the frame reloads with the new page.
+    const frame = stage.locator('[data-preview] iframe');
+    const before = await frame.evaluate((el) => el.srcdoc);
+    await stage.locator('[data-preview]').frameLocator('iframe').locator(input.click).click();
+    await page.waitForFunction(({ id, old }) => document.querySelector(`[data-demo="${id}"] [data-preview] iframe`)?.srcdoc !== old, { id, old: before });
+    await page.waitForTimeout(150);
+    log(`  click ${input.click} in the preview`);
   } else throw new Error(`clickthrough has no UI driver for demo input ${JSON.stringify(input)}. Add one in doDemo.`);
 }
 
