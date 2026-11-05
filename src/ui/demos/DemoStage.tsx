@@ -49,7 +49,7 @@ export function DemoStage({ session, inline = false }: { session: LabSession; in
         ))}
         {!demos.length && (
           <div class="demo-empty muted">
-            <Icon name="book" size={18} /> Everything for this step is in the lesson on the left.
+            <Icon name="book" size={18} /> Everything for this step is in the lesson.
           </div>
         )}
       </div>

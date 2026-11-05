@@ -119,6 +119,10 @@ const promote = (a: JType, b: JType): JType => (a.k === 'double' || b.k === 'dou
 const mismatchText = (from: JType, to: JType): string =>
   isPrimitive(from) && isNumeric(from) && isNumeric(to) ? `possible lossy conversion from ${typeName(from)} to ${typeName(to)}` : `${typeName(from)} cannot be converted to ${typeName(to)}`;
 
+/** A type with its article: "an int", "a String". */
+const an = (t: JType) => `${/^[aeiou]/i.test(typeName(t)) ? 'an' : 'a'} ${typeName(t)}`;
+const An = (t: JType) => an(t).replace('a', 'A');
+
 const sigOf = (m: { params: JType[] }) => m.params.map(typeName).join(',');
 const argsText = (ts: JType[]) => (ts.length ? ts.map(typeName).join(',') : 'no arguments');
 
@@ -132,6 +136,8 @@ class Checker {
   classes = new Map<string, UserClass>();
   private imports = new Map<string, string[]>();
   private cur!: Ctx;
+  /** The left side of the assignment being checked. */
+  private writing?: Expr;
 
   constructor(private opts: CompileOptions) {}
 
@@ -503,7 +509,7 @@ class Checker {
       }
       case 'return': {
         if (!s.e) {
-          if (c.ret.k !== 'void') this.err('missing-return-value', 'incompatible types: missing return value', s.pos, `This method has to give back a ${typeName(c.ret)}. Write the value after return.`);
+          if (c.ret.k !== 'void') this.err('missing-return-value', 'incompatible types: missing return value', s.pos, `This method has to give back ${an(c.ret)}. Write the value after return.`);
           return false;
         }
         if (c.ret.k === 'void') {
@@ -516,7 +522,7 @@ class Checker {
           );
           return false;
         }
-        s.e = this.initializer(s.e, c.ret);
+        s.e = this.initializer(s.e, c.ret, true);
         return false;
       }
       case 'break':
@@ -554,21 +560,22 @@ class Checker {
     }
   }
 
-  private mismatch(from: JType, to: JType, pos: Pos): void {
+  private mismatch(from: JType, to: JType, pos: Pos, e?: Expr, returning = false): void {
     if (from.k === 'error' || to.k === 'error') return;
     if (isNumeric(unboxed(from)) && isNumeric(to) && isPrimitive(from)) {
       this.err(
         'lossy',
         `incompatible types: possible lossy conversion from ${typeName(from)} to ${typeName(to)}`,
         pos,
-        `A ${typeName(from)} doesn't fit in a ${typeName(to)} without losing part of the value. Change the variable's type, or cast it: (${typeName(to)}).`,
+        `${An(from)} doesn't fit in ${an(to)} without losing part of the value. Change the variable's type, or cast it: (${typeName(to)}).`,
       );
       return;
     }
-    let help = `This spot needs a ${typeName(to)}, but the value here is a ${typeName(from)}.`;
+    const written = e?.k === 'lit';
+    let help = `${returning ? `This method says it returns ${an(to)}` : `This spot needs ${an(to)}`}, but the value here is ${an(from)}.`;
     if (from.k === 'void') help = 'This method is void, so it gives nothing back to store or use.';
-    else if (isStr(from) && isPrimitive(to)) help += ` Text in double quotes is a String, even if it looks like a number.`;
-    else if (isStr(to) && isPrimitive(from)) help += ` Put text in double quotes.`;
+    else if (isStr(from) && isPrimitive(to) && written) help += ` Text in double quotes is a String, even if it looks like a number.`;
+    else if (isStr(to) && isPrimitive(from) && written) help += ` Put text in double quotes.`;
     this.err('type-mismatch', `incompatible types: ${typeName(from)} cannot be converted to ${typeName(to)}`, pos, help);
   }
 
@@ -608,22 +615,22 @@ class Checker {
   }
 
   /** A value going into a variable of type `to`: an initializer, argument, or return. */
-  private initializer(e: Expr, to: JType): Expr {
+  private initializer(e: Expr, to: JType, returning = false): Expr {
     if (e.k === 'arrayinit') {
       this.arrayInit(e, to);
       return e;
     }
     const t = this.expr(e, to);
-    return this.assignTo(e, t, to);
+    return this.assignTo(e, t, to, returning);
   }
 
-  private assignTo(e: Expr, t: JType, to: JType): Expr {
+  private assignTo(e: Expr, t: JType, to: JType, returning = false): Expr {
     if (fits(t, to, true)) return this.adapt(e, to);
     if (to.k === 'char' && t.k === 'int') {
       const v = this.constInt(e);
       if (v !== undefined && v >= 0 && v <= 65535) return e;
     }
-    this.mismatch(t, to, e.pos);
+    this.mismatch(t, to, e.pos, e, returning);
     return e;
   }
 
@@ -741,14 +748,14 @@ class Checker {
       return INT;
     }
     if (isPrimitive(t)) {
-      this.err('dereference', `${typeName(t)} cannot be dereferenced`, e.pos, `A ${typeName(t)} is a plain value, so it has no variables or methods to reach with a dot.`);
+      this.err('dereference', `${typeName(t)} cannot be dereferenced`, e.pos, `${An(t)} is a plain value, so it has no variables or methods to reach with a dot.`);
       return ERROR;
     }
     if (t.k === 'class') {
       const u = this.classes.get(t.name);
       const f = u?.fields.get(e.name);
       if (f) {
-        this.privateCheck(f.access, t.name, e.name, e.pos, f);
+        this.privateCheck(f.access, t.name, e.name, e.pos, f, this.writing === e);
         e.ref = { to: f.isStatic ? 'static' : 'field', f };
         return f.type;
       }
@@ -756,7 +763,7 @@ class Checker {
     const help =
       isStr(t) && e.name === 'length'
         ? 'A String gets its length from a method, with parentheses: length(). Arrays are the ones that use length with no parentheses.'
-        : `A ${typeName(t)} has no variable called ${e.name}.`;
+        : `${An(t)} has no variable called ${e.name}.`;
     this.noSymbol('variable', e.name, e.pos, help, this.location(e.target, t));
     return ERROR;
   }
@@ -772,13 +779,15 @@ class Checker {
     return `class ${typeName(t)}`;
   }
 
-  private privateCheck(access: string, owner: string, text: string, pos: Pos, f?: FieldInfo): void {
+  private privateCheck(access: string, owner: string, text: string, pos: Pos, f?: FieldInfo, write = false): void {
     if (access !== 'private' || owner === this.cur.cls.name || this.opts.ignorePrivate) return;
     const getter = f ? `get${f.name[0].toUpperCase()}${f.name.slice(1)}` : '';
     const has = f && this.classes.get(owner)?.methods.has(getter);
-    const help = f
-      ? `${f.name} is private, so only code inside ${owner} can touch it. ${has ? `Call a public method instead, such as ${getter}().` : `Add a public method to ${owner} that does what you need, and call that.`}`
-      : `This is private, so only code inside ${owner} can call it.`;
+    const help = !f
+      ? `This is private, so only code inside ${owner} can call it.`
+      : write
+        ? `${f.name} is private, so only code inside ${owner} can change it. Call a public method of ${owner} that changes it.`
+        : `${f.name} is private, so only code inside ${owner} can use it. ${has ? `Call a public method instead, such as ${getter}().` : `Add a public method to ${owner} that does what you need, and call that.`}`;
     this.err('private-access', `${text} has private access in ${owner}`, pos, help);
   }
 
@@ -889,7 +898,7 @@ class Checker {
     if (t.k === 'error') return ERROR;
     if (isPrimitive(t) || t.k === 'void' || t.k === 'null') {
       if (t.k === 'void') this.err('void-value', 'void cannot be dereferenced', e.pos, 'This method is void, so it gives nothing back to call a method on.');
-      else this.err('dereference', `${typeName(t)} cannot be dereferenced`, e.pos, `A ${typeName(t)} is a plain value, not an object, so it has no methods to call with a dot.`);
+      else this.err('dereference', `${typeName(t)} cannot be dereferenced`, e.pos, `${An(t)} is a plain value, not an object, so it has no methods to call with a dot.`);
       return ERROR;
     }
     if (t.k === 'array') {
@@ -1027,6 +1036,7 @@ class Checker {
   private assignExpr(e: Expr & { k: 'assign' }): JType {
     const c = this.cur;
     const tgt = e.target;
+    this.writing = tgt;
     // A plain `=` fills a local: don't read it first.
     let tt: JType;
     if (tgt.k === 'name' && e.op === '=') {
@@ -1136,7 +1146,7 @@ class Checker {
           return bad(`${typeName(ta)} and ${typeName(tb)} can't be compared with ${op}.`);
         }
         if (!fits(ta, tb, false) && !fits(tb, ta, false)) {
-          this.err('incomparable', `incomparable types: ${typeName(ta)} and ${typeName(tb)}`, e.pos, `A ${typeName(ta)} and a ${typeName(tb)} can never be the same object.`);
+          this.err('incomparable', `incomparable types: ${typeName(ta)} and ${typeName(tb)}`, e.pos, `${An(ta)} and ${an(tb)} can never be the same object.`);
           return BOOLEAN;
         }
         e.mode = 'ref';
@@ -1298,7 +1308,7 @@ class Checker {
         } else if (isPrimitive(from)) {
           if (fits(from, to, true)) return to;
         } else if (fits(from, to, false) || fits(to, from, false)) return to;
-        this.err('bad-cast', `incompatible types: ${typeName(from)} cannot be converted to ${typeName(to)}`, e.e.pos, `A cast can't turn a ${typeName(from)} into a ${typeName(to)}.`);
+        this.err('bad-cast', `incompatible types: ${typeName(from)} cannot be converted to ${typeName(to)}`, e.e.pos, `A cast can't turn ${an(from)} into ${an(to)}.`);
         return to;
       }
       case 'instanceof': {

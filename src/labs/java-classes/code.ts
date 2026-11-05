@@ -60,10 +60,10 @@ const PLAYER = `public class Player {
 }
 `;
 
-const playerFiles = (body: string): JavaFile[] => [
-  { name: 'Main.java', text: main(body) },
-  { name: 'Player.java', text: PLAYER, locked: true },
-];
+/** Player, to read but not change. */
+const PLAYER_FILE: JavaFile = { name: 'Player.java', text: PLAYER, locked: true };
+
+const playerFiles = (body: string): JavaFile[] => [{ name: 'Main.java', text: main(body) }, PLAYER_FILE];
 
 export const PLAYERS = playerFiles(`Player ada = new Player("Ada", 100);
 Player grace = new Player("Grace", 80);
@@ -104,6 +104,7 @@ Song second = new Song("Paper Road", "Dana Reyes");
 
 System.out.println("Made two songs.");`),
   },
+  PLAYER_FILE,
 ];
 
 export const SONG_BUILT = `public class Song {
@@ -144,10 +145,6 @@ export const SONG_METHODS = `public class Song {
 
   public String getTitle() {
     return title;
-  }
-
-  public String getArtist() {
-    return artist;
   }
 
   public int getPlays() {
@@ -215,9 +212,10 @@ export const BANK: JavaFile[] = [
   {
     name: 'Main.java',
     text: main(`// Make two accounts here. Deposit into one, withdraw from the other,
-// and print the summary of both.
+// and print the balance of both.
 `),
   },
+  PLAYER_FILE,
 ];
 
 export const PLAYLIST: JavaFile[] = [
@@ -273,7 +271,7 @@ function needField(c: JavaCheckCtx, cls: string, name: string, type: string): st
   return undefined;
 }
 
-const PARAM: Record<string, string> = { int: 'int amount', Song: 'Song song', Pet: 'Pet other' };
+const PARAM: Record<string, string> = { int: 'int amount', Song: 'Song song' };
 
 function needMethod(c: JavaCheckCtx, cls: string, name: string, ret: string, ...params: string[]): string | undefined {
   const m = c.method(cls, name, ...params);
@@ -303,6 +301,7 @@ export const THIRD_OBJECT: JavaCheck = {
   test(c) {
     const src = c.source('Main.java');
     if (!/new\s+Player\s*\(\s*"Linus"/.test(src)) return 'Add a line that makes a Player with new. Give it the name "Linus" and 90 health.';
+    if (/Player@/.test(c.output)) return 'Printing a Player object directly shows a code, like Player@1b, because Java does not know which parts to print. Print its name and health the way the other lines do.';
     return /Linus has 90/.test(c.output) ? undefined : 'Print Linus the same way the other two are printed. It should show: Linus has 90';
   },
 };
@@ -335,8 +334,8 @@ export const SONG_SETS: JavaCheck = {
   label: 'The constructor stores both values and starts plays at 0',
   test: (c) =>
     expectRun(c, 'Song s = new Song("A", "B");\nSystem.out.println(s.title + "|" + s.artist + "|" + s.plays);', 'A|B|0', (got) => {
-      if (got.startsWith('null')) return 'title is still null. In the constructor, store the title parameter in the instance variable.';
-      if (got.includes('|null')) return 'artist is still null. In the constructor, store the artist parameter in the instance variable.';
+      if (got.startsWith('null')) return 'title is still null. In the constructor, store songTitle in the instance variable title.';
+      if (got.includes('|null')) return 'artist is still null. In the constructor, store songArtist in the instance variable artist.';
       if (got.startsWith('B')) return 'The title and the artist are swapped. Check which parameter goes where.';
       return 'plays should start at 0.';
     }),
@@ -344,12 +343,11 @@ export const SONG_SETS: JavaCheck = {
 
 export const SONG_ACCESSORS: JavaCheck = {
   id: 'getters',
-  label: 'Song has getTitle, getArtist, and getPlays',
+  label: 'Song has getTitle and getPlays',
   test: (c) =>
     needMethod(c, 'Song', 'getTitle', 'String') ??
-    needMethod(c, 'Song', 'getArtist', 'String') ??
     needMethod(c, 'Song', 'getPlays', 'int') ??
-    expectRun(c, 'Song s = new Song("A", "B");\nSystem.out.println(s.getTitle());\nSystem.out.println(s.getArtist());\nSystem.out.println(s.getPlays());', 'A\nB\n0', () => 'A method gives back the wrong value. Each one should return its own instance variable.'),
+    expectRun(c, 'Song s = new Song("A", "B");\nSystem.out.println(s.getTitle());\nSystem.out.println(s.getPlays());', 'A\n0', () => 'A method gives back the wrong value. Each one should return its own instance variable.'),
 };
 
 export const SONG_SUMMARY: JavaCheck = {
@@ -365,7 +363,7 @@ export const SONG_PLAY: JavaCheck = {
   label: 'play() adds 1 to this song\'s plays',
   test: (c) =>
     needMethod(c, 'Song', 'play', 'void') ??
-    expectRun(c, 'Song a = new Song("A", "B");\nSong b = new Song("C", "D");\na.play();\na.play();\nSystem.out.println(a.plays);\nSystem.out.println(b.plays);', '2\n0', (got) => (got.startsWith('2') ? 'play changed the other song too. Make sure plays is not static.' : 'After two calls to play, plays should be 2.')),
+    expectRun(c, 'Song a = new Song("A", "B");\nSong b = new Song("C", "D");\na.play();\na.play();\nSystem.out.println(a.plays);\nSystem.out.println(b.plays);', '2\n0', (got) => (got.startsWith('2') ? 'play changed the other song too. Make sure plays is not static.' : 'After two calls to play, plays should be 2. Each call should add 1 to what is already there.')),
 };
 
 export const SONG_ADD: JavaCheck = {
@@ -384,24 +382,12 @@ export const PET_FIXED: JavaCheck = {
     (/this\s*\.\s*name\s*=/.test(c.source('Pet.java')) && /this\s*\.\s*age\s*=/.test(c.source('Pet.java')) ? undefined : 'That works, but this step is practice with this. Keep the parameters called name and age, and write this.name = name;'),
 };
 
-export const PET_OLDER: JavaCheck = {
-  id: 'older',
-  label: 'isOlderThan(Pet other) compares the two ages',
-  test: (c) =>
-    needMethod(c, 'Pet', 'isOlderThan', 'boolean', 'Pet') ??
-    expectRun(c, 'Pet a = new Pet("A", 5);\nPet b = new Pet("B", 3);\nPet d = new Pet("D", 5);\nSystem.out.println(a.isOlderThan(b));\nSystem.out.println(b.isOlderThan(a));\nSystem.out.println(a.isOlderThan(d));', 'true\nfalse\nfalse', () => 'It should be true only when this pet is older. Pets of the same age give false.'),
-};
-
-export const BANK_FIELDS: JavaCheck = {
-  id: 'fields',
-  label: 'BankAccount has private instance variables owner and balance',
-  test: (c) => needField(c, 'BankAccount', 'owner', 'String') ?? needField(c, 'BankAccount', 'balance', 'int'),
-};
-
 export const BANK_CTOR: JavaCheck = {
   id: 'ctor',
-  label: 'The constructor takes the owner and the starting balance',
+  label: 'BankAccount has private owner and balance, and a constructor that stores them',
   test: (c) =>
+    needField(c, 'BankAccount', 'owner', 'String') ??
+    needField(c, 'BankAccount', 'balance', 'int') ??
     (c.ctor('BankAccount', 'String', 'int') ? undefined : 'Write a constructor with two parameters: a String and an int.') ??
     expectRun(c, 'BankAccount a = new BankAccount("Ada", 50);\nSystem.out.println(a.owner + "|" + a.balance);', 'Ada|50', () => 'The constructor should store both values in the instance variables.'),
 };
@@ -430,24 +416,16 @@ export const BANK_WITHDRAW: JavaCheck = {
     expectRun(c, 'BankAccount a = new BankAccount("Ada", 50);\na.withdraw(50);\nSystem.out.println(a.getBalance());', '0', () => 'withdraw(50) from a balance of 50 should leave 0. You can take out all of it.'),
 };
 
-export const BANK_SUMMARY: JavaCheck = {
-  id: 'summary',
-  label: 'getSummary gives back text like: Ada: $50',
-  test: (c) =>
-    needMethod(c, 'BankAccount', 'getSummary', 'String') ??
-    expectRun(c, 'System.out.println(new BankAccount("Ada", 50).getSummary());', 'Ada: $50', (got) => `It gave back: ${got}\nIt should be: Ada: $50`),
-};
-
 export const BANK_MAIN: JavaCheck = {
   id: 'main',
-  label: 'Main makes two accounts, deposits, withdraws, and prints both',
+  label: 'Main makes two accounts, deposits, withdraws, and prints both balances',
   test(c) {
     const src = c.source('Main.java');
     if ((src.match(/new\s+BankAccount\s*\(/g) ?? []).length < 2) return 'In Main, make two BankAccount objects with new.';
     if (!/\.deposit\s*\(/.test(src)) return 'In Main, call deposit on one account.';
     if (!/\.withdraw\s*\(/.test(src)) return 'In Main, call withdraw on the other account.';
     if (!c.ok) return 'Fix what stops Main from running, then press Run again.';
-    return lines(c.output).filter((l) => /: \$\d+$/.test(l)).length >= 2 ? undefined : 'In Main, print the getSummary of both accounts.';
+    return (src.match(/\.getBalance\s*\(/g) ?? []).length >= 2 && lines(c.output).filter((l) => /\d/.test(l)).length >= 2 ? undefined : 'In Main, print the balance of both accounts with getBalance.';
   },
 };
 

@@ -33,7 +33,8 @@ export type Slot = { frame: number; name: string } | { obj: number; name: string
 export type Beat =
   /** An expression worked out: its source, then values in place of names, then the result. */
   | { k: 'eval'; steps: string[]; reads: Slot[] }
-  | { k: 'write'; name: string; to?: Slot; value: Shown; declares?: boolean }
+  /** `hides`: the name here is a local, and the current object has an instance variable called the same thing. */
+  | { k: 'write'; name: string; to?: Slot; value: Shown; declares?: boolean; hides?: { kind: 'parameter' | 'local variable'; obj: number } }
   | { k: 'new'; id: number; cls: string }
   | { k: 'call'; name: string; text: string; frame: number; args: TraceVar[]; ctor: boolean }
   | { k: 'return'; name: string; frame: number; value?: Shown; ctor: boolean }
@@ -574,7 +575,10 @@ class Interp implements Rt {
     if (!this.tracing) return;
     const t = target.ty;
     this.evaluated(p, v, t);
-    this.beat({ k: 'write', name: this.exprText(target, false, []), to: at.slot, value: this.shown(v, t) });
+    const f = this.stack[this.stack.length - 1];
+    const local = target.k === 'name' && target.ref?.to === 'local' ? target.ref.slot : undefined;
+    const hides = local !== undefined && target.k === 'name' && f.self && target.name in f.self.fields ? { kind: local < (f.m?.params.length ?? 0) ? ('parameter' as const) : ('local variable' as const), obj: f.self.id } : undefined;
+    this.beat({ k: 'write', name: this.exprText(target, false, []), to: at.slot, value: this.shown(v, t), ...(hides && { hides }) });
   }
 
   private enter(m: MethodInfo | null, cls: string, self: JObj | null, args: unknown[], label: string): Frame {

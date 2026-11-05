@@ -1,6 +1,6 @@
 # Write Your First Class (AP CSA, Unit 3)
 
-Status: built. Code in `index.ts`, `code.ts` (starting code and hidden checks), and `solution.ts`. The student panel has not run yet.
+Status: built. Code in `index.ts`, `code.ts` (starting code and hidden checks), and `solution.ts`. The student panel reviews it.
 
 CED: 3.3.A, 3.4.A, 3.5.A, 3.8.A, 3.9.A. Target: 60 minutes for an average student.
 
@@ -14,9 +14,9 @@ Overriding `toString` is excluded from the course (CED 1.15.A.5), so the lab use
 | 4 | trace | 6 | Steps through object creation and watches references and default values |
 | 5 | private | 4 | Gets a private access error, then goes through the method |
 | 6 | fields-ctor | 8 | Writes Song's instance variables and constructor |
-| 7 | getters | 6 | Adds accessors and getSummary |
+| 7 | getters | 5 | Adds getTitle, getPlays, and getSummary |
 | 8 | mutators | 5 | Adds play and addPlays |
-| 9 | this | 5 | Fixes a hidden-parameter bug with this, and writes isOlderThan |
+| 9 | this | 4 | Fixes a hidden-parameter bug with this |
 | 10 | scratch | 9 | Writes BankAccount from a table of parts |
 | 11 | reflect | 2 | Explains why a game needs an Enemy class |
 | 12 | submit | | Hands in |
@@ -28,4 +28,4 @@ The runner is a compiler and interpreter for the Java subset AP CSA uses (`src/j
 
 The interpreter records what each line does as `beats` on its trace step (`src/java/run.ts`). `planStep` in `src/demos/javaPlan.ts` turns one step and the next into a timed plan, and `Stepper` in `src/ui/demos/Java.tsx` plays it on a loop until the student moves on. A for loop's update and a for-each's next item belong to the loop's own line.
 
-**Pause** and `prefers-reduced-motion` show the picture before the line runs, with the action written out in the strip. The caption says the same action in sentences, so nothing depends on watching the motion.
+**Pause** and `prefers-reduced-motion` hold the picture on the line's finished work, with the action written out in the strip. The caption says the same action in sentences, so nothing depends on watching the motion.

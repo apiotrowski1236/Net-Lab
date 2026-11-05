@@ -153,7 +153,8 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         else if (row) glows.push({ key, at: t, until: t + LAND * 2 * speed });
         t += LAND * speed;
         const place = b.to && 'obj' in b.to && !/^\d/.test(b.to.name) ? `${b.to.name} in ${objectLabel.get(b.to.obj) ?? 'the object'}` : b.name;
-        if (b.value.t === 'ref') say.push(`${place} now refers to ${held(b.value)}.`);
+        if (b.hides) say.push(`${b.name} here is the ${b.hides.kind}, not the instance variable, so it ${row && same(row.before, row.after) ? 'stays' : 'becomes'} ${held(b.value)}. ${objectLabel.get(b.hides.obj) ?? 'The object'} does not change.`);
+        else if (b.value.t === 'ref') say.push(`${place} now refers to ${held(b.value)}.`);
         else say.push(b.declares || row?.before === undefined ? `${place} is created and gets ${held(b.value)}.` : `${place} becomes ${held(b.value)}.`);
         cursor = 'strip';
         showing = false;

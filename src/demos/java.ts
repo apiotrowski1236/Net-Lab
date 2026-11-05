@@ -32,6 +32,8 @@ export interface JavaState {
   runs: number;
   last?: JavaLast;
   checks?: JavaCheckResult[];
+  /** The last run didn't compile far enough to check, so `checks` are from an earlier run. */
+  held?: boolean;
   /** The step on screen in the step-through, while it's on. */
   at?: number;
   /** The furthest step reached in the step-through. */
@@ -107,15 +109,16 @@ function runChecks(spec: JavaSpec, ctx: JavaCheckCtx): JavaCheckResult[] | undef
 /**
  * Checks for a program that didn't compile. When only the main file has errors, the classes
  * still get checked on their own. Main calls what the student hasn't written yet, so otherwise
- * finished work shows no progress until the last piece is in. Other errors keep the old results.
+ * finished work shows no progress until the last piece is in. Other errors keep the old results,
+ * marked as held, so their notes don't read as being about the code on screen.
  */
-function checksWithoutMain(spec: JavaSpec, s: JavaState, errors: ReturnType<typeof compile>['errors']): JavaCheckResult[] | undefined {
+function checksWithoutMain(spec: JavaSpec, s: JavaState, errors: ReturnType<typeof compile>['errors']): Pick<JavaState, 'checks' | 'held'> {
   const main = `${spec.main ?? 'Main'}.java`;
-  if (!spec.checks?.length || errors.some((e) => e.pos.file !== main)) return s.checks;
+  if (!spec.checks?.length) return { checks: s.checks };
   const rest = s.files.filter((f) => f.name !== main);
-  const { program } = compile(sources(rest));
-  if (!program) return s.checks;
-  return runChecks(spec, checkCtx(s.files, program, { output: '', status: 'no-main' }, rest));
+  const program = errors.every((e) => e.pos.file === main) ? compile(sources(rest)).program : undefined;
+  if (!program) return { checks: s.checks, held: true };
+  return { checks: runChecks(spec, checkCtx(s.files, program, { output: '', status: 'no-main' }, rest)), held: false };
 }
 
 function lastOf(r: RunResult, files: JavaFile[]): JavaLast {
@@ -182,20 +185,15 @@ export const javaModel: DemoModel<JavaSpec, JavaState> = {
       const seed = s.runs + 1;
       const { program, errors } = compile(sources(s.files));
       if (!program) {
-        const last = compileErrors(s.files, errors);
-        return { ...s, runs: seed, last, edited: false, checks: checksWithoutMain(spec, s, errors), at: undefined, open: last.errors![0].file };
+        return { ...s, runs: seed, last: compileErrors(s.files, errors), edited: false, ...checksWithoutMain(spec, s, errors), at: undefined };
       }
       const r = runProgram(program, { mainClass: spec.main, seed });
-      const last = lastOf(r, s.files);
-      return { ...s, runs: seed, last, edited: false, checks: runChecks(spec, checkCtx(s.files, program, r)), at: undefined, open: last.exception?.file ?? s.open };
+      return { ...s, runs: seed, last: lastOf(r, s.files), edited: false, checks: runChecks(spec, checkCtx(s.files, program, r)), held: false, at: undefined };
     }
     if ('stepping' in input) {
       if (!input.stepping) return s.at === undefined ? s : { ...s, at: undefined };
       const { errors } = compile(sources(s.files));
-      if (errors.length) {
-        const last = compileErrors(s.files, errors);
-        return { ...s, last, edited: false, open: last.errors![0].file };
-      }
+      if (errors.length) return { ...s, last: compileErrors(s.files, errors), edited: false, ...checksWithoutMain(spec, s, errors) };
       return { ...s, at: 0, far: Math.max(s.far ?? 0, 0) };
     }
     if ('seek' in input) {

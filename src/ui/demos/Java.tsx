@@ -122,15 +122,19 @@ function Console({ last, stale, onLine }: { last?: JavaLast; stale: boolean; onL
       {last.kind === 'errors' && (
         <>
           <p class="java-head bad">{plural(last.errors!.length, 'error')}. Java could not compile this, so nothing ran.</p>
-          {last.errors!.map((e, i) => (
-            <div class="java-error" key={i}>
-              {place(e.file, e.line)}
-              {e.help && <p class="java-help">{e.help}</p>}
-              {/* The message wraps. The code below it can't, or its ^ would stop pointing at the right spot. */}
-              <pre class="java-msg">{e.text.split('\n')[0]}</pre>
-              <pre>{e.text.split('\n').slice(1).join('\n')}</pre>
-            </div>
-          ))}
+          {last.errors!.map((e, i) => {
+            const [message, code, caret, ...notes] = e.text.split('\n');
+            return (
+              <div class="java-error" key={i}>
+                {place(e.file, e.line)}
+                {e.help && <p class="java-help">{e.help}</p>}
+                {/* The message wraps. The code can't, or its ^ would stop pointing at the right spot. */}
+                <pre class="java-msg">{message}</pre>
+                <pre>{`${code}\n${caret}`}</pre>
+                {notes.length > 0 && <pre class="java-msg">{notes.join('\n')}</pre>}
+              </div>
+            );
+          })}
         </>
       )}
       {last.kind !== 'errors' && last.output && <pre class="java-output">{last.output}</pre>}
@@ -145,7 +149,7 @@ function Console({ last, stale, onLine }: { last?: JavaLast; stale: boolean; onL
         <div class="java-error">
           {last.exception.file && last.exception.line !== undefined && place(last.exception.file, last.exception.line)}
           <p class="java-help">{last.exception.help}</p>
-          <pre>{last.exception.text}</pre>
+          <pre class="java-msg">{last.exception.text}</pre>
         </div>
       )}
     </div>
@@ -327,41 +331,39 @@ function Stepper({ step, next, output, cut }: { step: TraceStep; next?: TraceSte
     if (!box) return;
     const measure = () => {
       const out: Arrow[] = [];
-      if (getComputedStyle(box).getPropertyValue('--mem-arrows').trim() !== 'none') {
-        const o = box.getBoundingClientRect();
-        box.querySelectorAll<HTMLElement>('.mem-ref').forEach((ref) => {
-          const to = box.querySelector(`.mem-obj[data-id="${ref.dataset.to}"]`);
-          if (!to || !ref.getClientRects().length || !to.getClientRects().length) return;
-          const a = ref.getBoundingClientRect();
-          const b = to.getBoundingClientRect();
-          const x1 = a.right - o.left + box.scrollLeft + 2;
-          const y1 = a.top + a.height / 2 - o.top + box.scrollTop;
-          const y2 = Math.min(b.top + 16, b.bottom - 8) - o.top + box.scrollTop;
-          let d: string;
-          if (b.left >= a.right) {
-            const x2 = b.left - o.left + box.scrollLeft - 3;
-            const mid = (x1 + x2) / 2;
-            d = `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
-          } else {
-            // An object pointing at another object in the same column: go around the side.
-            const x2 = b.right - o.left + box.scrollLeft + 3;
-            const bulge = Math.max(x1, x2) + 18;
-            d = `M${x1} ${y1} C${bulge} ${y1} ${bulge} ${y2} ${x2} ${y2}`;
-          }
-          // An arrow shows while both of its ends do.
-          const ends = [ref, to];
-          const ats = ends.map((e) => num(e.closest('[data-at]')?.getAttribute('data-at'))).filter((n) => n !== undefined) as number[];
-          const leaves = ends.map((e) => num(e.closest('[data-leave]')?.getAttribute('data-leave'))).filter((n) => n !== undefined) as number[];
-          out.push({ d, at: ats.length ? Math.max(...ats) : undefined, leave: leaves.length ? Math.min(...leaves) : undefined });
-        });
-      }
+      const o = box.getBoundingClientRect();
+      box.querySelectorAll<HTMLElement>('.mem-ref').forEach((ref) => {
+        const to = box.querySelector(`.mem-obj[data-id="${ref.dataset.to}"]`);
+        if (!to || !ref.getClientRects().length || !to.getClientRects().length) return;
+        const a = ref.getBoundingClientRect();
+        const b = to.getBoundingClientRect();
+        const x1 = a.right - o.left + box.scrollLeft + 2;
+        const y1 = a.top + a.height / 2 - o.top + box.scrollTop;
+        const y2 = Math.min(b.top + 16, b.bottom - 8) - o.top + box.scrollTop;
+        let d: string;
+        if (b.left >= a.right) {
+          const x2 = b.left - o.left + box.scrollLeft - 3;
+          const mid = (x1 + x2) / 2;
+          d = `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`;
+        } else {
+          // Both ends in one column, as on a narrow screen: go around the side.
+          const x2 = b.right - o.left + box.scrollLeft + 3;
+          const bulge = Math.max(x1, x2) + 18;
+          d = `M${x1} ${y1} C${bulge} ${y1} ${bulge} ${y2} ${x2} ${y2}`;
+        }
+        // An arrow shows while both of its ends do.
+        const ends = [ref, to];
+        const ats = ends.map((e) => num(e.closest('[data-at]')?.getAttribute('data-at'))).filter((n) => n !== undefined) as number[];
+        const leaves = ends.map((e) => num(e.closest('[data-leave]')?.getAttribute('data-leave'))).filter((n) => n !== undefined) as number[];
+        out.push({ d, at: ats.length ? Math.max(...ats) : undefined, leave: leaves.length ? Math.min(...leaves) : undefined });
+      });
       setArrows((had) => (JSON.stringify(had) === JSON.stringify(out) ? had : out));
     };
     measure();
     const seen = new ResizeObserver(measure);
     seen.observe(box);
     return () => seen.disconnect();
-  }, [plan, still]);
+  }, [plan]);
 
   useLayoutEffect(() => {
     const box = root.current;
@@ -375,12 +377,14 @@ function Stepper({ step, next, output, cut }: { step: TraceStep; next?: TraceSte
       if (r.top < m.top) mem.scrollTop -= m.top - r.top + 4;
       else if (r.bottom > m.bottom) mem.scrollTop += r.bottom - m.bottom + 4;
     }
-    if (still) return;
     let running: Animation[] = [];
+    // Held still, the picture stays on the line's finished work.
+    const done = Math.min(plan.flowAt + FADE, plan.total - FADE);
     const build = () => {
       const from = Number(running[0]?.currentTime ?? 0);
       running.forEach((a) => a.cancel());
-      running = play(box, plan, from);
+      running = play(box, plan, still ? done : from);
+      if (still) running.forEach((a) => a.pause());
     };
     build();
     // A chip's path is measured, so it has to change if the picture moves.
@@ -399,33 +403,32 @@ function Stepper({ step, next, output, cut }: { step: TraceStep; next?: TraceSte
   const firstObject = allEnter ? Math.min(...plan.objects.map((o) => o.enterAt!)) : undefined;
   const sofar = output.slice(0, step.outLen);
   return (
-    <div class={`stepper ${still ? 'still' : ''}`} ref={root}>
+    <div class="stepper" ref={root}>
       <div class="java-caption" aria-live="polite">
-        <b>The marked line is about to run.</b> {plan.say}
+        {next && <b>Marked line: </b>}
+        {plan.say}
       </div>
-      <div class="act">
-        <div class="act-stack" data-slot="strip">
-          {still ? (
-            <code class="act-text">{plan.texts.map((t) => t.text).join(' \u2192 ')}</code>
-          ) : (
-            plan.texts.map((t, i) => (
-              <code class="act-text" key={i} aria-hidden="true" data-at={t.at} data-leave={t.until}>
-                {t.text}
-              </code>
-            ))
+      {(plan.texts.length > 0 || plan.flow) && (
+        <div class="act">
+          <div class="act-stack" data-slot="strip">
+            {still ? (
+              <code class="act-text">{plan.texts.map((t) => t.text).join(' \u2192 ')}</code>
+            ) : (
+              plan.texts.map((t, i) => (
+                <code class="act-text" key={i} aria-hidden="true" data-at={t.at} data-leave={t.until}>
+                  {t.text}
+                </code>
+              ))
+            )}
+          </div>
+          {plan.flow && <span class="act-flow">{plan.flow}</span>}
+          {!calm && (
+            <button class="btn tiny act-pause" onClick={() => setPaused(!paused)}>
+              {paused ? 'Play' : 'Pause'}
+            </button>
           )}
         </div>
-        {plan.flow && (
-          <span class="act-flow" data-at={still ? undefined : plan.flowAt}>
-            {plan.flow}
-          </span>
-        )}
-        {!calm && (
-          <button class="btn tiny act-pause" onClick={() => setPaused(!paused)}>
-            {paused ? 'Play' : 'Pause'}
-          </button>
-        )}
-      </div>
+      )}
       <div class="mem">
         <svg class="mem-arrows" aria-hidden="true">
           <defs>
@@ -574,7 +577,7 @@ export function JavaView({ spec, state: s, send }: DemoViewProps<JavaSpec, JavaS
         {stepping && (
           <div class="java-actions">
             <button class="btn small" disabled={s.at === 0} onClick={() => send({ seek: s.at! - 1 })}>
-              Back
+              Back a line
             </button>
             <span class="java-count" aria-live="polite">
               Step {s.at! + 1} of {count}
@@ -603,16 +606,18 @@ export function JavaView({ spec, state: s, send }: DemoViewProps<JavaSpec, JavaS
       </div>
       {checks && (
         <ul class="java-checks" aria-label="Checks">
+          {s.held && <li class="java-held">The checks wait until your code compiles. Fix the error, then press Run.</li>}
           {checks.map((c) => {
             const r = s.checks?.find((x) => x.id === c.id);
+            const note = s.held ? undefined : r?.note;
             return (
-              <li key={c.id} class={r?.ok ? 'ok' : r?.note ? 'no' : ''}>
+              <li key={c.id} class={r?.ok ? 'ok' : note ? 'no' : ''}>
                 <span class="java-mark" aria-hidden="true">
-                  {r?.ok ? '✓' : r?.note ? '✗' : '○'}
+                  {r?.ok ? '✓' : note ? '✗' : '○'}
                 </span>
                 <span>
                   {c.label}
-                  {r?.note && <span class="java-note">{r.note}</span>}
+                  {note && <span class="java-note">{note}</span>}
                 </span>
               </li>
             );

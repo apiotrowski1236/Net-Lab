@@ -4511,7 +4511,6 @@ button.pl-tile:active {
   min-height: 56px;
 }
 .mem {
-  --mem-arrows: on;
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -4519,7 +4518,8 @@ button.pl-tile:active {
   flex: 1 1 auto;
   min-height: 150px;
   overflow: auto;
-  padding: 2px;
+  /* Room for an arrow that goes around the side. */
+  padding: 2px 26px 2px 2px;
 }
 .mem-col {
   display: flex;
@@ -4669,6 +4669,10 @@ button.pl-tile:active {
 .mem-none[data-leave] {
   position: absolute;
 }
+/* Under the column's heading, not on top of it. */
+.mem-col > .mem-none[data-leave] {
+  top: 24px;
+}
 .mem-glow {
   position: absolute;
   inset: 0;
@@ -4683,10 +4687,6 @@ button.pl-tile:active {
 .mem-val > .now {
   grid-area: 1 / 1;
   display: inline-block;
-}
-/* Paused, or with less motion asked for: the picture before the marked line runs. */
-.still [data-at] {
-  display: none;
 }
 .java-so-far {
   flex: 0 0 auto;
@@ -4708,6 +4708,10 @@ button.pl-tile:active {
   display: flex;
   gap: 8px;
   color: var(--muted);
+}
+.java-checks li.java-held {
+  color: var(--muted);
+  font-style: italic;
 }
 .java-checks li.ok {
   color: var(--good-ink);
@@ -4794,19 +4798,26 @@ button.pl-tile:active {
     height: auto;
   }
   .java-editor {
-    height: 340px;
+    height: 420px;
+  }
+  /* The step-through is taller than the screen here, so Next stays in reach, and the picture stays near the code. */
+  .java-main.stepping .java-editor {
+    height: 220px;
+  }
+  .java-bar {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    padding-block: 6px;
+    background: var(--panel);
   }
   .java-side {
     min-height: 120px;
     max-height: none;
   }
   .mem {
-    --mem-arrows: none;
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
-  }
-  .mem-arrows {
-    display: none;
   }
   .objects-top {
     grid-template-columns: minmax(0, 1fr);

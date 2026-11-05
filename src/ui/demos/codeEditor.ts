@@ -1,5 +1,5 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { cursorLineEnd, cursorLineStart, defaultKeymap, history, historyKeymap, indentWithTab, selectLineEnd, selectLineStart } from '@codemirror/commands';
 import { java } from '@codemirror/lang-java';
 import { bracketMatching, HighlightStyle, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { Annotation, Compartment, EditorState, RangeSetBuilder, StateEffect, StateField, type Extension, type Text } from '@codemirror/state';
@@ -69,6 +69,8 @@ const theme = EditorView.theme({
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.5', overflow: 'auto' },
   '.cm-content': { caretColor: 'var(--ink)', padding: '8px 0' },
+  // A long line wraps past the code's own indent, so it can't be mistaken for the next line.
+  '.cm-line': { paddingLeft: 'calc(8ch + 6px)', textIndent: '-8ch' },
   '.cm-cursor': { borderLeftColor: 'var(--ink)' },
   '.cm-gutters': { backgroundColor: 'var(--input-bg)', color: 'var(--faint)', border: 'none', borderRight: '1px solid var(--line)' },
   '.cm-activeLine': { backgroundColor: 'var(--code-active)' },
@@ -101,7 +103,8 @@ export function createEditor(parent: HTMLElement, onChange: (text: string) => vo
     EditorView.lineWrapping,
     syntaxHighlighting(highlight),
     java(),
-    keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+    // Home and End go to the ends of the code's line, not of the row a long line wrapped to.
+    keymap.of([{ key: 'Home', run: cursorLineStart, shift: selectLineStart }, { key: 'End', run: cursorLineEnd, shift: selectLineEnd }, ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
     EditorView.contentAttributes.of({ 'aria-label': 'Java code. Press Escape, then Tab, to leave the editor.', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off' }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && u.transactions.some((tr) => !tr.annotation(fromOutside))) onChange(u.state.doc.toString());
@@ -135,8 +138,18 @@ export function createEditor(parent: HTMLElement, onChange: (text: string) => vo
     reveal(line, focus) {
       const doc = view.state.doc;
       const at = doc.line(Math.min(Math.max(line, 1), doc.lines)).from;
-      view.dispatch({ selection: focus ? { anchor: at } : undefined, effects: EditorView.scrollIntoView(at, { y: 'center' }) });
-      if (focus) view.focus();
+      if (focus) {
+        view.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'center' }) });
+        view.focus();
+        return;
+      }
+      // Only the editor scrolls. scrollIntoView would also move the page, and with it the Next button.
+      view.requestMeasure({
+        read: (v) => v.lineBlockAt(at),
+        write: (b, v) => {
+          v.scrollDOM.scrollTop = b.top - (v.scrollDOM.clientHeight - b.height) / 2;
+        },
+      });
     },
     destroy: () => view.destroy(),
   };

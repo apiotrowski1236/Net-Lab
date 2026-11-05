@@ -43,15 +43,7 @@ const SONG_DONE = SONG_METHODS.replace(
 `,
 );
 
-const PET_DONE = PET[0].text.replace('name = name;', 'this.name = name;').replace('age = age;', 'this.age = age;').replace(
-  /\}\n$/,
-  `
-  public boolean isOlderThan(Pet other) {
-    return this.age > other.age;
-  }
-}
-`,
-);
+const PET_DONE = PET[0].text.replace('name = name;', 'this.name = name;').replace('age = age;', 'this.age = age;');
 
 const BANK_DONE = `public class BankAccount {
   private String owner;
@@ -75,10 +67,6 @@ const BANK_DONE = `public class BankAccount {
       balance = balance - amount;
     }
   }
-
-  public String getSummary() {
-    return owner + ": $" + balance;
-  }
 }
 `;
 
@@ -86,8 +74,8 @@ const BANK_MAIN = main(`    BankAccount a = new BankAccount("Ada", 50);
     BankAccount b = new BankAccount("Grace", 80);
     a.deposit(25);
     b.withdraw(30);
-    System.out.println(a.getSummary());
-    System.out.println(b.getSummary());`);
+    System.out.println(a.getBalance());
+    System.out.println(b.getBalance());`);
 
 const PLAYLIST_DONE = `import java.util.ArrayList;
 

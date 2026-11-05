@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { javaModel, traceOf, type JavaState } from '../../demos/java';
+import { planStep } from '../../demos/javaPlan';
 import { objectsModel } from '../../demos/objects';
 import type { JavaSpec, ObjectsSpec } from '../../demos/types';
 import { LabSession } from '../../runtime/session';
@@ -40,6 +41,12 @@ describe('starting code', () => {
     const s = spec('trace', 'trace');
     expect(traceOf(s, javaModel.init(s).files).steps).toHaveLength(17);
   });
+
+  test('Run stays on the tab the student is working in', () => {
+    const r = run(spec('fields-ctor', 'song'));
+    expect(r.last?.errors?.[0].file).toBe('Main.java');
+    expect(r.open).toBe('Song.java');
+  });
 });
 
 describe('step-through', () => {
@@ -62,6 +69,18 @@ describe('step-through', () => {
     expect(steps[0].objects).toEqual([]);
   });
 
+  test('step 4 sends students to Step 2 to see the default', () => {
+    const first = steps.findIndex((x) => x.frames.length === 2);
+    expect(first).toBe(1);
+  });
+
+  test('step 9 explains why name = name changes nothing', () => {
+    const pets = spec('this', 'pets');
+    const trace = traceOf(pets, javaModel.init(pets).files).steps;
+    const i = trace.findIndex((x) => x.file === 'Pet.java');
+    expect(planStep(trace[i], trace[i + 1]).say).toBe('name here is the parameter, not the instance variable, so it stays "Biscuit". Pet #1 does not change.');
+  });
+
   test('inside the constructor, health shows its default until it is set', () => {
     const first = steps.find((x) => x.frames.length === 2)!;
     expect(first.frames[1].label).toBe('Player constructor');
@@ -77,7 +96,7 @@ describe('private', () => {
     const s = spec('private', 'guard');
     const code = javaModel.init(s).files[0].text.replace('// Your line goes here.', 'ada.health = -50;');
     const r = withEdits(s, { 'Main.java': code });
-    expect(r.last?.errors?.[0]).toMatchObject({ code: 'private-access', help: 'health is private, so only code inside Player can touch it. Call a public method instead, such as getHealth().' });
+    expect(r.last?.errors?.[0]).toMatchObject({ code: 'private-access', help: 'health is private, so only code inside Player can change it. Call a public method of Player that changes it.' });
     expect(javaModel.facts(s, r).errors).toBe('private-access');
   });
 
@@ -101,7 +120,7 @@ describe('checks', () => {
   test('an unstored parameter gets its own message', () => {
     const s = spec('fields-ctor', 'song');
     const r = withEdits(s, { 'Song.java': built.replace('title = songTitle;', '') });
-    expect(r.checks?.[2].note).toBe('title is still null. In the constructor, store the title parameter in the instance variable.');
+    expect(r.checks?.[2].note).toBe('title is still null. In the constructor, store songTitle in the instance variable title.');
   });
 
   test('swapped parameters get their own message', () => {
@@ -118,13 +137,30 @@ describe('checks', () => {
     expect(javaModel.facts(s, r)['check:fields']).toBe(true);
   });
 
-  test('a class that does not compile keeps the last results', () => {
+  test('a class that does not compile keeps the last results, marked as held', () => {
     const s = spec('fields-ctor', 'song');
     const good = withEdits(s, { 'Song.java': built });
     expect(good.checks?.every((c) => c.ok)).toBe(true);
+    expect(good.held).toBe(false);
     const bad = run(s, javaModel.apply(s, good, { edit: 'Song.java', code: built.replace('plays = 0;', 'plays = 0') }));
     expect(bad.last?.kind).toBe('errors');
     expect(bad.checks).toEqual(good.checks);
+    expect(bad.held).toBe(true);
+    expect(run(s, javaModel.apply(s, bad, { edit: 'Song.java', code: built })).held).toBe(false);
+  });
+
+  test('printing a whole Player explains the code it shows', () => {
+    const s = spec('anatomy', 'players');
+    const start = javaModel.init(s).files[0].text;
+    const r = withEdits(s, { 'Main.java': start.replace('ada.takeDamage(30);', 'Player linus = new Player("Linus", 90);\n    System.out.println(linus);\n    ada.takeDamage(30);') });
+    expect(r.checks?.[0].note).toMatch(/^Printing a Player object directly/);
+  });
+
+  test('Main must print both balances', () => {
+    const s = spec('scratch', 'bank');
+    const [bank, mainMove] = javaClassesSolution.scratch.moves as { input: { code: string } }[];
+    const r = withEdits(s, { 'BankAccount.java': bank.input.code, 'Main.java': mainMove.input.code.replace('System.out.println(b.getBalance());', '') });
+    expect(r.checks?.find((c) => c.id === 'main')?.note).toBe('In Main, print the balance of both accounts with getBalance.');
   });
 
   test('renaming the parameters fixes Pet, but the step asks for this', () => {
