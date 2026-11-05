@@ -89,6 +89,8 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH 
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 800 }, serviceWorkers: 'block' });
 const profile = { id: 'click', name: 'Casey Click', period: 'Period 1', createdAt: 0 };
 await ctx.addInitScript((profile) => {
+  // This runs in every frame, and a page preview's sandboxed frame has no storage.
+  if (window !== window.top) return;
   if (sessionStorage.getItem('seeded')) return;
   sessionStorage.setItem('seeded', '1');
   localStorage.setItem('netlab:v1:profile', JSON.stringify(profile));
@@ -178,6 +180,14 @@ async function doDemo(id, input) {
   } else if ('hit' in input) {
     await stage.locator('.objects-card').nth(input.hit).locator('button').click();
     log(`  hit object ${input.hit}`);
+  } else if ('click' in input) {
+    // The page is in a sandboxed iframe. A click re-runs the program, and the frame reloads with the new page.
+    const frame = stage.locator('[data-preview] iframe');
+    const before = await frame.evaluate((el) => el.srcdoc);
+    await stage.locator('[data-preview]').frameLocator('iframe').locator(input.click).click();
+    await page.waitForFunction(({ id, old }) => document.querySelector(`[data-demo="${id}"] [data-preview] iframe`)?.srcdoc !== old, { id, old: before });
+    await page.waitForTimeout(150);
+    log(`  click ${input.click} in the preview`);
   } else throw new Error(`clickthrough has no UI driver for demo input ${JSON.stringify(input)}. Add one in doDemo.`);
 }
 
@@ -284,7 +294,13 @@ try {
     if (process.env.EACH) {
       await page.screenshot({ path: join(OUT, `step-${String(i + 1).padStart(2, '0')}-${step.id}.png`) });
     }
-    if (step.kind === 'submit') break;
+    if (step.kind === 'submit') {
+      // A coding lab goes on into its optional extra challenge. A network lab stops here.
+      if (lab.build || !lab.steps[i + 1]?.extra) break;
+      await page.getByRole('button', { name: 'Optional extra challenge' }).click();
+      model.goTo(i + 1);
+      continue;
+    }
     // The model session plays each move too, so openFrame knows its row.
     for (const m of sol[step.id]?.moves ?? []) {
       await doMove(i, step, m);
@@ -304,6 +320,7 @@ try {
     // A click that times out still gets a screenshot and the step's name.
     await answer(i, step).catch((e) => fail(i, String(e.message ?? e).split('\n')[0]));
     playStep(model, { text: sol[step.id]?.text });
+    if (i === lab.steps.length - 1) break;
     const cont = page.getByRole('button', { name: 'Continue' });
     if (!(await cont.count())) {
       const why = await page.locator('.lesson .btn.primary.big').innerText().catch(() => '?');

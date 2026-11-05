@@ -12,7 +12,7 @@ export { errorText, type JsError, type Pos } from './errors';
 export { LINT_RULES, WAITING_RULES, lint, type LintNote } from './lint';
 export { Query, type CallFact, type DeclFact, type FnFact, type LoopFact } from './query';
 export { runProgram, type Limit, type OutputLine, type RunFacts, type RunOptions, type RunResult, type TraceFrame, type TraceItem, type TraceStep, type TraceVar, type Waiting } from './run';
-export { HostObject, type Runtime, type Value } from './values';
+export { HostObject, type PageHooks, type Runtime, type Value } from './values';
 export type { Program } from './ast';
 
 export interface SourceFile {

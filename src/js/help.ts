@@ -64,6 +64,16 @@ export function explainSyntax(e: Omit<JsError, 'help'>, seen: Token[], at: Token
   const top = open[open.length - 1];
   const line = onLine([...before, at], at.pos.line);
 
+  if (e.msg.startsWith('Invalid left-hand side')) {
+    // `el.style.background-color = "red"` reads as `el.style.background` minus `color`.
+    const eq = seen.map((t) => (t.t === 'op' ? t.v : '')).lastIndexOf('=');
+    const [dot, left, minus, right] = seen.slice(Math.max(0, eq - 4), Math.max(0, eq));
+    if (dot?.v === '.' && dot.t === 'op' && left?.t === 'id' && minus?.t === 'op' && minus.v === '-' && right?.t === 'id') {
+      const camel = `${left.v}${right.v[0].toUpperCase()}${right.v.slice(1)}`;
+      return { code: 'style-dash', help: `JavaScript reads the dash in ${left.v}-${right.v} as a minus sign, so this line tries to subtract. Property names in JavaScript use a capital letter where CSS uses a dash. Write ${camel}.` };
+    }
+  }
+
   // The lexer already knows these.
   switch (at.code) {
     case 'smart-quote':

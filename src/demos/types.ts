@@ -205,6 +205,8 @@ export interface JsSpec extends DemoBase {
   lintOff?: string[];
   /** Objects the program can reach as globals, such as `document`. Each run gets new ones, built from the student's files. */
   hosts?: (rt: import('../js').Runtime, files: JsFile[]) => Record<string, import('../js').HostObject>;
+  /** The page before the first Run. Having one is what turns on the preview. */
+  startPage?: (files: JsFile[]) => import('../dom').PageState;
 }
 
 /** One class stamping out objects: press to make one, and hit one to see that only it changes. */
@@ -257,6 +259,8 @@ export type DemoInput =
   | { answer: string | null }
   | { stop: true }
   | { hint: string }
+  /** An element on the preview, by its path or a selector. It re-executes from the start, then clicks in order, the way `answer` does. */
+  | { click: string }
   // objects
   | { make: true }
   | { hit: number };
