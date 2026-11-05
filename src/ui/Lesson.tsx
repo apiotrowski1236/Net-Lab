@@ -7,7 +7,7 @@ import { targetsFor } from '../sim/malware';
 import { pingFailText } from './describe';
 import { connOutcomeLines, fwDenyText } from './firewallText';
 import { idsOutcomeLines } from './idsText';
-import { ExtraCreditBanner, ExtraCreditDone } from './ExtraCredit';
+import { ExtraChallengeBanner, ExtraChallengeDone } from './ExtraChallenge';
 import { Icon } from './icons';
 import { inlineMarkdown, renderMarkdown, type MdActions } from './markdown';
 import { shuffledOptions } from '../labs/shuffle';
@@ -565,7 +565,7 @@ export function LessonPanel({
         <h2 class="step-title" tabIndex={-1} ref={title}>
           {step.title}
         </h2>
-        {step.extra && <ExtraCreditBanner session={session} />}
+        {step.extra && <ExtraChallengeBanner session={session} />}
         <Prose src={step.body} labels={labels} onDevice={onDevice} actions={actionLabels} onAction={press} />
 
         {captureTool && (
@@ -643,7 +643,7 @@ export function LessonPanel({
           </div>
         )}
 
-        {step.extra && isLast && session.stepComplete(p.step) && <ExtraCreditDone session={session} />}
+        {step.extra && isLast && session.stepComplete(p.step) && <ExtraChallengeDone session={session} />}
 
       </div>
       {overrideOpen && <OverrideDialog session={session} onClose={() => setOverrideOpen(false)} />}
@@ -653,9 +653,9 @@ export function LessonPanel({
           <Icon name="chevronLeft" /> Back
         </button>
         {!isLast && step.kind === 'submit' ? (
-          // Extra credit comes after handing in. Handing in stays the main button, on the right.
+          // The optional extra challenge comes after handing in. Handing in stays the main button, on the right.
           <button class="btn big" onClick={() => session.goTo(p.step + 1)}>
-            Extra credit <Icon name="chevronRight" />
+            Optional extra challenge <Icon name="chevronRight" />
           </button>
         ) : (
           !isLast && (

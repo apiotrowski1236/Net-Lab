@@ -299,13 +299,14 @@ export interface StepDef {
   focus?: string[];
   /** Open a dock tab when the step starts. */
   open?: 'capture' | 'tools' | 'logs' | { inspect: string };
-  /** The "review and submit" step. Last, unless extra-credit steps follow it. */
+  /** The "review and submit" step. Last, unless optional extra challenge steps follow it. */
   kind?: 'submit';
   /**
-   * Extra credit: an optional step after the submit step. It never counts as
-   * unfinished. Its goals and questions are flagged `extra` in the report and
-   * score into `score.extra`, not `auto`, so skipping it costs nothing. The
-   * lesson asks the student to hand in again once they've done it.
+   * Optional extra challenge: a step after the submit step, titled
+   * "Optional extra challenge: ...". It never counts as unfinished and earns no
+   * points, because the school doesn't allow awarding extra credit. Its goals
+   * and questions are flagged `extra` in the report with `points: 0`. The lesson
+   * asks the student to hand in again so the teacher sees the work.
    */
   extra?: true;
 }

@@ -6,7 +6,7 @@ import { profile } from '../store/profile';
 import { Icon } from './icons';
 import { handIn, handInWhere, reportFileName } from './Submit';
 
-/** The last time the student reached a goal or changed an answer in an extra-credit step (0 if never). */
+/** The last time the student reached a goal or changed an answer in an optional extra challenge step (0 if never). */
 export function lastExtraWork(session: LabSession): number {
   const p = session.progress;
   let t = 0;
@@ -18,7 +18,7 @@ export function lastExtraWork(session: LabSession): number {
   return t;
 }
 
-/** The hand-in button for extra-credit steps, and what happened after it was pressed. */
+/** The hand-in button for optional extra challenge steps, and what happened after it was pressed. */
 function HandInAgain({ session, label }: { session: LabSession; label: string }) {
   const [done, setDone] = useState(false);
   const who = profile.value;
@@ -30,13 +30,13 @@ function HandInAgain({ session, label }: { session: LabSession; label: string })
         disabled={!who.name.trim()}
         title={who.name.trim() ? '' : 'Add your name (top right) first'}
         onClick={(e) => {
-          const box = e.currentTarget.closest<HTMLElement>('.extra-credit');
+          const box = e.currentTarget.closest<HTMLElement>('.extra-challenge');
           handIn(session);
           setDone(true);
           // Handing in can replace this button. Keep keyboard focus in the same box.
           requestAnimationFrame(() => {
             if (document.activeElement && document.activeElement !== document.body) return;
-            const target = box?.isConnected ? box : [...document.querySelectorAll<HTMLElement>('.extra-credit')].pop();
+            const target = box?.isConnected ? box : [...document.querySelectorAll<HTMLElement>('.extra-challenge')].pop();
             (target?.querySelector<HTMLElement>('button') ?? target)?.focus();
           });
         }}
@@ -46,7 +46,7 @@ function HandInAgain({ session, label }: { session: LabSession; label: string })
       {done && (
         <p class="extra-status" role="status">
           {endpoint ? (
-            'Sent to your teacher with your extra credit.'
+            'Sent to your teacher with your challenge work.'
           ) : (
             <>
               Your report downloaded as <strong>{reportFileName(who.name, session.lab.title)}</strong>. Now {handInWhere()}, the same way as before.
@@ -58,8 +58,8 @@ function HandInAgain({ session, label }: { session: LabSession; label: string })
   );
 }
 
-/** Top of every extra-credit step: it's optional, and hand in (again) to get credit. */
-export function ExtraCreditBanner({ session }: { session: LabSession }) {
+/** Top of every optional extra challenge step: it earns no points, and hand in (again) so the teacher sees it. */
+export function ExtraChallengeBanner({ session }: { session: LabSession }) {
   void session.rev.value;
   const p = session.progress;
   const extras = session.lab.steps.filter((s) => s.extra);
@@ -67,47 +67,48 @@ export function ExtraCreditBanner({ session }: { session: LabSession }) {
   const endpoint = hasEndpoint();
   const fresh = lastExtraWork(session) > (p.submittedAt ?? 0);
   const where = extras.length > 1 ? `, step ${k} of ${extras.length}` : '';
+  const noPoints = extras.length > 1 ? 'These steps earn no points.' : 'This step earns no points.';
 
   let text: string;
   let label: string;
   if (!p.submittedAt) {
-    text = `${extras.length > 1 ? 'These steps are' : 'This step is'} optional. You haven't handed in your work yet. If class is almost over, hand it in now. You can come back here after.`;
+    text = `${noPoints} You haven't handed in your work yet. If class is almost over, hand it in now. You can come back here after.`;
     label = endpoint ? 'Submit my work now' : 'Download my report now';
   } else if (fresh) {
-    text = "You've done extra credit since you last handed in. Hand in your report again so your teacher sees it.";
-    label = endpoint ? 'Submit again with my extra credit' : 'Download my updated report';
+    text = "You've worked on the challenge since you last handed in. Hand in your report again so your teacher sees it.";
+    label = endpoint ? 'Submit again with my challenge work' : 'Download my updated report';
   } else {
-    text = `${extras.length > 1 ? 'These steps are' : 'This step is'} optional. Your last report has all your work so far. If you do more here, hand in your report again.`;
+    text = `${noPoints} Your last report has all your work so far. If you do more here, hand in your report again.`;
     label = endpoint ? 'Submit again' : 'Download my report again';
   }
   return (
-    <div class="callout info extra-credit" tabIndex={-1}>
+    <div class="callout info extra-challenge" tabIndex={-1}>
       <p>
-        <Icon name="trophy" size={14} /> <strong>Extra credit{where}.</strong> {text}
+        <Icon name="trophy" size={14} /> <strong>Optional extra challenge{where}.</strong> {text}
       </p>
       <HandInAgain key={`${p.step}:${label}`} session={session} label={label} />
     </div>
   );
 }
 
-/** Bottom of the last extra-credit step, once it's done: hand in the updated report. */
-export function ExtraCreditDone({ session }: { session: LabSession }) {
+/** Bottom of the last optional extra challenge step, once it's done: hand in the updated report. */
+export function ExtraChallengeDone({ session }: { session: LabSession }) {
   void session.rev.value;
   const p = session.progress;
   if (lastExtraWork(session) <= (p.submittedAt ?? 0)) {
     return (
-      <div class="callout good extra-credit" tabIndex={-1}>
-        <Icon name="check" size={14} /> <strong>You finished the extra credit.</strong> Your latest report includes it.
+      <div class="callout good extra-challenge" tabIndex={-1}>
+        <Icon name="check" size={14} /> <strong>You finished the extra challenge.</strong> Your latest report includes it.
         {!hasEndpoint() && ` If you haven't yet, ${handInWhere()}.`}
       </div>
     );
   }
   return (
-    <div class="callout good extra-credit" tabIndex={-1}>
+    <div class="callout good extra-challenge" tabIndex={-1}>
       <p>
-        <Icon name="trophy" size={14} /> <strong>You finished the extra credit.</strong> Hand in your updated report so your teacher sees it.
+        <Icon name="trophy" size={14} /> <strong>You finished the extra challenge.</strong> Hand in your updated report so your teacher sees it.
       </p>
-      <HandInAgain session={session} label={hasEndpoint() ? 'Submit again with my extra credit' : 'Download my updated report'} />
+      <HandInAgain session={session} label={hasEndpoint() ? 'Submit again with my challenge work' : 'Download my updated report'} />
     </div>
   );
 }

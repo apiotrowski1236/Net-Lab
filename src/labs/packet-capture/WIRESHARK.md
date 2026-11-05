@@ -89,7 +89,7 @@ You'll see packets Part 1 didn't show:
 
 **Q9. Give one piece of advice to someone opening Wireshark for the first time.**
 
-## Bonus
+## Optional extra challenge
 
 - **Statistics, then Protocol Hierarchy**: what kinds of packets made up your capture. Which protocol had the most?
 - Filter `dns || http` and explain why the order of the packets makes sense.

@@ -86,8 +86,6 @@ function upsert(r) {
     Status: r.status,
     'Auto-checked score': r.score.auto + ' / ' + r.score.autoMax,
     'Written answers (pts)': r.score.teacherMax,
-    // Optional steps after the submit step. Not part of the auto-checked score.
-    'Extra credit': r.score.extraMax ? r.score.extra + ' / ' + r.score.extraMax : '',
     'Goals done':
       r.goals.filter(function (g) { return g.done && !g.extra; }).length + ' / ' + r.goals.filter(function (g) { return !g.extra; }).length,
     'Step reached': r.stepReached + ' / ' + r.lab.steps,

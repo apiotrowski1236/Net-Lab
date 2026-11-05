@@ -738,7 +738,7 @@ export const wiresharkLab: LabDef = {
       body: md`
         You captured your own traffic and read real packets: DNS, HTTP, TCP, and TLS.
 
-        Your capture also holds other devices' broadcasts, so don't keep it. When you finish the lab (and any extra credit), quit Wireshark: **File > Quit** on Windows, **Wireshark > Quit Wireshark** on a Mac. When it asks whether to save, choose **Quit without Saving**.
+        Your capture also holds other devices' broadcasts, so don't keep it. When you finish the lab (and any optional extra challenge), quit Wireshark: **File > Quit** on Windows, **Wireshark > Quit Wireshark** on a Mac. When it asks whether to save, choose **Quit without Saving**.
       `,
       demos: [pic('unsaved', 'When you quit', UNSAVED, 'Wireshark asks this when a capture has not been saved.')],
       questions: [
@@ -766,7 +766,7 @@ export const wiresharkLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'ping',
-      title: 'Extra credit: ping your router',
+      title: 'Optional extra challenge: ping your router',
       extra: true,
       body: md`
         A **ping** asks a computer "are you there?" and waits for an answer. Wireshark calls ping packets **ICMP**. You'll ping your router, the **default gateway**: your network's way out to the internet.
@@ -859,7 +859,7 @@ export const wiresharkLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'user-agent',
-      title: 'Extra credit: what your browser says about you',
+      title: 'Optional extra challenge: what your browser says about you',
       extra: true,
       body: md`
         Every web request carries a **User-Agent** line: your browser telling the site what it is. With HTTPS only the site reads it. With plain HTTP, anyone who sees the packets can read it too.

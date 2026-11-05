@@ -24,7 +24,7 @@ export interface Report {
   activeMinutes: number;
   /** 1-based furthest step reached. */
   stepReached: number;
-  /** `extra`: from an extra-credit step (StepDef.extra). Its points are in score.extra, not score.auto. */
+  /** `extra`: from an optional extra challenge step (StepDef.extra). It earns no points, so `points` is 0. */
   goals: { step: string; id: string; label: string; done: boolean; at?: string; points: number; overridden?: boolean; extra?: true }[];
   questions: {
     step: string;
@@ -38,7 +38,7 @@ export interface Report {
     points: number;
     /** The question's step was skipped with an override and is still unfinished. */
     overridden?: boolean;
-    /** From an extra-credit step. Auto-graded points go to score.extra; teacher-graded ones aren't in teacherMax. */
+    /** From an optional extra challenge step. It earns no points, so `points` is 0. */
     extra?: true;
   }[];
   /** The student's code from demos marked `report`, for the teacher to read. */
@@ -49,8 +49,7 @@ export interface Report {
   workId: string;
   /** Times this work was restored from a report file. `otherName`: saved under a different name than this report's. */
   restores: { at: string; savedAt: string; fromName: string; fromPeriod: string; file: string; otherName: boolean }[];
-  /** `extra`/`extraMax`: auto-checked extra-credit points, only when the lab has an extra-credit step. */
-  score: { auto: number; autoMax: number; teacherMax: number; extra?: number; extraMax?: number };
+  score: { auto: number; autoMax: number; teacherMax: number };
   timeline: { at: string; kind: string; id: string }[];
 }
 
@@ -81,9 +80,6 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
   let auto = 0;
   let autoMax = 0;
   let teacherMax = 0;
-  let extra = 0;
-  let extraMax = 0;
-  const hasExtra = lab.steps.some((s) => s.extra);
 
   // A step finished after the skip earned its credit, so it isn't flagged.
   const skip = (step: LabDef['steps'][number]) => (stepFinished(step, p) ? undefined : p.overrides?.[step.id]);
@@ -97,23 +93,18 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
     const overridden = skip(step) ? true : undefined;
     const isExtra = step.extra;
     const score = (pts: number, earned: boolean) => {
-      if (isExtra) {
-        extraMax += pts;
-        if (earned) extra += pts;
-      } else {
-        autoMax += pts;
-        if (earned) auto += pts;
-      }
+      autoMax += pts;
+      if (earned) auto += pts;
     };
     for (const g of step.goals ?? []) {
       const at = p.goals[goalKey(step.id, g.id)];
-      const pts = g.points ?? 1;
+      const pts = isExtra ? 0 : (g.points ?? 1);
       score(pts, !!at);
       goals.push({ step: step.id, id: g.id, label: plain(g.label, labels), done: !!at, at: iso(at), points: pts, overridden, extra: isExtra });
     }
     for (const q of step.questions ?? []) {
       const a = p.answers[answerKey(step.id, q.id)];
-      const pts = defaultPoints(q);
+      const pts = isExtra ? 0 : defaultPoints(q);
       const autoGraded = q.kind === 'choice' || !!(q.kind === 'text' && q.expect);
       let answer = a?.value ?? '';
       if (q.kind === 'choice' && a?.value) {
@@ -124,7 +115,7 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
           .join(' | ');
       }
       if (autoGraded) score(pts, !!a?.correct);
-      else if (!isExtra) teacherMax += pts;
+      else teacherMax += pts;
       questions.push({
         step: step.id,
         id: q.id,
@@ -167,7 +158,7 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
     goals,
     questions,
     code: code.length ? code : undefined,
-    score: hasExtra ? { auto, autoMax, teacherMax, extra, extraMax } : { auto, autoMax, teacherMax },
+    score: { auto, autoMax, teacherMax },
     overrides,
     workId: workIdOf(p),
     restores: (p.restores ?? []).map((x) => ({

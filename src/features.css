@@ -3437,8 +3437,8 @@ button.pl-tile:active {
   }
 }
 
-/* ---------- extra credit (StepDef.extra) ---------- */
-.callout.extra-credit p {
+/* ---------- optional extra challenge (StepDef.extra) ---------- */
+.callout.extra-challenge p {
   margin: 0;
 }
 .extra-hand-in {
@@ -3450,9 +3450,6 @@ button.pl-tile:active {
 }
 .summary-steps li.optional .sstep-missing {
   color: var(--muted);
-}
-.extra-row {
-  align-items: center;
 }
 
 /* ---------- color: 24 bits as red, green, and blue ---------- */

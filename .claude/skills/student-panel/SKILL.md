@@ -79,7 +79,7 @@ Each one runs at medium effort with its own Playwright MCP server (`mcp__browser
 
 Each report gives minutes per step and a total. Each round, make a table of each student's total and whether it fits in a class period.
 
-- It's a pacing problem when the median total is more than the lab's `minutes`, or any student needs more than about 55 minutes for the required steps. Extra credit doesn't count. Fix it by cutting or tightening text, merging repetitive practice, or moving material into extra credit.
+- It's a pacing problem when the median total is more than the lab's `minutes`, or any student needs more than about 55 minutes for the required steps. The optional extra challenge doesn't count. Fix it by cutting or tightening text, merging repetitive practice, or moving material into an optional extra challenge.
 - If the lab is fine and only the `minutes` field is wrong, update `minutes` instead.
 - Students don't slow down to measure this. The minutes are their estimates for a real classroom.
 

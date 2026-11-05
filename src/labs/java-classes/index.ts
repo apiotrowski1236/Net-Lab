@@ -464,14 +464,14 @@ export const javaClassesLab: LabDef = {
       body: md`
         Look over your summary. You can go back to any step and change an answer, then hand in your work again.
 
-        Finished early? After you hand in, press **Extra credit** for one more step: a class that holds a list of your Song objects.
+        Finished early? After you hand in, press **Optional extra challenge** for one more step: a class that holds a list of your Song objects.
       `,
     },
 
     // -----------------------------------------------------------------------
     {
       id: 'playlist',
-      title: 'Extra credit: a Playlist',
+      title: 'Optional extra challenge: a Playlist',
       extra: true,
       body: md`
         A class can use other classes. A Playlist **has** Songs, which is called a **has-a** relationship. Its instance variable is an ArrayList of Song objects.

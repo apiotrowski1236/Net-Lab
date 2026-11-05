@@ -9,7 +9,7 @@ Status: built. Code: `index.ts` (steps), `answers.ts` (answer checks), `pictures
 Every auto-checked answer has to come out of the student's own capture:
 
 - `expect` matches Wireshark's own format (an Info line like `Standard query response 0x0d11 A wikipedia.org A 198.35.26.224`), checked against TShark 4.4.
-- `verify` (new, see below) checks it against the student's other answers: the DNS response goes to the address from step 3, the `[SYN, ACK]` goes back to the `[SYN]`'s port, the ping reply comes from the router from the extra-credit step, and the two step 8 counts add up to the total.
+- `verify` (new, see below) checks it against the student's other answers: the DNS response goes to the address from step 3, the `[SYN, ACK]` goes back to the `[SYN]`'s port, the ping reply comes from the router from the optional extra challenge step, and the two step 8 counts add up to the total.
 - The drawings use documentation addresses (192.0.2.x, 198.51.100.x, 203.0.113.x) and their own made-up MACs, names, and port 52114. The checks turn those away, and step 2's drawing fogs the Protocol and Info columns.
 
 Pasting is the expected way in. **Copy > Summary as Text** gives one tab-separated row (No., Time, Source, Destination, Protocol, Length, Info), and the checks read Source and Destination out of it. An Info line on its own also passes, minus the address cross-check.
@@ -26,10 +26,10 @@ Students install Wireshark before class (the teacher sends the link), so class t
 6. **handshake**: filter `tcp.port == 80`, paste the [SYN] and its [SYN, ACK]. The explains cover the temporary port.
 7. **tls**: https://www.wikipedia.org, filter `tls.handshake.type == 1`, paste the Client Hello (SNI); a QUIC row gets its own message, and an "If you see QUIC" note sends only-QUIC students to a private window. A drawing shows Encrypted Application Data. Choice: what a network watcher still learns.
 8. **not-mine**: Packets, `ip.addr ==` me, `!(ip.addr == me)`; the two add up, and until they do, none of the three boxes says Correct!. The body says why classmates' pages never reach the capture (the card keeps only packets for you, for everyone, or for a group; per-device Wi-Fi keys). Choice: would a classmate's plain-HTTP GET show up.
-9. **reflect**: advice for a friend who thinks HTTPS makes them invisible (40+ words). Quit without saving after any extra credit.
+9. **reflect**: advice for a friend who thinks HTTPS makes them invisible (40+ words). Quit without saving after any optional extra challenge.
 10. **submit**
-11. **ping** (extra credit): the gateway, `ping` it, filter `icmp`, paste a reply (or a lost request when pings are blocked). Choice: why ICMP has no ports.
-12. **user-agent** (extra credit): paste the User-Agent from the neverssl GET (details pane, Copy > Value) and say what it gives away.
+11. **ping** (optional extra challenge): the gateway, `ping` it, filter `icmp`, paste a reply (or a lost request when pings are blocked). Choice: why ICMP has no ports.
+12. **user-agent** (optional extra challenge): paste the User-Agent from the neverssl GET (details pane, Copy > Value) and say what it gives away.
 
 ## New shared API
 
@@ -47,7 +47,7 @@ Students install Wireshark before class (the teacher sends the link), so class t
 - Have students install Wireshark before class, and check ahead of time that it installs on the school's laptops (Npcap needs an administrator on Windows; ChmodBPF on Mac). Chromebooks can't run it. A class that installs during the period needs about 15 more minutes.
 - Some school web filters install their own certificate on school laptops and unlock HTTPS. Step 7's explain mentions it; if yours does, tell students the school can read their HTTPS pages too.
 - A school VPN or web filter agent can tunnel traffic past the Wi-Fi interface. If a student's capture is nearly empty or shows no DNS, try the other interfaces with a moving line.
-- Some networks block ping. The ping extra credit accepts a request marked `(no response found!)`.
+- Some networks block ping. The ping extra challenge accepts a request marked `(no response found!)`.
 - Some school DNS servers answer `nslookup` first with the school's suffix added (`No such name`). Step 4 says to skip those.
 - Answers vary by student, so the report shows what each student pasted. The checks make copying a drawing or a neighbor's answer fail when it doesn't match the student's own step 3 address.
 - The report's minutes count time on the lab page only. Time spent in Wireshark, the terminal, and the browser doesn't show up there, so a real class takes longer than the report says.

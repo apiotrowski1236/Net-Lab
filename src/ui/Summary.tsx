@@ -54,7 +54,7 @@ export function Summary({ session }: { session: LabSession }) {
   const report = buildReport(lab, p, profile.value, p.submittedAt ? 'submitted' : 'in-progress');
 
   const all = lab.steps.map((s, i) => ({ s, i, missing: session.missing(i), overridden: session.overridden(i) })).filter((x) => x.s.kind !== 'submit');
-  // Extra-credit steps are listed, but never count as unfinished or toward the percent.
+  // Optional extra challenge steps are listed, but never count as unfinished or toward the percent.
   const steps = all.filter((x) => !x.s.extra);
   const extraSteps = all.filter((x) => x.s.extra);
   const unfinished = steps.filter((x) => x.missing.length > 0);
@@ -131,21 +131,14 @@ export function Summary({ session }: { session: LabSession }) {
       {extraSteps.length > 0 && (
         <section class="summary-card">
           <h3>
-            <Icon name="trophy" /> Extra credit
+            <Icon name="trophy" /> Optional extra challenge
           </h3>
           <p class="muted small">
-            {extraSteps.length} optional step{extraSteps.length > 1 ? 's' : ''} after this one. Hand in your work first, then try {extraSteps.length > 1 ? 'them' : 'it'}. When you finish, hand in again so your teacher sees your extra credit.
+            {extraSteps.length} optional step{extraSteps.length > 1 ? 's' : ''} after this one. {extraSteps.length > 1 ? 'They earn' : 'It earns'} no points. Hand in your work first, then try {extraSteps.length > 1 ? 'them' : 'it'}. When you finish, hand in again so your teacher sees your work.
           </p>
-          <div class="row gap-sm wrap extra-row">
-            {report.score.extraMax ? (
-              <span class="pill">
-                {report.score.extra} / {report.score.extraMax} extra credit points
-              </span>
-            ) : null}
-            <button class="btn small" onClick={() => session.goTo(extraSteps[0].i)}>
-              Go to extra credit <Icon name="chevronRight" size={14} />
-            </button>
-          </div>
+          <button class="btn small" onClick={() => session.goTo(extraSteps[0].i)}>
+            Go to the extra challenge <Icon name="chevronRight" size={14} />
+          </button>
         </section>
       )}
 

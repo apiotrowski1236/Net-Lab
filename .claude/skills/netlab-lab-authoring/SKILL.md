@@ -26,10 +26,11 @@ Register the lab in `src/labs/index.ts`: import it, put it in `LABS` in CED orde
 
 - **LabDef**: `id, version: 1, title, tagline, unit, codehs[], ced[] ("3.1.B"), minutes (40 to 45), objectives (4), build: () => Sim, steps`. Optional: `captureDevice`, `labelMacs`, `hostRoutes`, `clock`, and `map: { ports?, addresses?: boolean | (d) => boolean, zones?: (sim) => MapZone[] }`.
   - Bump `version` whenever a change would break saved progress: step ids, an action's meaning, or the network a replay builds.
-- **StepDef**: `id, title, body (md\`...\`), setup?, actions?, tools?, goals?, questions?, focus?, open?: 'capture'|'tools'|'logs'|{inspect}, kind?: 'submit'`.
+- **StepDef**: `id, title, body (md\`...\`), setup?, actions?, tools?, goals?, questions?, focus?, open?: 'capture'|'tools'|'logs'|{inspect}, kind?: 'submit', extra?: true`.
 - Shape: 9 to 13 steps.
   - Step 1 is a tour: click devices, one easy question. In the first lab it also teaches the app.
   - The last two steps are a reflection (text question, `minWords` about 40) and `kind: 'submit'`. Copy these from build-network or home-network.
+  - Optional steps go after the submit step, with `extra: true` and a title that starts `Optional extra challenge: `. They earn no points. The school doesn't allow awarding extra credit, so never write "extra credit" or "bonus" anywhere, including plans and handouts.
 - **Goals**: `{ id, label, hint?, check({ sim, ev, since }) }`.
   - A goal latches once true. Check network state and events, never button presses.
   - Helpers in `src/labs/helpers.ts`: `inspected(id)`, `openedFrame(pred)`, `openedLog(pred)`, `happened(sim, since, pred)`, `loggedSince`, `capturedSince`, `pageSince`.

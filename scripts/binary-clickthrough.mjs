@@ -340,18 +340,18 @@ try {
   shots.push(join(OUT, 'report.png'));
   await rp.close();
 
-  // ---------------------------------------------------------------- extra credit, after handing in
+  // ---------------------------------------------------------------- optional extra challenge, after handing in
   const submitAt = lab.steps.findIndex((x) => x.kind === 'submit');
   await page.goto(`${url}#/csp/lab/${LAB}`);
   await page.waitForSelector(`text=Step ${submitAt + 1} of ${lab.steps.length}`);
-  await page.locator('.lesson-nav').getByRole('button', { name: 'Extra credit' }).click();
+  await page.locator('.lesson-nav').getByRole('button', { name: 'Optional extra challenge' }).click();
   for (let i = submitAt + 1; i < lab.steps.length; i++) {
     const step = lab.steps[i];
     await page.waitForSelector(`text=Step ${i + 1} of ${lab.steps.length}`);
-    log(`step ${i + 1} ${step.id} (extra credit)`);
+    log(`step ${i + 1} ${step.id} (optional extra challenge)`);
     await pause(1200);
-    const banner = await page.locator('.lesson .callout.extra-credit').first().innerText();
-    if (i === submitAt + 1) await check(/These steps are optional/.test(banner) && /hand in your report again/.test(banner), `first extra-credit banner: "${banner}"`);
+    const banner = await page.locator('.lesson .callout.extra-challenge').first().innerText();
+    if (i === submitAt + 1) await check(/These steps earn no points/.test(banner) && /hand in your report again/.test(banner), `first extra challenge banner: "${banner}"`);
     else await check(/since you last handed in/.test(banner), `after extra work, the banner should ask to hand in again: "${banner}"`);
     await shoot(i, step, 'start');
     for (const m of sol[step.id]?.moves ?? []) await doInput(step, m);
@@ -360,8 +360,8 @@ try {
     await shootAll(i, step);
     if (i < lab.steps.length - 1) await page.locator('.lesson-nav').getByRole('button', { name: 'Continue' }).click();
   }
-  const finished = page.locator('.lesson .callout.extra-credit.good');
-  await check(/You finished the extra credit/.test(await finished.innerText()), 'no "hand in again" prompt after the last extra-credit step');
+  const finished = page.locator('.lesson .callout.extra-challenge.good');
+  await check(/You finished the extra challenge/.test(await finished.innerText()), 'no "hand in again" prompt after the last extra challenge step');
   const dl2 = page.waitForEvent('download');
   // By keyboard: the button goes away, and focus must stay in the box.
   await finished.getByRole('button', { name: /Download my updated report|Submit again/ }).focus();
@@ -369,14 +369,13 @@ try {
   const file2 = join(OUT, 'report-extra.html');
   await (await dl2).saveAs(file2);
   const html2 = readFileSync(file2, 'utf8');
-  for (const want of ['Extra credit: colors', 'Make orange, #FF8000.', 'tag extra']) await check(html2.includes(want), `the updated report is missing "${want}"`);
-  const ec = html2.match(/<b>(\d+) \/ (\d+)<\/b>extra credit points/);
-  await check(!!ec && ec[1] === ec[2], `the updated report's extra credit points: ${ec?.[0]}`);
+  for (const want of ['Optional extra challenge: colors', 'Make orange, #FF8000.', 'tag extra']) await check(html2.includes(want), `the updated report is missing "${want}"`);
+  await check(!/extra[ -]credit/i.test(html2), 'the updated report still says extra credit');
   await pause(400);
-  await check(/Your latest report includes it/.test(await finished.innerText()), 'after handing in again, the prompt did not say the report includes the extra credit');
-  await check(await finished.evaluate((c) => c.contains(document.activeElement)), 'after handing in extra credit by keyboard, focus left the box');
-  log('  handed in extra credit with the keyboard: focus stayed in the box');
-  log(`extra credit done; updated report downloaded with ${ec[1]} extra credit points: ${file2}`);
+  await check(/Your latest report includes it/.test(await finished.innerText()), 'after handing in again, the prompt did not say the report includes the extra challenge');
+  await check(await finished.evaluate((c) => c.contains(document.activeElement)), 'after handing in the extra challenge by keyboard, focus left the box');
+  log('  handed in the extra challenge with the keyboard: focus stayed in the box');
+  log(`extra challenge done; updated report downloaded: ${file2}`);
   await page.screenshot({ path: join(OUT, 'extra-after-download.png') });
   shots.push(join(OUT, 'extra-after-download.png'));
 

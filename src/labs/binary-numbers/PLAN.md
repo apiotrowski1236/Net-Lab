@@ -21,7 +21,7 @@ CED: DAT-1.A (bits and bytes, abstraction), DAT-1.B (overflow and rounding with 
 11. **rounding**: 1/3 kept to 2, 4, or 8 digits; the error shrinks but never goes away.
 12. **exit**: The 4 exit-ticket questions; the overflow explanation is teacher-graded.
 13. **submit**.
-14. to 17. **Extra credit**, after hand-in: hex, colors (orange, yellow, white), ASCII, and one byte read as a number, a letter, and a gray.
+14. to 17. **Optional extra challenge**, after hand-in: hex, colors (orange, yellow, white), ASCII, and one byte read as a number, a letter, and a gray.
 
 ## Misconceptions answered
 

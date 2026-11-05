@@ -16,7 +16,7 @@ export function when(iso?: string): string {
 }
 
 export function gradeText(q: Report['questions'][number]): string {
-  if (!q.autoGraded) return `Teacher-graded, ${q.points} pts`;
+  if (!q.autoGraded) return q.extra ? 'Optional, no points' : `Teacher-graded, ${q.points} pts`;
   if (!q.correct) return q.answer ? 'Not correct yet' : 'Not answered';
   return q.attempts && q.attempts > 1 ? `Correct after ${q.attempts} tries` : 'Correct on the first try';
 }
@@ -53,7 +53,7 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
       const flag = o
         ? `<div class="ovr">Did not complete: the student used the override to skip this step on ${esc(when(o.at))}${o.note ? `. Reason: ${esc(o.note)}` : ''}. Unchecked goals earned no points. The teacher decides if this skip was approved.</div>`
         : '';
-      const tags = `${s.extra ? ' <span class="tag extra">extra credit</span>' : ''}${o ? ' <span class="tag">did not complete (override)</span>' : ''}`;
+      const tags = `${s.extra ? ' <span class="tag extra">optional, no points</span>' : ''}${o ? ' <span class="tag">did not complete (override)</span>' : ''}`;
       return `<section class="${o ? 'overridden' : ''}"><h2>Step ${i + 1}. ${esc(s.title)}${tags}</h2>${flag}${goalHtml}${qHtml}${code}</section>`;
     })
     .join('');
@@ -83,7 +83,6 @@ Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(wh
 <div class="stat"><b>${r.stepReached} / ${r.lab.steps}</b>steps reached</div>
 <div class="stat"><b>${r.activeMinutes}</b>active minutes</div>
 <div class="stat"><b>${written.filter((q) => q.answer.trim()).length} / ${written.length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>
-${r.score.extraMax ? `<div class="stat"><b>${r.score.extra} / ${r.score.extraMax}</b>extra credit points</div>` : ''}
 </div>
 ${overrideSummary}${restores}
 ${steps}`;

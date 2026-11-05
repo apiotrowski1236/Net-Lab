@@ -46,7 +46,7 @@ Use only the website, the way a student would. Don't open the guide page (any ad
 
 ## Doing the lab
 
-Work through every step in order until you have handed in your work. If extra credit comes after the submit step, do that too, and hand in again if the lab asks you to.
+Work through every step in order until you have handed in your work. If an optional extra challenge comes after the submit step, do that too, and hand in again if the lab asks you to.
 
 - Read the way you read. If you skim, skim, and then notice what you missed. If long words slow you down, say where.
 - Answer questions the way you would on a first try. Get some wrong where you plausibly would, then read the feedback and see whether it helps you fix the mistake. Don't game the checker or try random answers until one works.

@@ -72,7 +72,7 @@ export const binaryNumbersSolution: LabSolution = {
       e4: 'An overflow error happens when a result needs more bits than the computer has, so the stored value is wrong. In 4 bits, 1111 + 1 should be 10000, but it shows 0000.',
     },
   },
-  // Extra credit, after the submit step.
+  // Optional extra challenge, after the submit step.
   hex: {
     // 10101111 (AF) -> 00101010 (2A).
     moves: flips('hex', 0, 5, 7),

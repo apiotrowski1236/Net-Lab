@@ -770,14 +770,14 @@ export const binaryNumbersLab: LabDef = {
       body: md`
         Look over your summary. You can go back to any step and change an answer, then hand in your work again.
 
-        Finished early? After you hand in, press **Extra credit** for four more steps. They show hex, a short way to write bits, and how bits can stand for colors and text.
+        Finished early? After you hand in, press **Optional extra challenge** for four more steps. They show hex, a short way to write bits, and how bits can stand for colors and text.
       `,
     },
 
-    // ----------------------------------------------------------------------- extra credit
+    // ----------------------------------------------------------------------- optional extra challenge
     {
       id: 'hex',
-      title: 'Extra credit: hexadecimal',
+      title: 'Optional extra challenge: hexadecimal',
       extra: true,
       body: md`
         Long strings of bits are hard to read, so programmers often write them in **hexadecimal**, or hex for short. Hex is base 16.
@@ -814,7 +814,7 @@ export const binaryNumbersLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'colors',
-      title: 'Extra credit: colors',
+      title: 'Optional extra challenge: colors',
       extra: true,
       body: md`
         Every **pixel**, one tiny dot on your screen, mixes three colors of light: **red**, **green**, and **blue**. Each one gets its own byte, from 0 (off) to 255 (as bright as it goes). So one color takes 3 bytes, or 24 bits.
@@ -875,7 +875,7 @@ export const binaryNumbersLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'text',
-      title: 'Extra credit: text',
+      title: 'Optional extra challenge: text',
       extra: true,
       body: md`
         Text is stored as numbers too. **ASCII** is a code that gives each letter, digit, and symbol a number from 0 to 127. Capital A is 65, B is 66, and the rest of the capital letters follow in order. Lowercase letters start at 97, so a is 97.
@@ -918,7 +918,7 @@ export const binaryNumbersLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'meaning',
-      title: 'Extra credit: same bits, different meanings',
+      title: 'Optional extra challenge: same bits, different meanings',
       extra: true,
       body: md`
         You've seen bytes stand for numbers, colors, and letters. The bits themselves don't say which one they are. **The program decides what the bits mean.**

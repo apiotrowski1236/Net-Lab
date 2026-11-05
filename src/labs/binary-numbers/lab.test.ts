@@ -101,7 +101,7 @@ describe('binary-numbers: lesson shape', () => {
     }
   });
 
-  it('puts the extra credit after the submit step: hex, colors, text, then what bits mean', () => {
+  it('puts the optional extra challenge after the submit step: hex, colors, text, then what bits mean', () => {
     const at = lab.steps.findIndex((s) => s.kind === 'submit');
     expect(lab.steps.slice(at + 1).map((s) => s.id)).toEqual(['hex', 'colors', 'text', 'meaning']);
     expect(lab.steps.slice(at + 1).every((s) => s.extra)).toBe(true);
@@ -588,11 +588,9 @@ describe('binary-numbers: saving and resuming', () => {
     expect(r.goals.every((g) => g.done)).toBe(true);
     expect(r.score.auto).toBe(r.score.autoMax);
     expect(r.questions.find((q) => q.id === 'e4')?.answer).toMatch(/overflow/i);
-    expect(r.score.extraMax).toBeGreaterThan(0);
-    expect(r.score.extra).toBe(r.score.extraMax);
   });
 
-  it('keeps extra credit out of the main score, so skipping it costs nothing', () => {
+  it('gives the optional extra challenge no points, so skipping it costs nothing', () => {
     const s = new LabSession(lab, fresh());
     const submitAt = lab.steps.findIndex((x) => x.kind === 'submit');
     for (let i = 0; i < submitAt; i++) {
@@ -602,7 +600,6 @@ describe('binary-numbers: saving and resuming', () => {
     const who = { id: 'x', name: 'Test Student', period: '', createdAt: 0 };
     const skipped = buildReport(lab, s.progress, who, 'submitted');
     expect(skipped.score.auto).toBe(skipped.score.autoMax);
-    expect(skipped.score.extra).toBe(0);
     for (const x of [...skipped.goals, ...skipped.questions]) expect(!!x.extra, x.id).toBe(['hex', 'colors', 'text', 'meaning'].includes(x.step));
 
     for (let i = submitAt; i < lab.steps.length; i++) {
@@ -611,7 +608,8 @@ describe('binary-numbers: saving and resuming', () => {
     }
     const all = buildReport(lab, s.progress, who, 'submitted');
     expect(all.score.autoMax).toBe(skipped.score.autoMax);
-    expect(all.score.extra).toBe(all.score.extraMax);
+    expect(all.score.auto).toBe(skipped.score.auto);
+    expect(all.score.teacherMax).toBe(skipped.score.teacherMax);
   });
 
   it('reads the color and meaning demos the way the goals expect', () => {
