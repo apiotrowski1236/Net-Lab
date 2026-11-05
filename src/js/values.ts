@@ -1,4 +1,6 @@
 import type { Fn } from './ast';
+import type { JsError, Pos } from './errors';
+import type { LintNote } from './lint';
 
 /**
  * What a running program holds. Numbers, strings, booleans, null, and undefined
@@ -97,11 +99,30 @@ export interface Runtime {
   charge(n: number): void;
   /** About to build a string this long: stops if that's too much, and charges for the work. */
   checkLength(n: number): void;
-  /** Stops the program with a JavaScript error, in V8's words. */
-  fail(type: string, msg: string, code?: string): never;
+  /** Stops the program with a JavaScript error, in V8's words. `help` replaces the usual plain words. */
+  fail(type: string, msg: string, code?: string, help?: string): never;
   /** Stops the program: this editor leaves that out. */
   notAvailable(msg: string): never;
   array(items: Value[]): JsArray;
+  /** The line running now, so a host object can say where something happened. */
+  at(): Pos;
+}
+
+/**
+ * What the object that owns a page gives the editor around a run. The two type
+ * parameters keep this file from knowing anything about the DOM.
+ */
+export interface PageHooks<State = unknown, View = unknown> {
+  /** The program's last line has run. Delivers events, then the recorded clicks in order. */
+  finish(clicks: readonly string[], rt: Runtime): void;
+  /** The page as plain JSON. `whole`: even if it's too long to save. */
+  state(whole?: boolean): State;
+  /** The page for a check to read. */
+  view(): View;
+  /** What the page noticed that a browser would have let pass without a word. */
+  notes(): LintNote[];
+  /** Plainer help for an error the page can say more about. */
+  explain(e: JsError): string | undefined;
 }
 
 /**
@@ -129,6 +150,14 @@ export abstract class HostObject {
   }
   /** The items for `for...of`, if this is a list. */
   items?(): Value[];
+  /** A name not in `allow`. Answer with `{ value }`, as a browser answers `el.textcontent` with undefined, or nothing to stop as "not available". */
+  read?(name: string, rt: Runtime): { value: Value } | undefined;
+  /** Setting a name not in `allow`. True means it's handled, and false stops as "not available". */
+  write?(name: string, value: Value, rt: Runtime): boolean;
+  /** What String(v) gives, if that isn't `label()`. */
+  asString?(): string;
+  /** Set on the object that owns a page. */
+  pageHooks?: PageHooks;
 }
 
 /** An array index, or -1. Array keys go through here so `arr["1"]` and `arr[1]` agree, and `arr["01"]` doesn't. */

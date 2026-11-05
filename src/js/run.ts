@@ -25,6 +25,8 @@ export interface RunOptions {
   maxTrace?: number;
   /** Objects to add as globals, such as `document`. */
   hosts?: (rt: Runtime) => Record<string, HostObject>;
+  /** Runs after the program's last line, as part of the program: an error or a prompt in here stops the run the usual way. */
+  after?: (rt: Runtime) => void;
 }
 
 export interface OutputLine {
@@ -435,6 +437,7 @@ class Interp implements Runtime {
   private textOut = 0;
   private ret: Value = undefined;
   private here: Pos = { file: '', line: 1, col: 0, off: 0 };
+  private readonly after?: (rt: Runtime) => void;
   private nextFrame = 1;
 
   constructor(
@@ -446,6 +449,7 @@ class Interp implements Runtime {
     this.maxLines = options.maxLines ?? MAX_LINES;
     this.maxTrace = options.maxTrace ?? MAX_TRACE;
     this.answers = options.answers ?? [];
+    this.after = options.after;
     this.random = mulberry32(options.seed ?? 1);
     if (options.trace) this.trace = [];
     for (const [k, v] of Object.entries(options.data ?? {})) this.pending.set(k, v);
@@ -475,6 +479,7 @@ class Interp implements Runtime {
           if (this.exec(s, this.top) !== Done.Normal) break;
         }
       }
+      this.after?.(this);
       this.step(this.here, 'The program finished.', this.top, 'done');
     } catch (e) {
       out = this.stopped(e);
@@ -585,6 +590,10 @@ class Interp implements Runtime {
 
   fail(type: string, msg: string, code = 'error', help?: string): never {
     this.throwError(type, msg, code, this.here, help ?? helpFor(code));
+  }
+
+  at(): Pos {
+    return this.here;
   }
 
   notAvailable(msg: string): never {
@@ -715,7 +724,7 @@ class Interp implements Runtime {
 
   prim(v: Value, hint: 'string' | 'number' | 'default' = 'default'): Primitive {
     if (typeof v !== 'object' || v === null) return v;
-    if (v instanceof HostObject) return v.label();
+    if (v instanceof HostObject) return v.asString?.() ?? v.label();
     for (const m of hint === 'string' ? (['toString', 'valueOf'] as const) : (['valueOf', 'toString'] as const)) {
       const own = v.props.get(m);
       if (!v.props.has(m)) {
@@ -1479,6 +1488,8 @@ class Interp implements Runtime {
   private hostGet(o: HostObject, k: string): Value {
     if (o.allow.call?.includes(k)) return new JsNative(k, (_s, a, rt) => o.call(k, a, rt));
     if (o.allow.get?.includes(k)) return o.get(k, this);
+    const known = o.read?.(k, this);
+    if (known) return known.value;
     this.notAvailable(`${o.label()}.${k} is not available in this editor.`);
   }
 
@@ -1491,8 +1502,8 @@ class Interp implements Runtime {
     if (BLOCKED.has(k)) this.blocked(k, e);
     if (typeof o !== 'object') return;
     if (o instanceof HostObject) {
-      if (!o.allow.set?.includes(k)) this.notAvailable(`Setting ${o.label()}.${k} is not available in this editor.`);
-      o.set(k, v, this);
+      if (o.allow.set?.includes(k)) o.set(k, v, this);
+      else if (!o.write?.(k, v, this)) this.notAvailable(`Setting ${o.label()}.${k} is not available in this editor.`);
       return;
     }
     if (o instanceof JsArray) {
