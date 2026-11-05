@@ -91,6 +91,40 @@ describe('prompts', () => {
     expect(jsModel.apply(d, s, { answer: 'x' })).toBe(s);
   });
 
+  describe('a loop that keeps asking', () => {
+    const trap = spec('let guess = 0;\nwhile (guess !== 7) {\n  guess = prompt("Guess");\n}\nconsole.log("got it");\n');
+
+    it('has no way out through Cancel or Run', () => {
+      const s = play(trap, [{ run: true }, { answer: '7' }, { answer: null }]);
+      expect(s.waiting?.message).toBe('Guess');
+      expect(jsModel.apply(trap, s, { run: true }).waiting?.message).toBe('Guess');
+    });
+
+    it('ends at Stop, and keeps what the run printed', () => {
+      const s = play(trap, [{ run: true }, { answer: '7' }, { stop: true }]);
+      expect(s.waiting).toBeUndefined();
+      expect(s.last?.status).toBe('waiting');
+      expect(s.last?.lines.map((l) => l.answer)).toEqual(['7']);
+      expect(jsModel.facts(trap, s).waiting).toBe(false);
+    });
+
+    it('judges the run it stopped, since the checks would otherwise never run', () => {
+      const d2: JsSpec = { ...trap, checks: [{ id: 'never', label: 'Stop asking', test: (c) => (c.run({ prompts: ['7'] }).status === 'waiting' ? 'It keeps asking.' : undefined) }] };
+      expect(play(d2, [{ run: true }, { answer: '7' }]).checks).toBeUndefined();
+      expect(play(d2, [{ run: true }, { answer: '7' }, { stop: true }]).checks).toEqual([{ id: 'never', ok: false, note: 'It keeps asking.' }]);
+    });
+
+    it('does nothing when no prompt is waiting', () => {
+      const s = play(d, []);
+      expect(jsModel.apply(d, s, { stop: true })).toBe(s);
+    });
+
+    it('leaves a step-through to its own Stop', () => {
+      const s = play(d, [{ stepping: true }]);
+      expect(jsModel.apply(d, s, { stop: true })).toBe(s);
+    });
+  });
+
   it('drops the prompt when the code changes', () => {
     const s = play(d, [{ run: true }, { edit: 'script.js', code: 'console.log(1);\n' }]);
     expect(s.waiting).toBeUndefined();

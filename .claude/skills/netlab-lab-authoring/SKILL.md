@@ -231,6 +231,7 @@ ask: { moves: on('tip', { edit: 'script.js', code: TIP }, { run: true }, { answe
 
 - `{ edit: file, code }`, then `{ run: true }`. Edits don't run anything. Editing while a prompt waits drops the prompt.
 - `{ answer: string | null }`, once per prompt, after the Run. Null is **Cancel**. A confirm takes `{ answer: '' }` for **OK**. Each answer reruns from the top with the same seed, so `Math.random` gives the same numbers throughout one Run. A Run clears the answers.
+- `{ stop: true }` presses **Stop** on a waiting prompt. A loop around a prompt never reaches the step limit, and Cancel, Run, and a reload all land on the same prompt, so this is how a student leaves one. The run ends where it stood, and it gets its notes and checks with `c.status` set to `'waiting'`.
 - `{ hint: id }` works only for the first unmet check. `{ tab: file }` opens a tab, which `opened:<file>` reports.
 - Step through: `{ stepping: true }`, then `{ seek: 1 }`, `{ seek: 2 }`, and so on, then `{ stepping: false }`. The click-through presses **Next** once per seek, so count up by one. A prompt in a step-through takes `{ answer }` at the step that waits, and the same step number then shows what came next.
 - A lab needs its click-through at 4× and 1× like any other.

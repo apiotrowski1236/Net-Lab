@@ -5179,6 +5179,9 @@ button.pl-tile:active {
   justify-content: flex-end;
   gap: 6px;
 }
+.js-stop {
+  margin-right: auto;
+}
 .js-notes {
   border-top: 1px solid var(--line);
   padding-top: 6px;

@@ -48,7 +48,7 @@ function Lines({ lines }: { lines: OutputLine[] }) {
 }
 
 /** Asks in the output panel, as a browser's prompt box would. Nothing blocks, so the rest of the page keeps working. */
-function PromptBox({ ask, send }: { ask: Waiting; send: (answer: string | null) => void }) {
+function PromptBox({ ask, send, stop }: { ask: Waiting; send: (answer: string | null) => void; stop?: () => void }) {
   const [text, setText] = useState(ask.default);
   const box = useRef<HTMLInputElement>(null);
   const ok = useRef<HTMLButtonElement>(null);
@@ -75,6 +75,11 @@ function PromptBox({ ask, send }: { ask: Waiting; send: (answer: string | null) 
       <p class="js-ask">{ask.message}</p>
       {typed && <input ref={box} type="text" value={text} spellcheck={false} autocomplete="off" aria-label="Your answer" onInput={(e) => setText((e.target as HTMLInputElement).value)} />}
       <div class="js-prompt-buttons">
+        {stop && (
+          <button type="button" class="btn ghost small js-stop" onClick={stop}>
+            Stop
+          </button>
+        )}
         <button type="button" class="btn small" onClick={() => send(null)}>
           Cancel
         </button>
@@ -260,15 +265,17 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
   };
 
   /** The box goes away when it's answered. Unless another one took its place, focus goes to the next thing to press. */
-  const answer = (value: string | null) => {
-    send({ answer: value });
+  const leavePrompt = (input: DemoInput) => {
+    send(input);
     requestAnimationFrame(() => {
       const r = root.current;
       if (r && !r.querySelector('.js-prompt')) r.querySelector<HTMLElement>('.java-next, .java-run')?.focus();
     });
   };
+  const answer = (value: string | null) => leavePrompt({ answer: value });
   const waiting = stepping ? (step?.end === 'waiting' ? trace?.waiting : undefined) : s.waiting;
-  const ask = waiting && <PromptBox key={s.answers.length} ask={waiting} send={answer} />;
+  // The step-through has its own Stop.
+  const ask = waiting && <PromptBox key={s.answers.length} ask={waiting} send={answer} stop={stepping ? undefined : () => leavePrompt({ stop: true })} />;
 
   const last = s.last;
   // Like a console, show the end. A loop that printed 2,000 lines has its stop message down there.

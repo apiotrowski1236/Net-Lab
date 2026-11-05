@@ -190,15 +190,15 @@ const lastOf = (r: RunResult): JsLast => ({ status: r.status, lines: r.lines, er
 /** Parts of the state a syntax error sets. Nothing ran, so old checks are held, not rerun. */
 const stoppedBy = (spec: JsSpec, error: JsError): Pick<JsState, 'last' | 'notes' | 'held' | 'waiting' | 'answers' | 'edited'> => ({ last: { status: 'error', lines: [], error }, notes: undefined, held: !!spec.checks?.length, waiting: undefined, answers: [], edited: false });
 
-/** Runs from the top with these answers, up to the next unanswered prompt or the end. */
-function execute(spec: JsSpec, s: JsState, seed: number, answers: JsState['answers']): JsState {
+/** Runs from the top with these answers, up to the next unanswered prompt or the end. `stop`: the student ended the run at that prompt, so it's judged as it stands. */
+function execute(spec: JsSpec, s: JsState, seed: number, answers: JsState['answers'], stop = false): JsState {
   const { programs, error } = parseFiles(s.files);
   if (error) return { ...s, runs: seed, at: undefined, ...stoppedBy(spec, error) };
   const hosts = hostsFor(spec, s.files);
   const r = runProgram(programs, { seed, answers, hosts });
   const base: JsState = { ...s, runs: seed, answers, last: lastOf(r), waiting: undefined, notes: undefined, held: false, edited: false, at: undefined };
   // Notes and checks judge a whole run, so they wait for the last answer.
-  if (r.status === 'waiting') return { ...base, waiting: r.waiting };
+  if (r.status === 'waiting' && !stop) return { ...base, waiting: r.waiting };
   const notes = lint(programs, r, spec.lintOff);
   return { ...base, notes: notes.length ? notes : undefined, checks: runChecks(spec, () => new JsCheckCtx(programs, r, notes, hosts)) };
 }
@@ -252,6 +252,8 @@ export const jsModel: DemoModel<JsSpec, JsState> = {
       // The rerun carries on past the prompt, so the same step number now shows what came next.
       return { ...s, answers: [...s.answers, input.answer] };
     }
+    // A prompt in a loop can ask forever: Cancel and Run both land on it again, and it survives a reload.
+    if ('stop' in input) return s.waiting ? execute(spec, s, s.runs, s.answers, true) : s;
     if ('stepping' in input) {
       if (!input.stepping) return s.at === undefined ? s : { ...s, at: undefined, answers: [] };
       const { error } = parseFiles(s.files);
