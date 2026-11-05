@@ -154,7 +154,7 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         t += LAND * speed;
         const place = b.to && 'obj' in b.to && !/^\d/.test(b.to.name) ? `${b.to.name} in ${objectLabel.get(b.to.obj) ?? 'the object'}` : b.name;
         if (b.hides) say.push(`${b.name} here is the ${b.hides.kind}, not the instance variable, so it ${row && same(row.before, row.after) ? 'stays' : 'becomes'} ${held(b.value)}. ${objectLabel.get(b.hides.obj) ?? 'The object'} does not change.`);
-        else if (b.value.t === 'ref') say.push(`${place} now refers to ${held(b.value)}.`);
+        else if (b.value.t === 'ref') say.push(`${place} now holds a reference to ${held(b.value)}: where the object is, not the object itself.`);
         else say.push(b.declares || row?.before === undefined ? `${place} is created and gets ${held(b.value)}.` : `${place} becomes ${held(b.value)}.`);
         cursor = 'strip';
         showing = false;
@@ -166,7 +166,7 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         const then = all[i + 1];
         write(then?.k === 'call' ? then.text : `new ${b.cls}`);
         if (o && !step.objects.some((x) => x.id === b.id)) o.enterAt = t - TEXT * speed;
-        say.push(`new makes an empty ${b.cls} object. Its instance variables start at their default values.`);
+        say.push(`new makes an empty ${b.cls} object. Its instance variables start at their default values, such as 0 for an int and null for a String. null means no object at all.`);
         showing = false;
         break;
       }
@@ -184,6 +184,8 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         t += LAND * speed;
         const given = b.args.filter((a) => a.name !== 'this').map((a) => `${a.name} gets ${held(a.value)}`);
         say.push(`Java jumps into ${b.ctor ? 'the constructor' : b.name}${given.length ? `: ${listed(given)}` : ''}.`);
+        const self = b.args.find((a) => a.name === 'this');
+        if (self) say.push(`this is the object the code is working on: ${held(self.value)}.`);
         showing = false;
         break;
       }
@@ -199,9 +201,9 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         t += (b.value ? FLY + LAND : TEXT) * speed;
         leaving(b.frame);
         const back = caller?.label.split('.').pop() ?? '';
-        if (b.ctor) say.push(`The constructor ends, and new gives back ${held(b.value!)}.`);
+        if (b.ctor) say.push(`The constructor ends, and new gives back ${held(b.value!)}. Its box of variables goes away, but the object stays.`);
         else if (b.value) say.push(`${b.name} gives back ${held(b.value)} and ends.`);
-        else say.push(`${b.name} ends, and Java goes back to ${back}.`);
+        else say.push(`${b.name} ends, and Java goes back to ${back}. Its box of variables goes away, but objects stay.`);
         cursor = caller ? `frame:${caller.id}` : 'strip';
         showing = !!b.value;
         break;

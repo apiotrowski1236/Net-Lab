@@ -110,6 +110,8 @@ export function createEditor(parent: HTMLElement, onChange: (text: string) => vo
     EditorState.tabSize.of(2),
     indentOnInput(),
     bracketMatching(),
+    // No { here: retyping a line that ends in { would add a } nobody sees.
+    EditorState.languageData.of(() => [{ closeBrackets: { brackets: ['(', '[', "'", '"'] } }]),
     closeBrackets(),
     highlightActiveLine(),
     EditorView.lineWrapping,

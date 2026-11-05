@@ -89,9 +89,9 @@ System.out.println(ada.getName() + " has " + ada.getHealth());`);
 
 const EMPTY_SONG = `public class Song {
   // Declare three private instance variables here.
-
+  
   // Write the constructor here.
-
+  
 }
 `;
 
@@ -128,6 +128,7 @@ export const SONG_GETTERS: JavaFile[] = [
 Song second = new Song("Paper Road", "Dana Reyes");
 
 System.out.println(first.getPlays());
+System.out.println(first.getSummary());
 System.out.println(second.getSummary());`),
   },
   PLAYER_FILE,
@@ -162,6 +163,7 @@ export const SONG_MUTATORS: JavaFile[] = [
 Song second = new Song("Paper Road", "Dana Reyes");
 
 first.addPlays(3);
+first.addPlays(2);
 second.addPlays(10);
 
 System.out.println(first.getSummary());
@@ -202,7 +204,7 @@ export const BANK: JavaFile[] = [
   {
     name: 'BankAccount.java',
     text: `public class BankAccount {
-
+  
 }
 `,
   },
@@ -297,6 +299,7 @@ export const THIRD_PLAYER: JavaCheck = {
   main: true,
   test(c) {
     if (!/Linus/.test(c.output) || lines(c.output).length < 3) return 'Run a version that prints a third line about Linus.';
+    if (lines(c.output).length > 3) return 'Main should print three lines, one for each player.';
     return /String\s+\w+\s*=\s*"Linus"/.test(c.source('Main.java')) ? undefined : 'Make variables for Linus, the same way Ada and Grace have them, and print those.';
   },
 };
@@ -378,7 +381,7 @@ export const PET_FIXED: JavaCheck = {
     expectRun(c, 'System.out.println(new Pet("Biscuit", 4).getSummary());', 'Biscuit is 4', (got) => {
       const fix = (name: string) => `${name} is still empty. In the constructor, write this.${name} on the left of the =.`;
       if (got.startsWith('Biscuit')) return fix('age');
-      return got.endsWith(' 4') ? fix('name') : 'name and age are still empty. In the constructor, write this. in front of the instance variable on the left of each =.';
+      return got.endsWith(' 4') ? fix('name') : 'name and age are still empty. In the constructor, put this and a dot in front of the instance variable on the left of each =.';
     }) ??
     (/this\s*\.\s*name\s*=/.test(c.source('Pet.java')) && /this\s*\.\s*age\s*=/.test(c.source('Pet.java')) ? undefined : 'That works, but this step is practice with this. Keep the parameters called name and age, and write this.name = name;'),
 };
@@ -390,6 +393,7 @@ export const BANK_CTOR: JavaCheck = {
     needField(c, 'BankAccount', 'owner', 'String') ??
     needField(c, 'BankAccount', 'balance', 'int') ??
     (c.ctor('BankAccount', 'String', 'int') ? undefined : 'Write a constructor with two parameters: a String and an int.') ??
+    (/BankAccount\s*\(\s*String\s+\w+In\s*,\s*int\s+\w+In\s*\)/.test(c.source('BankAccount.java')) ? undefined : "End each constructor parameter's name in In, as in ownerIn.") ??
     expectRun(c, 'BankAccount a = new BankAccount("Ada", 50);\nSystem.out.println(a.owner + "|" + a.balance);', 'Ada|50', () => 'The constructor should store both values in the instance variables.'),
 };
 

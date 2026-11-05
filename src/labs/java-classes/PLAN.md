@@ -19,7 +19,7 @@ Constructor parameters end in In (`songTitleIn`), the class's convention. Pet le
 | 7 | getters | 6 | Adds getPlays and getSummary |
 | 8 | mutators | 4 | Reads takeDamage, then adds addPlays |
 | 9 | this | 6 | Fixes a hidden-parameter bug with this |
-| 10 | scratch | 11 | Writes BankAccount from a table of parts. Main is given, so the class gets the time. |
+| 10 | scratch | 11 | Writes BankAccount from a list of parts. Main is given, so the class gets the time. |
 | 11 | reflect | 2 | Explains why a game needs an Enemy class |
 | 12 | submit | | Hands in |
 | 13 | playlist | extra | Writes a Playlist that has an ArrayList of Song |

@@ -53,7 +53,7 @@ describe('planStep', () => {
   test('a call opens a frame, and fills its parameters as they arrive', () => {
     const steps = trace('Box b = new Box(3);', BOX);
     const first = plans(steps)[0];
-    expect(first.say).toBe('new makes an empty Box object. Its instance variables start at their default values. Java jumps into the constructor: startSize gets 3.');
+    expect(first.say).toBe('new makes an empty Box object. Its instance variables start at their default values, such as 0 for an int and null for a String. null means no object at all. Java jumps into the constructor: startSize gets 3. this is the object the code is working on: Box #1.');
     const ctor = first.frames[1];
     expect(ctor.enterAt).toBeDefined();
     expect(ctor.rows.map((r) => r.name)).toEqual(['this', 'startSize']);
@@ -77,7 +77,7 @@ describe('planStep', () => {
   test('a method with no return value says where Java goes back to', () => {
     const steps = trace('Box b = new Box(3);\nb.grow(2);', BOX);
     const at = steps.findIndex((s) => s.beats.some((x) => x.k === 'return' && x.name === 'grow'));
-    expect(planStep(steps[at], steps[at + 1]).say).toBe('grow ends, and Java goes back to main.');
+    expect(planStep(steps[at], steps[at + 1]).say).toBe('grow ends, and Java goes back to main. Its box of variables goes away, but objects stay.');
   });
 
   test('a write to an object names the object', () => {

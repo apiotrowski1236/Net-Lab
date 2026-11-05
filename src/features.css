@@ -140,6 +140,9 @@
   font-size: 13px;
   color: var(--muted);
 }
+.refresher .btn {
+  white-space: nowrap;
+}
 .refresher strong {
   color: var(--ink-2);
 }

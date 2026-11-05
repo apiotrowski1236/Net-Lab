@@ -200,6 +200,20 @@ describe('checks', () => {
     expect(offByOne.checks?.find((c) => c.id === 'withdraw')?.note).toBe('withdraw(50) from a balance of 50 should leave 0. You can take out all of it.');
   });
 
+  test('BankAccount constructor parameters end in In', () => {
+    const s = spec('scratch', 'bank');
+    const done = (javaClassesSolution.scratch.moves![0] as { input: { code: string } }).input.code;
+    const r = withEdits(s, { 'BankAccount.java': done.replace('String ownerIn, int balanceIn', 'String who, int start').replace('owner = ownerIn', 'owner = who').replace('balance = balanceIn', 'balance = start') });
+    expect(r.checks?.find((c) => c.id === 'ctor')?.note).toBe("End each constructor parameter's name in In, as in ownerIn.");
+  });
+
+  test('step 1 stops at three printed lines', () => {
+    const s = spec('why', 'loose');
+    const main = javaModel.init(s).files.find((f) => f.name === 'Main.java')!.text;
+    const third = main.replace('System.out.println(', 'String n3 = "Linus";\n    int h3 = 90;\n    System.out.println(n3 + " has " + h3);\n    System.out.println(n3);\n    System.out.println(');
+    expect(withEdits(s, { 'Main.java': third }).checks?.[0].note).toBe('Main should print three lines, one for each player.');
+  });
+
   test('a loop that never ends stops with a message, not a hang', () => {
     const s = spec('why', 'loose');
     const r = withEdits(s, { 'Main.java': 'public class Main {\n  public static void main(String[] args) {\n    while (true) {\n      int x = 1;\n    }\n  }\n}\n' });
