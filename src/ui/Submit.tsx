@@ -51,18 +51,17 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
         })
         .join('');
       const flag = o
-        ? `<div class="ovr">Teacher override: a teacher unlocked this step on ${esc(when(o.at))}${o.note ? `. Note: ${esc(o.note)}` : ''}. Unchecked goals earned no points.</div>`
+        ? `<div class="ovr">Did not complete: the student used the override to skip this step on ${esc(when(o.at))}${o.note ? `. Reason: ${esc(o.note)}` : ''}. Unchecked goals earned no points. The teacher decides if this skip was approved.</div>`
         : '';
-      const tags = `${s.extra ? ' <span class="tag extra">extra credit</span>' : ''}${o ? ' <span class="tag">teacher override</span>' : ''}`;
+      const tags = `${s.extra ? ' <span class="tag extra">extra credit</span>' : ''}${o ? ' <span class="tag">did not complete (override)</span>' : ''}`;
       return `<section class="${o ? 'overridden' : ''}"><h2>Step ${i + 1}. ${esc(s.title)}${tags}</h2>${flag}${goalHtml}${qHtml}${code}</section>`;
     })
     .join('');
   const overrideSummary = r.overrides.length
-    ? `<div class="ovr top"><b>Teacher override used on ${r.overrides.length} step${r.overrides.length > 1 ? 's' : ''}:</b> ${r.overrides
+    ? `<div class="ovr top"><b>Did not complete (override), ${r.overrides.length} step${r.overrides.length > 1 ? 's' : ''}:</b> ${r.overrides
         .map((o) => `step ${o.number} (${esc(o.title)})`)
         .join(', ')}.</div>`
     : '';
-  const failures = r.overrideFailures ? `<div class="ovr top">Wrong teacher override passwords typed: <b>${r.overrideFailures}</b>.</div>` : '';
   const restores = r.restores
     .map(
       (x) =>
@@ -86,7 +85,7 @@ Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(wh
 <div class="stat"><b>${written.filter((q) => q.answer.trim()).length} / ${written.length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>
 ${r.score.extraMax ? `<div class="stat"><b>${r.score.extra} / ${r.score.extraMax}</b>extra credit points</div>` : ''}
 </div>
-${overrideSummary}${failures}${restores}
+${overrideSummary}${restores}
 ${steps}`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(r.student.name)} - ${esc(r.lab.title)}</title>

@@ -1,5 +1,5 @@
 /* Styles for replay, the lab guide, the completion summary, typed tool inputs,
-   and the teacher override. Uses the theme variables from styles.css, so both
+   and the step override. Uses the theme variables from styles.css, so both
    themes work. */
 
 .row.wrap {
@@ -149,9 +149,13 @@
 .review-banner .row {
   margin-top: 6px;
 }
-.override-row {
-  margin: 28px 0 4px;
-  text-align: center;
+/* The page scrolls on a narrow screen. This keeps the button on screen, so rapid clicks stay on it. */
+@media (max-width: 900px) {
+  .lesson-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+  }
 }
 .link-btn {
   display: inline-flex;
@@ -707,11 +711,6 @@
   font-size: 19px;
   color: var(--ink);
 }
-.teacher-page h3 {
-  margin: 22px 0 6px;
-  font-size: 16px;
-  color: var(--ink);
-}
 .check-drop {
   display: flex;
   flex-wrap: wrap;
@@ -760,21 +759,6 @@
 }
 .check-notes li {
   margin: 4px 0;
-}
-.teacher-line {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin: 8px 0;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--input-bg);
-}
-.teacher-line code {
-  flex: 1;
-  overflow-wrap: anywhere;
-  font-size: 12.5px;
 }
 
 /* ---------- print: always light, ink-friendly ---------- */

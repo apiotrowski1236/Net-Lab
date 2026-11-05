@@ -175,7 +175,7 @@ export function Summary({ session }: { session: LabSession }) {
               <li key={s.id} class={done ? 'done' : overridden ? 'override' : s.extra ? 'optional' : 'todo'}>
                 <span class="sstep-dot">{done ? <Icon name="check" size={12} /> : overridden ? <Icon name="unlock" size={12} /> : i + 1}</span>
                 <span class="sstep-title">{s.title}</span>
-                {overridden && <span class="pill warn tiny">teacher override</span>}
+                {overridden && <span class="pill warn tiny">did not complete (override)</span>}
                 {!done && <span class="sstep-missing">{s.extra ? 'optional' : `${missing.join(', ')} left`}</span>}
                 {!done && i <= p.maxStep && (
                   <button class="btn tiny" onClick={() => session.goTo(i)}>

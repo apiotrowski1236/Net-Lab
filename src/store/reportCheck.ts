@@ -1,4 +1,4 @@
-import { sha256Hex } from './override';
+import { sha256Hex } from './sha256';
 
 // Check codes: catch a downloaded report that was edited by hand.
 //

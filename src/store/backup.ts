@@ -1,6 +1,6 @@
-import { sha256Hex } from './override';
 import type { Profile } from './profile';
 import { replaceProgress, type LabProgress } from './progress';
+import { sha256Hex } from './sha256';
 import { flushSaves } from './storage';
 
 // Restore from a report file.

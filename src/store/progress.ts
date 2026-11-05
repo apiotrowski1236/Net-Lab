@@ -1,3 +1,4 @@
+import { answerKey, goalKey, type QuestionDef, type StepDef } from '../labs/types';
 import type { SimAction } from '../runtime/actions';
 import type { RestoreRecord } from './backup';
 import { load, saveSoon } from './storage';
@@ -13,9 +14,16 @@ export interface Answer {
   correct?: boolean;
 }
 
+/** Answered, and right if it's auto-checked. */
+export function questionDone(q: QuestionDef, a: Answer | undefined): boolean {
+  if (!a) return false;
+  if (q.kind === 'choice' || q.expect) return !!a.correct;
+  return a.value.trim().length > 0;
+}
+
 export interface LogEntry {
   at: number;
-  kind: 'start' | 'step' | 'goal' | 'answer' | 'submit' | 'reset' | 'resume' | 'override' | 'override-failed' | 'restore';
+  kind: 'start' | 'step' | 'goal' | 'answer' | 'submit' | 'reset' | 'resume' | 'override' | 'restore';
   id: string;
 }
 
@@ -40,12 +48,8 @@ export interface LabProgress {
   log: LogEntry[];
   submittedAt?: number;
   submitCount?: number;
-  /** Steps a teacher unlocked with the override password: stepId -> when, and why. */
+  /** Steps the student skipped with the override: stepId -> when, and why. */
   overrides?: Record<string, { at: number; note?: string }>;
-  /** Wrong override passwords typed in this lab. Shown on the report. */
-  overrideFailures?: number;
-  /** Too many wrong passwords in a row locks the override until this time. */
-  overrideLockedUntil?: number;
   /** Short id for this attempt at this lab. Survives a restore from a report file (see store/backup.ts). */
   workId?: string;
   /** Each time this work was restored from a report file. */
@@ -104,4 +108,9 @@ export function replaceProgress(p: LabProgress): void {
   const key = progressKey(p.studentId, p.labId);
   cache.set(key, p);
   saveSoon(key, () => cache.get(key), 0);
+}
+
+/** Every goal and question in the step is done. */
+export function stepFinished(step: StepDef, p: LabProgress): boolean {
+  return (step.goals ?? []).every((g) => p.goals[goalKey(step.id, g.id)]) && (step.questions ?? []).every((q) => questionDone(q, p.answers[answerKey(step.id, q.id)]));
 }

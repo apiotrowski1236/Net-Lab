@@ -10,8 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "e2e": "npm run build && node scripts/e2e.mjs",
-    "playthrough": "npm run build && node scripts/playthrough.mjs",
-    "set-password": "node scripts/set-password.mjs"
+    "playthrough": "npm run build && node scripts/playthrough.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",

@@ -2,7 +2,7 @@ import { curriculumOfLab } from '../curricula';
 import { answerKey, defaultPoints, goalKey, type LabDef } from '../labs/types';
 import { sameName, workIdOf } from './backup';
 import type { Profile } from './profile';
-import type { LabProgress } from './progress';
+import { stepFinished, type LabProgress } from './progress';
 
 /**
  * The document a student hands in. One row per student per lab in the
@@ -36,17 +36,15 @@ export interface Report {
     correct?: boolean;
     attempts?: number;
     points: number;
-    /** The question's step was unlocked with a teacher override. */
+    /** The question's step was skipped with an override and is still unfinished. */
     overridden?: boolean;
     /** From an extra-credit step. Auto-graded points go to score.extra; teacher-graded ones aren't in teacherMax. */
     extra?: true;
   }[];
   /** The student's code from demos marked `report`, for the teacher to read. */
   code?: { step: string; files: { name: string; text: string }[] }[];
-  /** Steps unlocked with the teacher override password. Goals in them still show as not done. */
+  /** Steps the student skipped with the override and never finished. The teacher decides if each skip was approved. */
   overrides: { step: string; number: number; title: string; at: string; note?: string }[];
-  /** Wrong override passwords typed during this lab. */
-  overrideFailures: number;
   /** This attempt's id. The same id on two students' reports means one copied the other's file. */
   workId: string;
   /** Times this work was restored from a report file. `otherName`: saved under a different name than this report's. */
@@ -87,14 +85,16 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
   let extraMax = 0;
   const hasExtra = lab.steps.some((s) => s.extra);
 
+  // A step finished after the skip earned its credit, so it isn't flagged.
+  const skip = (step: LabDef['steps'][number]) => (stepFinished(step, p) ? undefined : p.overrides?.[step.id]);
   const overrides: Report['overrides'] = [];
   lab.steps.forEach((step, i) => {
-    const o = p.overrides?.[step.id];
+    const o = skip(step);
     if (o) overrides.push({ step: step.id, number: i + 1, title: step.title, at: iso(o.at)!, note: o.note });
   });
 
   for (const step of lab.steps) {
-    const overridden = p.overrides?.[step.id] ? true : undefined;
+    const overridden = skip(step) ? true : undefined;
     const isExtra = step.extra;
     const score = (pts: number, earned: boolean) => {
       if (isExtra) {
@@ -169,7 +169,6 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
     code: code.length ? code : undefined,
     score: hasExtra ? { auto, autoMax, teacherMax, extra, extraMax } : { auto, autoMax, teacherMax },
     overrides,
-    overrideFailures: p.overrideFailures ?? 0,
     workId: workIdOf(p),
     restores: (p.restores ?? []).map((x) => ({
       at: iso(x.at)!,

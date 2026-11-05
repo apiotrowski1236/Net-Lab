@@ -19,13 +19,15 @@ import {
   textCorrect,
   wrongMatch,
 } from '../labs/types';
-import { touch, type Answer, type LabProgress } from '../store/progress';
+import { questionDone, stepFinished, touch, type Answer, type LabProgress } from '../store/progress';
 import { applyAction, type SimAction } from './actions';
 import { hasReplay, Replay, stepWindow } from './replay';
 
 const MAX_ACTIONS = 2000;
-const OVERRIDE_TRIES = 3;
-const OVERRIDE_LOCK_MS = 60_000;
+/** Clicks in a row on an unfinished step's Continue button that open the override. */
+export const SKIP_CLICKS = 7;
+/** A longer pause between clicks starts the count over. */
+const SKIP_CLICK_GAP_MS = 1500;
 
 /**
  * Runs one lab for one student: owns the simulator, records every network
@@ -53,6 +55,8 @@ export class LabSession {
   /** True while a step setup runs: its half-finished network shouldn't complete goals. */
   private holdGoals = false;
   private simDirty = false;
+  private blockedClicks = 0;
+  private lastBlockedClick = 0;
 
   constructor(
     readonly lab: LabDef,
@@ -396,10 +400,7 @@ export class LabSession {
   }
 
   questionDone(stepId: string, q: QuestionDef): boolean {
-    const a = this.answer(stepId, q.id);
-    if (!a) return false;
-    if (q.kind === 'choice' || q.expect) return !!a.correct;
-    return a.value.trim().length > 0;
+    return questionDone(q, this.answer(stepId, q.id));
   }
 
   // ---------------------------------------------------------------------------
@@ -416,44 +417,37 @@ export class LabSession {
     return out;
   }
 
-  /** Done, or unlocked by a teacher override. Either one opens the next step. */
+  /** Done, or skipped with an override. Either one opens the next step. */
   stepComplete(index: number): boolean {
     return this.missing(index).length === 0 || this.overridden(index);
   }
 
   // ---------------------------------------------------------------------------
-  // Teacher override
+  // Override: skip a step without finishing it
   // ---------------------------------------------------------------------------
 
+  /** Skipped with an override and still unfinished. Finishing the step later clears this. */
   overridden(index = this.progress.step): boolean {
-    return !!this.progress.overrides?.[this.lab.steps[index].id];
+    const step = this.lab.steps[index];
+    return !!this.progress.overrides?.[step.id] && !stepFinished(step, this.progress);
   }
 
-  /** Milliseconds until the override can be tried again after too many wrong passwords. */
-  overrideWait(now = Date.now()): number {
-    return Math.max(0, (this.progress.overrideLockedUntil ?? 0) - now);
+  /** Counts a click on Continue while the step is unfinished. True when the clicks in a row reach SKIP_CLICKS. */
+  blockedClick(now = Date.now()): boolean {
+    this.blockedClicks = now - this.lastBlockedClick <= SKIP_CLICK_GAP_MS ? this.blockedClicks + 1 : 1;
+    this.lastBlockedClick = now;
+    if (this.blockedClicks < SKIP_CLICKS) return false;
+    this.blockedClicks = 0;
+    return true;
   }
 
-  /**
-   * Unlock the current step for a teacher. Every try is logged: a success marks
-   * the step on the report, and wrong passwords are counted there too. Three
-   * wrong in a row lock the override for a minute.
-   */
-  tryOverride(password: string, note: string, verify: (password: string) => boolean, now = Date.now()): 'ok' | 'wrong' | 'wait' {
-    if (this.overrideWait(now) > 0) return 'wait';
+  /** Skip the current step. It earns no credit for unfinished work, and the report shows it with the student's reason. */
+  skipStep(note: string, now = Date.now()): void {
     const p = this.progress;
     const step = this.step;
-    if (!verify(password)) {
-      p.overrideFailures = (p.overrideFailures ?? 0) + 1;
-      if (p.overrideFailures % OVERRIDE_TRIES === 0) p.overrideLockedUntil = now + OVERRIDE_LOCK_MS;
-      touch(p, { kind: 'override-failed', id: step.id });
-      this.bump();
-      return 'wrong';
-    }
     p.overrides = { ...p.overrides, [step.id]: { at: now, note: note.trim() || undefined } };
     touch(p, { kind: 'override', id: step.id });
-    this.bump();
-    return 'ok';
+    this.goTo(p.step + 1);
   }
 
   markSubmitted(): void {
