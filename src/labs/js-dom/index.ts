@@ -54,7 +54,7 @@ export const jsDomLab: LabDef = {
       id: 'hello',
       title: 'Change the page from a script',
       body: md`
-        This page has three tabs: **index.html** is the page, **style.css** is its look, and **script.js** changes it. The HTML is read only in this lab, so every change has to come from your script. After each **Run**, your page shows above the output.
+        This editor has three tabs: **index.html** is the page, **style.css** is its look, and **script.js** changes it. The HTML is read only in this lab, so every change has to come from your script. After each **Run**, your page shows above the output.
 
         1. Open **index.html**, and read the ids on the heading and the paragraph under it.
         2. In **script.js**, put your name in the heading.
@@ -282,7 +282,7 @@ export const jsDomLab: LabDef = {
       demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS], ['cards', 'cards'])],
       goals: [
         passed('more', code.ADDS, 'Add one square for each click.', 'Put `createElement` and `appendChild` inside the function.'),
-        { id: 'clicked', label: 'Click the button on your page.', hint: 'Press **Run**, then click **Add a square** in the preview.', check: demoFact('more', (f) => (f.clicks as number) > 0) },
+        { id: 'clicked', label: 'Click the button on your page.', hint: 'Press **Run**, then click **Add a square** on your page.', check: demoFact('more', (f) => (f.clicks as number) > 0) },
       ],
     },
   ],

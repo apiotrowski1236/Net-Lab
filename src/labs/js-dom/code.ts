@@ -242,7 +242,7 @@ export const TAGLINE: JsCheck = {
     if (text === START_TAGLINE) return c.ok ? 'The sentence under the heading has not changed. Open `index.html` to find its id, then find it the way the first line finds `title`.' : STOPPED;
     return text ? undefined : 'That paragraph is empty now. Give it a sentence about you.';
   },
-  hints: ['Open **index.html** and read the `id` on the paragraph under the heading.', 'Make a new variable with `document.getElementById("tagline")`.', 'Write `document.getElementById("tagline").textContent = "I build websites.";` with your own sentence.'],
+  hints: ['Open the `index.html` tab and read the `id` on the paragraph under the heading.', 'Make a new variable with `document.getElementById("tagline")`.', 'Write `document.getElementById("tagline").textContent = "I build websites.";` with your own sentence.'],
 };
 
 // --- step 2 ---
@@ -260,7 +260,7 @@ export const LOOK: JsCheck = {
     if (title.classes.length) return 'That class has no rule in `style.css`, so the heading looks the same. Use `highlight`, or add your own rule.';
     return 'The heading looks the same as before. Set a `style` on `title`, or add the class `highlight`.';
   },
-  hints: ['You can change a look two ways: set a `style` property, or add a class from **style.css**.', 'A style looks like `title.style.color = "gold";`. A color is a string, so it goes in quotes.', 'Write `title.classList.add("highlight");`.'],
+  hints: ['You can change a look two ways: set a `style` property, or add a class from `style.css`.', 'A style looks like `title.style.color = "gold";`. A color is a string, so it goes in quotes.', 'Write `title.classList.add("highlight");`.'],
 };
 
 export const GREET: JsCheck = {
@@ -393,7 +393,7 @@ export const MANY: JsCheck = {
   test(c) {
     return c.page!.count('#grid .cell') >= 400 ? undefined : 'Change `count` to 400 on the first line, then press Run. The loop stays the same.';
   },
-  hints: ['Find the line `let count = 144;`.', 'Write `let count = 400;`, then press **Run**.'],
+  hints: ['Find the line `let count = 144;`.', 'Write `let count = 400;`, then press Run.'],
 };
 
 // --- step 6 ---
@@ -412,7 +412,7 @@ export const EVERY: JsCheck = {
     if (done === heads.length) return undefined;
     const first = p.firstOnly();
     if (first) return first;
-    if (noted(c.notes, 'list-property')) return 'A setting on the list itself changes nothing. Put a loop around it, and set it on one heading at a time.';
+    if (noted(c.notes, 'list-property')) return 'Setting a property on the list changes nothing. Write a loop, and set it on one heading at a time.';
     if (!done) return 'The headings look the same as before. Use `document.querySelectorAll("h2")`, then add the class `accent` to each heading in a loop.';
     return 'Some headings changed and others did not. Loop over the whole list, so this works on a page with any number of headings.';
   },

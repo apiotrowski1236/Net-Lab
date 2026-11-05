@@ -318,6 +318,10 @@ describe('lab', () => {
     for (const s of jsDomLab.steps) for (const d of s.demos ?? []) if (d.kind === 'js') for (const c of d.checks ?? []) expect(c.hints?.length, c.id).toBeGreaterThanOrEqual(2);
   });
 
+  test('check hints use only backticks, the one mark they draw', () => {
+    for (const s of jsDomLab.steps) for (const d of s.demos ?? []) if (d.kind === 'js') for (const c of d.checks ?? []) for (const h of c.hints ?? []) expect(h).not.toMatch(/\*\*/);
+  });
+
   test('a stopped program says so, not what is missing', () => {
     expect(said(attempt('hello', 'let x = document.getElementById("nope");\nx.textContent = "a";'))).toContain(STOPPED);
   });
