@@ -335,6 +335,9 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
     flush();
     send({ click: path });
   };
+  // Nothing much to read under the page, so the page takes the room.
+  const quiet = !!page && !s.last?.error && !s.last?.limit && !s.waiting && !s.notes?.length && (s.last?.lines.length ?? 0) <= 2;
+
   return (
     <div class={`java js ${page ? 'has-page' : ''}`} ref={root}>
       <div class="java-bar">
@@ -400,7 +403,7 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
       <div class={`java-main ${stepping ? 'stepping' : ''}`}>
         <EditorPane language={languageOf} label={page ? 'Code' : 'JavaScript code'} file={file} readOnly={stepping || !!file.locked} runLine={step?.line} nextLine={step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
         {/* A column of panes, so a page preview can sit above the output. */}
-        <div class="js-panes">
+        <div class={`js-panes ${quiet ? 'quiet' : ''}`}>
           {page && <Preview page={page} onClick={click} />}
           <div class="java-side" ref={side}>
             {step ? (
