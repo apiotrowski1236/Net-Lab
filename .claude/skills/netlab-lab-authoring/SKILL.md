@@ -125,6 +125,144 @@ Register the lab in `src/labs/index.ts`: import it, put it in `LABS` in CED orde
 - **CSS**: append to `src/features.css` under a comment naming the lab. Count `{` against `}` afterward. Check light (the default), dark, and 1366x768.
   - `.tool-row` spreads its children to opposite ends. Scope an override if a Save button should sit beside its input.
 
+## Coding labs with the js demo
+
+The `js` demo is a JavaScript editor on the stage of a lesson with no network (a `LabDef` with no `build`). `src/js` runs the student's code in the browser: a hand-written parser and interpreter, with no `eval` and no iframe. Copy `src/labs/java-classes/` for the file layout: `index.ts`, `code.ts` (starter code and checks), `solution.ts`, and a test. Intro CS labs go in the `intro` course in `src/curricula.ts`. They set `unit: 0`, and the Guide then prints no unit.
+
+```ts
+const sum: JsSpec = {
+  kind: 'js',
+  id: 'sum',                 // unique in the step: goals and the answer key use it
+  title: 'Add up the scores',
+  intro: 'Add up every number in `scores`.',
+  files: [{ name: 'script.js', text: 'let scores = [4, 8, 15];\n' }],
+  step: true,                // adds Step through
+  checks: [LOOP, TOTAL],
+  from: { step: 'arrays', demo: 'sum' }, // start from the student's code in an earlier step
+  report: true,              // put the final code in the teacher's report
+  lintOff: ['result-unused'], // for a step that teaches what a rule warns about
+};
+```
+
+- `files`: `{ name, text, locked? }`. One `script.js` is the common case. With several, every `.js` file runs in the listed order and they share top-level names. A file with any other extension is shown and not run. A syntax error in any file stops all of them.
+- `open`: the first tab. Default: the first file.
+- `from`: `{ step, demo, files? }`, the same as Java, and a chain across steps works. The starter text in `files` is the fallback when the earlier demo was never touched. `files` limits which files carry over.
+- A starter is judged too, so run it once and make sure it draws no "Something to check" note. Bump the lab's `version` if a starter change would confuse saved work.
+
+### Three layers of mistake catching
+
+1. **Errors.** Automatic. A student sees V8's exact wording plus plain help, with a link to the line and the output from before the crash. Syntax help covers commas in a `for` header, a missing `)` or `}` (naming the line that opened it), capitalized keywords, `elif` and `elseif`, curly quotes, unterminated strings, `const` with no value, `let` twice, and reserved words. Runtime help offers "did you mean" from names in scope.
+2. **Notes.** Automatic. `src/js/lint.ts` runs when a run finishes and lists "Something to check" under the output. Rule ids, for `lintOff`:
+   - `assign-in-condition`: `if (x = 5)`.
+   - `semicolon-after-header`: `for (...);`, `while (...);`, `if (...);`.
+   - `while-unchanged`: nothing in the body changes the condition's variables. Fires only when the run didn't finish.
+   - `index-at-length`: reading exactly `arr[arr.length]`, or `i <= arr.length` in a loop, when the run really read past the end.
+   - `assign-push`: `arr = arr.push(x)`.
+   - `method-no-parens`: `arr.pop;`.
+   - `result-unused`: `str.toUpperCase();`, `arr.slice(1);`, `x + 1;`, `x == 5;`.
+   - `shadowed-name`: `let total` in a block hides an outer `total`.
+   - `reset-in-loop`: a running total or counter set back to its start inside the loop that adds to it.
+   - `prompt-plus`: `+` joined a prompt() answer as text where a number was meant.
+   - `alert-extra-args`: `alert("a", b)`.
+   - `misspelled-property`: a read that gave undefined and sits close to a real name, like `arr.lenght`.
+3. **Checks.** Yours, one list per demo.
+
+### Checks and hints
+
+```ts
+const TOTAL: JsCheck = {
+  id: 'total',
+  label: 'Print the total of the list',
+  test(c) {
+    const r = c.run({ data: { scores: [10, 20] } });
+    if (r.dataMissing.length) return 'Keep the variable named `scores`.';
+    return r.text === '30' ? undefined : 'Add up `scores` in a loop, so the total changes when the list does.';
+  },
+  hints: ['Make a variable to hold the total, and start it at 0.', 'Inside the loop, add `scores[i]` to the total.', 'Write `total = total + scores[i];` inside the loop.'],
+};
+```
+
+- `test(c)` returns what's still wrong, in one or two sentences, or nothing. Put `backticks` around code in notes and hints, and they draw as code. A label is plain text.
+- Checks run when a run finishes. They don't run while the program waits at a prompt, and they don't run on a syntax error: the old results stay, under a line saying the checks are waiting.
+- Only the first unmet check runs, shows its note, and gets a **Hint** button, so order them from first task to last. Later checks run after it passes, and a test may assume the ones above it passed.
+- `hints` is a ladder. The button opens them one at a time, and it works before the first Run. End close to the answer, since a student on the last hint needs to finish. Hints cost nothing, so never count them against a student.
+- Goals read `check:<id>`: `check: demoFact('sum', (f) => f['check:total'] === true)`.
+- A test that throws becomes a note telling the student to check their variable names. The answer key still has to pass, so this can't hide a broken check. Still, guard against what a student can write: `c.vars.scores` can be anything.
+
+**What `c` has.** `c` is a `JsCheckCtx` (`src/demos/js.ts`), and it extends `Query` (`src/js/query.ts`). Call methods on it (`c.loops()`). Don't destructure them.
+
+- The code: `c.source(file?)` (default: the first file), `c.code(file?)` (the same with comments blanked), `c.programs` and `c.program(file?)` (the syntax tree, `src/js/ast.ts`).
+- `c.loops()`: `{ kind: 'for' | 'while' | 'do' | 'for-of' | 'for-in', file, line, test?, head, body, depth, inFunction?, node }`. `head` and `body` are source text.
+- `c.calls(name?)`: by last name (`'push'`) or whole name (`'console.log'`): `{ name, callee, receiver?, args, file, line, inLoop, inFunction? }`. `args` are source text.
+- `c.declared(name)`, `c.declarations()`: `{ name, kind, file, line, init?, scope: 'top' | 'block' | 'function', inLoop }`.
+- `c.functions()`, `c.fn(name)`: `{ name?, params, body, arrow, file, line, node }`. `c.fn` also finds `let f = () => 1`.
+- `c.uses(name)`, `c.assigned(name)`: the lines that read or write a name.
+- The student's own Run: `c.status` (`'ok' | 'error' | 'limit'`), `c.ok`, `c.output`, `c.text`, `c.vars`, `c.error`, `c.limit`, `c.facts`, `c.notes` (the lint notes).
+
+**`c.run({ prompts?, seed?, data? })`** runs a hidden copy and returns `{ status, ok, output, text, vars, error, limit, waiting, facts, dataMissing }`. The student sees nothing from it.
+
+- `output`: `{ kind: 'log' | 'alert', text, line, error? }[]` in order, with prompts left out. `text` is the same lines joined with newlines. An array reads as `console.log` prints it: `['a', 1]`.
+- `vars`: final top-level variables as plain values. Functions read `'[function name]'`. A variable that never got its value is left out.
+- `prompts`: answers in order. A string is OK, and null is Cancel. For `confirm`, any string is OK. A run that needs one more answer than it was given stops with status `'waiting'`, and `waiting.message` says which prompt. **A program with a prompt needs `prompts`.**
+- `seed`: where `Math.random` starts. Default 1, so a check gives the same result on every Run. The student's own runs use the run count.
+- `data`: replaces the first value of named top-level variables, with plain JSON values. **This is the main defense against a student typing the expected output.** A list that prints the right answer with `[1, 2, 3]` has to print a different answer with other data.
+  - It works on `let`, `const`, and `var` with a value, a `let a;` set on a later line, and a variable with no declaration.
+  - The program can still change the value afterward. A `prompt()` in the replaced value isn't asked.
+  - Variables inside a function or a block are not replaced. Check `dataMissing`, which lists names the program never gave a first value to, usually because the student renamed one. Say so in the note.
+- Facts for a check: `facts.loops` (`{ file, line, runs }`, how many passes each loop made), `facts.builtinCalls`, `facts.prompts`, `facts.indexAtLength`, `facts.promptPlus`, `facts.misspelled`.
+- It can't hang. Each hidden run gets 400,000 steps, and all of them together get 1,500,000 per Run. Past that, `run` returns status `'limit'` at once. The same options return the same result without running again, so call it freely.
+
+### Facts for goals
+
+`runs`, `ok`, `waiting`, `error` (a code such as `not-defined`), `errorType`, `limit` (`loop`, `steps`, `output`, or `memory`), `output` (log and alert lines, first 4,000 characters), `notes` (rule ids, space separated), `far`, `finished`, `checks` (all passed), `check:<id>`, `hints` (total opened), `hints:<id>`, `opened:<file>`.
+
+A goal latches, and a check belongs in the demo's list, not in a goal. Use goals to say which checks finish a step. Don't require `hints` to be 0.
+
+### Answer keys
+
+Moves are `{ demo, input }`, the same as Java. The walkthrough test plays them through the model, and `clickthrough.mjs` presses the real controls.
+
+```ts
+const on = (demo: string, ...inputs: DemoInput[]): Move[] => inputs.map((input) => ({ demo, input }));
+
+loops: { moves: on('sum', { edit: 'script.js', code: DONE }, { run: true }) },
+ask: { moves: on('tip', { edit: 'script.js', code: TIP }, { run: true }, { answer: '20' }, { answer: null }) },
+```
+
+- `{ edit: file, code }`, then `{ run: true }`. Edits don't run anything. Editing while a prompt waits drops the prompt.
+- `{ answer: string | null }`, once per prompt, after the Run. Null is **Cancel**. A confirm takes `{ answer: '' }` for **OK**. Each answer reruns from the top with the same seed, so `Math.random` gives the same numbers throughout one Run. A Run clears the answers.
+- `{ hint: id }` works only for the first unmet check. `{ tab: file }` opens a tab, which `opened:<file>` reports.
+- Step through: `{ stepping: true }`, then `{ seek: 1 }`, `{ seek: 2 }`, and so on, then `{ stepping: false }`. The click-through presses **Next** once per seek, so count up by one. A prompt in a step-through takes `{ answer }` at the step that waits, and the same step number then shows what came next.
+- A lab needs its click-through at 4× and 1× like any other.
+
+### Language subset
+
+The program runs as a sloppy-mode script. `differential.test.ts` holds the interpreter to real JavaScript for output, error type, error message, and line.
+
+- **Variables and values:** `let`, `const`, `var`, block scope, TDZ, hoisting, per-iteration `for (let ...)` bindings, implicit globals. Numbers, strings, booleans, null, undefined, NaN, template literals, `typeof`.
+- **Operators:** all arithmetic, comparison, and logical operators, including `==` with coercion, `??`, compound assignment, `++`, `--`, the ternary, and the bitwise operators.
+- **Statements:** `if`, `else`, `while`, `do...while`, `for`, `for...of`, `for...in`, `break`, `continue`, `switch`.
+- **Functions:** declarations, expressions, arrows, closures, default parameters.
+- **Arrays:** literals, holes, `length`, assignment past the end, `push pop shift unshift indexOf lastIndexOf includes join slice splice concat reverse sort forEach map filter reduce find findIndex some every fill`, `Array.isArray`.
+- **Objects:** literals with dot and bracket access.
+- **Strings:** `length`, indexing, `charAt indexOf lastIndexOf includes startsWith endsWith slice substring toUpperCase toLowerCase trim split repeat replace padStart padEnd concat`. `replace` takes string patterns only.
+- **Numbers:** `Number() String() Boolean() parseInt parseFloat isNaN Number.isInteger toFixed toString`. `Math`: `floor ceil round trunc abs min max pow sqrt random PI`.
+- **Input and output:** `alert`, `prompt`, `confirm`, `console.log`, `console.error`. Alerts print in the output panel, marked as alerts, and nothing pops up, so a loop with `alert` doesn't trap a student. `alert(arr)` prints `1,2,3`, and `console.log(arr)` prints `[1, 2, 3]`.
+
+Anything else stops with a plain "not available in this editor" message: `class`, `try`, `async`, regex literals, destructuring, generators, `Date`, spread, `setTimeout`, and the rest. Check that your lab's own code stays inside this list by running it, since an answer key that uses `const [a, b] = x` fails. Property access goes through allowlists, so `constructor` and `__proto__` stop too.
+
+Limits: 5,000,000 steps, 2,000 output lines, 200,000 characters of output, and 1,000 characters on a line (longer lines are cut off, and the program keeps going). A loop that passes 100,000 times with nothing in its condition changing stops early and says what its condition did. The step-through stops after 2,000 steps and says so. Calls nest 900 deep at most, far fewer than Chrome's 11,000 or so, and a call deep in nested expressions can hit the same error sooner.
+
+### A lab with a page (lab 3)
+
+The base leaves these hooks, and the page itself is yours to build:
+
+- `JsSpec.hosts: (rt, files) => Record<string, HostObject>` adds globals such as `document`. `files` holds the student's current files, so a host can read `page.html`. Each run, hidden runs included, gets new ones.
+- `HostObject` (`src/js/values.ts`) is an abstract class, so extend it: `label()`, `allow: { get, set, call }`, `get(name, rt)`, `set(name, value, rt)`, `call(name, args, rt)`, and `items()` for `for...of`. A name outside `allow` stops as not available. `rt.call(fn, self, args)` runs a student callback. Tests in `src/js/run.test.ts` under "host objects" show a small fake `document`.
+- Languages: add `html` and `css` to `LANGUAGES` in `src/ui/demos/codeEditor.ts`, one line each, after installing `@codemirror/lang-html` and `@codemirror/lang-css`. Then pass `EditorPane` a function: `language={(file) => (file.endsWith('.css') ? 'css' : file.endsWith('.html') ? 'html' : 'javascript')}`. Language is per file, and the lazy chunk stays lazy.
+- Preview: `.js-panes` in `src/ui/demos/Js.tsx` is a column around the output pane, so a preview pane can go above it. `RunResult` doesn't yet carry page state: add what the preview needs to `JsLast`, keeping it plain JSON.
+- Files that don't end in `.js` are already skipped by the interpreter and kept across a `from` chain.
+
 ## Tools per step and the answer key
 
 - A step's `tools` is the whole list for that step. Nothing carries over except the Logs tab once opened.

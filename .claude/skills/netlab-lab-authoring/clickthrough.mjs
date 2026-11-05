@@ -137,7 +137,7 @@ async function settle(limit = 120000) {
 const tab = (name) => page.getByRole('tab', { name: new RegExp(name) }).click();
 const device = (id) => page.locator('g.device').filter({ has: page.locator('text.device-label', { hasText: new RegExp(`^${labels[id]}$`) }) });
 
-/** The Java editor and the objects demo. Other demos have no driver yet, so they fail loudly. */
+/** The Java and JavaScript editors and the objects demo. Other demos have no driver yet, so they fail loudly. */
 async function doDemo(id, input) {
   const stage = page.locator(`[data-demo="${id}"]`);
   if ('edit' in input) {
@@ -160,6 +160,15 @@ async function doDemo(id, input) {
   } else if ('seek' in input) {
     await stage.locator('.java-next').click();
     log(`  press Next (${input.seek})`);
+  } else if ('answer' in input) {
+    const box = stage.locator('.js-prompt');
+    const text = box.locator('input');
+    if (input.answer !== null && (await text.count())) await text.fill(input.answer);
+    await box.getByRole('button', { name: input.answer === null ? 'Cancel' : 'OK', exact: true }).click();
+    log(`  answer the prompt: ${input.answer === null ? 'Cancel' : `OK ${JSON.stringify(input.answer)}`}`);
+  } else if ('hint' in input) {
+    await stage.locator('.js-hint').click();
+    log(`  press Hint (${input.hint})`);
   } else if ('make' in input) {
     await stage.locator('.objects-class button').click();
     log('  make an object');
