@@ -137,6 +137,35 @@ async function settle(limit = 120000) {
 const tab = (name) => page.getByRole('tab', { name: new RegExp(name) }).click();
 const device = (id) => page.locator('g.device').filter({ has: page.locator('text.device-label', { hasText: new RegExp(`^${labels[id]}$`) }) });
 
+/** The Java editor and the objects demo. Other demos have no driver yet, so they fail loudly. */
+async function doDemo(id, input) {
+  const stage = page.locator(`[data-demo="${id}"]`);
+  if ('edit' in input) {
+    await stage.locator('.java-tab', { hasText: input.edit }).click();
+    await stage.locator('.cm-content').click();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.insertText(input.code);
+    // Past the editor's save delay, so a run or a goal sees the new text.
+    await page.waitForTimeout(400);
+    log(`  edit ${input.edit}`);
+  } else if ('run' in input) {
+    await stage.locator('.java-run').click();
+    log('  press Run');
+  } else if ('stepping' in input) {
+    await stage.getByRole('button', { name: input.stepping ? 'Step through' : 'Stop', exact: true }).click();
+    log(`  press ${input.stepping ? 'Step through' : 'Stop'}`);
+  } else if ('seek' in input) {
+    await stage.locator('.java-next').click();
+    log(`  press Next (${input.seek})`);
+  } else if ('make' in input) {
+    await stage.locator('.objects-class button').click();
+    log('  make an object');
+  } else if ('hit' in input) {
+    await stage.locator('.objects-card').nth(input.hit).locator('button').click();
+    log(`  hit object ${input.hit}`);
+  } else throw new Error(`clickthrough has no UI driver for demo input ${JSON.stringify(input)}. Add one in doDemo.`);
+}
+
 async function doMove(i, step, m) {
   if ('inspect' in m) {
     // Spotlighted devices pulse, so Playwright never sees them as stable.
@@ -197,6 +226,8 @@ async function doMove(i, step, m) {
     if (n < 0) await fail(i, `no row in the capture list for ${want.proto} ${want.src} → ${want.dst} "${want.info}"`);
     await rows.nth(n).click();
     log(`  open packet: ${want.proto} ${want.info}`);
+  } else if ('demo' in m) {
+    await doDemo(m.demo, m.input);
   } else throw new Error(`clickthrough has no UI driver for move ${JSON.stringify(m)}. Add one in doMove.`);
   await page.waitForTimeout(200);
   if (!(await settle())) await fail(i, 'the network never went quiet after the last move');
@@ -208,7 +239,8 @@ async function answer(i, step) {
     const card = page.locator('.qcard').filter({ hasText: q.prompt.replace(/\*\*|`/g, '').slice(0, 40) }).first();
     if ((await card.count()) === 0) await fail(i, `question "${q.id}" isn't on screen (still locked?)`);
     if (q.kind === 'choice') {
-      for (const o of q.options.filter((o) => o.correct)) await card.locator('.option', { hasText: o.text }).first().click();
+      // Exact, so an answer of "0" doesn't pick the option "100".
+      for (const o of q.options.filter((o) => o.correct)) await card.locator('.option', { hasText: new RegExp(`^\\s*${o.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) }).first().click();
       await card.getByRole('button', { name: 'Check', exact: true }).click();
     } else {
       const text = key.text?.[q.id];

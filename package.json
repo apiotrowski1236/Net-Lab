@@ -14,7 +14,15 @@
     "set-password": "node scripts/set-password.mjs"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.4",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-java": "^6.0.2",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
+    "@lezer/highlight": "^1.2.5",
     "@preact/signals": "^2.11.4",
+    "codemirror": "^6.0.2",
     "marked": "^18.1.2",
     "preact": "^10.29.8"
   },

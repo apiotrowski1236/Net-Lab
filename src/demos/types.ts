@@ -130,7 +130,55 @@ export interface NoteSpec extends DemoBase {
   md: string;
 }
 
-export type DemoSpec = SwitchesSpec | BitsSpec | PlacesSpec | ReadWalkSpec | FitWalkSpec | CompareSpec | CounterSpec | RoundingSpec | AsciiSpec | NoteSpec;
+/** A file in a code editor. `locked`: the student can read it, not change it. */
+export interface JavaFile {
+  name: string;
+  text: string;
+  locked?: boolean;
+}
+
+/** What a check gets. See src/demos/java.ts for the helpers. */
+export type JavaCheckCtx = import('./java').JavaCheckCtx;
+
+/** A test of the student's code, run on every Run. Returns what's still wrong, or nothing if it passes. */
+export interface JavaCheck {
+  id: string;
+  /** What the check wants, shown beside a check mark. */
+  label: string;
+  test: (c: JavaCheckCtx) => string | undefined;
+}
+
+/**
+ * A Java editor with Run: src/java compiles and runs the code in the browser.
+ * `step` adds Step through, which walks the program a line at a time and draws
+ * its variables and objects.
+ */
+export interface JavaSpec extends DemoBase {
+  kind: 'java';
+  files: JavaFile[];
+  /** Start from the student's own code in an earlier step. `files`: which files. Default: every file both have. */
+  from?: { step: string; demo: string; files?: string[] };
+  /** The class whose main runs. Default: the first class that has one. */
+  main?: string;
+  /** Tab to open first. Default: the first file. */
+  open?: string;
+  step?: boolean;
+  checks?: JavaCheck[];
+  /** Put the student's final code in the report the teacher reads. */
+  report?: boolean;
+}
+
+/** One class stamping out objects: press to make one, and hit one to see that only it changes. */
+export interface ObjectsSpec extends DemoBase {
+  kind: 'objects';
+  cls: string;
+  /** Objects the button makes, in order. */
+  make: { name: string; label: string; health: number }[];
+  /** Taken off one object's health at each hit. */
+  hit: number;
+}
+
+export type DemoSpec = SwitchesSpec | BitsSpec | PlacesSpec | ReadWalkSpec | FitWalkSpec | CompareSpec | CounterSpec | RoundingSpec | AsciiSpec | NoteSpec | JavaSpec | ObjectsSpec;
 
 export type DemoKind = DemoSpec['kind'];
 
@@ -159,7 +207,16 @@ export type DemoInput =
   // rounding
   | { digits: number }
   // ascii
-  | { text: string };
+  | { text: string }
+  // java
+  | { edit: string; code: string }
+  | { tab: string }
+  | { run: true }
+  | { stepping: boolean }
+  | { seek: number }
+  // objects
+  | { make: true }
+  | { hit: number };
 
 export type WireView = 'voltage' | 'light' | 'bits';
 
@@ -170,6 +227,8 @@ export type WireView = 'voltage' | 'light' | 'bits';
  */
 export interface DemoModel<Spec extends DemoSpec = DemoSpec, State = unknown> {
   init(spec: Spec): State;
+  /** Used instead of `init` by a demo that starts from the student's work in an earlier step. `earlier` is that demo's state. */
+  start?(spec: Spec, earlier: (step: string, demo: string) => unknown): State;
   /** The state after one input. Return `state` itself when the input changes nothing. */
   apply(spec: Spec, state: State, input: DemoInput): State;
   facts(spec: Spec, state: State): DemoFacts;

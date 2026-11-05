@@ -4,7 +4,9 @@ import { BitsView } from './Bits';
 import { CompareView } from './Compare';
 import { CounterView } from './Counter';
 import { FitWalkView } from './FitWalk';
+import { JavaView } from './Java';
 import { NoteView } from './Note';
+import { ObjectsView } from './Objects';
 import type { DemoView } from './parts';
 import { PlacesView } from './Places';
 import { ReadWalkView } from './ReadWalk';
@@ -23,6 +25,8 @@ export const DEMO_VIEWS: { [K in DemoKind]: DemoView<Extract<DemoSpec, { kind: K
   rounding: RoundingView,
   ascii: AsciiView,
   note: NoteView,
+  java: JavaView,
+  objects: ObjectsView,
 };
 
 /** What a demo is called in the printed guide's "On screen" line. */
@@ -37,4 +41,6 @@ export const DEMO_NAME: Record<DemoKind, string> = {
   rounding: 'Rounding',
   ascii: 'ASCII',
   note: 'Notes',
+  java: 'Code editor',
+  objects: 'Class and objects',
 };
