@@ -2,7 +2,7 @@
 
 Status: built. Code in `index.ts`, `code.ts` (starting code and hidden checks), and `solution.ts`. The student panel reviews it.
 
-CED: 3.3.A, 3.4.A, 3.5.A, 3.8.A, 3.9.A. Target: 60 minutes for an average student.
+CED: 3.3.A, 3.4.A, 3.5.A, 3.8.A, 3.9.A. Target: 60 minutes for an average student. The student panel's final median was 72 minutes (range 58 to 95), so `minutes` is 70.
 
 Overriding `toString` is excluded from the course (CED 1.15.A.5), so the lab uses `getSummary()`, an ordinary method that returns a String.
 

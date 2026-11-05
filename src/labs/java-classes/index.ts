@@ -35,7 +35,7 @@ export const javaClassesLab: LabDef = {
   unit: 3,
   codehs: [],
   ced: ['3.3.A', '3.4.A', '3.5.A', '3.8.A', '3.9.A'],
-  minutes: 60,
+  minutes: 70,
   objectives: [
     'Explain what a class and an object are, and when a program should use a class',
     'Write private instance variables and a constructor that sets them',
