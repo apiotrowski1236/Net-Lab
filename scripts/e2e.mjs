@@ -544,7 +544,7 @@ try {
     await page.waitForSelector('.modal');
     await expectCount('.modal .class-option', 0, 'Class choices in Change name');
     await page.fill('input[autocomplete=name]', 'Casey Renamed');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     if ((await chip.innerText()).trim() !== 'Casey Renamed') throw new Error('Name chip did not update');
     if ((await savedProfile()).curriculum !== 'intro') throw new Error('Change name lost the class');
     page.once('dialog', (d) => d.accept());
