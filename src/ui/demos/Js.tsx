@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { firstUnmet, traceOf, type JsCheckResult, type JsLast, type JsState } from '../../demos/js';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { pageOf, firstUnmet, traceOf, type JsCheckResult, type JsLast, type JsState } from '../../demos/js';
 import type { DemoInput, JsCheck, JsSpec } from '../../demos/types';
+import { srcdoc, type PageState } from '../../dom';
 import { errorText, type LintNote, type OutputLine, type TraceFrame, type TraceStep, type TraceVar, type Waiting } from '../../js';
 import { Icon } from '../icons';
 import { EditorPane, useSavedEdits } from './EditorPane';
@@ -241,6 +242,52 @@ function CheckRow({ check: c, result: r, note, first, shown, send }: { check: Js
   );
 }
 
+const languageOf = (file: string) => (file.endsWith('.html') ? 'html' : file.endsWith('.css') ? 'css' : 'javascript');
+
+/** A new secret for each render of the frame, so only the bridge script runs in it. */
+function makeNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * The student's page in a sandboxed frame with no same-origin access. The page
+ * can't run anything of its own. The bridge script tells this view about clicks,
+ * and a message counts only if it came from this frame's own window.
+ */
+function Preview({ page, onClick }: { page: PageState; onClick: (path: string) => void }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const scroll = useRef(0);
+  const clicked = useRef(onClick);
+  clicked.current = onClick;
+  const { body, head } = page;
+  const doc = useMemo(() => srcdoc({ body, head }, { nonce: makeNonce(), scrollY: scroll.current }), [body, head]);
+  useEffect(() => {
+    const hear = (e: MessageEvent) => {
+      if (e.source !== frame.current?.contentWindow) return;
+      const d = e.data as { netlab?: unknown; path?: unknown; y?: unknown } | null;
+      if (d?.netlab !== 'click' || typeof d.path !== 'string' || !/^\d+(?:\.\d+)*$/.test(d.path)) return;
+      scroll.current = typeof d.y === 'number' ? d.y : 0;
+      clicked.current(d.path);
+    };
+    addEventListener('message', hear);
+    return () => removeEventListener('message', hear);
+  }, []);
+  return (
+    <section class="js-preview" data-preview="page">
+      <div class="js-preview-bar">
+        <h4>Your page</h4>
+        {page.made > 0 && (
+          <span class="js-made">
+            {page.made.toLocaleString('en-US')} {page.made === 1 ? 'element' : 'elements'} made by {page.lines} {page.lines === 1 ? 'line' : 'lines'} of code
+          </span>
+        )}
+      </div>
+      <iframe ref={frame} title="Preview of your page" sandbox="allow-scripts" srcDoc={doc} />
+    </section>
+  );
+}
+
 /** A JavaScript editor, with Run, and Step through if the spec has it. */
 export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>) {
   const stepping = s.at !== undefined;
@@ -283,8 +330,13 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
   const checks = spec.checks;
   const unmet = firstUnmet(spec, s);
   const count = trace?.steps.length ?? 0;
+  const page = spec.startPage && (pageOf(spec, s) ?? spec.startPage(s.files));
+  const click = (path: string) => {
+    flush();
+    send({ click: path });
+  };
   return (
-    <div class="java js" ref={root}>
+    <div class={`java js ${page ? 'has-page' : ''}`} ref={root}>
       <div class="java-bar">
         <div class="java-tabs" role="tablist" aria-label="Files">
           {s.files.map((f) => (
@@ -346,9 +398,10 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
         )}
       </div>
       <div class={`java-main ${stepping ? 'stepping' : ''}`}>
-        <EditorPane language="javascript" label="JavaScript code" file={file} readOnly={stepping || !!file.locked} runLine={step?.line} nextLine={step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
+        <EditorPane language={languageOf} label={page ? 'Code' : 'JavaScript code'} file={file} readOnly={stepping || !!file.locked} runLine={step?.line} nextLine={step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
         {/* A column of panes, so a page preview can sit above the output. */}
         <div class="js-panes">
+          {page && <Preview page={page} onClick={click} />}
           <div class="java-side" ref={side}>
             {step ? (
               <Stepper step={step} lines={trace!.lines} ask={ask} />

@@ -1,5 +1,7 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { cursorLineEnd, defaultKeymap, history, historyKeymap, indentWithTab, selectLineEnd } from '@codemirror/commands';
+import { css } from '@codemirror/lang-css';
+import { html } from '@codemirror/lang-html';
 import { java } from '@codemirror/lang-java';
 import { javascript } from '@codemirror/lang-javascript';
 import { bracketMatching, HighlightStyle, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language';
@@ -102,6 +104,8 @@ const BRACKETS = ['(', '[', "'", '"'];
 const LANGUAGES = {
   java: { support: () => java(), brackets: BRACKETS },
   javascript: { support: () => javascript(), brackets: [...BRACKETS, '`'] },
+  html: { support: () => html({ autoCloseTags: false }), brackets: BRACKETS },
+  css: { support: () => css(), brackets: BRACKETS },
 } satisfies Record<string, { support: () => Extension; brackets: string[] }>;
 
 export type CodeLanguage = keyof typeof LANGUAGES;
