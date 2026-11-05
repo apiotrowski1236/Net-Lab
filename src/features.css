@@ -5367,6 +5367,14 @@ button.pl-tile:active {
 .js.has-page .js-panes .java-side {
   flex: 2 1 0;
 }
+/* Nothing much to read under the page, so 1366x768 still shows a whole grid. */
+.js.has-page .js-panes.quiet .js-preview {
+  flex: 5 1 0;
+}
+.js.has-page .js-panes.quiet .java-side {
+  flex: 1 1 0;
+  min-height: 84px;
+}
 @media (max-width: 900px) {
   .js.has-page .java-main {
     grid-template-columns: minmax(0, 1fr);

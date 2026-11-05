@@ -1,4 +1,4 @@
-import type { DemoSpec, JsCheck, JsSpec } from '../../demos/types';
+import type { JsCheck, JsSpec } from '../../demos/types';
 import { pageHosts, pageOfFiles } from '../../dom';
 import { demoFact } from '../helpers';
 import { md } from '../md';
@@ -19,10 +19,10 @@ const passed = (demo: string, check: JsCheck, label: string, hint?: string): Goa
   check: demoFact(demo, (f) => f[`check:${check.id}`] === true),
 });
 
-const editor = (id: string, title: string, html: string, script: string, checks: JsCheck[], after?: [string, string]): JsSpec => ({
+const editor = (id: string, html: string, script: string, checks: JsCheck[], after?: [string, string]): JsSpec => ({
   kind: 'js',
   id,
-  title,
+  title: 'Your code',
   files: code.files(html, script),
   open: 'script.js',
   checks,
@@ -32,8 +32,6 @@ const editor = (id: string, title: string, html: string, script: string, checks:
   // The student's CSS follows them through the lab. Each step gets a new script, so a prompt() from an earlier step doesn't fire on every Run.
   ...(after ? { from: { step: after[0], demo: after[1], files: ['style.css'] } } : {}),
 });
-
-const note = (id: string, title: string, text: string): DemoSpec => ({ kind: 'note', id, title, md: text });
 
 export const jsDomLab: LabDef = {
   id: 'js-dom',
@@ -61,19 +59,16 @@ export const jsDomLab: LabDef = {
         1. Open **index.html**, and read the ids on the heading and the paragraph under it.
         2. In **script.js**, put your name in the heading.
         3. Change the paragraph under the heading to a sentence about you.
+
+        A reminder from the lecture:
+
+        \`\`\`js
+        let box = document.getElementById("box");
+        box.textContent = "New words";
+        \`\`\`
       `,
       demos: [
-        note(
-          'find',
-          'Find it, then change it',
-          md`
-            \`\`\`js
-            let box = document.getElementById("box");
-            box.textContent = "New words";
-            \`\`\`
-          `,
-        ),
-        editor('hello', 'Your page', code.HELLO_PAGE, code.HELLO_SCRIPT, [code.TITLE, code.TAGLINE]),
+        editor('hello', code.HELLO_PAGE, code.HELLO_SCRIPT, [code.TITLE, code.TAGLINE]),
       ],
       goals: [
         passed('hello', code.TITLE, 'Put your name in the big heading.', 'Set `title.textContent` to your name, in quotes.'),
@@ -102,19 +97,16 @@ export const jsDomLab: LabDef = {
         1. Change how the heading looks. Set a style on it, or add the class \`highlight\` from **style.css**.
         2. Use \`prompt()\` to ask the visitor's name.
         3. Put a welcome message with that name in the element with the id \`greeting\`.
+
+        A reminder of the two ways to change a look:
+
+        \`\`\`js
+        box.style.color = "gold";
+        box.classList.add("big");
+        \`\`\`
       `,
       demos: [
-        note(
-          'look-note',
-          'Two ways to change a look',
-          md`
-            \`\`\`js
-            box.style.color = "gold";
-            box.classList.add("big");
-            \`\`\`
-          `,
-        ),
-        editor('look', 'Your page', code.LOOK_PAGE, code.LOOK_SCRIPT, [code.LOOK, code.GREET], ['hello', 'hello']),
+        editor('look', code.LOOK_PAGE, code.LOOK_SCRIPT, [code.LOOK, code.GREET], ['hello', 'hello']),
       ],
       goals: [
         passed('look', code.LOOK, 'Change how the heading looks.', 'Try `title.classList.add("highlight");`.'),
@@ -132,20 +124,17 @@ export const jsDomLab: LabDef = {
         1. Make a new \`<p>\`.
         2. Give it a fact about you as its text.
         3. Add it to the \`about\` section.
+
+        A reminder of the three steps:
+
+        \`\`\`js
+        let item = document.createElement("li");
+        item.textContent = "New item";
+        list.appendChild(item);
+        \`\`\`
       `,
       demos: [
-        note(
-          'one-note',
-          'Make it, fill it, add it',
-          md`
-            \`\`\`js
-            let item = document.createElement("li");
-            item.textContent = "New item";
-            list.appendChild(item);
-            \`\`\`
-          `,
-        ),
-        editor('one', 'Your page', code.ONE_PAGE, code.ONE_SCRIPT, [code.NEW_ELEMENT, code.NEW_TEXT], ['look', 'look']),
+        editor('one', code.ONE_PAGE, code.ONE_SCRIPT, [code.NEW_ELEMENT, code.NEW_TEXT], ['look', 'look']),
       ],
       goals: [
         passed('one', code.NEW_ELEMENT, 'Add a new element to the About me section.', 'Make it with `document.createElement`, then add it with `about.appendChild`.'),
@@ -164,7 +153,7 @@ export const jsDomLab: LabDef = {
         2. Write a loop that adds one \`<li>\` to the list for each string.
         3. Add one more string to the array, and press **Run**. The page gets a new item, and the HTML stays the same.
       `,
-      demos: [editor('list', 'Your page', code.LIST_PAGE, code.LIST_SCRIPT, [code.ITEMS, code.ONE_MORE], ['one', 'one'])],
+      demos: [editor('list', code.LIST_PAGE, code.LIST_SCRIPT, [code.ITEMS, code.ONE_MORE], ['one', 'one'])],
       goals: [
         passed('list', code.ITEMS, 'Add one list item for each string in the array.', 'Put `createElement`, `textContent`, and `appendChild` inside a `for` loop.'),
         passed('list', code.ONE_MORE, 'Add one more string to the array.', 'Change only the line that makes `favorites`.'),
@@ -193,15 +182,20 @@ export const jsDomLab: LabDef = {
         By hand, a grid of 144 squares would take 144 lines of HTML.
 
         1. Write a loop that runs \`count\` times. Each pass makes a \`div\`, gives it the class \`cell\`, and adds it to \`grid\`.
-        2. Give each square its own color. This line uses **hsl**, a way to write a color where the first number picks the shade, from 0 to 360: \`cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";\`
+        2. Give each square its own color with the two lines below, inside your loop. **hsl** is a way to write a color, and its first number picks the shade.
         3. Change \`count\` to 400, and press **Run**.
+
+        \`\`\`js
+        let color = "hsl(" + i * 5 + ", 80%, 60%)";
+        cell.style.backgroundColor = color;
+        \`\`\`
 
         Read the count above your page, then count the lines in your script.
       `,
-      demos: [editor('grid', 'Your page', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY], ['list', 'list'])],
+      demos: [editor('grid', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY], ['list', 'list'])],
       goals: [
-        passed('grid', code.CELLS, 'Make count squares in the grid.', 'Use `i < count` in the loop, and set `className` to `"cell"`.'),
-        passed('grid', code.COLORS, 'Give the squares different colors.', 'Use the line in the instructions, inside the loop.'),
+        passed('grid', code.CELLS, 'Make as many squares as count says.', 'Use `i < count` in the loop, and set `className` to `"cell"`.'),
+        passed('grid', code.COLORS, 'Give the squares different colors.', 'Use the two lines in the instructions, inside the loop.'),
         passed('grid', code.MANY, 'Change count to 400.', 'The loop stays the same. Only the first line changes.'),
       ],
     },
@@ -218,7 +212,7 @@ export const jsDomLab: LabDef = {
 
         Your table of contents now comes from the page, so a new heading would appear in it on the next **Run**.
       `,
-      demos: [editor('every', 'Your page', code.EVERY_PAGE, code.EVERY_SCRIPT, [code.EVERY, code.CONTENTS], ['grid', 'grid'])],
+      demos: [editor('every', code.EVERY_PAGE, code.EVERY_SCRIPT, [code.EVERY, code.CONTENTS], ['grid', 'grid'])],
       goals: [
         passed('every', code.EVERY, 'Change every h2 on the page.', 'Use `document.querySelectorAll("h2")` and a loop.'),
         passed('every', code.CONTENTS, 'Build the table of contents from the headings.', 'In the loop, make an `<li>`, copy the heading\'s `textContent`, and add it to `toc`.'),
@@ -236,7 +230,7 @@ export const jsDomLab: LabDef = {
         2. Loop through them. For each index, make a \`div\` with the class \`card\`, with an \`h3\` for the title and a \`p\` for the detail.
         3. Add each card to the element with the id \`cards\`.
       `,
-      demos: [editor('cards', 'Your page', code.CARDS_PAGE, code.CARDS_SCRIPT, [code.ARRAYS, code.CARDS, code.FOLLOWS], ['every', 'every'])],
+      demos: [editor('cards', code.CARDS_PAGE, code.CARDS_SCRIPT, [code.ARRAYS, code.CARDS, code.FOLLOWS], ['every', 'every'])],
       goals: [
         passed('cards', code.ARRAYS, 'Make two arrays of the same length, with at least 3 items each.', 'One array of titles, and one of details.'),
         passed('cards', code.CARDS, 'Make one card for each item.', 'Use `.length` in the loop, and the class `card`.'),
@@ -285,7 +279,7 @@ export const jsDomLab: LabDef = {
         1. Inside the function, make one \`div\` with the class \`cell\` and a color, and add it to \`grid\`.
         2. Press **Run**, then click **Add a square** on your page a few times.
       `,
-      demos: [editor('more', 'Your page', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS], ['cards', 'cards'])],
+      demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS], ['cards', 'cards'])],
       goals: [
         passed('more', code.ADDS, 'Add one square for each click.', 'Put `createElement` and `appendChild` inside the function.'),
         { id: 'clicked', label: 'Click the button on your page.', hint: 'Press **Run**, then click **Add a square** in the preview.', check: demoFact('more', (f) => (f.clicks as number) > 0) },

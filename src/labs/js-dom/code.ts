@@ -83,7 +83,7 @@ export const STYLE = `body {
 }
 
 header {
-  padding: 20px;
+  padding: 10px 20px;
   text-align: center;
   color: white;
   background: #2f6f73;
@@ -91,16 +91,31 @@ header {
 
 h1 {
   margin: 0;
+  font-size: 28px;
+}
+
+header p {
+  margin: 0;
 }
 
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: 4px 20px 24px;
+  padding: 0 20px 20px;
 }
 
 h2 {
+  margin: 12px 0 8px;
   color: #2f6f73;
+}
+
+h3 {
+  margin: 12px 0 4px;
+}
+
+ol,
+ul {
+  margin: 4px 0;
 }
 
 .highlight {
@@ -121,9 +136,9 @@ h2 {
 }
 
 .cell {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
 }
 
 #cards {
@@ -134,10 +149,14 @@ h2 {
 
 .card {
   flex: 1 1 160px;
-  padding: 4px 14px;
+  padding: 0 14px 4px;
   border: 1px solid #c6d3df;
   border-radius: 10px;
   background: white;
+}
+
+.card p {
+  margin: 4px 0;
 }
 
 button {
@@ -338,7 +357,7 @@ export const ONE_MORE: JsCheck = {
 
 export const CELLS: JsCheck = {
   id: 'cells',
-  label: 'Make count squares in the grid',
+  label: 'Make as many squares as count says',
   test(c) {
     const r = c.run({ data: { count: 30 } });
     if (r.dataMissing.length) return KEEP('count');

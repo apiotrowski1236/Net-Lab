@@ -45,7 +45,8 @@ let grid = document.getElementById("grid");
 for (let i = 0; i < count; i++) {
   let cell = document.createElement("div");
   cell.className = "cell";
-  cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";
+  let color = "hsl(" + i * 5 + ", 80%, 60%)";
+  cell.style.backgroundColor = color;
   grid.appendChild(cell);
 }
 `;
