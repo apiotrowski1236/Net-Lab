@@ -349,7 +349,8 @@ export const SONG_SETS: JavaCheck = {
       if (got.includes('|null')) return 'artist is still null. In the constructor, store songArtistIn in the instance variable artist.';
       if (got.startsWith('B')) return 'The title and the artist are swapped. Check which parameter goes where.';
       return 'plays should start at 0.';
-    }),
+    }) ??
+    (/plays\s*=\s*0\s*;/.test(c.source('Song.java')) ? undefined : 'Java starts plays at 0 on its own, but write plays = 0; anyway, so your code says what you mean.'),
 };
 
 export const SONG_ACCESSORS: JavaCheck = {

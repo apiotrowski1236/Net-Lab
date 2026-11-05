@@ -61,7 +61,7 @@ export interface StepPlan {
   texts: PlanText[];
   chips: PlanChip[];
   glows: PlanGlow[];
-  /** The whole action in sentences, for the caption and for anyone not watching the picture. */
+  /** The whole action in sentences, one line per thing that happens, with code in backticks. */
   say: string;
   /** Where Java goes after this line. */
   flow?: string;
@@ -69,6 +69,27 @@ export interface StepPlan {
   printed?: string;
   printAt?: number;
 }
+
+/** Ideas a caption explains once, at the first line of the program that shows them. */
+export interface FirstTime {
+  defaults?: boolean;
+  reference?: boolean;
+  self?: boolean;
+  box?: boolean;
+}
+
+/** What the line at `at` explains for the first time. */
+export function firstTimeAt(steps: TraceStep[], at: number): FirstTime {
+  const first = (test: (b: Beat, s: TraceStep) => boolean) => steps.findIndex((s) => s.beats.some((b) => test(b, s))) === at;
+  return {
+    defaults: first((b) => b.k === 'new'),
+    reference: first((b) => b.k === 'write' && b.value.t === 'ref'),
+    self: first((b, s) => b.k === 'write' && !!b.to && 'obj' in b.to && !!selfOf(s)),
+    box: first((b) => b.k === 'return'),
+  };
+}
+
+const selfOf = (s: TraceStep) => s.frames[s.frames.length - 1]?.vars.find((v) => v.name === 'this');
 
 export const slotKey = (s: Slot) => ('frame' in s ? `f${s.frame}:${s.name}` : `o${s.obj}:${s.name}`);
 
@@ -102,7 +123,7 @@ function listed(parts: string[]): string {
   return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
-function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, speed: number): StepPlan {
+function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, first: FirstTime, speed: number): StepPlan {
   const after = next ?? step;
   const frames = mergeFrames(step.frames, after.frames, step.frames[step.frames.length - 1]?.id);
   const objects = mergeObjects(step.objects, after.objects);
@@ -154,8 +175,10 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         t += LAND * speed;
         const place = b.to && 'obj' in b.to && !/^\d/.test(b.to.name) ? `${b.to.name} in ${objectLabel.get(b.to.obj) ?? 'the object'}` : b.name;
         if (b.hides) say.push(`${b.name} here is the ${b.hides.kind}, not the instance variable, so it ${row && same(row.before, row.after) ? 'stays' : 'becomes'} ${held(b.value)}. ${objectLabel.get(b.hides.obj) ?? 'The object'} does not change.`);
-        else if (b.value.t === 'ref') say.push(`${place} now holds a reference to ${held(b.value)}: where the object is, not the object itself.`);
+        else if (b.value.t === 'ref') say.push(first.reference ? `${place} now holds a reference to ${held(b.value)}: where the object is, not the object itself.` : `${place} now refers to ${held(b.value)}.`);
         else say.push(b.declares || row?.before === undefined ? `${place} is created and gets ${held(b.value)}.` : `${place} becomes ${held(b.value)}.`);
+        const self = selfOf(step);
+        if (first.self && self && b.to && 'obj' in b.to) say.push(`The word \`this\` means the object the code is working on. Here that is ${held(self.value)}.`);
         cursor = 'strip';
         showing = false;
         break;
@@ -166,7 +189,8 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         const then = all[i + 1];
         write(then?.k === 'call' ? then.text : `new ${b.cls}`);
         if (o && !step.objects.some((x) => x.id === b.id)) o.enterAt = t - TEXT * speed;
-        say.push(`new makes an empty ${b.cls} object. Its instance variables start at their default values, such as 0 for an int and null for a String. null means no object at all.`);
+        say.push(`\`new\` makes an empty ${b.cls} object.`);
+        if (first.defaults) say.push('Its instance variables start at their default values: 0 for an int, and null for a String. `null` means no object at all.');
         showing = false;
         break;
       }
@@ -184,8 +208,6 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         t += LAND * speed;
         const given = b.args.filter((a) => a.name !== 'this').map((a) => `${a.name} gets ${held(a.value)}`);
         say.push(`Java jumps into ${b.ctor ? 'the constructor' : b.name}${given.length ? `: ${listed(given)}` : ''}.`);
-        const self = b.args.find((a) => a.name === 'this');
-        if (self) say.push(`this is the object the code is working on: ${held(self.value)}.`);
         showing = false;
         break;
       }
@@ -201,9 +223,10 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
         t += (b.value ? FLY + LAND : TEXT) * speed;
         leaving(b.frame);
         const back = caller?.label.split('.').pop() ?? '';
-        if (b.ctor) say.push(`The constructor ends, and new gives back ${held(b.value!)}. Its box of variables goes away, but the object stays.`);
+        if (b.ctor) say.push(`The constructor ends, and \`new\` gives back ${held(b.value!)}.`);
         else if (b.value) say.push(`${b.name} gives back ${held(b.value)} and ends.`);
-        else say.push(`${b.name} ends, and Java goes back to ${back}. Its box of variables goes away, but objects stay.`);
+        else say.push(`${b.name} ends, and Java goes back to ${back}.`);
+        if (first.box) say.push(`${b.ctor ? 'The constructor' : b.name}'s box of variables goes away, but objects stay.`);
         cursor = caller ? `frame:${caller.id}` : 'strip';
         showing = !!b.value;
         break;
@@ -211,8 +234,12 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
       case 'branch': {
         const word = b.kind === 'each' ? (b.taken ? 'next item' : 'no more items') : String(b.taken);
         if (!showing) write(word);
-        if (b.kind === 'if') say.push(`The condition is ${b.taken}, so Java ${b.taken ? 'runs the if block' : b.hasElse ? 'runs the else block' : 'skips the if block'}.`);
-        else if (b.kind === 'loop') say.push(`The condition is ${b.taken}, so ${b.taken ? 'Java runs the loop body' : 'the loop ends'}.`);
+        // The comparison with its numbers in, such as 70 < 0.
+        const before = all[i - 1];
+        const test = before?.k === 'eval' ? before.steps.filter((x) => x !== 'true' && x !== 'false').pop() : undefined;
+        const cond = test ? `\`${test}\`` : 'The condition';
+        if (b.kind === 'if') say.push(`${cond} is ${b.taken}, so Java ${b.taken ? 'runs the if block' : b.hasElse ? 'runs the else block' : 'skips the if block'}.`);
+        else if (b.kind === 'loop') say.push(`${cond} is ${b.taken}, so ${b.taken ? 'Java runs the loop body' : 'the loop ends'}.`);
         else say.push(b.taken ? 'Java takes the next item.' : 'There are no more items, so the loop ends.');
         showing = false;
         // A for-each moves straight on to storing the item.
@@ -267,11 +294,11 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
     say.push(cut ? 'This program has more steps than can be shown.' : 'This is the end of the program.');
   }
   const flow = next && (next.file === step.file ? `Next: line ${next.line}` : `Next: ${next.file}, line ${next.line}`);
-  return { total, frames, objects, texts, chips, glows, say: say.join(' '), flow, flowAt, printed, printAt };
+  return { total, frames, objects, texts, chips, glows, say: say.join('\n'), flow, flowAt, printed, printAt };
 }
 
 /** Works out how to play what the marked line does: `next` is the step after it. */
-export function planStep(step: TraceStep, next: TraceStep | undefined, cut = false): StepPlan {
-  const plan = layout(step, next, cut, 1);
-  return plan.total > LONGEST ? layout(step, next, cut, LONGEST / plan.total) : plan;
+export function planStep(step: TraceStep, next: TraceStep | undefined, cut = false, first: FirstTime = {}): StepPlan {
+  const plan = layout(step, next, cut, first, 1);
+  return plan.total > LONGEST ? layout(step, next, cut, first, LONGEST / plan.total) : plan;
 }

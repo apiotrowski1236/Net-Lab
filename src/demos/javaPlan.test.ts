@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { compile, runProgram } from '../java';
-import { planStep, slotKey } from './javaPlan';
+import { firstTimeAt, planStep, slotKey } from './javaPlan';
 
 function trace(main: string, cls = '') {
   const { program, errors } = compile([{ name: 'Main.java', text: `public class Main {\n  public static void main(String[] args) {\n${main}\n  }\n}\n${cls}` }]);
@@ -8,7 +8,7 @@ function trace(main: string, cls = '') {
   return runProgram(program!, { mainClass: 'Main', trace: true }).trace!;
 }
 
-const plans = (steps: ReturnType<typeof trace>) => steps.map((s, i) => planStep(s, steps[i + 1]));
+const plans = (steps: ReturnType<typeof trace>) => steps.map((s, i) => planStep(s, steps[i + 1], false, firstTimeAt(steps, i)));
 
 const BOX = `class Box {
   private int size;
@@ -24,6 +24,20 @@ const BOX = `class Box {
 }`;
 
 describe('planStep', () => {
+  test('each idea is explained once, at the first line that shows it', () => {
+    const steps = trace('Box a = new Box(1);\nBox b = new Box(2);\na.grow(1);', BOX);
+    const says = plans(steps).map((p) => p.say);
+    const count = (text: string) => says.filter((s) => s.includes(text)).length;
+    expect(says.find((s) => s.includes('default values'))).toContain('Java jumps into the constructor: startSize gets 1.');
+    expect(count('default values')).toBe(1);
+    expect(count('The word `this` means the object the code is working on. Here that is Box #1.')).toBe(1);
+    expect(count('where the object is, not the object itself')).toBe(1);
+    expect(count('b now refers to Box #2.')).toBe(1);
+    expect(count("The constructor's box of variables goes away, but objects stay.")).toBe(1);
+    expect(count('box of variables')).toBe(1);
+    expect(count('`new` makes an empty Box object.')).toBe(2);
+  });
+
   test('a new variable appears when its value lands', () => {
     const steps = trace('int total = 2 + 3;\nSystem.out.println(total);');
     const [first] = plans(steps);
@@ -53,7 +67,7 @@ describe('planStep', () => {
   test('a call opens a frame, and fills its parameters as they arrive', () => {
     const steps = trace('Box b = new Box(3);', BOX);
     const first = plans(steps)[0];
-    expect(first.say).toBe('new makes an empty Box object. Its instance variables start at their default values, such as 0 for an int and null for a String. null means no object at all. Java jumps into the constructor: startSize gets 3. this is the object the code is working on: Box #1.');
+    expect(first.say).toBe('`new` makes an empty Box object.\nIts instance variables start at their default values: 0 for an int, and null for a String. `null` means no object at all.\nJava jumps into the constructor: startSize gets 3.');
     const ctor = first.frames[1];
     expect(ctor.enterAt).toBeDefined();
     expect(ctor.rows.map((r) => r.name)).toEqual(['this', 'startSize']);
@@ -65,7 +79,7 @@ describe('planStep', () => {
     const steps = trace('Box b = new Box(3);\nint n = b.getSize();', BOX);
     const at = steps.findIndex((s) => s.beats.some((x) => x.k === 'return' && x.name === 'getSize'));
     const p = planStep(steps[at], steps[at + 1]);
-    expect(p.say).toBe('getSize gives back 3 and ends. n is created and gets 3.');
+    expect(p.say).toBe('getSize gives back 3 and ends.\nn is created and gets 3.');
     expect(p.frames[1].leaveAt).toBeGreaterThanOrEqual(p.chips[0].until);
     const main = p.frames[0];
     expect(p.chips.map((c) => [c.from, c.to])).toEqual([
@@ -77,7 +91,7 @@ describe('planStep', () => {
   test('a method with no return value says where Java goes back to', () => {
     const steps = trace('Box b = new Box(3);\nb.grow(2);', BOX);
     const at = steps.findIndex((s) => s.beats.some((x) => x.k === 'return' && x.name === 'grow'));
-    expect(planStep(steps[at], steps[at + 1]).say).toBe('grow ends, and Java goes back to main. Its box of variables goes away, but objects stay.');
+    expect(planStep(steps[at], steps[at + 1]).say).toBe('grow ends, and Java goes back to main.');
   });
 
   test('a write to an object names the object', () => {
@@ -90,9 +104,9 @@ describe('planStep', () => {
   });
 
   test.each([
-    ['if (a > 5) {\n  a = 1;\n}', 'The condition is false, so Java skips the if block.'],
-    ['if (a > 1) {\n  a = 1;\n}', 'The condition is true, so Java runs the if block.'],
-    ['if (a > 5) {\n  a = 1;\n} else {\n  a = 2;\n}', 'The condition is false, so Java runs the else block.'],
+    ['if (a > 5) {\n  a = 1;\n}', '`3 > 5` is false, so Java skips the if block.'],
+    ['if (a > 1) {\n  a = 1;\n}', '`3 > 1` is true, so Java runs the if block.'],
+    ['if (a > 5) {\n  a = 1;\n} else {\n  a = 2;\n}', '`3 > 5` is false, so Java runs the else block.'],
   ])('%s', (code, said) => {
     const steps = trace(`int a = 3;\n${code}`);
     expect(plans(steps)[1].say).toBe(said);
@@ -102,19 +116,19 @@ describe('planStep', () => {
     const steps = trace('for (int i = 0; i < 2; i++) {\n  System.out.print(i);\n}');
     const lines = steps.map((s) => s.line);
     expect(lines).toEqual([3, 4, 3, 4, 3, 6]);
-    expect(plans(steps)[0].say).toBe('i is created and gets 0. The condition is true, so Java runs the loop body.');
+    expect(plans(steps)[0].say).toBe('i is created and gets 0.\n`0 < 2` is true, so Java runs the loop body.');
     const again = plans(steps)[2];
     expect(again.texts.map((t) => t.text)).toEqual(['i + 1', '0 + 1', '1', 'i < 2', '1 < 2', 'true']);
-    expect(again.say).toBe('i becomes 1. The condition is true, so Java runs the loop body.');
-    expect(plans(steps)[4].say).toBe('i becomes 2. The condition is false, so the loop ends.');
+    expect(again.say).toBe('i becomes 1.\n`1 < 2` is true, so Java runs the loop body.');
+    expect(plans(steps)[4].say).toBe('i becomes 2.\n`2 < 2` is false, so the loop ends.');
   });
 
   test('a for-each stops on its own line for each item', () => {
     const steps = trace('int[] xs = {7, 8};\nfor (int x : xs) {\n  System.out.print(x);\n}');
     const p = plans(steps);
     expect(steps.map((s) => s.line)).toEqual([3, 4, 5, 4, 5, 4, 7]);
-    expect(p[1].say).toBe('Java takes the next item. x is created and gets 7.');
-    expect(p[3].say).toBe('Java takes the next item. x becomes 8.');
+    expect(p[1].say).toBe('Java takes the next item.\nx is created and gets 7.');
+    expect(p[3].say).toBe('Java takes the next item.\nx becomes 8.');
     expect(p[5].say).toBe('There are no more items, so the loop ends.');
   });
 

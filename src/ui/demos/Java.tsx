@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { traceOf, type JavaLast, type JavaState } from '../../demos/java';
-import { FADE, planStep, type PlanBox, type PlanGlow, type PlanRow, type StepPlan } from '../../demos/javaPlan';
+import { FADE, firstTimeAt, planStep, type PlanBox, type PlanGlow, type PlanRow, type StepPlan } from '../../demos/javaPlan';
 import type { JavaFile, JavaSpec } from '../../demos/types';
 import type { Shown, TraceStep } from '../../java';
 import { Icon } from '../icons';
@@ -318,8 +318,10 @@ function Box({ b, cls, none, names, glows }: { b: PlanBox; cls: string; none: st
 }
 
 /** One step of the program: what the marked line does, played on a loop over the memory it changes. */
-function Stepper({ step, next, output, cut }: { step: TraceStep; next?: TraceStep; output: string; cut: boolean }) {
-  const plan = useMemo(() => planStep(step, next, cut), [step, next, cut]);
+function Stepper({ steps, at, output, cut }: { steps: TraceStep[]; at: number; output: string; cut: boolean }) {
+  const step = steps[at];
+  const next = steps[at + 1];
+  const plan = useMemo(() => planStep(step, next, cut, firstTimeAt(steps, at)), [steps, at, cut]);
   const root = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
   const [arrows, setArrows] = useState<Arrow[]>([]);
@@ -407,8 +409,12 @@ function Stepper({ step, next, output, cut }: { step: TraceStep; next?: TraceSte
   return (
     <div class="stepper" ref={root}>
       <div class="java-caption" aria-live="polite">
-        {next && <b>{still ? 'After the marked line: ' : 'Marked line: '}</b>}
-        {plan.say}
+        {plan.say.split('\n').map((line, i) => (
+          <div key={i}>
+            {i === 0 && next && <b>{still ? 'After the marked line: ' : 'Marked line: '}</b>}
+            {line.split(/`([^`]*)`/).map((part, j) => (j % 2 ? <code key={j}>{part}</code> : part))}
+          </div>
+        ))}
       </div>
       {(plan.texts.length > 0 || plan.flow) && (
         <div class="act">
@@ -597,7 +603,7 @@ export function JavaView({ spec, state: s, send }: DemoViewProps<JavaSpec, JavaS
         <Editor file={file} readOnly={stepping || !!file.locked} runLine={step?.line} nextLine={step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
         <div class="java-side">
           {step ? (
-            <Stepper step={step} next={next} output={trace!.output} cut={!!trace?.cut} />
+            <Stepper steps={trace!.steps} at={s.at!} output={trace!.output} cut={!!trace?.cut} />
           ) : (
             <>
               <h4>Output</h4>

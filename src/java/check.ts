@@ -827,7 +827,9 @@ class Checker {
         ? `${owner} has a method named ${owner}, not a constructor. A constructor has no return type: delete void.`
         : need.length
           ? `This ${kind} takes ${need.length} value${need.length === 1 ? '' : 's'} (${sigOf({ params: need })}), but you gave it ${found.length}.`
-          : `This ${kind} takes no values, but you gave it ${found.length}.${kind === 'constructor' ? ` If you meant to pass values in, write a constructor for ${owner} with parameters.` : ''}`;
+          : kind === 'constructor' && !cands.length
+            ? `${owner} has no constructor yet, so Java gives it a default constructor, which takes no values. You gave it ${found.length}. To pass values in, write a constructor for ${owner} with parameters.`
+            : `This ${kind} takes no values, but you gave it ${found.length}.`;
       this.err('wrong-args', `${what} in class ${owner} cannot be applied to given types;`, pos, help, [
         `  required: ${argsText(need)}`,
         `  found:    ${argsText(found)}`,

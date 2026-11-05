@@ -173,7 +173,7 @@ export const javaClassesLab: LabDef = {
         {
           id: 'read',
           kind: 'choice',
-          prompt: 'In **Player.java**, look at the first line of the constructor. What two names are inside its parentheses?',
+          prompt: 'In **Player.java**, look at the first line of the constructor. What two names are inside its parentheses ( )?',
           options: [
             { id: 'in', text: 'nameIn and healthIn', correct: true },
             { id: 'fields', text: 'name and health', feedback: 'Those are the instance variables, declared above the constructor. Read the line that starts public Player.' },
@@ -192,11 +192,11 @@ export const javaClassesLab: LabDef = {
       body: md`
         Now watch a Player program run one line at a time.
 
-        Press **Step through**, then keep pressing **Next** until the program ends. The marked line is the one **about to run**. The picture plays what that line does until you press **Next**. The blue line and the \`Next:\` label show where Java goes after it.
+        Press **Step through**, then keep pressing **Next** until the program ends. The marked line is the one **about to run**. The picture plays what that line does until you press **Next**. The blue bar beside the code and the \`Next:\` label show where Java goes after it.
 
         Read the sentence that explains each line. It names each new idea as it happens.
 
-        Press **Pause** to see a line's finished work. Press **Back a line** any time.
+        Press **Pause** to stop the movement and see how things look after the line runs. Press **Back a line** any time.
       `,
       demos: [{ kind: 'java', id: 'trace', title: 'One line at a time', files: code.TRACED, step: true }],
       goals: [{ id: 'end', label: 'Step through to the end of the program.', hint: 'Press **Step through**, then keep pressing **Next** until it stops.', check: demoFact('trace', (f) => f.finished === true) }],
@@ -244,7 +244,7 @@ export const javaClassesLab: LabDef = {
           kind: 'choice',
           prompt: 'Why are Player\'s instance variables private?',
           options: [
-            { id: 'rules', text: 'So only the class\'s own methods can change them', correct: true },
+            { id: 'rules', text: 'So only code inside the class can change them', correct: true },
             { id: 'fast', text: 'So the program runs faster', feedback: 'private has no effect on speed. It is about which code is allowed to use the data.' },
             { id: 'hidden', text: 'So not even Player\'s own methods can read them', feedback: 'Player\'s own methods can use them. takeDamage changes health. private stops other classes.' },
             { id: 'required', text: 'Because Java refuses to compile public variables', feedback: 'Java allows public instance variables. Programmers keep them private on purpose.' },
@@ -263,17 +263,15 @@ export const javaClassesLab: LabDef = {
 
         Press **Run** first. You'll get an error, because Main passes two values, and no constructor takes them yet. That's fine. Errors show you what's left.
 
-        Work in **Song.java**. **Player.java** is there to read as a pattern.
+        A class with no constructor gets a **default constructor** from Java, which takes no values. Once you write your own, Java stops supplying that one.
+
+        A **parameter** is a variable that gets its value when the constructor is called. Main passes "Neon Rain", so \`songTitleIn\` will hold "Neon Rain".
+
+        Work in **Song.java**, and press **Run** after each part. **Player.java** is there to read as a pattern. The checks tell you what's left.
 
         1. Declare three private instance variables, which means naming each one and giving its type: \`title\` and \`artist\` are Strings, and \`plays\` is an int. Follow Player: \`private String name;\`
         2. Write a constructor with two String parameters, \`songTitleIn\` and \`songArtistIn\`. Constructor parameters in this lab end in In, so you can tell them apart from the instance variables.
         3. Inside it, store each parameter in its instance variable, and set \`plays\` to 0. The variable on the left of \`=\` gets the value.
-
-        A **parameter** is a variable that gets its value when the constructor is called. Main passes "Neon Rain", so \`songTitleIn\` holds "Neon Rain".
-
-        Press **Run** after each part. The checks tell you what's left.
-
-        About that first error: a class with no constructor gets a **default constructor** from Java, which takes no values. Once you write your own, Java stops supplying that one.
       `,
       demos: [songEditor],
       goals: [
@@ -285,14 +283,14 @@ export const javaClassesLab: LabDef = {
         {
           id: 'default-ctor',
           kind: 'choice',
-          prompt: 'Read the last paragraph of this step first. Suppose a class has no constructor at all. What does `new Song()` do?',
+          prompt: 'Suppose a class called Dog has no constructor at all. What does `new Dog()` do?',
           options: [
-            { id: 'default', text: 'Java supplies a default constructor', correct: true },
-            { id: 'error', text: 'It fails to compile, since Song has no constructor', feedback: 'It compiles if the class has no constructor of its own. The error in this step came from Main passing two values.' },
+            { id: 'default', text: 'It runs a default constructor from Java', correct: true },
+            { id: 'error', text: 'It fails to compile, since Dog has no constructor', feedback: 'It compiles if the class has no constructor of its own. The error in this step came from Main passing two values.' },
             { id: 'null', text: 'It gives back null instead of an object', feedback: 'new always builds an object. It never gives back null.' },
             { id: 'ask', text: 'Java asks the user to type in the values', feedback: 'Java never asks. Every variable gets a value from the code, or a default.' },
           ],
-          explain: 'The default constructor takes no values, so new Song() works. Main needed two values, so it needed a constructor you wrote.',
+          explain: 'The default constructor takes no values, so new Dog() works. Your Main passes two values, so Song needed a constructor you wrote.',
         },
       ],
     },
@@ -351,11 +349,11 @@ export const javaClassesLab: LabDef = {
       body: md`
         An **accessor** reads. A **mutator** is a method that changes an instance variable. It is often **void**, which means it gives back no value at all, not even 0.
 
-        Open **Player.java** and find \`takeDamage\`. It is a mutator. Its line \`health = health - amount;\` works out a new value from the old one, then stores it.
+        Open **Player.java** and find \`takeDamage\`. It is a mutator. Its line \`health = health - amount;\` computes a new value from the old one, then stores it.
 
         Now add a mutator to **Song.java**: \`public void addPlays(int amount)\` adds \`amount\` to plays. Main already calls it.
 
-        Press **Run** to see the counts change. Press **Step through** to watch each call change only the object before the dot.
+        Press **Run** to see the counts change. Press **Step through** to watch each call change only the object before the dot. Press **Stop** once you've seen that.
       `,
       demos: [{ kind: 'java', id: 'song', title: 'Add a mutator to Song', files: code.SONG_MUTATORS, from: { step: 'getters', demo: 'song', files: ['Song.java'] }, checks: mutatorChecks, step: true, report: true }],
       goals: [
@@ -384,13 +382,13 @@ export const javaClassesLab: LabDef = {
       body: md`
         Someone wrote this Pet class, and it has a bug. Press **Run**, and look at what it prints.
 
-        Press **Step through**, then press **Stop** once you've seen the constructor's two lines.
+        Press **Step through**, then press **Next** until you've seen the constructor's two lines. Then press **Stop**.
 
         Here is the bug. Both the parameter and the instance variable are called \`name\`, because Pet's author did not use the In ending. Inside the constructor, \`name\` means the parameter, which **hides** the instance variable. So \`name = name;\` copies the parameter onto itself.
 
         **this** refers to the current object, the one the code is working on. \`this.name\` always means the instance variable. Fix the constructor: write \`this.name = name;\` and do the same for age. Press **Run**.
 
-        **Scope** is the part of the code where a name works. A parameter works only inside its own constructor or method. A **local variable**, one declared inside a method, works only inside the braces that hold it. An instance variable works anywhere in the class.
+        **Scope** is the part of the code where a name works. A parameter works only inside its own constructor or method: its box goes away when that code ends. A **local variable**, one declared inside a method, works only inside the braces { } that hold it. An instance variable works anywhere in the class.
       `,
       demos: [{ kind: 'java', id: 'pets', title: 'Fix the Pet class', files: code.PET, checks: [code.PET_FIXED], step: true, report: true }],
       goals: [passed('pets', code.PET_FIXED, 'Fix the constructor with this.', '`this.name = name;`')],
@@ -415,13 +413,13 @@ export const javaClassesLab: LabDef = {
       id: 'scratch',
       title: 'On your own: BankAccount',
       body: md`
-        Now write a whole class on your own in **BankAccount.java**. **Player.java** is there if you want to check a pattern. **Main.java** is already written, and it uses every part of the class.
+        Now write a whole class on your own in **BankAccount.java**. **Player.java** is there if you want to check a pattern. **Main.java** is already written, and it calls the constructor and all three methods.
 
         - **Instance variables:** \`owner\`, a String, and \`balance\`, an int. Both private.
         - **Constructor:** Takes the owner and the starting balance. End each parameter's name in In.
         - \`public int getBalance()\` returns the balance.
         - \`public void deposit(int amount)\` adds to the balance.
-        - \`public void withdraw(int amount)\` subtracts from the balance, but only if there's enough. Taking out all of it is allowed. If there isn't enough, the balance doesn't change.
+        - \`public void withdraw(int amount)\` subtracts from the balance, but only if there's enough. With a balance of 50, taking out 50 is allowed, and taking out 51 changes nothing.
 
         In an if, \`<=\` means less than or equal to.
 
@@ -499,7 +497,7 @@ export const javaClassesLab: LabDef = {
 
         \`add\` puts an item at the end of the list. A **for-each loop** runs once per item, and \`p\` holds that item. \`pets.get(0)\` gives back the first item.
 
-        To find the biggest, keep the best one so far, and replace it when you find a bigger one. With ages 5, 8, and 3, best starts at 5, becomes 8, and stays 8.
+        To find the biggest, keep the best one so far, and replace it when you find a bigger one. With ages 5, 8, and 3, best starts at 5. 8 is bigger than 5, so best becomes 8. 3 is not bigger than 8, so best stays 8. In **Playlist.java**, best is a whole Song, since \`getMostPlayed\` returns a Song.
 
         Open **Playlist.java**. The \`import\` line lets the class use ArrayList, and \`<Song>\` says what the list holds. Add three methods:
 

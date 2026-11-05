@@ -30,7 +30,7 @@ describe('starting code', () => {
     const r = run(spec('fields-ctor', 'song'));
     expect(r.last?.kind).toBe('errors');
     expect(r.last?.errors?.[0].text).toContain('constructor Song in class Song cannot be applied to given types;');
-    expect(r.last?.errors?.[0].help).toBe('This constructor takes no values, but you gave it 2. If you meant to pass values in, write a constructor for Song with parameters.');
+    expect(r.last?.errors?.[0].help).toBe('Song has no constructor yet, so Java gives it a default constructor, which takes no values. You gave it 2. To pass values in, write a constructor for Song with parameters.');
   });
 
   test('the Pet bug prints what step 9 says', () => {
@@ -198,6 +198,12 @@ describe('checks', () => {
     expect(noGuard.checks?.find((c) => c.id === 'withdraw')?.note).toBe('withdraw(51) from a balance of 50 should change nothing. Use an if.');
     const offByOne = withEdits(s, { 'BankAccount.java': done.replace('amount <= balance', 'amount < balance') });
     expect(offByOne.checks?.find((c) => c.id === 'withdraw')?.note).toBe('withdraw(50) from a balance of 50 should leave 0. You can take out all of it.');
+  });
+
+  test('step 6 asks for plays = 0 even though the default matches', () => {
+    const s = spec('fields-ctor', 'song');
+    const r = withEdits(s, { 'Song.java': 'public class Song {\n  private String title;\n  private String artist;\n  private int plays;\n\n  public Song(String songTitleIn, String songArtistIn) {\n    title = songTitleIn;\n    artist = songArtistIn;\n  }\n}\n' });
+    expect(r.checks?.find((c) => c.id === 'sets')?.note).toBe('Java starts plays at 0 on its own, but write plays = 0; anyway, so your code says what you mean.');
   });
 
   test('BankAccount constructor parameters end in In', () => {
