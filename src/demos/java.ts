@@ -29,6 +29,8 @@ export interface JavaCheckResult {
 export interface JavaState {
   files: JavaFile[];
   open: string;
+  /** Tabs the student has opened. */
+  opened?: string[];
   runs: number;
   last?: JavaLast;
   checks?: JavaCheckResult[];
@@ -118,7 +120,9 @@ function checksWithoutMain(spec: JavaSpec, s: JavaState, errors: ReturnType<type
   const rest = s.files.filter((f) => f.name !== main);
   const program = errors.every((e) => e.pos.file === main) ? compile(sources(rest)).program : undefined;
   if (!program) return { checks: s.checks, held: true };
-  return { checks: runChecks(spec, checkCtx(s.files, program, { output: '', status: 'no-main' }, rest)), held: false };
+  const checks = runChecks(spec, checkCtx(s.files, program, { output: '', status: 'no-main' }, rest));
+  const stuck = spec.checks.find((c) => checks?.find((r) => r.id === c.id && !r.ok));
+  return { checks, held: !!stuck?.main };
 }
 
 function lastOf(r: RunResult, files: JavaFile[]): JavaLast {
@@ -180,7 +184,7 @@ export const javaModel: DemoModel<JavaSpec, JavaState> = {
       if (!f || f.locked || f.text === input.code || s.at !== undefined) return s;
       return { ...s, edited: true, files: s.files.map((x) => (x === f ? { ...x, text: input.code } : x)) };
     }
-    if ('tab' in input) return s.files.some((f) => f.name === input.tab) && s.open !== input.tab && s.at === undefined ? { ...s, open: input.tab } : s;
+    if ('tab' in input) return s.files.some((f) => f.name === input.tab) && s.open !== input.tab && s.at === undefined ? { ...s, open: input.tab, opened: [...new Set([...(s.opened ?? []), input.tab])] } : s;
     if ('run' in input) {
       const seed = s.runs + 1;
       const { program, errors } = compile(sources(s.files));
@@ -218,6 +222,7 @@ export const javaModel: DemoModel<JavaSpec, JavaState> = {
       checks: !!spec.checks && !!s.checks && s.checks.every((c) => c.ok),
     };
     for (const c of s.checks ?? []) f[`check:${c.id}`] = c.ok;
+    for (const name of s.opened ?? []) f[`opened:${name}`] = true;
     return f;
   },
 };

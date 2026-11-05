@@ -37,6 +37,27 @@ describe('starting code', () => {
     expect(run(spec('this', 'pets')).last?.output).toBe('null is 0\nnull is 0\n');
   });
 
+  test('opening a tab counts, and Main stays open until then', () => {
+    const s = spec('anatomy', 'players');
+    const start = javaModel.init(s);
+    expect(javaModel.facts(s, start)['opened:Player.java']).toBeUndefined();
+    expect(javaModel.facts(s, javaModel.apply(s, start, { tab: 'Player.java' }))['opened:Player.java']).toBe(true);
+  });
+
+  test('a compile error in Main holds a check of what Main prints', () => {
+    const s = spec('anatomy', 'players');
+    const start = javaModel.init(s).files[0].text;
+    const r = withEdits(s, { 'Main.java': start.replace('ada.takeDamage(30);', 'ada.takeDamage(30)') });
+    expect(r.last?.kind).toBe('errors');
+    expect(r.held).toBe(true);
+  });
+
+  test('step 9 names the variable still missing', () => {
+    const s = spec('this', 'pets');
+    const start = javaModel.init(s).files[0].text;
+    expect(withEdits(s, { 'Pet.java': start.replace('name = name;', 'this.name = name;') }).checks?.[0].note).toBe('age is still empty. In the constructor, write this.age on the left of the =.');
+  });
+
   test('the step-through has the length the answer key plays', () => {
     const s = spec('trace', 'trace');
     expect(traceOf(s, javaModel.init(s).files).steps).toHaveLength(17);
@@ -119,13 +140,13 @@ describe('checks', () => {
 
   test('an unstored parameter gets its own message', () => {
     const s = spec('fields-ctor', 'song');
-    const r = withEdits(s, { 'Song.java': built.replace('title = songTitle;', '') });
-    expect(r.checks?.[2].note).toBe('title is still null. In the constructor, store songTitle in the instance variable title.');
+    const r = withEdits(s, { 'Song.java': built.replace('title = songTitleIn;', '') });
+    expect(r.checks?.[2].note).toBe('title is still null. In the constructor, store songTitleIn in the instance variable title.');
   });
 
   test('swapped parameters get their own message', () => {
     const s = spec('fields-ctor', 'song');
-    const r = withEdits(s, { 'Song.java': built.replace('title = songTitle;', 'title = songArtist;').replace('artist = songArtist;', 'artist = songTitle;') });
+    const r = withEdits(s, { 'Song.java': built.replace('title = songTitleIn;', 'title = songArtistIn;').replace('artist = songArtistIn;', 'artist = songTitleIn;') });
     expect(r.checks?.[2].note).toBe('The title and the artist are swapped. Check which parameter goes where.');
   });
 
@@ -133,7 +154,7 @@ describe('checks', () => {
     const s = spec('fields-ctor', 'song');
     const r = withEdits(s, { 'Song.java': 'public class Song {\n  private String title;\n  private String artist;\n  private int plays;\n}\n' });
     expect(r.last?.kind).toBe('errors');
-    expect(r.checks).toEqual([{ id: 'fields', ok: true }, { id: 'ctor', ok: false, note: 'Write a constructor: public Song(String songTitle, String songArtist). It has no return type.' }, { id: 'sets', ok: false }]);
+    expect(r.checks).toEqual([{ id: 'fields', ok: true }, { id: 'ctor', ok: false, note: 'Write a constructor: public Song(String songTitleIn, String songArtistIn). Write nothing between public and Song.' }, { id: 'sets', ok: false }]);
     expect(javaModel.facts(s, r)['check:fields']).toBe(true);
   });
 
@@ -156,11 +177,11 @@ describe('checks', () => {
     expect(r.checks?.[0].note).toMatch(/^Printing a Player object directly/);
   });
 
-  test('Main must print both balances', () => {
-    const s = spec('scratch', 'bank');
-    const [bank, mainMove] = javaClassesSolution.scratch.moves as { input: { code: string } }[];
-    const r = withEdits(s, { 'BankAccount.java': bank.input.code, 'Main.java': mainMove.input.code.replace('System.out.println(b.getBalance());', '') });
-    expect(r.checks?.find((c) => c.id === 'main')?.note).toBe('In Main, print the balance of both accounts with getBalance.');
+  test('comparing an object with > says to call a method', () => {
+    const s = spec('anatomy', 'players');
+    const start = javaModel.init(s).files[0].text;
+    const r = withEdits(s, { 'Main.java': start.replace('ada.takeDamage(30);', 'boolean more = ada > 5;') });
+    expect(r.last?.errors?.[0].help).toBe('> compares numbers, but one side here is a Player. Call a method on it that gives back a number.');
   });
 
   test('renaming the parameters fixes Pet, but the step asks for this', () => {

@@ -32,10 +32,6 @@ const guarded = (line: string) => main(`    Player ada = new Player("Ada", 100);
 const SONG_DONE = SONG_METHODS.replace(
   /\}\n$/,
   `
-  public void play() {
-    plays = plays + 1;
-  }
-
   public void addPlays(int amount) {
     plays = plays + amount;
   }
@@ -49,9 +45,9 @@ const BANK_DONE = `public class BankAccount {
   private String owner;
   private int balance;
 
-  public BankAccount(String owner, int balance) {
-    this.owner = owner;
-    this.balance = balance;
+  public BankAccount(String ownerIn, int balanceIn) {
+    owner = ownerIn;
+    balance = balanceIn;
   }
 
   public int getBalance() {
@@ -69,13 +65,6 @@ const BANK_DONE = `public class BankAccount {
   }
 }
 `;
-
-const BANK_MAIN = main(`    BankAccount a = new BankAccount("Ada", 50);
-    BankAccount b = new BankAccount("Grace", 80);
-    a.deposit(25);
-    b.withdraw(30);
-    System.out.println(a.getBalance());
-    System.out.println(b.getBalance());`);
 
 const PLAYLIST_DONE = `import java.util.ArrayList;
 
@@ -116,14 +105,14 @@ const stepAll = (demo: string, steps: number) => on(demo, { stepping: true }, ..
 export const javaClassesSolution: LabSolution = {
   why: { moves: [...on('loose', { run: true }), ...edit('loose', 'Main.java', THREE_LOOSE)] },
   what: { moves: on('stamp', { make: true }, { make: true }, { hit: 0 }) },
-  anatomy: { moves: edit('players', 'Main.java', THREE_OBJECTS) },
+  anatomy: { moves: [...on('players', { tab: 'Player.java' }), ...edit('players', 'Main.java', THREE_OBJECTS)] },
   trace: { moves: stepAll('trace', 16) },
   private: { moves: [...edit('guard', 'Main.java', guarded('ada.health = -50;')), ...edit('guard', 'Main.java', guarded('ada.takeDamage(500);'))] },
   'fields-ctor': { moves: edit('song', 'Song.java', SONG_BUILT) },
   getters: { moves: edit('song', 'Song.java', SONG_METHODS) },
   mutators: { moves: edit('song', 'Song.java', SONG_DONE) },
   this: { moves: edit('pets', 'Pet.java', PET_DONE) },
-  scratch: { moves: [...on('bank', { edit: 'BankAccount.java', code: BANK_DONE }), ...edit('bank', 'Main.java', BANK_MAIN)] },
+  scratch: { moves: edit('bank', 'BankAccount.java', BANK_DONE) },
   reflect: {
     text: {
       'why-class':

@@ -162,14 +162,16 @@ function layout(step: TraceStep, next: TraceStep | undefined, cut: boolean, spee
       }
       case 'new': {
         const o = objects.find((x) => x.id === b.id);
-        write(`new ${b.cls}`);
+        // The call that follows reads the same, so one line of text covers both.
+        const then = all[i + 1];
+        write(then?.k === 'call' ? then.text : `new ${b.cls}`);
         if (o && !step.objects.some((x) => x.id === b.id)) o.enterAt = t - TEXT * speed;
         say.push(`new makes an empty ${b.cls} object. Its instance variables start at their default values.`);
         showing = false;
         break;
       }
       case 'call': {
-        write(b.text);
+        if (all[i - 1]?.k !== 'new') write(b.text);
         cursor = 'strip';
         const f = frames.find((x) => x.id === b.frame);
         if (f) f.enterAt = t;

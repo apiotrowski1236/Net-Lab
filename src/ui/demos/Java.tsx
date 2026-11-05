@@ -124,13 +124,14 @@ function Console({ last, stale, onLine }: { last?: JavaLast; stale: boolean; onL
           <p class="java-head bad">{plural(last.errors!.length, 'error')}. Java could not compile this, so nothing ran.</p>
           {last.errors!.map((e, i) => {
             const [message, code, caret, ...notes] = e.text.split('\n');
+            const indent = code.length - code.trimStart().length;
             return (
               <div class="java-error" key={i}>
                 {place(e.file, e.line)}
                 {e.help && <p class="java-help">{e.help}</p>}
                 {/* The message wraps. The code can't, or its ^ would stop pointing at the right spot. */}
                 <pre class="java-msg">{message}</pre>
-                <pre>{`${code}\n${caret}`}</pre>
+                <pre>{`${code.slice(indent)}\n${caret.slice(indent)}`}</pre>
                 {notes.length > 0 && <pre class="java-msg">{notes.join('\n')}</pre>}
               </div>
             );
@@ -300,7 +301,7 @@ function Row({ row, names, glows }: { row: PlanRow; names: Map<number, string>; 
 
 function Box({ b, cls, none, names, glows }: { b: PlanBox; cls: string; none: string; names: Map<number, string>; glows: PlanGlow[] }) {
   // "No variables yet" holds the place until the first one arrives.
-  const firstAt = b.rows.every((r) => r.enterAt !== undefined) ? Math.min(...b.rows.map((r) => r.enterAt!)) : undefined;
+  const firstAt = b.rows.every((r) => r.enterAt !== undefined) ? Math.max(0, Math.min(...b.rows.map((r) => r.enterAt!)) - FADE) : undefined;
   return (
     <div class={`${cls} ${b.current ? 'cur' : ''}`} data-id={b.id} data-slot={`frame:${b.id}`} data-at={b.enterAt} data-leave={b.leaveAt} aria-hidden={b.enterAt !== undefined || undefined}>
       <div class="mem-title">{b.label}</div>
@@ -363,7 +364,7 @@ function Stepper({ step, next, output, cut }: { step: TraceStep; next?: TraceSte
     const seen = new ResizeObserver(measure);
     seen.observe(box);
     return () => seen.disconnect();
-  }, [plan]);
+  }, [plan, still]);
 
   useLayoutEffect(() => {
     const box = root.current;
@@ -398,14 +399,15 @@ function Stepper({ step, next, output, cut }: { step: TraceStep; next?: TraceSte
     };
   }, [plan, still, arrows]);
 
-  const framesTop = [...plan.frames].reverse();
+  // Held on the finished work, a method that has ended is gone, not only faded.
+  const framesTop = plan.frames.filter((f) => !still || f.leaveAt === undefined).reverse();
   const allEnter = plan.objects.length > 0 && plan.objects.every((o) => o.enterAt !== undefined);
-  const firstObject = allEnter ? Math.min(...plan.objects.map((o) => o.enterAt!)) : undefined;
+  const firstObject = allEnter ? Math.max(0, Math.min(...plan.objects.map((o) => o.enterAt!)) - FADE) : undefined;
   const sofar = output.slice(0, step.outLen);
   return (
     <div class="stepper" ref={root}>
       <div class="java-caption" aria-live="polite">
-        {next && <b>Marked line: </b>}
+        {next && <b>{still ? 'After the marked line: ' : 'Marked line: '}</b>}
         {plan.say}
       </div>
       {(plan.texts.length > 0 || plan.flow) && (

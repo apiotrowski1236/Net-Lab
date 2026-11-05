@@ -1,9 +1,9 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { cursorLineEnd, cursorLineStart, defaultKeymap, history, historyKeymap, indentWithTab, selectLineEnd, selectLineStart } from '@codemirror/commands';
+import { cursorLineEnd, defaultKeymap, history, historyKeymap, indentWithTab, selectLineEnd } from '@codemirror/commands';
 import { java } from '@codemirror/lang-java';
 import { bracketMatching, HighlightStyle, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { Annotation, Compartment, EditorState, RangeSetBuilder, StateEffect, StateField, type Extension, type Text } from '@codemirror/state';
-import { Decoration, drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, type DecorationSet } from '@codemirror/view';
+import { Decoration, drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, type Command, type DecorationSet } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 
 /** Lines to color: the one about to run, the one after it, and any with an error. */
@@ -64,6 +64,18 @@ const highlight = HighlightStyle.define([
   { tag: [t.comment, t.lineComment, t.blockComment], color: 'var(--code-comment)', fontStyle: 'italic' },
 ]);
 
+/** Home goes to where the code starts on its line, then to the very start of the line. */
+const home =
+  (extend: boolean): Command =>
+  (view) => {
+    const { anchor, head } = view.state.selection.main;
+    const line = view.state.doc.lineAt(head);
+    const code = line.from + line.text.search(/\S|$/);
+    const to = head === code ? line.from : code;
+    view.dispatch({ selection: { anchor: extend ? anchor : to, head: to }, scrollIntoView: true });
+    return true;
+  };
+
 const theme = EditorView.theme({
   '&': { height: '100%', fontSize: '13.5px', backgroundColor: 'var(--input-bg)', color: 'var(--ink)' },
   '&.cm-focused': { outline: 'none' },
@@ -104,7 +116,7 @@ export function createEditor(parent: HTMLElement, onChange: (text: string) => vo
     syntaxHighlighting(highlight),
     java(),
     // Home and End go to the ends of the code's line, not of the row a long line wrapped to.
-    keymap.of([{ key: 'Home', run: cursorLineStart, shift: selectLineStart }, { key: 'End', run: cursorLineEnd, shift: selectLineEnd }, ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+    keymap.of([{ key: 'Home', run: home(false), shift: home(true) }, { key: 'End', run: cursorLineEnd, shift: selectLineEnd }, ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
     EditorView.contentAttributes.of({ 'aria-label': 'Java code. Press Escape, then Tab, to leave the editor.', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off' }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && u.transactions.some((tr) => !tr.annotation(fromOutside))) onChange(u.state.doc.toString());

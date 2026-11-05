@@ -230,7 +230,7 @@ class Parser {
   /** Something other than a field or method in a class body. Javac's message, and what it usually means. */
   private memberStartError(type?: TypeNode): never {
     const help =
-      'Only fields, constructors, and methods can sit directly inside a class. Statements like this one go inside a constructor or a method.';
+      'Only instance variables, constructors, and methods can sit directly inside a class. Statements like this one go inside a constructor or a method.';
     if (type && (this.is('=') || this.is('.') || this.is('('))) this.stop('statement-in-class', '<identifier> expected', this.prevEnd, help);
     if (type) this.stop('expected-name', '<identifier> expected', this.prevEnd, 'Java expected a name after the type here.');
     if (this.is('}')) this.eof();
@@ -484,7 +484,7 @@ class Parser {
     }
     const e = this.expr();
     if (e.k !== 'assign' && e.k !== 'incdec' && e.k !== 'call' && e.k !== 'new') {
-      this.stop('not-a-statement', 'not a statement', e.pos, 'This line works out a value but does nothing with it. Store it in a variable, or print it.');
+      this.stop('not-a-statement', 'not a statement', e.pos, 'This line works out a value but does nothing with it. To keep the result, store it with =, as in total = total + 1;');
     }
     this.expect(';');
     return { k: 'expr', pos, e };

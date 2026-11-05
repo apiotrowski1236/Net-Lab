@@ -763,7 +763,9 @@ class Checker {
     const help =
       isStr(t) && e.name === 'length'
         ? 'A String gets its length from a method, with parentheses: length(). Arrays are the ones that use length with no parentheses.'
-        : `${An(t)} has no variable called ${e.name}.`;
+        : t.k === 'class' && this.classes.get(t.name)?.methods.has(e.name)
+          ? `${e.name} is a method, so it needs parentheses: ${e.name}().`
+          : `${An(t)} has no variable called ${e.name}.`;
     this.noSymbol('variable', e.name, e.pos, help, this.location(e.target, t));
     return ERROR;
   }
@@ -1125,7 +1127,10 @@ class Checker {
       case '>':
       case '<=':
       case '>=':
-        if (!isNumeric(a) || !isNumeric(b)) return bad(isStr(ta) || isStr(tb) ? `${op} compares numbers. To compare Strings, use compareTo.` : `${op} compares numbers, not these types.`);
+        if (!isNumeric(a) || !isNumeric(b)) {
+          const obj = [ta, tb].find((t) => t.k === 'class');
+          return bad(isStr(ta) || isStr(tb) ? `${op} compares numbers. To compare Strings, use compareTo.` : obj ? `${op} compares numbers, but one side here is ${an(obj)}. Call a method on it that gives back a number.` : `${op} compares numbers, not these types.`);
+        }
         numeric();
         e.mode = promote(a, b).k as 'int' | 'long' | 'double';
         return BOOLEAN;

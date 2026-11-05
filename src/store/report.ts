@@ -146,8 +146,8 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
   const code: NonNullable<Report['code']> = [];
   for (const step of lab.steps) {
     for (const d of step.demos ?? []) {
-      const saved = p.demos?.[`${step.id}/${d.id}`] as { files?: { name: string; text: string }[] } | undefined;
-      if (d.kind === 'java' && d.report && saved?.files) code.push({ step: step.id, files: saved.files.map(({ name, text }) => ({ name, text })) });
+      const saved = p.demos?.[`${step.id}/${d.id}`] as { files?: { name: string; text: string; locked?: boolean }[] } | undefined;
+      if (d.kind === 'java' && d.report && saved?.files) code.push({ step: step.id, files: saved.files.filter((f) => !f.locked).map(({ name, text }) => ({ name, text })) });
     }
   }
 

@@ -148,6 +148,9 @@ async function doDemo(id, input) {
     // Past the editor's save delay, so a run or a goal sees the new text.
     await page.waitForTimeout(400);
     log(`  edit ${input.edit}`);
+  } else if ('tab' in input) {
+    await stage.locator('.java-tab', { hasText: input.tab }).click();
+    log(`  open ${input.tab}`);
   } else if ('run' in input) {
     await stage.locator('.java-run').click();
     log('  press Run');

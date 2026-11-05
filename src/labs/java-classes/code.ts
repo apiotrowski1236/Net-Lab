@@ -35,9 +35,9 @@ const PLAYER = `public class Player {
   private int health;
 
   // Constructor: runs when new makes an object.
-  public Player(String startName, int startHealth) {
-    name = startName;
-    health = startHealth;
+  public Player(String nameIn, int healthIn) {
+    name = nameIn;
+    health = healthIn;
   }
 
   // Method: changes this object's health.
@@ -112,9 +112,9 @@ export const SONG_BUILT = `public class Song {
   private String artist;
   private int plays;
 
-  public Song(String songTitle, String songArtist) {
-    title = songTitle;
-    artist = songArtist;
+  public Song(String songTitleIn, String songArtistIn) {
+    title = songTitleIn;
+    artist = songArtistIn;
     plays = 0;
   }
 }
@@ -127,9 +127,10 @@ export const SONG_GETTERS: JavaFile[] = [
     text: main(`Song first = new Song("Neon Rain", "The Tin Owls");
 Song second = new Song("Paper Road", "Dana Reyes");
 
-System.out.println(first.getTitle());
+System.out.println(first.getPlays());
 System.out.println(second.getSummary());`),
   },
+  PLAYER_FILE,
 ];
 
 export const SONG_METHODS = `public class Song {
@@ -137,14 +138,10 @@ export const SONG_METHODS = `public class Song {
   private String artist;
   private int plays;
 
-  public Song(String songTitle, String songArtist) {
-    title = songTitle;
-    artist = songArtist;
+  public Song(String songTitleIn, String songArtistIn) {
+    title = songTitleIn;
+    artist = songArtistIn;
     plays = 0;
-  }
-
-  public String getTitle() {
-    return title;
   }
 
   public int getPlays() {
@@ -164,13 +161,13 @@ export const SONG_MUTATORS: JavaFile[] = [
     text: main(`Song first = new Song("Neon Rain", "The Tin Owls");
 Song second = new Song("Paper Road", "Dana Reyes");
 
-first.play();
-first.play();
+first.addPlays(3);
 second.addPlays(10);
 
 System.out.println(first.getSummary());
 System.out.println(second.getSummary());`),
   },
+  PLAYER_FILE,
 ];
 
 export const PET: JavaFile[] = [
@@ -211,9 +208,14 @@ export const BANK: JavaFile[] = [
   },
   {
     name: 'Main.java',
-    text: main(`// Make two accounts here. Deposit into one, withdraw from the other,
-// and print the balance of both.
-`),
+    text: main(`BankAccount first = new BankAccount("Ada", 100);
+BankAccount second = new BankAccount("Grace", 50);
+
+first.deposit(25);
+second.withdraw(80);
+
+System.out.println(first.getBalance());
+System.out.println(second.getBalance());`),
   },
   PLAYER_FILE,
 ];
@@ -249,7 +251,7 @@ mix.add(first);
 mix.add(second);
 
 System.out.println(mix.getTotalPlays());
-System.out.println(mix.getMostPlayed().getTitle());`),
+System.out.println(mix.getMostPlayed().getSummary());`),
   },
 ];
 
@@ -292,12 +294,17 @@ function expectRun(c: JavaCheckCtx, body: string, want: string, wrong: (got: str
 export const THIRD_PLAYER: JavaCheck = {
   id: 'third',
   label: 'Main prints three players, one of them Linus',
-  test: (c) => (/Linus/.test(c.output) && lines(c.output).length >= 3 ? undefined : 'Run a version that prints a third line about Linus.'),
+  main: true,
+  test(c) {
+    if (!/Linus/.test(c.output) || lines(c.output).length < 3) return 'Run a version that prints a third line about Linus.';
+    return /String\s+\w+\s*=\s*"Linus"/.test(c.source('Main.java')) ? undefined : 'Make variables for Linus, the same way Ada and Grace have them, and print those.';
+  },
 };
 
 export const THIRD_OBJECT: JavaCheck = {
   id: 'third',
   label: 'Main makes a third Player for Linus and prints it',
+  main: true,
   test(c) {
     const src = c.source('Main.java');
     if (!/new\s+Player\s*\(\s*"Linus"/.test(src)) return 'Add a line that makes a Player with new. Give it the name "Linus" and 90 health.';
@@ -309,9 +316,10 @@ export const THIRD_OBJECT: JavaCheck = {
 export const ENCAPSULATED: JavaCheck = {
   id: 'fixed',
   label: 'Main calls takeDamage(500), and Ada ends at 0',
+  main: true,
   test(c) {
     const src = c.source('Main.java');
-    if (/\.health\b/.test(src)) return 'Delete the line that reaches into ada.health.';
+    if (/\.health\b/.test(src)) return 'Delete the line that uses ada.health.';
     if (!/ada\s*\.\s*takeDamage\s*\(\s*500\s*\)/.test(src)) return 'Call the method instead: ada.takeDamage(500);';
     return /Ada has 0\b/.test(c.output) ? undefined : 'Keep the line that prints Ada, so you can see her health is 0.';
   },
@@ -326,7 +334,7 @@ export const SONG_FIELDS: JavaCheck = {
 export const SONG_CTOR: JavaCheck = {
   id: 'ctor',
   label: 'Song has a constructor that takes the title and the artist',
-  test: (c) => (c.ctor('Song', 'String', 'String') ? undefined : 'Write a constructor: public Song(String songTitle, String songArtist). It has no return type.'),
+  test: (c) => (c.ctor('Song', 'String', 'String') ? undefined : 'Write a constructor: public Song(String songTitleIn, String songArtistIn). Write nothing between public and Song.'),
 };
 
 export const SONG_SETS: JavaCheck = {
@@ -334,8 +342,8 @@ export const SONG_SETS: JavaCheck = {
   label: 'The constructor stores both values and starts plays at 0',
   test: (c) =>
     expectRun(c, 'Song s = new Song("A", "B");\nSystem.out.println(s.title + "|" + s.artist + "|" + s.plays);', 'A|B|0', (got) => {
-      if (got.startsWith('null')) return 'title is still null. In the constructor, store songTitle in the instance variable title.';
-      if (got.includes('|null')) return 'artist is still null. In the constructor, store songArtist in the instance variable artist.';
+      if (got.startsWith('null')) return 'title is still null. In the constructor, store songTitleIn in the instance variable title.';
+      if (got.includes('|null')) return 'artist is still null. In the constructor, store songArtistIn in the instance variable artist.';
       if (got.startsWith('B')) return 'The title and the artist are swapped. Check which parameter goes where.';
       return 'plays should start at 0.';
     }),
@@ -343,11 +351,8 @@ export const SONG_SETS: JavaCheck = {
 
 export const SONG_ACCESSORS: JavaCheck = {
   id: 'getters',
-  label: 'Song has getTitle and getPlays',
-  test: (c) =>
-    needMethod(c, 'Song', 'getTitle', 'String') ??
-    needMethod(c, 'Song', 'getPlays', 'int') ??
-    expectRun(c, 'Song s = new Song("A", "B");\nSystem.out.println(s.getTitle());\nSystem.out.println(s.getPlays());', 'A\n0', () => 'A method gives back the wrong value. Each one should return its own instance variable.'),
+  label: 'getPlays gives back the plays',
+  test: (c) => needMethod(c, 'Song', 'getPlays', 'int') ?? expectRun(c, 'System.out.println(new Song("A", "B").getPlays());', '0', () => 'getPlays should return the instance variable plays.'),
 };
 
 export const SONG_SUMMARY: JavaCheck = {
@@ -356,14 +361,6 @@ export const SONG_SUMMARY: JavaCheck = {
   test: (c) =>
     needMethod(c, 'Song', 'getSummary', 'String') ??
     expectRun(c, 'System.out.println(new Song("Neon Rain", "The Tin Owls").getSummary());', 'Neon Rain by The Tin Owls, 0 plays', (got) => `It gave back: ${got}\nIt should be: Neon Rain by The Tin Owls, 0 plays`),
-};
-
-export const SONG_PLAY: JavaCheck = {
-  id: 'play',
-  label: 'play() adds 1 to this song\'s plays',
-  test: (c) =>
-    needMethod(c, 'Song', 'play', 'void') ??
-    expectRun(c, 'Song a = new Song("A", "B");\nSong b = new Song("C", "D");\na.play();\na.play();\nSystem.out.println(a.plays);\nSystem.out.println(b.plays);', '2\n0', (got) => (got.startsWith('2') ? 'play changed the other song too. Make sure plays is not static.' : 'After two calls to play, plays should be 2. Each call should add 1 to what is already there.')),
 };
 
 export const SONG_ADD: JavaCheck = {
@@ -378,7 +375,11 @@ export const PET_FIXED: JavaCheck = {
   id: 'fixed',
   label: 'The constructor stores the name and the age',
   test: (c) =>
-    expectRun(c, 'System.out.println(new Pet("Biscuit", 4).getSummary());', 'Biscuit is 4', () => 'The instance variables are still empty. In the constructor, write this. in front of the instance variable on the left of each =.') ??
+    expectRun(c, 'System.out.println(new Pet("Biscuit", 4).getSummary());', 'Biscuit is 4', (got) => {
+      const fix = (name: string) => `${name} is still empty. In the constructor, write this.${name} on the left of the =.`;
+      if (got.startsWith('Biscuit')) return fix('age');
+      return got.endsWith(' 4') ? fix('name') : 'name and age are still empty. In the constructor, write this. in front of the instance variable on the left of each =.';
+    }) ??
     (/this\s*\.\s*name\s*=/.test(c.source('Pet.java')) && /this\s*\.\s*age\s*=/.test(c.source('Pet.java')) ? undefined : 'That works, but this step is practice with this. Keep the parameters called name and age, and write this.name = name;'),
 };
 
@@ -416,19 +417,6 @@ export const BANK_WITHDRAW: JavaCheck = {
     expectRun(c, 'BankAccount a = new BankAccount("Ada", 50);\na.withdraw(50);\nSystem.out.println(a.getBalance());', '0', () => 'withdraw(50) from a balance of 50 should leave 0. You can take out all of it.'),
 };
 
-export const BANK_MAIN: JavaCheck = {
-  id: 'main',
-  label: 'Main makes two accounts, deposits, withdraws, and prints both balances',
-  test(c) {
-    const src = c.source('Main.java');
-    if ((src.match(/new\s+BankAccount\s*\(/g) ?? []).length < 2) return 'In Main, make two BankAccount objects with new.';
-    if (!/\.deposit\s*\(/.test(src)) return 'In Main, call deposit on one account.';
-    if (!/\.withdraw\s*\(/.test(src)) return 'In Main, call withdraw on the other account.';
-    if (!c.ok) return 'Fix what stops Main from running, then press Run again.';
-    return (src.match(/\.getBalance\s*\(/g) ?? []).length >= 2 && lines(c.output).filter((l) => /\d/.test(l)).length >= 2 ? undefined : 'In Main, print the balance of both accounts with getBalance.';
-  },
-};
-
 export const LIST_ADD: JavaCheck = {
   id: 'add',
   label: 'add(Song song) puts a song on the list',
@@ -448,5 +436,5 @@ export const LIST_MOST: JavaCheck = {
   label: 'getMostPlayed gives back the song with the most plays',
   test: (c) =>
     needMethod(c, 'Playlist', 'getMostPlayed', 'Song') ??
-    expectRun(c, 'Playlist p = new Playlist();\nSong a = new Song("A", "B");\na.addPlays(3);\nSong b = new Song("C", "D");\nb.addPlays(9);\nSong d = new Song("E", "F");\nd.addPlays(4);\np.add(a);\np.add(b);\np.add(d);\nSystem.out.println(p.getMostPlayed().getTitle());', 'C', () => 'It should find the song with the highest plays, wherever it is in the list.'),
+    expectRun(c, 'Playlist p = new Playlist();\nSong a = new Song("A", "B");\na.addPlays(3);\nSong b = new Song("C", "D");\nb.addPlays(9);\nSong d = new Song("E", "F");\nd.addPlays(4);\np.add(a);\np.add(b);\np.add(d);\nSystem.out.println(p.getMostPlayed().getPlays());', '9', () => 'It should find the song with the highest plays, wherever it is in the list.'),
 };

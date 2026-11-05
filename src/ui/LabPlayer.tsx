@@ -400,7 +400,7 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
   const narrow = useNarrow();
   // On a narrow screen the stage drops below the whole lesson. A lesson's activities
   // move into the step instead, between its goals and its questions.
-  const inlineDemos = narrow && isLesson(lab) && session.step.kind !== 'submit' && !!session.step.demos?.length;
+  const inlineDemos = narrow && isLesson(lab) && session.step.kind !== 'submit';
 
   useEffect(() => () => session.dispose(), [session]);
 
