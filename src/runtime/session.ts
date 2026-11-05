@@ -282,7 +282,17 @@ export class LabSession {
   /** A demo's saved state, or its starting state if the student hasn't touched it. */
   demoState<S = unknown>(spec: DemoSpec, stepId = this.step.id): S {
     const saved = this.progress.demos?.[`${stepId}/${spec.id}`];
-    return (saved ?? demoModel(spec).init(spec)) as S;
+    return (saved ?? this.demoStart(spec)) as S;
+  }
+
+  /** How a demo starts: from scratch, or from the student's work in an earlier step. */
+  private demoStart(spec: DemoSpec): unknown {
+    const model = demoModel(spec);
+    if (!model.start) return model.init(spec);
+    return model.start(spec, (step, demo) => {
+      const earlier = this.demoSpec(demo, step);
+      return earlier && this.demoState(earlier, step);
+    });
   }
 
   /**
@@ -303,7 +313,7 @@ export class LabSession {
   resetDemo(id: string): void {
     const spec = this.demoSpec(id);
     if (!spec || isStatic(spec) || !this.progress.demos?.[`${this.step.id}/${id}`]) return;
-    this.saveDemo(spec, demoModel(spec).init(spec));
+    this.saveDemo(spec, this.demoStart(spec));
   }
 
   private saveDemo(spec: DemoSpec, state: unknown): void {

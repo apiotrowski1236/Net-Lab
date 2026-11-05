@@ -32,7 +32,12 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
       const goals = r.goals.filter((g) => g.step === s.id);
       const qs = r.questions.filter((q) => q.step === s.id);
       const o = r.overrides.find((x) => x.step === s.id);
-      if (!goals.length && !qs.length && !o) return '';
+      const code = (r.code ?? [])
+        .filter((c) => c.step === s.id)
+        .flatMap((c) => c.files)
+        .map((f) => `<div class="code-file"><b>${esc(f.name)}</b><pre>${esc(f.text)}</pre></div>`)
+        .join('');
+      if (!goals.length && !qs.length && !o && !code) return '';
       const goalHtml = goals.length
         ? `<ul>${goals.map((g) => `<li class="${g.done ? 'done' : 'todo'}">${g.done ? '&#10003;' : '&#9744;'} ${esc(g.label)}</li>`).join('')}</ul>`
         : '';
@@ -49,7 +54,7 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
         ? `<div class="ovr">Teacher override: a teacher unlocked this step on ${esc(when(o.at))}${o.note ? `. Note: ${esc(o.note)}` : ''}. Unchecked goals earned no points.</div>`
         : '';
       const tags = `${s.extra ? ' <span class="tag extra">extra credit</span>' : ''}${o ? ' <span class="tag">teacher override</span>' : ''}`;
-      return `<section class="${o ? 'overridden' : ''}"><h2>Step ${i + 1}. ${esc(s.title)}${tags}</h2>${flag}${goalHtml}${qHtml}</section>`;
+      return `<section class="${o ? 'overridden' : ''}"><h2>Step ${i + 1}. ${esc(s.title)}${tags}</h2>${flag}${goalHtml}${qHtml}${code}</section>`;
     })
     .join('');
   const overrideSummary = r.overrides.length
@@ -101,6 +106,7 @@ ul{padding-left:0;list-style:none;margin:6px 0}li{margin:3px 0}li.todo{color:#b9
 .ovr.alert{background:#fee2e2;border-color:#ef4444;color:#7f1d1d}
 .tag{font-size:11px;font-weight:600;background:#fde68a;color:#78350f;border-radius:999px;padding:2px 8px;vertical-align:middle}
 .tag.extra{background:#dbeafe;color:#1e3a8a}
+.code-file{margin:10px 0}.code-file pre{margin:4px 0 0;padding:10px;background:#f1f5f9;border-radius:6px;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap}
 .foot{font-size:12px;color:#64748b;margin-top:24px}
 </style></head><body>
 <main id="${RESULTS_ID}">

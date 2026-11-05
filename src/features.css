@@ -4284,3 +4284,434 @@ button.pl-tile:active {
   font-family: var(--mono, ui-monospace, monospace);
   font-weight: 700;
 }
+
+/* ---------- java-classes: code editor and class demo ---------- */
+:root[data-theme='dark'] {
+  --code-keyword: #c4a7f5;
+  --code-type: #7fd0e6;
+  --code-string: #a3d9a0;
+  --code-number: #f2b880;
+  --code-comment: #9a9a9a;
+  --code-active: rgb(255 255 255 / 0.04);
+  --code-select: rgb(130 140 255 / 0.3);
+}
+:root[data-theme='light'] {
+  --code-keyword: #6d28d9;
+  --code-type: #0b6b86;
+  --code-string: #17703a;
+  --code-number: #a14a05;
+  --code-comment: #5f6b7a;
+  --code-active: rgb(0 0 0 / 0.035);
+  --code-select: rgb(91 94 240 / 0.2);
+}
+.demo-list.wide {
+  max-width: 1180px;
+  padding: 12px 14px 20px;
+}
+.demo-java {
+  padding: 12px 14px;
+}
+.java {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.java-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.java-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.java-tab {
+  font: inherit;
+  font-size: 13px;
+  font-family: var(--mono);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.java-tab.on {
+  color: var(--ink);
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+.java-tab:disabled {
+  cursor: default;
+}
+.java-tab:focus-visible,
+.java-place:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.java-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.java-count {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  padding: 0 4px;
+}
+/* A hint can hold a whole line of Java, wider than the goals card. */
+.goal-text .hint code {
+  white-space: normal;
+}
+/* Students type <= and !=, so show the two characters, not one joined glyph. */
+.java {
+  font-variant-ligatures: none;
+}
+.java-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 10px;
+  height: clamp(330px, calc(100vh - 330px), 640px);
+}
+.java-main.stepping {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+}
+.java-editor {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--input-bg);
+  position: relative;
+}
+.java-editor .cm-editor {
+  height: 100%;
+}
+.java-editor:focus-within {
+  border-color: var(--brand-line);
+}
+.java-plain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  resize: none;
+  padding: 8px 10px;
+  font: 13.5px/1.5 var(--mono);
+  color: var(--ink);
+  background: var(--input-bg);
+}
+.java-side {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 8px 10px;
+  overflow: hidden auto;
+}
+.java-side h4,
+.mem-col h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.java-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.java-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.java-result pre,
+.java-so-far pre {
+  margin: 0;
+  font: 13px/1.45 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.java-output {
+  color: var(--ink);
+}
+.java-head {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.java-head.bad {
+  color: var(--bad-ink);
+}
+.java-stale {
+  margin: 0;
+  font-size: 13px;
+  color: var(--warn-ink);
+}
+.java-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--bad-line);
+  border-radius: 6px;
+  background: var(--bad-soft);
+  min-width: 0;
+}
+.java-error pre.java-msg {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  margin-bottom: 0;
+}
+.java-error pre {
+  align-self: stretch;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.java-help {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+.java-place {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.java-caption {
+  font-size: 13.5px;
+  line-height: 1.4;
+  min-height: 56px;
+}
+.mem {
+  --mem-arrows: on;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 36px;
+  flex: 1 1 auto;
+  min-height: 150px;
+  overflow: auto;
+  padding: 2px;
+}
+.mem-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+.mem-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+.mem-arrows path {
+  fill: none;
+  stroke: var(--brand-ink);
+  stroke-width: 1.5;
+}
+.mem-arrows marker path {
+  fill: var(--brand-ink);
+  stroke: none;
+}
+.mem-frame,
+.mem-obj {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.mem-frame.cur {
+  border-color: var(--warn);
+}
+.mem-obj {
+  border-color: var(--brand-line);
+}
+.mem-title {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 6px;
+  background: var(--surface-3);
+}
+.mem-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 6px;
+  font-size: 12.5px;
+  font-family: var(--mono);
+  border-top: 1px solid var(--line-2);
+}
+.mem-row code {
+  background: none;
+  padding: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.mem-ref {
+  color: var(--brand-ink);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.mem-null {
+  color: var(--muted);
+}
+.mem-none {
+  font-size: 12.5px;
+  color: var(--muted);
+  padding: 3px 6px;
+}
+.java-so-far {
+  flex: 0 0 auto;
+  max-height: 96px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 4px;
+}
+.java-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+}
+.java-checks li {
+  display: flex;
+  gap: 8px;
+  color: var(--muted);
+}
+.java-checks li.ok {
+  color: var(--good-ink);
+}
+.java-checks li.no {
+  color: var(--ink);
+}
+.java-mark {
+  flex: 0 0 14px;
+  text-align: center;
+}
+.java-checks li.no .java-mark {
+  color: var(--bad);
+}
+.java-note {
+  display: block;
+  color: var(--bad-ink);
+  font-size: 13.5px;
+}
+.objects {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.objects-top {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 14px;
+}
+.objects-class,
+.objects-card {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+}
+.objects-class {
+  border-style: dashed;
+  border-color: var(--brand-line);
+}
+.objects-kicker {
+  font-size: 12px;
+  color: var(--muted);
+}
+.objects h4 {
+  margin: 0 0 6px;
+  font-family: var(--mono);
+  font-size: 15px;
+}
+.objects dl {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+}
+.objects dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.objects dd {
+  margin: 0 0 4px;
+  font-family: var(--mono);
+}
+.objects-made {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+.objects-none {
+  margin: 0;
+  color: var(--muted);
+}
+.objects-log pre {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--input-bg);
+  font: 13px/1.5 var(--mono);
+  overflow-x: auto;
+}
+@media (max-width: 900px) {
+  .java-main,
+  .java-main.stepping {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .java-editor {
+    height: 340px;
+  }
+  .java-side {
+    min-height: 120px;
+    max-height: none;
+  }
+  .mem {
+    --mem-arrows: none;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .mem-arrows {
+    display: none;
+  }
+  .objects-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

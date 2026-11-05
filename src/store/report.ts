@@ -41,6 +41,8 @@ export interface Report {
     /** From an extra-credit step. Auto-graded points go to score.extra; teacher-graded ones aren't in teacherMax. */
     extra?: true;
   }[];
+  /** The student's code from demos marked `report`, for the teacher to read. */
+  code?: { step: string; files: { name: string; text: string }[] }[];
   /** Steps unlocked with the teacher override password. Goals in them still show as not done. */
   overrides: { step: string; number: number; title: string; at: string; note?: string }[];
   /** Wrong override passwords typed during this lab. */
@@ -141,6 +143,14 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
     }
   }
 
+  const code: NonNullable<Report['code']> = [];
+  for (const step of lab.steps) {
+    for (const d of step.demos ?? []) {
+      const saved = p.demos?.[`${step.id}/${d.id}`] as { files?: { name: string; text: string }[] } | undefined;
+      if (d.kind === 'java' && d.report && saved?.files) code.push({ step: step.id, files: saved.files.map(({ name, text }) => ({ name, text })) });
+    }
+  }
+
   return {
     app: 'netlab',
     schema: 1,
@@ -156,6 +166,7 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
     stepReached: p.maxStep + 1,
     goals,
     questions,
+    code: code.length ? code : undefined,
     score: hasExtra ? { auto, autoMax, teacherMax, extra, extraMax } : { auto, autoMax, teacherMax },
     overrides,
     overrideFailures: p.overrideFailures ?? 0,

@@ -43,7 +43,7 @@ export function DemoStage({ session, inline = false }: { session: LabSession; in
   const demos = step.demos ?? [];
   return (
     <div class={`demo-stage ${inline ? 'inline' : ''}`} ref={scroller}>
-      <div class="demo-list">
+      <div class={`demo-list ${demos.some((d) => d.kind === 'java') ? 'wide' : ''}`}>
         {demos.map((spec) => (
           <DemoCard key={`${step.id}/${spec.id}`} session={session} spec={spec} />
         ))}

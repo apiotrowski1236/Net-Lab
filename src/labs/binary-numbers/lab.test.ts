@@ -89,9 +89,9 @@ function strings(x: unknown, out: string[] = []): string[] {
 }
 
 describe('binary-numbers: lesson shape', () => {
-  it('is a lesson with no network, and only it and wireshark are', () => {
+  it('is a lesson with no network, and only it, wireshark, and java-classes are', () => {
     expect(isLesson(lab)).toBe(true);
-    for (const l of LABS) if (l.id !== lab.id) expect(isLesson(l), l.id).toBe(l.id === 'wireshark');
+    for (const l of LABS) if (l.id !== lab.id) expect(isLesson(l), l.id).toBe(l.id === 'wireshark' || l.id === 'java-classes');
   });
 
   it('gives every step except submit something to finish', () => {

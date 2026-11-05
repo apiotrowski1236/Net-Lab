@@ -3,6 +3,8 @@ import { bitsModel } from './bits';
 import { compareModel } from './compare';
 import { counterModel } from './counter';
 import { fitWalkModel } from './fitWalk';
+import { javaModel } from './java';
+import { objectsModel } from './objects';
 import { placesModel } from './places';
 import { readWalkModel } from './readWalk';
 import { roundingModel } from './rounding';
@@ -27,6 +29,8 @@ export const DEMO_MODELS: { [K in DemoKind]: DemoModel<Extract<DemoSpec, { kind:
   rounding: roundingModel,
   ascii: asciiModel,
   note: noteModel,
+  java: javaModel,
+  objects: objectsModel,
 };
 
 export function demoModel<S extends DemoSpec>(spec: S): DemoModel<S, unknown> {
