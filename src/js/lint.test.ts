@@ -47,6 +47,10 @@ const CORRECT: [string, string][] = [
   ['reset-in-loop', 'for (let i = 0; i < 2; i++) {\n  let n = 0;\n  n += i;\n  console.log(n);\n}'],
   ['reset-in-loop', 'for (let i = 0; i < 2; i++) {\n  let n = 0;\n  n++;\n}'],
   ['prompt-plus', 'let a = Number(prompt("a"));\nconsole.log(a + 1);'],
+  ['prompt-compare', 'let a = Number(prompt("a"));\nif (a === 5) { console.log(a); }'],
+  ['prompt-compare', 'let a = prompt("a");\nif (a === "5") { console.log(a); }'],
+  ['prompt-compare', 'let a = prompt("a");\nif (a == 5) { console.log(a); }'],
+  ['prompt-compare', 'let a = prompt("a");\nif (a.length === 1) { console.log(a); }'],
   ['prompt-plus', 'let a = prompt("a");\nconsole.log("You said " + a);\nconsole.log(a + " is your number");'],
   ['prompt-plus', 'let a = prompt("a");\nconsole.log(a - 1, a * 2);'],
   ['alert-extra-args', 'alert("a" + 1);\nalert();\nalert("x");'],
@@ -130,6 +134,14 @@ describe('each rule fires', () => {
     expect(rules('let c = 0;\nfor (const x of [1]) {\n  c = 0;\n  c++;\n}')).toEqual(['reset-in-loop:3']);
     expect(rules('let s = "";\nfor (const x of ["a"]) {\n  s = "";\n  s += x;\n}\nconsole.log(s);')).toEqual(['reset-in-loop:3']);
   });
+  test('prompt-compare', () => {
+    expect(rules('let a = prompt("a");\nif (a === 5) { console.log(a); }')).toEqual(['prompt-compare:2']);
+    expect(rules('let a = prompt("a");\nif (5 !== a) { console.log(a); }')).toEqual(['prompt-compare:2']);
+    const say = (code: string) => notes(code)[0].text;
+    expect(say('let guess = prompt("a");\nif (guess === 5) { console.log(1); }')).toBe('prompt() always gives back a string, and a string is never === to a number, so guess === 5 is never true. Turn the answer into a number first: let age = Number(prompt("How old are you?"));');
+    expect(say('let guess = prompt("a");\nif (guess !== 5) { console.log(1); }')).toBe('prompt() always gives back a string, and a string is never === to a number, so guess !== 5 is always true. Turn the answer into a number first: let age = Number(prompt("How old are you?"));');
+  });
+
   test('prompt-plus', () => {
     expect(rules('let a = prompt("a");\nconsole.log(a + 1);')).toEqual(['prompt-plus:2']);
     expect(rules('let a = prompt("a");\nlet b = prompt("b");\nlet c = a + b;\nconsole.log(c);')).toEqual(['prompt-plus:3']);

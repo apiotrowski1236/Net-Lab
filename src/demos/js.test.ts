@@ -114,6 +114,32 @@ describe('prompts', () => {
       expect(play(d2, [{ run: true }, { answer: '7' }, { stop: true }]).checks).toEqual([{ id: 'never', ok: false, note: 'It keeps asking.' }]);
     });
 
+    it('says why as soon as the loop asks again', () => {
+      expect(play(trap, [{ run: true }]).notes).toBeUndefined();
+      expect(play(trap, [{ run: true }, { answer: '7' }]).notes?.map((n) => `${n.rule}:${n.line}`)).toEqual(['prompt-compare:2']);
+    });
+
+    it('says why when the answer is never saved', () => {
+      const lost = spec('let age = 0;\nwhile (age < 13) {\n  prompt("Age?");\n}\n');
+      expect(play(lost, [{ run: true }, { answer: '14' }]).notes?.map((n) => n.rule)).toEqual(['while-unchanged']);
+    });
+
+    it('says why when the loop reads its own variable', () => {
+      const shadow = spec('let age = 0;\nwhile (age < 13) {\n  let age = Number(prompt("Age?"));\n}\n');
+      expect(play(shadow, [{ run: true }, { answer: '14' }]).notes?.map((n) => n.rule)).toEqual(['while-unchanged', 'shadowed-name']);
+    });
+
+    it('says why when the condition assigns', () => {
+      const assign = spec('let code = "";\nwhile (code = "pixel") {\n  code = prompt("Code?");\n}\n');
+      expect(play(assign, [{ run: true }, { answer: 'pixel' }]).notes?.map((n) => n.rule)).toContain('assign-in-condition');
+    });
+
+    it('stays quiet on a loop that can end, and on notes that wait for a whole run', () => {
+      const fine = spec('let code = "";\nlet a = [1];\na.length;\nwhile (code !== "pixel") {\n  code = prompt("Code?");\n}\n');
+      expect(play(fine, [{ run: true }, { answer: 'no' }]).notes).toBeUndefined();
+      expect(play(fine, [{ run: true }, { answer: 'no' }, { answer: 'pixel' }]).notes?.map((n) => n.rule)).toEqual(['result-unused']);
+    });
+
     it('does nothing when no prompt is waiting', () => {
       const s = play(d, []);
       expect(jsModel.apply(d, s, { stop: true })).toBe(s);

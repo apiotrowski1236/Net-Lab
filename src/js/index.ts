@@ -9,7 +9,7 @@ import { isStackOverflow, runProgram, type RunOptions, type RunResult } from './
 import type { Program } from './ast';
 
 export { errorText, type JsError, type Pos } from './errors';
-export { LINT_RULES, lint, type LintNote } from './lint';
+export { LINT_RULES, WAITING_RULES, lint, type LintNote } from './lint';
 export { Query, type CallFact, type DeclFact, type FnFact, type LoopFact } from './query';
 export { runProgram, type Limit, type OutputLine, type RunFacts, type RunOptions, type RunResult, type TraceFrame, type TraceItem, type TraceStep, type TraceVar, type Waiting } from './run';
 export { HostObject, type Runtime, type Value } from './values';
@@ -54,5 +54,5 @@ export function parseFiles(files: readonly SourceFile[]): Parsed {
 export function runFiles(files: readonly SourceFile[], options: RunOptions = {}): RunResult {
   const { programs, error } = parseFiles(files);
   if (!error) return runProgram(programs, options);
-  return { status: 'error', error, lines: [], vars: {}, dataMissing: Object.keys(options.data ?? {}), steps: 0, facts: { indexAtLength: [], promptPlus: [], misspelled: [], loops: [], builtinCalls: [], prompts: 0 } };
+  return { status: 'error', error, lines: [], vars: {}, dataMissing: Object.keys(options.data ?? {}), steps: 0, facts: { indexAtLength: [], promptPlus: [], promptCompare: [], misspelled: [], loops: [], builtinCalls: [], prompts: 0 } };
 }
