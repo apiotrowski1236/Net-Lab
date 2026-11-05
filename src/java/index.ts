@@ -5,5 +5,5 @@
  */
 export { compile, type CompileResult, type Program, type SourceFile } from './check';
 export { formatError, type CompileError } from './errors';
-export { findMain, runProgram, type RunOptions, type RunResult, type Shown, type TraceObject, type TraceStep } from './run';
+export { findMain, runProgram, type Beat, type RunOptions, type RunResult, type Shown, type Slot, type TraceFrame, type TraceObject, type TraceStep, type TraceVar } from './run';
 export { runtimeHelp } from './help';

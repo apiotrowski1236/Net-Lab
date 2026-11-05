@@ -1,14 +1,15 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { cursorLineEnd, defaultKeymap, history, historyKeymap, indentWithTab, selectLineEnd } from '@codemirror/commands';
 import { java } from '@codemirror/lang-java';
 import { bracketMatching, HighlightStyle, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { Annotation, Compartment, EditorState, RangeSetBuilder, StateEffect, StateField, type Extension, type Text } from '@codemirror/state';
-import { Decoration, drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, type DecorationSet } from '@codemirror/view';
+import { Decoration, drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, type Command, type DecorationSet } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 
-/** Lines to color: the one about to run, and any with an error. */
+/** Lines to color: the one about to run, the one after it, and any with an error. */
 export interface LineMarks {
   run?: number;
+  next?: number;
   errors?: number[];
 }
 
@@ -31,11 +32,13 @@ const setMarks = StateEffect.define<LineMarks>();
 const fromOutside = Annotation.define<boolean>();
 
 const RUN = Decoration.line({ class: 'cm-java-run' });
+const NEXT = Decoration.line({ class: 'cm-java-next' });
 const ERR = Decoration.line({ class: 'cm-java-err' });
 
 function decorate(doc: Text, m: LineMarks): DecorationSet {
   const lines = new Map<number, Decoration>();
   for (const l of m.errors ?? []) lines.set(l, ERR);
+  if (m.next) lines.set(m.next, NEXT);
   if (m.run) lines.set(m.run, RUN);
   const b = new RangeSetBuilder<Decoration>();
   for (const l of [...lines.keys()].sort((x, y) => x - y)) if (l >= 1 && l <= doc.lines) b.add(doc.line(l).from, doc.line(l).from, lines.get(l)!);
@@ -61,11 +64,25 @@ const highlight = HighlightStyle.define([
   { tag: [t.comment, t.lineComment, t.blockComment], color: 'var(--code-comment)', fontStyle: 'italic' },
 ]);
 
+/** Home goes to where the code starts on its line, then to the very start of the line. */
+const home =
+  (extend: boolean): Command =>
+  (view) => {
+    const { anchor, head } = view.state.selection.main;
+    const line = view.state.doc.lineAt(head);
+    const code = line.from + line.text.search(/\S|$/);
+    const to = head === code ? line.from : code;
+    view.dispatch({ selection: { anchor: extend ? anchor : to, head: to }, scrollIntoView: true });
+    return true;
+  };
+
 const theme = EditorView.theme({
   '&': { height: '100%', fontSize: '13.5px', backgroundColor: 'var(--input-bg)', color: 'var(--ink)' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.5', overflow: 'auto' },
   '.cm-content': { caretColor: 'var(--ink)', padding: '8px 0' },
+  // A long line wraps past the code's own indent, so it can't be mistaken for the next line.
+  '.cm-line': { paddingLeft: 'calc(8ch + 6px)', textIndent: '-8ch' },
   '.cm-cursor': { borderLeftColor: 'var(--ink)' },
   '.cm-gutters': { backgroundColor: 'var(--input-bg)', color: 'var(--faint)', border: 'none', borderRight: '1px solid var(--line)' },
   '.cm-activeLine': { backgroundColor: 'var(--code-active)' },
@@ -73,6 +90,7 @@ const theme = EditorView.theme({
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'var(--code-select)' },
   '.cm-matchingBracket': { backgroundColor: 'var(--code-select)', outline: 'none' },
   '.cm-java-run': { backgroundColor: 'var(--warn-soft)', boxShadow: 'inset 3px 0 0 var(--warn)' },
+  '.cm-java-next': { backgroundColor: 'var(--brand-soft)', boxShadow: 'inset 3px 0 0 var(--brand-line)' },
   '.cm-java-err': { backgroundColor: 'var(--bad-soft)', boxShadow: 'inset 3px 0 0 var(--bad)' },
 });
 
@@ -92,12 +110,15 @@ export function createEditor(parent: HTMLElement, onChange: (text: string) => vo
     EditorState.tabSize.of(2),
     indentOnInput(),
     bracketMatching(),
+    // No { here: retyping a line that ends in { would add a } nobody sees.
+    EditorState.languageData.of(() => [{ closeBrackets: { brackets: ['(', '[', "'", '"'] } }]),
     closeBrackets(),
     highlightActiveLine(),
     EditorView.lineWrapping,
     syntaxHighlighting(highlight),
     java(),
-    keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
+    // Home and End go to the ends of the code's line, not of the row a long line wrapped to.
+    keymap.of([{ key: 'Home', run: home(false), shift: home(true) }, { key: 'End', run: cursorLineEnd, shift: selectLineEnd }, ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
     EditorView.contentAttributes.of({ 'aria-label': 'Java code. Press Escape, then Tab, to leave the editor.', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off' }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && u.transactions.some((tr) => !tr.annotation(fromOutside))) onChange(u.state.doc.toString());
@@ -131,8 +152,18 @@ export function createEditor(parent: HTMLElement, onChange: (text: string) => vo
     reveal(line, focus) {
       const doc = view.state.doc;
       const at = doc.line(Math.min(Math.max(line, 1), doc.lines)).from;
-      view.dispatch({ selection: focus ? { anchor: at } : undefined, effects: EditorView.scrollIntoView(at, { y: 'center' }) });
-      if (focus) view.focus();
+      if (focus) {
+        view.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'center' }) });
+        view.focus();
+        return;
+      }
+      // Only the editor scrolls. scrollIntoView would also move the page, and with it the Next button.
+      view.requestMeasure({
+        read: (v) => v.lineBlockAt(at),
+        write: (b, v) => {
+          v.scrollDOM.scrollTop = b.top - (v.scrollDOM.clientHeight - b.height) / 2;
+        },
+      });
     },
     destroy: () => view.destroy(),
   };

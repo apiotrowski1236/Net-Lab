@@ -146,6 +146,8 @@ export interface JavaCheck {
   /** What the check wants, shown beside a check mark. */
   label: string;
   test: (c: JavaCheckCtx) => string | undefined;
+  /** Judges what Main prints, so it has nothing to say until Main compiles. */
+  main?: boolean;
 }
 
 /**

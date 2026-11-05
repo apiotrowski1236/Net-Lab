@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { javaModel, traceOf, type JavaState } from '../../demos/java';
+import { planStep } from '../../demos/javaPlan';
 import { objectsModel } from '../../demos/objects';
 import type { JavaSpec, ObjectsSpec } from '../../demos/types';
 import { LabSession } from '../../runtime/session';
@@ -29,16 +30,43 @@ describe('starting code', () => {
     const r = run(spec('fields-ctor', 'song'));
     expect(r.last?.kind).toBe('errors');
     expect(r.last?.errors?.[0].text).toContain('constructor Song in class Song cannot be applied to given types;');
-    expect(r.last?.errors?.[0].help).toBe('This constructor takes no values, but you gave it 2. If you meant to pass values in, write a constructor for Song with parameters.');
+    expect(r.last?.errors?.[0].help).toBe('Song has no constructor yet, so Java gives it a default constructor, which takes no values. You gave it 2. To pass values in, write a constructor for Song with parameters.');
   });
 
   test('the Pet bug prints what step 9 says', () => {
     expect(run(spec('this', 'pets')).last?.output).toBe('null is 0\nnull is 0\n');
   });
 
+  test('opening a tab counts, and Main stays open until then', () => {
+    const s = spec('anatomy', 'players');
+    const start = javaModel.init(s);
+    expect(javaModel.facts(s, start)['opened:Player.java']).toBeUndefined();
+    expect(javaModel.facts(s, javaModel.apply(s, start, { tab: 'Player.java' }))['opened:Player.java']).toBe(true);
+  });
+
+  test('a compile error in Main holds a check of what Main prints', () => {
+    const s = spec('anatomy', 'players');
+    const start = javaModel.init(s).files[0].text;
+    const r = withEdits(s, { 'Main.java': start.replace('ada.takeDamage(30);', 'ada.takeDamage(30)') });
+    expect(r.last?.kind).toBe('errors');
+    expect(r.held).toBe(true);
+  });
+
+  test('step 9 names the variable still missing', () => {
+    const s = spec('this', 'pets');
+    const start = javaModel.init(s).files[0].text;
+    expect(withEdits(s, { 'Pet.java': start.replace('name = name;', 'this.name = name;') }).checks?.[0].note).toBe('age is still empty. In the constructor, write this.age on the left of the =.');
+  });
+
   test('the step-through has the length the answer key plays', () => {
     const s = spec('trace', 'trace');
     expect(traceOf(s, javaModel.init(s).files).steps).toHaveLength(17);
+  });
+
+  test('Run stays on the tab the student is working in', () => {
+    const r = run(spec('fields-ctor', 'song'));
+    expect(r.last?.errors?.[0].file).toBe('Main.java');
+    expect(r.open).toBe('Song.java');
   });
 });
 
@@ -46,6 +74,16 @@ describe('step-through', () => {
   const s = spec('trace', 'trace');
   const steps = traceOf(s, javaModel.init(s).files).steps;
   const main = (i: number) => steps[i].frames[0].vars.map((v) => v.name);
+
+  test('code with no main says so instead of starting an empty step-through', () => {
+    const start = javaModel.init(s);
+    const main = start.files.find((f) => f.name === 'Main.java')!;
+    const state = { ...start, files: start.files.map((f) => (f === main ? { ...f, locked: false, text: main.text.replace('void main', 'void mane') } : f)) };
+    const r = javaModel.apply(s, state, { stepping: true });
+    expect(r.at).toBeUndefined();
+    expect(r.last?.kind).toBe('no-main');
+    expect(javaModel.facts(s, r).finished).toBe(false);
+  });
 
   test('the last step still shows both players, since step 4 sends students there to compare', () => {
     const last = steps[steps.length - 1];
@@ -60,6 +98,18 @@ describe('step-through', () => {
   test('main never shows its empty args array', () => {
     expect(main(0)).toEqual([]);
     expect(steps[0].objects).toEqual([]);
+  });
+
+  test('step 4 sends students to Step 2 to see the default', () => {
+    const first = steps.findIndex((x) => x.frames.length === 2);
+    expect(first).toBe(1);
+  });
+
+  test('step 9 explains why name = name changes nothing', () => {
+    const pets = spec('this', 'pets');
+    const trace = traceOf(pets, javaModel.init(pets).files).steps;
+    const i = trace.findIndex((x) => x.file === 'Pet.java');
+    expect(planStep(trace[i], trace[i + 1]).say).toBe('name here is the parameter, not the instance variable, so it stays "Biscuit". Pet #1 does not change.');
   });
 
   test('inside the constructor, health shows its default until it is set', () => {
@@ -77,8 +127,22 @@ describe('private', () => {
     const s = spec('private', 'guard');
     const code = javaModel.init(s).files[0].text.replace('// Your line goes here.', 'ada.health = -50;');
     const r = withEdits(s, { 'Main.java': code });
-    expect(r.last?.errors?.[0]).toMatchObject({ code: 'private-access', help: 'health is private, so only code inside Player can touch it. Call a public method instead, such as getHealth().' });
+    expect(r.last?.errors?.[0]).toMatchObject({ code: 'private-access', help: 'health is private, so only code inside Player can change it. Call a public method of Player that changes it.' });
     expect(javaModel.facts(s, r).errors).toBe('private-access');
+  });
+
+  test('ada.health-- is a change too, so a getter is not offered as the way out', () => {
+    const s = spec('private', 'guard');
+    const code = javaModel.init(s).files[0].text.replace('// Your line goes here.', 'ada.health--;');
+    const r = withEdits(s, { 'Main.java': code });
+    expect(r.last?.errors?.[0]).toMatchObject({ code: 'private-access', help: 'health is private, so only code inside Player can change it. Call a public method of Player that changes it.' });
+  });
+
+  test('a quoted number passed to a method still gets the quotes hint', () => {
+    const s = spec('private', 'guard');
+    const code = javaModel.init(s).files[0].text.replace('// Your line goes here.', 'ada.takeDamage("5");');
+    const r = withEdits(s, { 'Main.java': code });
+    expect(r.last?.errors?.[0].help).toContain('Text in double quotes is a String');
   });
 
   test('a locked file cannot be edited', () => {
@@ -100,13 +164,13 @@ describe('checks', () => {
 
   test('an unstored parameter gets its own message', () => {
     const s = spec('fields-ctor', 'song');
-    const r = withEdits(s, { 'Song.java': built.replace('title = songTitle;', '') });
-    expect(r.checks?.[2].note).toBe('title is still null. In the constructor, store the title parameter in the instance variable.');
+    const r = withEdits(s, { 'Song.java': built.replace('title = songTitleIn;', '') });
+    expect(r.checks?.[2].note).toBe('title is still null. In the constructor, store songTitleIn in the instance variable title.');
   });
 
   test('swapped parameters get their own message', () => {
     const s = spec('fields-ctor', 'song');
-    const r = withEdits(s, { 'Song.java': built.replace('title = songTitle;', 'title = songArtist;').replace('artist = songArtist;', 'artist = songTitle;') });
+    const r = withEdits(s, { 'Song.java': built.replace('title = songTitleIn;', 'title = songArtistIn;').replace('artist = songArtistIn;', 'artist = songTitleIn;') });
     expect(r.checks?.[2].note).toBe('The title and the artist are swapped. Check which parameter goes where.');
   });
 
@@ -114,17 +178,34 @@ describe('checks', () => {
     const s = spec('fields-ctor', 'song');
     const r = withEdits(s, { 'Song.java': 'public class Song {\n  private String title;\n  private String artist;\n  private int plays;\n}\n' });
     expect(r.last?.kind).toBe('errors');
-    expect(r.checks).toEqual([{ id: 'fields', ok: true }, { id: 'ctor', ok: false, note: 'Write a constructor: public Song(String songTitle, String songArtist). It has no return type.' }, { id: 'sets', ok: false }]);
+    expect(r.checks).toEqual([{ id: 'fields', ok: true }, { id: 'ctor', ok: false, note: 'Write a constructor: public Song(String songTitleIn, String songArtistIn). Write nothing between public and Song.' }, { id: 'sets', ok: false }]);
     expect(javaModel.facts(s, r)['check:fields']).toBe(true);
   });
 
-  test('a class that does not compile keeps the last results', () => {
+  test('a class that does not compile keeps the last results, marked as held', () => {
     const s = spec('fields-ctor', 'song');
     const good = withEdits(s, { 'Song.java': built });
     expect(good.checks?.every((c) => c.ok)).toBe(true);
+    expect(good.held).toBe(false);
     const bad = run(s, javaModel.apply(s, good, { edit: 'Song.java', code: built.replace('plays = 0;', 'plays = 0') }));
     expect(bad.last?.kind).toBe('errors');
     expect(bad.checks).toEqual(good.checks);
+    expect(bad.held).toBe(true);
+    expect(run(s, javaModel.apply(s, bad, { edit: 'Song.java', code: built })).held).toBe(false);
+  });
+
+  test('printing a whole Player explains the code it shows', () => {
+    const s = spec('anatomy', 'players');
+    const start = javaModel.init(s).files[0].text;
+    const r = withEdits(s, { 'Main.java': start.replace('ada.takeDamage(30);', 'Player linus = new Player("Linus", 90);\n    System.out.println(linus);\n    ada.takeDamage(30);') });
+    expect(r.checks?.[0].note).toMatch(/^Printing a Player object directly/);
+  });
+
+  test('comparing an object with > says to call a method', () => {
+    const s = spec('anatomy', 'players');
+    const start = javaModel.init(s).files[0].text;
+    const r = withEdits(s, { 'Main.java': start.replace('ada.takeDamage(30);', 'boolean more = ada > 5;') });
+    expect(r.last?.errors?.[0].help).toBe('> compares numbers, but one side here is a Player. Call a method on it that gives back a number.');
   });
 
   test('renaming the parameters fixes Pet, but the step asks for this', () => {
@@ -141,6 +222,26 @@ describe('checks', () => {
     expect(noGuard.checks?.find((c) => c.id === 'withdraw')?.note).toBe('withdraw(51) from a balance of 50 should change nothing. Use an if.');
     const offByOne = withEdits(s, { 'BankAccount.java': done.replace('amount <= balance', 'amount < balance') });
     expect(offByOne.checks?.find((c) => c.id === 'withdraw')?.note).toBe('withdraw(50) from a balance of 50 should leave 0. You can take out all of it.');
+  });
+
+  test('step 6 asks for plays = 0 even though the default matches', () => {
+    const s = spec('fields-ctor', 'song');
+    const r = withEdits(s, { 'Song.java': 'public class Song {\n  private String title;\n  private String artist;\n  private int plays;\n\n  public Song(String songTitleIn, String songArtistIn) {\n    title = songTitleIn;\n    artist = songArtistIn;\n  }\n}\n' });
+    expect(r.checks?.find((c) => c.id === 'sets')?.note).toBe('Java starts plays at 0 on its own, but write plays = 0; anyway, so your code says what you mean.');
+  });
+
+  test('BankAccount constructor parameters end in In', () => {
+    const s = spec('scratch', 'bank');
+    const done = (javaClassesSolution.scratch.moves![0] as { input: { code: string } }).input.code;
+    const r = withEdits(s, { 'BankAccount.java': done.replace('String ownerIn, int balanceIn', 'String who, int start').replace('owner = ownerIn', 'owner = who').replace('balance = balanceIn', 'balance = start') });
+    expect(r.checks?.find((c) => c.id === 'ctor')?.note).toBe("End each constructor parameter's name in In, as in ownerIn.");
+  });
+
+  test('step 1 stops at three printed lines', () => {
+    const s = spec('why', 'loose');
+    const main = javaModel.init(s).files.find((f) => f.name === 'Main.java')!.text;
+    const third = main.replace('System.out.println(', 'String n3 = "Linus";\n    int h3 = 90;\n    System.out.println(n3 + " has " + h3);\n    System.out.println(n3);\n    System.out.println(');
+    expect(withEdits(s, { 'Main.java': third }).checks?.[0].note).toBe('Main should print three lines, one for each player.');
   });
 
   test('a loop that never ends stops with a message, not a hang', () => {

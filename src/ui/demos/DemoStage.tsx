@@ -47,9 +47,9 @@ export function DemoStage({ session, inline = false }: { session: LabSession; in
         {demos.map((spec) => (
           <DemoCard key={`${step.id}/${spec.id}`} session={session} spec={spec} />
         ))}
-        {!demos.length && (
+        {!demos.length && !inline && (
           <div class="demo-empty muted">
-            <Icon name="book" size={18} /> Everything for this step is in the lesson on the left.
+            <Icon name="book" size={18} /> Everything for this step is in the lesson.
           </div>
         )}
       </div>

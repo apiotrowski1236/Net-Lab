@@ -26,7 +26,25 @@ export interface TraceVar {
   value: Shown;
 }
 
+/** Where a value lives in the step-through's picture. */
+export type Slot = { frame: number; name: string } | { obj: number; name: string };
+
+/** One thing the marked line does, in order. The step-through plays them on a loop. */
+export type Beat =
+  /** An expression worked out: its source, then values in place of names, then the result. */
+  | { k: 'eval'; steps: string[]; reads: Slot[] }
+  /** `hides`: the name here is a local, and the current object has an instance variable called the same thing. */
+  | { k: 'write'; name: string; to?: Slot; value: Shown; declares?: boolean; hides?: { kind: 'parameter' | 'local variable'; obj: number } }
+  | { k: 'new'; id: number; cls: string }
+  | { k: 'call'; name: string; text: string; frame: number; args: TraceVar[]; ctor: boolean }
+  | { k: 'return'; name: string; frame: number; value?: Shown; ctor: boolean }
+  | { k: 'branch'; kind: 'if' | 'loop' | 'each'; taken: boolean; hasElse?: boolean }
+  | { k: 'jump'; word: 'break' | 'continue' }
+  | { k: 'print'; text: string };
+
 export interface TraceFrame {
+  /** Tells apart two calls of one method. */
+  id: number;
   /** "main" or "Player.takeDamage". */
   label: string;
   vars: TraceVar[];
@@ -46,8 +64,8 @@ export interface TraceStep {
   objects: TraceObject[];
   /** How much of the output existed at this point. */
   outLen: number;
-  /** What the last line did, in a sentence. */
-  note?: string;
+  /** What running this line does, up to the next step. */
+  beats: Beat[];
 }
 
 export interface RunResult {
@@ -65,6 +83,7 @@ class Halt {
 }
 
 interface Frame {
+  id: number;
   m: MethodInfo | null;
   label: string;
   cls: string;
@@ -85,6 +104,31 @@ const MAX_DEPTH = 800;
 
 const toInt = (d: number) => (Number.isNaN(d) ? 0 : d >= 2147483647 ? 2147483647 : d <= -2147483648 ? -2147483648 : Math.trunc(d));
 const toLong = (d: number) => (Number.isNaN(d) ? 0 : Math.trunc(d));
+/** How tightly each operator binds, so an expression prints with the parentheses it needs. */
+const PREC: Record<string, number> = { '||': 1, '&&': 2, '|': 3, '^': 4, '&': 5, '==': 6, '!=': 6, '<': 7, '>': 7, '<=': 7, '>=': 7, '<<': 8, '>>': 8, '>>>': 8, '+': 9, '-': 9, '*': 10, '/': 10, '%': 10 };
+
+function precOf(e: Expr): number {
+  if (e.k === 'binary') return PREC[e.op] ?? 11;
+  if (e.k === 'instanceof') return 7;
+  if (e.k === 'cond') return 0;
+  if (e.k === 'unary' || e.k === 'cast') return 12;
+  return e.k === 'conv' ? precOf(e.e) : 14;
+}
+
+/** An expression about to run, as text. */
+interface Peek {
+  src: string;
+  sub: string;
+  reads: Slot[];
+}
+
+/** Reads and writes one variable. */
+interface Place {
+  get: () => unknown;
+  set: (v: unknown) => void;
+  slot?: Slot;
+}
+
 const hashHex = (id: number) => (Math.imul(id + 1, 0x9e3779b1) >>> 0).toString(16);
 
 function defaultOf(t: JType): unknown {
@@ -118,7 +162,8 @@ class Interp implements Rt {
   maxTrace: number;
   trace: TraceStep[] = [];
   traceCut = false;
-  notes: string[] = [];
+  beats: Beat[] = [];
+  frames = 0;
 
   constructor(
     private p: Program,
@@ -147,6 +192,7 @@ class Interp implements Rt {
   }
 
   print(s: string): void {
+    this.beat({ k: 'print', text: s });
     this.out.push(s);
     this.outLen += s.length;
     if (this.outLen > this.maxOutput) throw new Halt('output');
@@ -365,11 +411,12 @@ class Interp implements Rt {
     const objects: TraceObject[] = [...seen.values()]
       .map((v): TraceObject => {
         if (v instanceof JObj) {
-          const c = this.p.classes.get(v.cls)!;
+          // A plain `new Object()` has no class of the student's, and no fields.
+          const c = this.p.classes.get(v.cls);
           return {
             id: v.id,
             label: v.cls,
-            fields: [...c.fields.values()].filter((f) => !f.isStatic).map((f) => ({ name: f.name, value: this.shown(v.fields[f.name], f.type) })),
+            fields: [...(c?.fields.values() ?? [])].filter((f) => !f.isStatic).map((f) => ({ name: f.name, value: this.shown(v.fields[f.name], f.type) })),
           };
         }
         if (v instanceof JArr) return { id: v.id, label: `${this.typeLabel(v.elem)}[${v.items.length}]`, fields: v.items.map((x, i) => ({ name: String(i), value: this.shown(x, v.elem) })) };
@@ -378,22 +425,161 @@ class Interp implements Rt {
       })
       .sort((a, b) => a.id - b.id);
     const frames: TraceFrame[] = this.stack.map((f) => ({
+      id: f.id,
       label: f.label,
       vars: [
         ...(f.self ? [{ name: 'this', value: { t: 'ref', id: f.self.id } as Shown }] : []),
         ...f.names.flatMap((name, i) => (shownSlot(f, i) ? [{ name, value: this.shown(f.slots[i], this.typeOfSlot(f, i)) }] : [])),
       ],
     }));
-    this.trace.push({ file, line, frames, objects, outLen: this.outLen, note: this.notes.join(' ') || undefined });
-    this.notes = [];
+    this.closeStep();
+    this.trace.push({ file, line, frames, objects, outLen: this.outLen, beats: [] });
+  }
+
+  /** Whatever happened since the last step is what that step's line did. */
+  closeStep(): void {
+    if (this.trace.length) this.trace[this.trace.length - 1].beats = this.beats;
+    this.beats = [];
   }
 
   private typeLabel(t: JType): string {
     return t.k === 'class' ? t.name : t.k === 'array' ? `${this.typeLabel(t.of)}[]` : t.k;
   }
 
-  private note(s: string): void {
-    if (this.tracing) this.notes.push(s);
+  private beat(b: Beat): void {
+    if (this.tracing) this.beats.push(b);
+  }
+
+  /** A value as text, the way the step-through labels it. Never calls the student's toString. */
+  private label(v: unknown, t: JType | undefined): string {
+    if (v instanceof JObj) return `${v.cls} #${v.id}`;
+    if (v instanceof JArr) return `${this.typeLabel(v.elem)}[${v.items.length}] #${v.id}`;
+    if (v instanceof JList) return `ArrayList #${v.id}`;
+    if (v === null) return 'null';
+    const s = this.shown(v, t);
+    return s.t === 'value' ? s.text : 'a value';
+  }
+
+  /** True when an expression can be shown before it runs: it enters no method and changes nothing. */
+  private plain(e: Expr): boolean {
+    switch (e.k) {
+      case 'lit':
+      case 'name':
+      case 'this':
+        return true;
+      case 'field':
+        return this.plain(e.target);
+      case 'index':
+        return this.plain(e.target) && this.plain(e.index);
+      case 'unary':
+      case 'conv':
+      case 'cast':
+      case 'instanceof':
+        return this.plain(e.e);
+      case 'binary':
+        return this.plain(e.a) && this.plain(e.b);
+      case 'cond':
+        return this.plain(e.c) && this.plain(e.a) && this.plain(e.b);
+      case 'call':
+        return !!e.lib && (!e.target || this.plain(e.target)) && e.args.every((a) => this.plain(a));
+      default:
+        return false;
+    }
+  }
+
+  /** What a name, `this`, or `a.b` holds right now, without running anything. */
+  private held(e: Expr): unknown {
+    const f = this.stack[this.stack.length - 1];
+    if (e.k === 'this') return f.self;
+    if (e.k === 'name' && e.ref?.to === 'local') return f.slots[e.ref.slot];
+    if (e.k === 'name' && e.ref?.to === 'field') return f.self?.fields[e.name];
+    if (e.k === 'name' && e.ref?.to === 'static') return this.statics.get(`${e.ref.f.owner}.${e.ref.f.name}`);
+    if (e.k === 'field' && e.ref?.to === 'field') {
+      const o = this.held(e.target);
+      return o instanceof JObj ? o.fields[e.name] : undefined;
+    }
+    return undefined;
+  }
+
+  /** Where a name or `a.b` lives, so the picture can light it up. */
+  private slotOf(e: Expr): Slot | undefined {
+    const f = this.stack[this.stack.length - 1];
+    if (e.k === 'name' && e.ref?.to === 'local') return { frame: f.id, name: e.name };
+    if (e.k === 'name' && e.ref?.to === 'field' && f.self) return { obj: f.self.id, name: e.name };
+    if (e.k === 'field' && e.ref?.to === 'field') {
+      const o = this.held(e.target);
+      if (o instanceof JObj) return { obj: o.id, name: e.name };
+    }
+    return undefined;
+  }
+
+  /** An expression as source text, or with `sub` as values in place of names. */
+  private exprText(e: Expr, sub: boolean, reads: Slot[]): string {
+    const go = (x: Expr) => this.exprText(x, sub, reads);
+    const inner = (x: Expr, p: number, right = false) => {
+      const q = precOf(x);
+      return q < p || (right && q === p) ? `(${go(x)})` : go(x);
+    };
+    switch (e.k) {
+      case 'lit':
+        if (e.lit === 'string') return JSON.stringify(e.value);
+        if (e.lit === 'char') return `'${typeof e.value === 'number' ? String.fromCharCode(e.value) : e.value}'`;
+        return e.lit === 'double' ? this.show(e.value, { k: 'double' }) : String(e.value);
+      case 'this':
+        return 'this';
+      case 'name':
+      case 'field': {
+        const v = sub ? this.held(e) : undefined;
+        if (v !== undefined) {
+          const at = this.slotOf(e);
+          if (at) reads.push(at);
+          return this.label(v, e.ty);
+        }
+        return e.k === 'name' ? e.name : `${go(e.target)}.${e.name}`;
+      }
+      case 'index':
+        return `${inner(e.target, 14)}[${go(e.index)}]`;
+      case 'unary':
+        return `${e.op}${inner(e.e, 12)}`;
+      case 'conv':
+        return go(e.e);
+      case 'cast':
+        return `(${e.type.name}) ${inner(e.e, 12)}`;
+      case 'instanceof':
+        return `${inner(e.e, 7)} instanceof ${e.type.name}`;
+      case 'binary': {
+        const p = PREC[e.op] ?? 11;
+        return `${inner(e.a, p)} ${e.op} ${inner(e.b, p, true)}`;
+      }
+      case 'cond':
+        return `${inner(e.c, 1)} ? ${go(e.a)} : ${go(e.b)}`;
+      case 'call':
+        return `${e.target ? `${inner(e.target, 14)}.` : ''}${e.name}(${e.args.map(go).join(', ')})`;
+      default:
+        return '...';
+    }
+  }
+
+  private peek(e: Expr): Peek | undefined {
+    if (!this.tracing || !this.plain(e)) return undefined;
+    const reads: Slot[] = [];
+    return { src: this.exprText(e, false, reads), sub: this.exprText(e, true, reads), reads };
+  }
+
+  /** Adds the result to what `peek` saw, dropping steps that read the same. */
+  private evaluated(p: Peek | undefined, v: unknown, t: JType | undefined): void {
+    if (!p) return;
+    this.beat({ k: 'eval', steps: [...new Set([p.src, p.sub, this.label(v, t)])], reads: p.reads });
+  }
+
+  private wrote(target: Expr, p: Peek | undefined, at: Place, v: unknown): void {
+    if (!this.tracing) return;
+    const t = target.ty;
+    this.evaluated(p, v, t);
+    const f = this.stack[this.stack.length - 1];
+    const local = target.k === 'name' && target.ref?.to === 'local' ? target.ref.slot : undefined;
+    const hides = local !== undefined && target.k === 'name' && f.self && target.name in f.self.fields ? { kind: local < (f.m?.params.length ?? 0) ? ('parameter' as const) : ('local variable' as const), obj: f.self.id } : undefined;
+    this.beat({ k: 'write', name: this.exprText(target, false, []), to: at.slot, value: this.shown(v, t), ...(hides && { hides }) });
   }
 
   private enter(m: MethodInfo | null, cls: string, self: JObj | null, args: unknown[], label: string): Frame {
@@ -401,50 +587,52 @@ class Interp implements Rt {
     const names = m?.decl.slotNames ?? [];
     const slots = new Array<unknown>(names.length).fill(undefined);
     for (let i = 0; i < args.length; i++) slots[i] = args[i];
-    const f: Frame = { m, label, cls, self, slots, names, file: this.p.classes.get(cls)?.decl.file ?? '', line: m?.decl.pos.line ?? 0 };
+    const f: Frame = { id: ++this.frames, m, label, cls, self, slots, names, file: this.p.classes.get(cls)?.decl.file ?? '', line: m?.decl.pos.line ?? 0 };
     if (m && this.tracing) this.learnSlots(names, m.decl.body);
     this.stack.push(f);
     return f;
   }
 
-  call(m: MethodInfo, self: JObj | null, args: unknown[]): unknown {
-    this.enter(m, m.owner, self, args, m.isStatic ? m.name : `${m.owner}.${m.name}`);
+  /** The values going in, with `this` first, for the step-through. */
+  private entering(f: Frame, name: string, text: string, m: MethodInfo, args: unknown[], ctor: boolean): void {
+    if (!this.tracing) return;
+    const vars: TraceVar[] = args.map((v, i) => ({ name: f.names[i], value: this.shown(v, m.params[i]) }));
+    if (f.self) vars.unshift({ name: 'this', value: { t: 'ref', id: f.self.id } });
+    this.beat({ k: 'call', name, text, frame: f.id, args: vars, ctor });
+  }
+
+  /** `via`: how the code named the object, for the step-through: `ada`. */
+  call(m: MethodInfo, self: JObj | null, args: unknown[], via?: string): unknown {
+    const f = this.enter(m, m.owner, self, args, m.isStatic ? m.name : `${m.owner}.${m.name}`);
+    if (this.tracing) this.entering(f, m.name, `${via ? `${via}.` : ''}${m.name}(${args.map((a, i) => this.label(a, m.params[i])).join(', ')})`, m, args, false);
     try {
       const sig = this.block(m.decl.body, 0, true);
       if (sig !== RETURN) {
         this.tick(m.decl.body.endPos.file, m.decl.body.endPos.line);
+        this.beat({ k: 'return', name: m.name, frame: f.id, ctor: false });
         return undefined;
       }
       const v = this.ret;
       this.ret = undefined;
-      if (m.ret.k !== 'void') this.note(`${m.name}() gave back ${this.brief(v, m.ret)}.`);
+      if (this.tracing) this.beat({ k: 'return', name: m.name, frame: f.id, value: m.ret.k === 'void' ? undefined : this.shown(v, m.ret), ctor: false });
       return v;
     } finally {
       this.stack.pop();
     }
   }
 
-  /** A value in a caption. Never calls toString, which would run the student's code in the middle of a step. */
-  private brief(v: unknown, t: JType): string {
-    if (v === null) return 'null';
-    if (v instanceof JStr) return JSON.stringify(v.v);
-    if (v instanceof JObj) return `a ${v.cls} object`;
-    if (v instanceof JBox) return String(v.v);
-    return isPrimitive(t) ? this.show(v, t) : 'a value';
-  }
-
   private construct(cls: string, m: MethodInfo | undefined, args: unknown[]): JObj {
     const c = this.p.classes.get(cls) as UserClass;
     const o = new JObj(cls, this.nextId++);
     for (const f of c.fields.values()) if (!f.isStatic) o.fields[f.name] = defaultOf(f.type);
-    this.note(`new made an empty ${cls} object. Its instance variables start at their default values.`);
+    this.beat({ k: 'new', id: o.id, cls });
     this.runCtor(c, o, m, args);
-    this.note(`The constructor is done, so new gives back the ${cls} object.`);
     return o;
   }
 
   private runCtor(c: UserClass, o: JObj, m: MethodInfo | undefined, args: unknown[]): void {
-    this.enter(m ?? null, c.name, o, args, `${c.name} constructor`);
+    const f = this.enter(m ?? null, c.name, o, args, `${c.name} constructor`);
+    if (this.tracing && m) this.entering(f, c.name, `new ${c.name}(${args.map((a, i) => this.label(a, m.params[i])).join(', ')})`, m, args, true);
     try {
       const first = m?.decl.body.body[0];
       // this(...) hands off to another constructor, which runs the field initializers.
@@ -456,7 +644,13 @@ class Interp implements Rt {
         for (const f of c.fields.values()) {
           if (f.isStatic || !f.decl.init) continue;
           this.tick(f.decl.pos.file, f.decl.pos.line);
-          o.fields[f.name] = this.eval(f.decl.init);
+          const p = this.peek(f.decl.init);
+          const value = this.eval(f.decl.init);
+          o.fields[f.name] = value;
+          if (this.tracing) {
+            this.evaluated(p, value, f.type);
+            this.beat({ k: 'write', name: f.name, to: { obj: o.id, name: f.name }, value: this.shown(value, f.type) });
+          }
         }
       }
       if (m) {
@@ -464,6 +658,7 @@ class Interp implements Rt {
         if (sig !== RETURN) this.tick(m.decl.body.endPos.file, m.decl.body.endPos.line);
         this.ret = undefined;
       }
+      this.beat({ k: 'return', name: c.name, frame: f.id, value: { t: 'ref', id: o.id }, ctor: true });
     } finally {
       this.stack.pop();
     }
@@ -488,25 +683,40 @@ class Interp implements Rt {
     return sig;
   }
 
-  private stmt(s: Stmt): number {
+  /** `sameStep`: part of a line that is already a step, as a for loop's first clause is. */
+  private stmt(s: Stmt, sameStep = false): number {
     if (s.k === 'block') return this.block(s);
     if (s.k === 'empty') return NORMAL;
-    this.tick(s.pos.file, s.pos.line);
+    if (!sameStep) this.tick(s.pos.file, s.pos.line);
     const f = this.stack[this.stack.length - 1];
     switch (s.k) {
       case 'local':
         for (const v of s.vars) {
-          if (v.init) f.slots[v.slot!] = this.valueOf(v.init);
+          if (!v.init) continue;
+          const p = this.peek(v.init);
+          const value = this.valueOf(v.init);
+          f.slots[v.slot!] = value;
+          if (this.tracing) {
+            const t = v.ty ?? v.init.ty;
+            this.evaluated(p, value, t);
+            this.beat({ k: 'write', name: v.name, to: { frame: f.id, name: v.name }, value: this.shown(value, t), declares: true });
+          }
         }
         return NORMAL;
-      case 'expr':
+      case 'expr': {
+        // A call into the library, like list.add(x), has nothing else to show.
+        const p = s.e.k === 'call' && s.e.lib && !['print', 'println', 'printf'].includes(s.e.name) ? this.peek(s.e) : undefined;
         this.eval(s.e);
+        if (p) this.beat({ k: 'eval', steps: [...new Set([p.src, p.sub])], reads: p.reads });
         return NORMAL;
-      case 'if':
-        if (this.eval(s.c) as boolean) return this.stmt(s.a);
+      }
+      case 'if': {
+        const taken = this.test(s.c, 'if', !!s.b);
+        if (taken) return this.stmt(s.a);
         return s.b ? this.stmt(s.b) : NORMAL;
+      }
       case 'while':
-        while (this.eval(s.c) as boolean) {
+        while (this.test(s.c, 'loop')) {
           const sig = this.loopBody(s.body);
           if (sig === BREAK) break;
           if (sig === RETURN) return RETURN;
@@ -520,17 +730,17 @@ class Interp implements Rt {
           if (sig === BREAK) break;
           if (sig === RETURN) return RETURN;
           this.bump();
-          if (!(this.eval(s.c) as boolean)) break;
+          if (!this.test(s.c, 'loop')) break;
         }
         return NORMAL;
       case 'for': {
-        for (const i of s.init) this.stmt(i);
-        while (!s.c || (this.eval(s.c) as boolean)) {
+        for (const i of s.init) this.stmt(i, true);
+        while (!s.c || this.test(s.c, 'loop')) {
           const sig = this.loopBody(s.body);
           if (sig === BREAK) break;
           if (sig === RETURN) return RETURN;
-          for (const u of s.update) this.eval(u);
           if (this.tracing) this.record(s.pos.file, s.pos.line);
+          for (const u of s.update) this.eval(u);
           this.bump();
         }
         if (this.tracing && s.from !== undefined) for (let i = s.from; i < (s.to ?? s.from); i++) f.slots[i] = undefined;
@@ -552,20 +762,36 @@ class Interp implements Rt {
             v = (v as JBox).v;
           } else if (s.box) v = this.boxed(s.box, v as number | boolean);
           f.slots[s.slot!] = v;
+          if (this.tracing) {
+            this.beat({ k: 'branch', kind: 'each', taken: true });
+            this.beat({ k: 'write', name: s.name, to: { frame: f.id, name: s.name }, value: this.shown(v, this.typeOfSlot(f, s.slot!)) });
+          }
           const sig = this.loopBody(s.body);
-          if (sig === BREAK) break;
+          if (sig === BREAK) {
+            f.slots[s.slot!] = undefined;
+            return NORMAL;
+          }
           if (sig === RETURN) return RETURN;
+          if (this.tracing) this.record(s.pos.file, s.pos.line);
           this.bump();
         }
-        if (this.tracing) f.slots[s.slot!] = undefined;
+        if (this.tracing) {
+          this.beat({ k: 'branch', kind: 'each', taken: false });
+          f.slots[s.slot!] = undefined;
+        }
         return NORMAL;
       }
-      case 'return':
+      case 'return': {
+        const p = s.e && this.peek(s.e);
         this.ret = s.e ? this.valueOf(s.e) : undefined;
+        this.evaluated(p, this.ret, s.e?.ty);
         return RETURN;
+      }
       case 'break':
+        this.beat({ k: 'jump', word: 'break' });
         return BREAK;
       case 'continue':
+        this.beat({ k: 'jump', word: 'continue' });
         return CONTINUE;
       case 'throw': {
         const e = this.eval(s.e);
@@ -576,6 +802,17 @@ class Interp implements Rt {
         return NORMAL;
     }
     return NORMAL;
+  }
+
+  /** A condition, for the step-through as well as the program. */
+  private test(c: Expr, kind: 'if' | 'loop', hasElse?: boolean): boolean {
+    const p = this.peek(c);
+    const taken = this.eval(c) as boolean;
+    if (this.tracing) {
+      this.evaluated(p, taken, c.ty);
+      this.beat({ k: 'branch', kind, taken, hasElse });
+    }
+    return taken;
   }
 
   private bump(): void {
@@ -747,16 +984,16 @@ class Interp implements Rt {
   }
 
   /** Reads and writes one variable, so `x += 1` works out where x is only once. */
-  private place(t: Expr): { get: () => unknown; set: (v: unknown) => void } {
+  private place(t: Expr): Place {
     const frame = this.stack[this.stack.length - 1];
     if (t.k === 'name') {
       const r = t.ref!;
-      if (r.to === 'local') return { get: () => frame.slots[r.slot], set: (v) => (frame.slots[r.slot] = v) };
+      if (r.to === 'local') return { get: () => frame.slots[r.slot], set: (v) => (frame.slots[r.slot] = v), slot: { frame: frame.id, name: t.name } };
       if (r.to === 'static') {
         const key = `${r.f.owner}.${r.f.name}`;
         return { get: () => this.statics.get(key), set: (v) => this.statics.set(key, v) };
       }
-      if (r.to === 'field') return this.fieldPlace(frame.self!, r.f.name, r.f.type, r.f.owner);
+      if (r.to === 'field') return this.fieldPlace(frame.self!, r.f.name);
     }
     if (t.k === 'field') {
       const r = t.ref!;
@@ -768,7 +1005,7 @@ class Interp implements Rt {
       if (r.to === 'field') {
         // Java evaluates the right side before it notices a null here.
         const o = this.eval(t.target) as JObj | null;
-        if (o !== null) return this.fieldPlace(o, r.f.name, r.f.type, r.f.owner);
+        if (o !== null) return this.fieldPlace(o, r.f.name);
         const fail = (read: boolean) => this.npe(`Cannot ${read ? 'read' : 'assign'} field "${t.name}"${this.because(t.target)}`);
         return { get: () => fail(true), set: () => fail(false) };
       }
@@ -781,19 +1018,13 @@ class Interp implements Rt {
         if (i < 0 || i >= a.items.length) this.fail('ArrayIndexOutOfBoundsException', `Index ${i} out of bounds for length ${a.items.length}`);
         return a;
       };
-      return { get: () => check('load from').items[i], set: (v) => (check('store to').items[i] = v) };
+      return { get: () => check('load from').items[i], set: (v) => (check('store to').items[i] = v), slot: a ? { obj: a.id, name: String(i) } : undefined };
     }
     throw new Error('Not a variable');
   }
 
-  private fieldPlace(o: JObj, name: string, type: JType, owner: string) {
-    return {
-      get: () => o.fields[name],
-      set: (v: unknown) => {
-        o.fields[name] = v;
-        if (this.tracing) this.note(`${name} in this ${owner} is now ${this.brief(v, type)}.`);
-      },
-    };
+  private fieldPlace(o: JObj, name: string): Place {
+    return { get: () => o.fields[name], set: (v) => (o.fields[name] = v), slot: { obj: o.id, name } };
   }
 
   private concat(a: unknown, ta: JType, b: unknown, tb: JType): JStr {
@@ -881,6 +1112,11 @@ class Interp implements Rt {
         const d = e.op === '++' ? 1 : -1;
         const next = t.k === 'double' || (boxedT && boxedT.box === 'Double') ? was + d : t.k === 'long' ? was + d : t.k === 'char' ? (was + d) & 0xffff : (was + d) | 0;
         p.set(boxedT ? this.boxed(boxedT.box, next) : next);
+        if (this.tracing) {
+          const name = this.exprText(e.e, false, []);
+          this.beat({ k: 'eval', steps: [`${name} ${e.op[0]} 1`, `${this.label(old, t)} ${e.op[0]} 1`, this.label(next, t)], reads: p.slot ? [p.slot] : [] });
+          this.beat({ k: 'write', name, to: p.slot, value: this.shown(next, t) });
+        }
         return e.prefix ? (boxedT ? this.boxed(boxedT.box, next) : next) : old;
       }
       case 'binary':
@@ -888,11 +1124,14 @@ class Interp implements Rt {
       case 'assign': {
         if (e.op === '=') {
           const p = this.place(e.target);
+          const seen = this.peek(e.value);
           const v = this.eval(e.value);
           p.set(v);
+          this.wrote(e.target, seen, p, v);
           return v;
         }
         const p = this.place(e.target);
+        const seen = this.peek({ k: 'binary', op: e.op.slice(0, -1), a: e.target, b: e.value, pos: e.pos });
         const old = p.get();
         const b = this.eval(e.value);
         const op = e.op.slice(0, -1);
@@ -906,6 +1145,7 @@ class Interp implements Rt {
           v = box ? this.boxed(box, r) : this.castNum(r, t);
         }
         p.set(v);
+        this.wrote(e.target, seen, p, v);
         return v;
       }
       case 'cond':
@@ -1016,7 +1256,7 @@ class Interp implements Rt {
       } else if (e.target && !(e.target.k === 'name' && e.target.ref?.to === 'class')) this.eval(e.target);
       const args = e.args.map((a) => this.eval(a));
       frame.line = e.pos.line;
-      return this.call(m, self, args);
+      return this.call(m, self, args, this.tracing && e.target ? this.exprText(e.target, false, []) : undefined);
     }
     const m = e.lib!;
     let self: unknown = null;
@@ -1025,7 +1265,9 @@ class Interp implements Rt {
       else self = frame.self;
       if (self === null) this.npe(`Cannot invoke "${this.callSig(e)}"${e.target ? this.because(e.target) : ''}`);
     }
+    const seen = e.args.length === 1 && (e.name === 'print' || e.name === 'println') ? this.peek(e.args[0]) : undefined;
     const args = e.args.map((a) => this.eval(a));
+    this.evaluated(seen, args[0], e.args[0]?.ty);
     frame.line = e.pos.line;
     if (self instanceof JExc && m.owner === 'Object') return m.run(self, args, this);
     return m.run(self, args, this);
@@ -1066,7 +1308,10 @@ export function runProgram(p: Program, opts: RunOptions = {}): RunResult {
   const main = findMain(p, opts.mainClass);
   if (!main) return { output: '', status: 'no-main' };
   const it = new Interp(p, opts);
-  const done = (r: Omit<RunResult, 'output' | 'trace'>): RunResult => ({ ...r, output: it.out.join(''), trace: opts.trace ? it.trace : undefined, traceCut: it.traceCut || undefined });
+  const done = (r: Omit<RunResult, 'output' | 'trace'>): RunResult => {
+    if (opts.trace) it.closeStep();
+    return { ...r, output: it.out.join(''), trace: opts.trace ? it.trace : undefined, traceCut: it.traceCut || undefined };
+  };
   try {
     it.init();
     it.call(main, null, [new JArr(STRING, [], 0)]);
