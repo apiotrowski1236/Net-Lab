@@ -14,6 +14,7 @@ import type { FlowInfo, IdsEventBody, IdsState } from './ids';
 import type { DhcpMessage, DhcpState } from './dhcp';
 import type { NatEntry, NatNote, NatState } from './nat';
 import type { CaptureRun } from './capture';
+import type { Socket, TermRun } from './terminal';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -168,7 +169,8 @@ export interface Device {
   impersonate?: WebSite;
   dnsZone?: Record<string, Ip>;
   dnsCache: Record<string, Ip>;
-  dnsPending: Record<number, { name: string; reqId: number }>;
+  /** Names this device asked its DNS server about. `term` is the terminal run waiting for the answer (see terminal.ts). */
+  dnsPending: Record<number, { name: string; reqId: number; term?: number }>;
   /** A recursive resolver's cache, pending lookups, and defenses (see src/sim/dns.ts). */
   resolver?: DnsResolver;
   sniffing: boolean;
@@ -224,6 +226,10 @@ export interface Device {
   nat?: NatState;
   /** The capture started with Sim.startCapture: numbered from 1, timed from Start (see capture.ts). */
   captureRun?: CaptureRun;
+  /** Commands typed in this computer's terminal, newest last (see terminal.ts and Sim.runCommand). */
+  term?: TermRun[];
+  /** Connections this computer holds open, for netstat (see terminal.ts). */
+  sockets?: Socket[];
 }
 
 // ---------------------------------------------------------------------------
@@ -269,13 +275,26 @@ export type AppData =
       certName: string | null;
     }
   | { kind: 'dns-query'; name: string; qid: number }
-  | { kind: 'dns-answer'; name: string; ip: Ip | null; qid: number }
+  /**
+   * `aa`: the server holds this name's record itself (it is authoritative), so
+   * nslookup prints no "Non-authoritative answer" line. `ptr`: the name, in an
+   * answer to a reverse lookup (a question about an address, see terminal.ts).
+   */
+  | { kind: 'dns-answer'; name: string; ip: Ip | null; qid: number; aa?: boolean; ptr?: string }
   /**
    * A connection to a service on a port (see services.ts). `app` is the program
    * really speaking. A reply says whether a service answered ('open') or nothing
    * listens there ('closed'). `conn` is 0 on a packet that belongs to no real connection.
    */
-  | { kind: 'svc'; conn: number; app: string; reply: boolean; status?: 'open' | 'closed'; text?: string };
+  | { kind: 'svc'; conn: number; app: string; reply: boolean; status?: 'open' | 'closed'; text?: string }
+  /**
+   * An ICMP error a router sends back to a packet's sender (SimOptions.icmpErrors).
+   * 'time-exceeded': the packet's TTL ran out here, which is how traceroute finds
+   * each router. `seq` and `orig` copy the echo request it answers, as the real
+   * message carries the start of the packet that died (NAT uses them to find
+   * who inside sent it).
+   */
+  | { kind: 'icmp-error'; error: 'time-exceeded'; seq: number; orig: { src: Ip; dst: Ip } };
 
 export interface IpPacket {
   src: Ip;
@@ -341,6 +360,12 @@ export interface Link {
   capacityPps?: number;
   /** A cable built into one box (a home router's switch and its router part). Students can't unplug it, and the map draws no port tags on it. */
   fixed?: boolean;
+  /**
+   * How long a packet takes to cross this link in the real world, in ms, for
+   * the times ping and traceroute print (see terminal.ts). The animation's own
+   * timing (SimOptions.linkMs) is much slower. Missing: a short local cable.
+   */
+  ms?: number;
 }
 
 export interface InFlight {
@@ -407,7 +432,7 @@ export type SimEvent = (
   | { t: number; type: 'page'; device: string; browser: BrowserState }
   | { t: number; type: 'dns-answer'; device: string; name: string; ip: Ip | null }
   /** `count` is how many replies arrived at once (an amplified broadcast reply burst; see broadcast.ts). */
-  | { t: number; type: 'ping-reply'; device: string; from: Ip; seq?: number; count?: number }
+  | { t: number; type: 'ping-reply'; device: string; from: Ip; seq?: number; count?: number; ttl?: number }
   /** `from` is the source address written on the request (forged when `forged`); `count` is the size of a burst. */
   | { t: number; type: 'ping-sent'; device: string; to: Ip; seq: number; from?: Ip; forged?: boolean; count?: number }
   /** A ping from `device` got no reply: dropped at `at` (with the reason), or timed out. */
@@ -456,7 +481,9 @@ export type SimEvent = (
    * A NAT router rewrote a packet (see nat.ts): 'out' gave it the shared
    * address, 'in' put back the inside address. `who` is the inside device's id.
    */
-  | { t: number; type: 'nat'; device: string; what: 'out' | 'in'; entry: NatEntry; publicIp: Ip; who?: string; pkt: IpPacket }) & {
+  | { t: number; type: 'nat'; device: string; what: 'out' | 'in'; entry: NatEntry; publicIp: Ip; who?: string; pkt: IpPacket }
+  /** A command typed in `device`'s terminal finished: every answer is in, or the waits ran out (see terminal.ts). */
+  | { t: number; type: 'term-done'; device: string; run: TermRun }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */
   quiet?: boolean;
 };

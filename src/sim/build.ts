@@ -199,14 +199,16 @@ export class NetBuilder {
   /**
    * `tunnel` marks a VPN tunnel (drawn dashed and labeled; see vpn.ts) instead of a cable. `capacity` is the link's
    * packets per second (see congestion.ts). `fixed` is a cable built into one box: students can't unplug it.
+   * `ms` is the real-world one-way time across it, for ping and traceroute times (see terminal.ts).
    */
-  link(a: End, b: End, opts: { wireless?: boolean; tunnel?: boolean; capacity?: number; fixed?: boolean } = {}): this {
+  link(a: End, b: End, opts: { wireless?: boolean; tunnel?: boolean; capacity?: number; fixed?: boolean; ms?: number } = {}): this {
     const id = `L${this.linkSeq++}`;
     const ea = this.endpoint(a, id);
     const eb = this.endpoint(b, id);
     this.sim.links[id] = { id, a: ea, b: eb, wireless: opts.wireless, capacityPps: opts.capacity };
     if (opts.tunnel) this.sim.links[id].tunnel = true;
     if (opts.fixed) this.sim.links[id].fixed = true;
+    if (opts.ms !== undefined) this.sim.links[id].ms = opts.ms;
     return this;
   }
 

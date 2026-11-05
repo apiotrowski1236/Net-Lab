@@ -58,7 +58,7 @@ function Zones({ zones }: { zones: MapZone[] }) {
           <g key={z.id} class={cls}>
             {s.kind === 'rect' ? <rect x={s.x} y={s.y} width={s.w} height={s.h} rx={14} /> : <circle cx={s.cx} cy={s.cy} r={s.r} />}
             {z.label && (
-              <text class="zone-label" x={s.kind === 'rect' ? s.x + 12 : s.cx} y={s.kind === 'rect' ? s.y + 20 : s.cy - s.r + 18} text-anchor={s.kind === 'rect' ? 'start' : 'middle'}>
+              <text class="zone-label" x={s.kind === 'rect' ? s.x + 12 : s.cx} y={s.kind === 'rect' ? (z.labelAt === 'bottom' ? s.y + s.h - 10 : s.y + 20) : s.cy - s.r + 18} text-anchor={s.kind === 'rect' ? 'start' : 'middle'}>
                 {z.label}
               </text>
             )}
@@ -121,6 +121,7 @@ function markerFor(
   capturedAt: Set<string>,
   macName?: (mac: string) => string | undefined,
   devName?: (id: string) => string | undefined,
+  icmpErrors = false,
 ): Omit<Marker, 't' | 'life'> | null {
   if (e.quiet) return null;
   switch (e.type) {
@@ -161,6 +162,8 @@ function markerFor(
       if (e.reason === 'firewall') return null;
       // Say where the packet was going: a request and its reply look the same otherwise.
       if (e.reason === 'no-route' && e.pkt?.dst) return { device: e.device, text: `no route to ${e.pkt.dst}: dropped`, tone: 'bad' };
+      // With icmpErrors on, the router answers "time exceeded": that's how traceroute works, not a fault.
+      if (e.reason === 'ttl' && icmpErrors) return { device: e.device, text: 'TTL hit 0: time exceeded', tone: 'warn' };
       return { device: e.device, text: why[e.reason] ?? 'dropped', tone: 'bad' };
     }
     case 'arp-update':
@@ -267,7 +270,7 @@ function recentMarkers(sim: Sim, since = 0, learn = false): Marker[] {
     const fail = e.type === 'drop' || e.type === 'ping-fail';
     const life = fail ? FAIL_MARKER_MS : MARKER_MS;
     if (age > life) continue;
-    const m = markerFor(e, captured, macName, (id) => sim.devices[id]?.label);
+    const m = markerFor(e, captured, macName, (id) => sim.devices[id]?.label, sim.opts.icmpErrors);
     if (m && fail && (changed.get(m.device) ?? -1) > e.t) continue;
     const group = m?.merge && merged.get(`${m.device}|${m.merge.key}`);
     if (m?.merge && group) {
@@ -569,6 +572,7 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
   const devices = Object.values(sim.devices);
   // Labs where students build the network (port labels on) show what the switch learns.
   const markers = recentMarkers(sim, since, !!opts?.ports);
+  const stackY = new Map<string, number>();
   const hover = hoverDevice.value;
   const lines = new Map(devices.map((d) => [d.id, sublines(d, opts?.addresses)]));
   // Leave room for routers with more than one address line (the layout stays put as addresses change).
@@ -867,14 +871,18 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
           <Packet key={`${f.frame.id}-${f.linkId}-${f.depart}`} sim={sim} f={f} />
         ))}
 
-        {markers.map((m, i) => {
+        {markers.map((m) => {
           const d = sim.devices[m.device];
           const age = (sim.t - m.t) / m.life;
-          const stack = markers.slice(0, i).filter((o) => o.device === m.device).length;
+          // Newest at the bottom. Each older tag drifts up, but stays a full tag clear of
+          // the one under it (a failure tag lives longer, so it drifts slower).
+          const below = stackY.get(m.device);
+          const y = below === undefined ? -46 - age * 14 : Math.min(-46 - age * 14, below - 26);
+          stackY.set(m.device, y);
           return (
             <g
               key={`${m.device}-${m.text}-${m.t}`}
-              transform={`translate(${d.x},${d.y - 46 - stack * 24 - age * 14})`}
+              transform={`translate(${d.x},${d.y + y})`}
               opacity={Math.min(1, 1.6 * (1 - age))}
               class={`marker ${m.tone}`}
             >

@@ -17,11 +17,13 @@ import { logDevices, LogsView } from './LogsView';
 import { type Cabling, NetworkCanvas } from './NetworkCanvas';
 import { Summary } from './Summary';
 import { TopBar } from './TopBar';
+import { termBig, termHeld } from './tools/Terminal';
 
 type Tab = 'inspect' | 'capture' | 'tools' | 'logs';
 
 /** The one-column layout (styles.css, max-width 900px): the lesson on top, the stage under it. */
 const NARROW = '(max-width: 900px)';
+const smoothScroll = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 function useNarrow(): boolean {
   const [narrow, setNarrow] = useState(() => matchMedia(NARROW).matches);
   useEffect(() => {
@@ -253,6 +255,44 @@ function Dock({
   const tools = session.tools.filter((t) => !(TAB_TOOLS as readonly string[]).includes(t.kind) && !(CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const captureTools = session.tools.some((t) => (CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const capDev = lab.captureDevice ? session.sim.devices[lab.captureDevice] : undefined;
+  // A terminal command is running, or a lesson button set the network moving: Bigger gives the map
+  // its room back until it's done. After a button, a moment more, so its last packet and tag can be
+  // seen landing. After a command, the output is what matters: the Terminal grows back at once.
+  const sim = session.sim;
+  const termMax = tab === 'tools' && termBig.value && tools.some((t) => t.kind === 'terminal');
+  const lastRuns = Object.values(sim.devices).flatMap((d) => (d.term?.length ? [d.term[d.term.length - 1]] : []));
+  const cmdBusy = termMax && lastRuns.some((r) => r.doneAt === undefined);
+  const pressed = session.lastRun.value;
+  const btnBusy =
+    termMax &&
+    !cmdBusy &&
+    !!pressed &&
+    pressed.step === session.step.id &&
+    lastRuns.every((r) => r.t <= pressed.t) &&
+    (!sim.idle || sim.inflight.length > 0 || sim.t - pressed.t < 1500);
+  const [hold, setHold] = useState(false);
+  useEffect(() => {
+    if (btnBusy) return setHold(true);
+    const id = setTimeout(() => setHold(false), 1500);
+    return () => clearTimeout(id);
+  }, [btnBusy]);
+  // The network's last quiet timer doesn't redraw anything: look again until it's done.
+  const [, recheck] = useState(0);
+  useEffect(() => {
+    if (!cmdBusy && !btnBusy) return;
+    const id = setInterval(() => recheck((n) => n + 1), 300);
+    return () => clearInterval(id);
+  }, [cmdBusy || btnBusy]);
+  const held = termMax && (cmdBusy || btnBusy || hold);
+  useEffect(() => {
+    termHeld.value = held;
+  }, [held]);
+  // Bigger stays on through steps at the same Terminal (a scan, then a closer look at it), and
+  // goes back to the usual size when the Terminal moves to another computer or another lab.
+  const termAt = tools.flatMap((t) => (t.kind === 'terminal' ? t.devices : [])).join();
+  useEffect(() => {
+    termBig.value = false;
+  }, [lab.id, termAt]);
   const logIds = logDevices(session);
   const logLines = logIds.reduce((n, id) => n + session.sim.devices[id].logs.length, 0);
   const seenLogs = useRef(logLines);
@@ -300,7 +340,8 @@ function Dock({
   if (tab === 'tools') for (const k of keys) seenTools.current.add(k);
   return (
     // A Wireshark-style lab (packet-capture) lives in the Capture tab: give its packet list more room.
-    <div class={`dock ${lab.wireshark && tab === 'capture' ? 'dock-tall' : ''}`}>
+    // So does a terminal in the Toolkit (net-tools): its output needs the lines.
+    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${termMax ? `dock-max ${held ? 'dock-busy' : ''}` : ''}`}>
       <div class="dock-tabs" role="tablist">
         <button
           role="tab"
@@ -331,7 +372,7 @@ function Dock({
       <div class="dock-body" ref={body} onScroll={measure}>
         {tab === 'inspect' && <Inspector session={session} deviceId={selected} />}
         {tab === 'capture' && capDev && <CaptureView session={session} deviceId={capDev.id} />}
-        {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} inCapture={captureTools} />}
+        {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} inCapture={captureTools} selected={selected} />}
         {tab === 'logs' && <LogsView session={session} />}
       </div>
       {more && (
@@ -445,7 +486,11 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
       <div class="player-body">
         <LessonPanel
           session={session}
-          onDevice={(id) => open(id, true)}
+          onDevice={(id) => {
+            open(id, true);
+            // On a narrow screen the map and its Dock sit below the lesson: bring them up, so the tap shows something.
+            if (narrow) requestAnimationFrame(() => document.querySelector('.stage-col')?.scrollIntoView({ block: 'start', behavior: smoothScroll() }));
+          }}
           narrow={narrow}
           demos={inlineDemos ? <DemoStage session={session} inline /> : undefined}
         />

@@ -125,7 +125,7 @@ async function settle(limit = 120000) {
   const end = Date.now() + limit;
   let quietSince = 0;
   while (Date.now() < end) {
-    const busy = await page.evaluate(() => document.querySelectorAll('g.packet').length + document.querySelectorAll('.action-outcome li.wait, .ping-log li.wait').length);
+    const busy = await page.evaluate(() => document.querySelectorAll('g.packet').length + document.querySelectorAll('.action-outcome li.wait, .ping-log li.wait, .term-wait').length);
     if (busy) quietSince = 0;
     else if (!quietSince) quietSince = Date.now();
     else if (Date.now() - quietSince > 1000) return true;
@@ -174,7 +174,8 @@ async function doMove(i, step, m) {
   } else if ('press' in m) {
     const def = step.actions?.find((a) => a.id === m.press);
     if (!def) throw new Error(`No button ${m.press}`);
-    await page.locator('.actions .btn.action', { hasText: def.label }).click();
+    // The button sits in the instructions ([[button:id]]) or in the row under them.
+    await page.locator('.lesson .btn.action', { hasText: def.label }).first().click();
     log(`  press "${def.label}"`);
   } else if ('tool' in m) {
     const a = m.tool;
@@ -191,6 +192,23 @@ async function doMove(i, step, m) {
       await card.locator('input').fill(a.ip);
       await card.getByRole('button', { name: 'Ping' }).click();
       log(`  ping ${a.ip} from ${labels[a.device]}`);
+    } else if (a.type === 'term') {
+      await tab('Toolkit');
+      const card = page.locator('.term-card').first();
+      const pick = card.locator('.term-at select');
+      if (await pick.count()) await pick.selectOption({ label: labels[a.device] });
+      else {
+        const at = (await card.locator('.term-at b').innerText()).trim();
+        if (at !== labels[a.device]) await fail(i, `the Terminal sits at ${at}, not ${labels[a.device]}`);
+      }
+      const input = card.locator('.term-input');
+      await input.fill(a.line);
+      await input.press('Enter');
+      await page.waitForTimeout(150);
+      // A line the terminal turned away prints only on screen: say what it said.
+      const last = card.locator('.term-entry').last();
+      if ((await last.getAttribute('data-local')) !== null) await fail(i, `the Terminal turned away "${a.line}": ${(await last.innerText()).replace(/\s+/g, ' ')}`);
+      log(`  ${a.device}> ${a.line}`);
     } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doMove.`);
   } else if ('filter' in m) {
     await tab('Capture');
@@ -247,6 +265,10 @@ try {
     // A new step's question cards reset their text after the first paint. A
     // lesson step has no moves to wait on, so give them that moment.
     await page.waitForTimeout(300);
+    // EACH=1 saves the live app as each step opens, to check the map between steps.
+    if (process.env.EACH) {
+      await page.screenshot({ path: join(OUT, `step-${String(i + 1).padStart(2, '0')}-${step.id}.png`) });
+    }
     if (step.kind === 'submit') break;
     // The model session plays each move too, so openFrame knows its row.
     for (const m of sol[step.id]?.moves ?? []) {

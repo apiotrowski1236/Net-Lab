@@ -16,7 +16,7 @@ export function protoOf(f: Frame): Proto {
   // A bare Ethernet frame with nothing inside (MAC flooding sends these).
   if (!f.ip) return 'ETH';
   const ip = f.ip;
-  if (ip.app.kind === 'ping') return 'PING';
+  if (ip.app.kind === 'ping' || ip.app.kind === 'icmp-error') return 'PING';
   if (ip.app.kind === 'dns-query' || ip.app.kind === 'dns-answer') return 'DNS';
   if (ip.app.kind === 'svc') return SVC_PROTO[ip.app.app] ?? 'TCP';
   return ip.encrypted ? 'HTTPS' : 'HTTP';
@@ -137,6 +137,8 @@ function infoOfOne(f: Frame): string {
   switch (ip.app.kind) {
     case 'ping':
       return ip.app.reply ? 'Echo (ping) reply' : 'Echo (ping) request';
+    case 'icmp-error':
+      return 'Time-to-live exceeded';
     case 'http-req':
       return `${ip.app.method} ${ip.app.path}${ip.app.body ? `  ${ip.app.body}` : ''}`;
     case 'http-res':
@@ -326,6 +328,17 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
   switch (app.kind) {
     case 'ping':
       layers.push({ title: 'Ping', color: LAYER_COLOR.PING, ws: WS.icmp, rows: [['Type', app.reply ? 'Echo reply' : 'Echo request']] });
+      break;
+    case 'icmp-error':
+      layers.push({
+        title: 'ICMP error',
+        color: LAYER_COLOR.PING,
+        ws: WS.icmp,
+        rows: [
+          ['Type', 'Time exceeded (TTL ran out here)'],
+          ['About the ping', `from ${app.orig.src} to ${app.orig.dst}`],
+        ],
+      });
       break;
     case 'http-req':
       layers.push({

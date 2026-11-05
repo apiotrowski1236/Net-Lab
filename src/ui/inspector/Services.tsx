@@ -32,8 +32,21 @@ export function ServicesSection({ dev }: InspectorSectionProps) {
                   {s.port}
                   <span class="muted"> {s.proto.toUpperCase()}</span>
                 </td>
-                <td>{appName(s.app)}</td>
-                <td class="small">{s.banner ?? (portInfo(s.port, s.proto)?.app === s.app ? portInfo(s.port, s.proto)?.what : '')}</td>
+                {s.program ? (
+                  // A lab that names the program (net-tools): its banner is the version nmap -sV reports.
+                  <>
+                    <td class="mono small">{s.banner ?? s.program}</td>
+                    <td class="small">
+                      {appName(s.app)}
+                      {portInfo(s.port, s.proto)?.app === s.app ? `: ${portInfo(s.port, s.proto)?.what}` : ''}
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>{appName(s.app)}</td>
+                    <td class="small">{s.banner ?? (portInfo(s.port, s.proto)?.app === s.app ? portInfo(s.port, s.proto)?.what : '')}</td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
