@@ -82,7 +82,8 @@ export function Guide({ lab }: { lab: LabDef }) {
 
       <header class="guide-head">
         <div class="eyebrow">
-          {isLesson(lab) ? 'Lesson guide' : 'Lab guide'} · Unit {lab.unit}
+          {isLesson(lab) ? 'Lesson guide' : 'Lab guide'}
+          {lab.unit !== 0 && ` · Unit ${lab.unit}`}
         </div>
         <h1>{lab.title}</h1>
         <p class="guide-tagline">{lab.tagline}</p>
