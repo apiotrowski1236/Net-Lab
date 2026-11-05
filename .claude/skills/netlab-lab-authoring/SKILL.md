@@ -54,6 +54,7 @@ Register the lab in `src/labs/index.ts`: import it, put it in `LABS` in CED orde
 - Where the sim simplifies, say so once, in one sentence. Example: "(The map draws this print job as one packet, to keep it clear.)"
 - Attack labs say once, early: "Everything in this lab happens inside a simulation. ... on a real network without permission is illegal."
 - Scan before committing. Grep student text for `—`, ` just `, `simply`, `easy`, `obviously`, `easier`, and emoji.
+- Run `/avoid-ai-writing` on the student-facing text every time you use this skill. Use its `docs` context. Where it disagrees with this Voice section, this section wins: short sentences and bold terms and button names stay.
 - Watch apostrophes inside single-quoted strings: `'the family's'` breaks the build. Use double quotes for those strings.
 
 ## Determinism and replay
