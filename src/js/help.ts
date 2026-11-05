@@ -162,6 +162,13 @@ export function explainSyntax(e: Omit<JsError, 'help'>, seen: Token[], at: Token
     if (at.t === 'id' && prev.t === 'id' && (before[before.length - 2]?.v === 'let' || before[before.length - 2]?.v === 'const' || before[before.length - 2]?.v === 'var')) {
       return { code: 'name-with-space', help: `A variable name can't have a space in it. Join the words, like ${prev.v}${at.v[0].toUpperCase()}${at.v.slice(1)}.` };
     }
+    // `{1, 2, 3}`: the first value sits where an object wants a name and a colon.
+    if (top?.v === '{' && prev === top && (at.t === 'num' || at.t === 'str') && before[before.indexOf(top) - 1]?.v !== ')') {
+      return { code: 'braces-for-array', help: 'Curly braces make an object, not an array. An array goes in square brackets, like [1, 2, 3].' };
+    }
+    if (top?.v === '[' && at.t === 'id' && prev.t === 'id') {
+      return { code: 'missing-quotes', help: `Text needs quote marks around it: "${prev.v} ${at.v}". Two separate items need a comma between them.` };
+    }
     const inside = top?.v === '[' ? 'items in an array' : top?.v === '{' && before[before.indexOf(top) - 1]?.v !== ')' ? 'parts of an object' : '';
     if (inside) return { code: 'missing-comma', help: `The ${inside} need a comma between them.` };
     if (at.pos.line === prev.pos.line) return { code: 'side-by-side', help: `Two values sit side by side here with nothing between them. Check for a missing operator, comma, or semicolon before ${at.v || 'this value'}.` };

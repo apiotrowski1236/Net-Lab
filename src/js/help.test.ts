@@ -25,6 +25,11 @@ const MISTAKES: [string, number, string, RegExp][] = [
   ['let a = 1;\nlet a = 2;\n', 2, 'redeclared', /already declared on line 1/],
   ['let class = 1;\n', 1, 'reserved-name', /class is a reserved word/],
   ['let for = 1;\n', 1, 'reserved-name', /for is a reserved word/],
+  ['let a = {1, 2, 3};\n', 1, 'braces-for-array', /Curly braces make an object, not an array/],
+  ['let a = {"x", "y"};\n', 1, 'braces-for-array', /Curly braces make an object, not an array/],
+  ['let o = {a: 1 b: 2};\n', 1, 'missing-comma', /parts of an object need a comma/],
+  ['let a = ["x" "y"];\n', 1, 'missing-comma', /items in an array need a comma/],
+  ['let a = ["x", Midnight Drive];\n', 1, 'missing-quotes', /Text needs quote marks around it: "Midnight Drive"/],
 ];
 
 describe('help on syntax errors', () => {

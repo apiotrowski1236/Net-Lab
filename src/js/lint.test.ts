@@ -102,6 +102,8 @@ describe('each rule fires', () => {
     expect(rules('console.log;')).toEqual(['method-no-parens:1']);
     expect(rules('function f() { }\nf;')).toEqual(['method-no-parens:2']);
     expect(rules('alert;')).toEqual(['method-no-parens:1']);
+    expect(notes('let a = [1];\na.push[2];').map((n) => n.text)).toEqual(['a.push is a method, so it takes parentheses, not square brackets: a.push(2).']);
+    expect(rules('let o = {list: [1]};\no.list[0];')).toEqual(['result-unused:2']);
   });
   test('result-unused', () => {
     expect(rules('let s = "a";\ns.toUpperCase();')).toEqual(['result-unused:2']);
@@ -116,6 +118,7 @@ describe('each rule fires', () => {
     expect(rules('let a = [1];\na[0];\na.length;')).toEqual(['result-unused:2', 'result-unused:3']);
     expect(notes('let s = "a";\ns.toUpperCase();')[0].text).toBe("toUpperCase gives back a new string and leaves s as it was, because strings can't be changed in place. Save the result: s = s.toUpperCase();");
     expect(notes('let x = 1;\nx + 1;')[0].text).toBe('This line works out x + 1, then does nothing with the answer. To change x, write x = x + 1;');
+    expect(notes('let a = [1];\na + 2;')[0].text).toBe("+ can't add an item to an array. It turns a into text, and this line then throws that text away. To add to the end, write a.push(2);");
   });
   test('shadowed-name', () => {
     expect(rules('let total = 0;\nif (true) {\n  let total = 5;\n}\nconsole.log(total);')).toEqual(['shadowed-name:3']);

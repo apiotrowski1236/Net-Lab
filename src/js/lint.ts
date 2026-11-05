@@ -205,10 +205,16 @@ function assignPush(n: Node, c: Ctx): void {
 
 const KNOWN_METHODS = new Set([...ARRAY_METHODS.keys(), ...STRING_METHODS.keys(), ...NUMBER_METHODS.keys(), 'log', 'error', 'floor', 'ceil', 'round', 'trunc', 'abs', 'min', 'max', 'pow', 'sqrt', 'random', 'isArray', 'isInteger']);
 
+/** `arr.push[x]`: square brackets where a method call's parentheses go. */
+const isMethodIndex = (e: Expr): boolean => e.k === 'index' && e.obj.k === 'member' && KNOWN_METHODS.has(e.obj.name);
+
 function methodNoParens(n: Node, c: Ctx): void {
   if (n.k !== 'expr') return;
   const e = n.e;
-  if (e.k === 'member' && KNOWN_METHODS.has(e.name)) {
+  if (e.k === 'index' && isMethodIndex(e)) {
+    const method = c.text(e.obj);
+    c.add('method-no-parens', n.pos.line, `${method} is a method, so it takes parentheses, not square brackets: ${method}(${c.text(e.key)}).`);
+  } else if (e.k === 'member' && KNOWN_METHODS.has(e.name)) {
     c.add('method-no-parens', n.pos.line, `${c.text(e)} names the method without running it. Add parentheses to call it: ${c.text(e)}().`);
   } else if (e.k === 'id' && (e.name === 'alert' || e.name === 'prompt' || e.name === 'confirm' || c.p.funcs.some((f) => f.name === e.name))) {
     c.add('method-no-parens', n.pos.line, `${e.name} names the function without running it. Add parentheses to call it: ${e.name}().`);
@@ -227,8 +233,13 @@ function resultUnused(n: Node, c: Ctx): void {
   if (n.k !== 'expr') return;
   const e = n.e;
   const line = n.pos.line;
+  if (isMethodIndex(e)) return;
   if (e.k === 'binary' && isPure(e)) {
     const text = c.text(e);
+    if (e.op === '+' && e.l.k === 'id' && Array.isArray(c.run?.vars[e.l.name])) {
+      c.add('result-unused', line, `+ can't add an item to an array. It turns ${e.l.name} into text, and this line then throws that text away. To add to the end, write ${e.l.name}.push(${c.text(e.r)});`);
+      return;
+    }
     if (['==', '===', '!=', '!==', '<', '>', '<=', '>='].includes(e.op)) {
       const set = e.op === '==' || e.op === '===' ? ` To give ${c.text(e.l)} a new value, use a single =.` : '';
       c.add('result-unused', line, `This line compares ${c.text(e.l)} and ${c.text(e.r)}, then does nothing with the answer.${set} To act on the answer, put ${text} in an if statement.`);
