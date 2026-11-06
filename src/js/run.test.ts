@@ -431,6 +431,8 @@ describe('help on runtime errors', () => {
   const help = (code: string) => run(code).error?.help;
   test('a misspelled variable', () => {
     expect(help('let total = 0;\nconsole.log(totl);')).toBe('There is no variable called totl. Did you mean total?');
+    expect(help('for (let i = 0; i < 3; i++) {\n}\nconsole.log(i);')).toBe('There is no variable called i on this line. The i on line 1 only exists inside its own loop or { }. Move this line inside it.');
+    expect(help('if (true) {\n  let total = 1;\n}\nconsole.log(total);')).toBe('There is no variable called total on this line. The total on line 2 only exists inside its own loop or { }. Move this line inside it.');
     expect(help('let arr = [];\nconsole.log(Arr);')).toBe('There is no variable called Arr. Did you mean arr? JavaScript treats capital and lowercase letters as different.');
     expect(help('Console.log("x");')).toBe('There is no variable called Console. Did you mean console? JavaScript treats capital and lowercase letters as different.');
   });

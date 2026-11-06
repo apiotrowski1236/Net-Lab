@@ -19,7 +19,7 @@ const passed = (demo: string, check: JsCheck, label: string, hint?: string): Goa
   check: demoFact(demo, (f) => f[`check:${check.id}`] === true),
 });
 
-const editor = (id: string, html: string, script: string, checks: JsCheck[], after?: [string, string]): JsSpec => ({
+const editor = (id: string, html: string, script: string, checks: JsCheck[]): JsSpec => ({
   kind: 'js',
   id,
   title: 'Your code',
@@ -29,8 +29,6 @@ const editor = (id: string, html: string, script: string, checks: JsCheck[], aft
   report: true,
   hosts: pageHosts,
   startPage: pageOfFiles,
-  // The student's CSS follows them through the lab. Each step has a new page, so it gets a new script.
-  ...(after ? { from: { step: after[0], demo: after[1], files: ['style.css'] } } : {}),
 });
 
 export const jsDomLab: LabDef = {
@@ -54,7 +52,7 @@ export const jsDomLab: LabDef = {
       id: 'hello',
       title: 'Change the page from a script',
       body: md`
-        This editor has three tabs. **index.html** is the page, **style.css** is its look, and **script.js** is your code. You can only read the HTML here. No step needs a change to **style.css**, so your changes to the page come from your script. After each **Run**, your page shows above the output.
+        This editor has three tabs. **index.html** is the page, **style.css** is its look, and **script.js** is your code. You can only read the HTML and the CSS here, so your changes to the page come from your script. After each **Run**, your page shows above the output.
 
         1. Open **index.html**, and read the ids on the heading and the paragraph under it.
         2. In **script.js**, put your name in the heading.
@@ -120,7 +118,7 @@ export const jsDomLab: LabDef = {
         Here, \`list\` is the element that holds the new item. In your code, that is \`about\`.
       `,
       demos: [
-        editor('one', code.ONE_PAGE, code.ONE_SCRIPT, [code.NEW_ELEMENT, code.NEW_TEXT], ['hello', 'hello']),
+        editor('one', code.ONE_PAGE, code.ONE_SCRIPT, [code.NEW_ELEMENT, code.NEW_TEXT]),
       ],
       goals: [
         passed('one', code.NEW_ELEMENT, 'Add a new element to the About me section.', 'Make it with `document.createElement`, then add it with `about.appendChild`.'),
@@ -136,11 +134,11 @@ export const jsDomLab: LabDef = {
         Your script has an array named \`favorites\`, and \`list\` holds the empty list on the page.
 
         1. Change the strings in \`favorites\` to your own favorites.
-        2. Write a loop over \`favorites\`. Each pass makes an \`<li>\`, sets its text to \`favorites[i]\`, and adds it to \`list\`.
+        2. Write a loop over \`favorites\`. Each pass through the loop makes an \`<li>\`, sets its text to \`favorites[i]\`, and adds it to \`list\`.
         3. Add one more string to the array, and press **Run**. The page gets a new item, and the HTML stays the same.
         4. Scroll down to the question at the bottom of this step, and answer it.
       `,
-      demos: [editor('list', code.LIST_PAGE, code.LIST_SCRIPT, [code.ITEMS, code.ONE_MORE], ['one', 'one'])],
+      demos: [editor('list', code.LIST_PAGE, code.LIST_SCRIPT, [code.ITEMS, code.ONE_MORE])],
       goals: [
         passed('list', code.ITEMS, 'Add one list item for each string in the array.', 'Put `createElement`, `textContent`, and `appendChild` inside a `for` loop.'),
         passed('list', code.ONE_MORE, 'Add one more string to the array.', 'Change only the line that makes `favorites`.'),
@@ -171,19 +169,19 @@ export const jsDomLab: LabDef = {
         1. Write a loop that runs \`count\` times, with \`i\` as its counter.
         2. Inside the loop, make a new \`div\` and store it in a variable named \`cell\`.
         3. Give it the class \`"cell"\` with \`classList.add\`, and add it to \`grid\`.
-        4. Give the squares different colors. Put these two lines inside your loop:
+        4. Give the squares different colors. Put these two lines inside your loop, after you make \`cell\`:
 
         \`\`\`js
         let color = "hsl(" + i * 5 + ", 80%, 60%)";
         cell.style.backgroundColor = color;
         \`\`\`
 
-        **hsl** is a way to write a color. Its first number picks a spot on the color wheel, from 0 to 360. Past 360, the colors start over. The other two numbers set how strong and how light the color is.
+        **hsl** is a way to write a color. Its first number picks a spot on the color wheel, from 0 to 360. Past 360, the colors start over. The other two numbers set how strong and how light the color is. When \`i\` is 3, \`i * 5\` is 15, so the color is \`hsl(15, 80%, 60%)\`.
 
         5. Change \`count\` to 400, and press **Run**.
-        6. Above your page, read how many elements your script made and how many lines of code it took. Blank lines and comments do not count.
+        6. Above your page, read how many elements your script added and how many lines of code it took. Blank lines and comments do not count.
       `,
-      demos: [editor('grid', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY], ['list', 'list'])],
+      demos: [editor('grid', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY])],
       goals: [
         passed('grid', code.CELLS, 'Make as many squares as count says.', 'Use `i < count` in the loop, and add the class `cell` to each `div`.'),
         passed('grid', code.COLORS, 'Give the squares different colors.', 'Use the two lines in the instructions, inside the loop.'),
@@ -210,7 +208,7 @@ export const jsDomLab: LabDef = {
         }
         \`\`\`
       `,
-      demos: [editor('every', code.EVERY_PAGE, code.EVERY_SCRIPT, [code.EVERY], ['grid', 'grid'])],
+      demos: [editor('every', code.EVERY_PAGE, code.EVERY_SCRIPT, [code.EVERY])],
       goals: [
         passed('every', code.EVERY, 'Change every h2 on the page.', 'Use `document.querySelectorAll("h2")` and a loop.'),
       ],
@@ -237,11 +235,11 @@ export const jsDomLab: LabDef = {
         </div>
         \`\`\`
       `,
-      demos: [editor('cards', code.CARDS_PAGE, code.CARDS_SCRIPT, [code.ARRAYS, code.CARDS, code.FOLLOWS], ['every', 'every'])],
+      demos: [editor('cards', code.CARDS_PAGE, code.CARDS_SCRIPT, [code.ARRAYS, code.CARDS, code.FOLLOWS])],
       goals: [
         passed('cards', code.ARRAYS, 'Make two arrays of the same length, with at least 3 items each.', 'One array of titles, and one of details.'),
-        passed('cards', code.CARDS, 'Make one card for each item.', 'Use `.length` in the loop, and the class `card`.'),
-        passed('cards', code.FOLLOWS, 'Show both values on each card.', 'Use `[i]` on both arrays inside the loop.'),
+        passed('cards', code.CARDS, 'Make one card for each item, in the cards element.', 'Use `.length` in the loop, and the class `card`.'),
+        passed('cards', code.FOLLOWS, 'Show both values on each card, from the arrays.', 'Use `[i]` on both arrays inside the loop.'),
       ],
     },
 
@@ -288,7 +286,7 @@ export const jsDomLab: LabDef = {
 
         \`textContent\` reads text as well as sets it, so \`headings[i].textContent\` gives you that heading's text.
       `,
-      demos: [editor('contents', code.CONTENTS_PAGE, code.CONTENTS_SCRIPT, [code.CONTENTS], ['cards', 'cards'])],
+      demos: [editor('contents', code.CONTENTS_PAGE, code.CONTENTS_SCRIPT, [code.CONTENTS])],
       goals: [
         passed('contents', code.CONTENTS, 'Build the table of contents from the headings.', 'In the loop, make an `<li>`, copy the heading\'s `textContent`, and add it to `toc`.'),
       ],
@@ -306,10 +304,10 @@ export const jsDomLab: LabDef = {
         2. Give it a color you choose, like \`"gold"\`. This function has no loop, so there is no \`i\` to use.
         3. Press **Run**, then click **Add a square** on your page a few times.
       `,
-      demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS], ['cards', 'cards'])],
+      demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS, code.CLICKED])],
       goals: [
         passed('more', code.ADDS, 'Write the code that adds one square for each click.', 'Put `createElement` and `appendChild` inside the function.'),
-        { id: 'clicked', label: 'Click the button on your page.', hint: 'Press **Run**, then click **Add a square** on your page.', check: demoFact('more', (f) => (f.clicks as number) > 0 && f['check:adds'] === true) },
+        passed('more', code.CLICKED, 'Click the button on your page.', 'Press **Run**, then click **Add a square** on your page.'),
       ],
     },
   ],

@@ -4,7 +4,6 @@ import type { DemoInput, JsSpec } from '../../demos/types';
 import { LabSession } from '../../runtime/session';
 import { buildReport } from '../../store/report';
 import { playStep } from '../solution';
-import { STYLE } from './code';
 import { jsDomLab } from './index';
 import { CARDS_DONE, CONTENTS_DONE, EVERY_DONE, GRID_DONE, HELLO_DONE, jsDomSolution, LIST_DONE, MORE_DONE, ONE_DONE } from './solution';
 
@@ -55,7 +54,7 @@ function rightAttempts(step: string, cases: Right[]) {
 const STOPPED = 'The program stopped before it finished. Read the error under your page, fix it, and press Run.';
 const T = 'let title = document.getElementById("title");\n';
 const A = 'let about = document.getElementById("about");\n';
-const L = 'let favorites = ["pizza", "soccer", "drawing"];\nlet list = document.getElementById("favorites");\n';
+const L = 'let favorites = ["pizza", "soccer", "drawing"];\nlet list = document.getElementById("list");\n';
 const C = 'let count = 144;\nlet grid = document.getElementById("grid");\n';
 const H = 'let headings = document.querySelectorAll("h2");\n';
 const P = 'let titles = ["Chess club", "Robot arm", "Bake sale"];\nlet details = ["We meet on Fridays.", "It stacks blocks.", "We raised $80."];\nlet box = document.getElementById("cards");\n';
@@ -77,8 +76,8 @@ describe('starting code', () => {
     });
   }
 
-  test('index.html is read only in every coding step', () => {
-    for (const s of jsDomLab.steps) for (const d of s.demos ?? []) if (d.kind === 'js') expect(d.files.find((f) => f.name === 'index.html')?.locked, d.id).toBe(true);
+  test('index.html and style.css are read only in every coding step', () => {
+    for (const s of jsDomLab.steps) for (const d of s.demos ?? []) if (d.kind === 'js') expect(d.files.filter((f) => f.locked).map((f) => f.name), d.id).toEqual(['index.html', 'style.css']);
   });
 
   test('the page needs nothing from outside the site', () => {
@@ -121,20 +120,12 @@ rightAttempts('hello', [
   ['style and a class together', `${WORDS}title.style.backgroundColor = "gold";\ntitle.classList.add("highlight");`],
 ]);
 
-test('hello: a class with a rule the student wrote in style.css passes', () => {
-  const s = spec('hello');
-  let state = jsModel.apply(s, jsModel.init(s), { edit: 'style.css', code: `${STYLE}\n.fancy { color: gold; }\n` });
-  state = jsModel.apply(s, state, { edit: 'script.js', code: `${WORDS}title.classList.add("fancy");` });
-  state = jsModel.apply(s, state, { run: true });
-  expect(allPassed(state)).toBe(true);
-});
-
 // --- step 2 ---
 
 wrongAttempts('one', [
   ['made and never added', `${A}let fact = document.createElement("p");\nfact.textContent = "I have two cats.";`, 'The <p> element made on this line never went on the page. Use appendChild to add it to an element that is on the page.'],
   ['made and never added, in the check', `${A}let fact = document.createElement("p");\nfact.textContent = "I have two cats.";`, 'You made an element, but it is not on the page yet. Put your variable inside `about.appendChild()`.'],
-  ['appendChild with a string', `${A}about.appendChild("I have two cats.");`, 'appendChild takes an element, and this is a string. Make an element with document.createElement and set its textContent first. To add a string as it is, use append.'],
+  ['appendChild with a string', `${A}about.appendChild("I have two cats.");`, 'appendChild takes an element, and this is a string. Make an element with document.createElement and set its textContent first.'],
   ['a tag with brackets', `${A}let fact = document.createElement("<p>");`, 'createElement takes the tag name alone, with no angle brackets or spaces. Write createElement("p").'],
   ['a tag with no quotes', `${A}let fact = document.createElement(p);`, 'p has no quotes, so JavaScript looks for a variable called p. Text goes in quotes, so write "p".'],
   ['added to the body', `${A}let fact = document.createElement("p");\nfact.textContent = "x";\ndocument.body.appendChild(fact);`, 'Your new element is on the page, but outside the About me section. Call `appendChild` on `about`.'],
@@ -163,10 +154,11 @@ wrongAttempts('list', [
   ['innerHTML = in the loop', FULL_LOOP('  list.innerHTML = "<li>" + favorites[i] + "</li>";'), 'Each pass of the loop replaced the list, so only the last item is left. Use `+=` with `innerHTML`, or use `appendChild`.'],
   ['tags as text', FULL_LOOP('  list.append("<li>" + favorites[i] + "</li>");'), 'The page shows the tags as plain text, so the list has no `<li>` elements. Use `createElement`, or use `innerHTML` with `+=`.'],
   ['items typed by hand', `${L}list.innerHTML = "<li>pizza</li><li>soccer</li><li>drawing</li>";`, 'The list did not follow the array. Build each item from `favorites` in a loop, so the array decides what the page shows.'],
-  ['the whole array on every item', FULL_LOOP('  let item = document.createElement("li");\n  item.textContent = favorites;\n  list.appendChild(item);'), 'Every item shows the same text. Use `favorites[i]`, so each item shows one string.'],
-  ['the same index each pass', FULL_LOOP('  let item = document.createElement("li");\n  item.textContent = favorites[0];\n  list.appendChild(item);'), 'Every item shows the same text. Use `favorites[i]`, so each item shows one string.'],
+  ['the whole array on every item', FULL_LOOP('  let item = document.createElement("li");\n  item.textContent = favorites;\n  list.appendChild(item);'), 'Every item shows the same text. Use `favorites[i]` with no quotes, so each item shows one string.'],
+  ['the name in quotes', FULL_LOOP('  let item = document.createElement("li");\n  item.textContent = "favorites[i]";\n  list.appendChild(item);'), 'Every item shows the same text. Use `favorites[i]` with no quotes, so each item shows one string.'],
+  ['the same index each pass', FULL_LOOP('  let item = document.createElement("li");\n  item.textContent = favorites[0];\n  list.appendChild(item);'), 'Every item shows the same text. Use `favorites[i]` with no quotes, so each item shows one string.'],
   ['no loop', L, 'The list is empty. Write a loop that adds one `<li>` for each string in `favorites`.'],
-  ['a renamed array', 'let foods = ["pizza", "soccer", "drawing"];\nlet list = document.getElementById("favorites");\nfor (let i = 0; i < foods.length; i++) {\n  list.innerHTML += "<li>" + foods[i] + "</li>";\n}', 'Keep the variable named `favorites` at the top of `script.js`, so the checks can try other values.'],
+  ['a renamed array', 'let foods = ["pizza", "soccer", "drawing"];\nlet list = document.getElementById("list");\nfor (let i = 0; i < foods.length; i++) {\n  list.innerHTML += "<li>" + foods[i] + "</li>";\n}', 'Keep the variable named `favorites` at the top of `script.js`, so the checks can try other values.'],
   ['the array left at 3 strings', FULL_LOOP(BAD_ITEM), 'Add one more string to `favorites`, then press Run. Change only the array.'],
 ]);
 
@@ -174,11 +166,11 @@ const FOUR = 'let favorites = ["ramen", "chess", "hiking", "jazz"];\n';
 
 rightAttempts('list', [
   ['for and appendChild', LIST_DONE],
-  ['for...of and append', `${FOUR}const list = document.getElementById("favorites");\nfor (const food of favorites) {\n  const item = document.createElement("li");\n  item.textContent = food;\n  list.append(item);\n}`],
-  ['innerHTML +=', `${FOUR}let list = document.querySelector("#favorites");\nfor (let i = 0; i < favorites.length; i++) {\n  list.innerHTML += "<li>" + favorites[i] + "</li>";\n}`],
-  ['while and innerHTML on the item', `${FOUR}let list = document.getElementById("favorites");\nlet i = 0;\nwhile (i < favorites.length) {\n  let item = document.createElement("li");\n  item.innerHTML = favorites[i];\n  list.appendChild(item);\n  i++;\n}`],
-  ['words added to each item', `${FOUR}let list = document.getElementById("favorites");\nfor (let i = 0; i < favorites.length; i++) {\n  list.innerHTML += "<li>I like " + favorites[i].toUpperCase() + "</li>";\n}`],
-  ['push adds the fourth string', `let favorites = ["ramen", "chess", "hiking"];\nfavorites.push("jazz");\nlet list = document.getElementById("favorites");\nfor (let f of favorites) {\n  list.innerHTML += "<li>" + f + "</li>";\n}`],
+  ['for...of and append', `${FOUR}const list = document.getElementById("list");\nfor (const food of favorites) {\n  const item = document.createElement("li");\n  item.textContent = food;\n  list.append(item);\n}`],
+  ['innerHTML +=', `${FOUR}let list = document.querySelector("#list");\nfor (let i = 0; i < favorites.length; i++) {\n  list.innerHTML += "<li>" + favorites[i] + "</li>";\n}`],
+  ['while and innerHTML on the item', `${FOUR}let list = document.getElementById("list");\nlet i = 0;\nwhile (i < favorites.length) {\n  let item = document.createElement("li");\n  item.innerHTML = favorites[i];\n  list.appendChild(item);\n  i++;\n}`],
+  ['words added to each item', `${FOUR}let list = document.getElementById("list");\nfor (let i = 0; i < favorites.length; i++) {\n  list.innerHTML += "<li>I like " + favorites[i].toUpperCase() + "</li>";\n}`],
+  ['push adds the fourth string', `let favorites = ["ramen", "chess", "hiking"];\nfavorites.push("jazz");\nlet list = document.getElementById("list");\nfor (let f of favorites) {\n  list.innerHTML += "<li>" + f + "</li>";\n}`],
 ]);
 
 test('list: one more string makes one more item, with no HTML edited', () => {
@@ -196,12 +188,15 @@ const SHADE = '  cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";';
 
 wrongAttempts('grid', [
   ['a fixed number in the loop', `${C}for (let i = 0; i < 144; i++) {\n  grid.innerHTML += '<div class="cell"></div>';\n}`, 'The number of squares did not follow `count`. Use `i < count` in the loop, not a number.'],
+  ['one square too many', `${C}for (let i = 0; i <= count; i++) {\n  grid.innerHTML += '<div class="cell"></div>';\n}`, 'The grid has one square too many. Use `i < count`, not `i <= count`.'],
   ['the element given to classList.add', SQUARES('  cell.classList.add(cell);'), 'A class name goes in quotes, like classList.add("big"). This line gave it an element.'],
   ['no class', SQUARES(SHADE), 'The squares are there, but they have no size yet. Give each one the class `cell`.'],
   ['cell.class', SQUARES('  cell.class = "cell";'), 'An element has no property called class, so nothing changed on the page. A browser gives no error for this. Did you mean className?'],
   ['one element, above the loop', `${C}let cell = document.createElement("div");\ncell.className = "cell";\nfor (let i = 0; i < count; i++) {\n  grid.appendChild(cell);\n}`, 'The grid has one square, because the loop adds the same element each time. Move `document.createElement("div")` inside the loop.'],
   ['every square one color', SQUARES('  cell.className = "cell";\n  cell.style.backgroundColor = "gold";'), 'Every square is the same color. Build the color from `i`, so it changes on each pass.'],
   ['no color', SQUARES('  cell.className = "cell";'), 'The squares have no color yet. Set `cell.style.backgroundColor` inside the loop.'],
+  ['the color lines moved in, still comments', SQUARES('  cell.className = "cell";\n  // let color = "hsl(" + i * 5 + ", 80%, 60%)";\n  // cell.style.backgroundColor = color;'), 'The two color lines still start with `//`, so they do not run. Put them inside your loop, and take off the `//`.'],
+  ['the color lines after the loop', `${SQUARES('  cell.className = "cell";')}\nlet color = "hsl(" + i * 5 + ", 80%, 60%)";`, 'There is no variable called i on this line. The i on line 3 only exists inside its own loop or { }. Move this line inside it.'],
   ['i inside the quotes', SQUARES('  cell.className = "cell";\n  cell.style.backgroundColor = "hsl(i, 80%, 60%)";'), 'JavaScript does not look inside quotes, so `i` in that string is only a letter. Build the string with `+`, the way the instructions show.'],
   ['a renamed variable', 'let squares = 144;\nlet grid = document.getElementById("grid");\nfor (let i = 0; i < squares; i++) {\n  grid.innerHTML += \'<div class="cell"></div>\';\n}', 'Keep the variable named `count` at the top of `script.js`, so the checks can try other values.'],
   ['count left at 144', SQUARES(`  cell.className = "cell";\n${SHADE}`), 'Change `count` to 400 on the first line, then press Run. The loop stays the same.'],
@@ -254,9 +249,11 @@ wrongAttempts('cards', [
   ['arrays of different lengths', 'let titles = ["Chess club", "Robot arm", "Bake sale"];\nlet details = ["We meet on Fridays."];\n', 'Your arrays need the same number of items, with at least 3 in each, so `titles[0]` and `details[0]` go together.'],
   ['no loop yet', P, 'The `cards` element is empty. Write a loop that adds one `div` to it for each index.'],
   ['no class', `${P}for (let i = 0; i < titles.length; i++) {\n  box.innerHTML += "<div><h3>" + titles[i] + "</h3></div>";\n}`, 'The cards are there, but they have no border or size yet. Give each one the class `card`.'],
+  ['the h3 and the p in cards, and no card', `${P}for (let i = 0; i < titles.length; i++) {\n  let card = document.createElement("div");\n  let h = document.createElement("h3");\n  h.textContent = titles[i];\n  let p = document.createElement("p");\n  p.textContent = details[i];\n  box.appendChild(h);\n  box.appendChild(p);\n}`, 'The element with the id `cards` has no cards in it yet. Each card is a `div` with the class `card`. Add the `h3` and the `p` to the card, then add the card to `cards`.'],
   ['one element, above the loop', `${P}let card = document.createElement("div");\ncard.className = "card";\nfor (let i = 0; i < titles.length; i++) {\n  card.textContent = titles[i];\n  box.appendChild(card);\n}`, 'The page has one card, because the loop adds the same element each time. Move `document.createElement("div")` inside the loop.'],
   ['a card short of the array', `${P}for (let i = 0; i < 2; i++) {\n  box.innerHTML += '<div class="card">' + titles[i] + "</div>";\n}`, 'The page has 2 cards and your arrays have 3 items. Make the loop run once per item, with `.length`.'],
   ['cards typed by hand', `${P}box.innerHTML = '<div class="card">Chess club We meet on Fridays.</div><div class="card">Robot arm It stacks blocks.</div><div class="card">Bake sale We raised $80.</div>';`, 'The cards did not follow your arrays. Use the arrays and `.length` in the loop, so a new item makes a new card.'],
+  ['the p never went on the card', CARD_LOOP('  let h = document.createElement("h3");\n  h.textContent = titles[i];\n  card.appendChild(h);\n  let p = document.createElement("p");\n  p.textContent = details[i];'), 'One element from each card never went on it. Add both the `h3` and the `p` to the card with `appendChild`.'],
   ['a card shows one array', CARD_LOOP('  card.textContent = titles[i];'), 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.'],
   ['the same index each pass', CARD_LOOP('  card.textContent = titles[0] + details[0];'), 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, so each card shows its own values.'],
   ['the whole arrays on every card', CARD_LOOP('  card.textContent = titles + " " + details;'), 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, so each card shows its own values.'],
@@ -283,7 +280,7 @@ wrongAttempts('contents', [
   ['the same text for each item', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[0].textContent + "</li>";\n}`, 'Every item shows the same text. Use `headings[i].textContent`, so each item shows its own heading.'],
   ['the list as text', `${TOC}for (let i = 0; i < headings.length; i++) {\n  let item = document.createElement("li");\n  item.textContent = headings;\n  toc.appendChild(item);\n}`, 'Every item shows the same text. Use `headings[i].textContent`, so each item shows its own heading.'],
   ['the headings moved into the list', `${TOC}for (let i = 0; i < headings.length; i++) {\n  let item = document.createElement("li");\n  item.appendChild(headings[i]);\n  toc.appendChild(item);\n}`, 'The headings moved into your list, and the sections lost them. Adding an element that is already on the page moves it. Use each heading\'s `textContent`, not the heading itself.'],
-  ['an element joined into a string', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[i] + "</li>";\n}`, 'An element was used as text, so the page shows [object HTMLHeadingElement]. To show its text, use its textContent. To add the element itself, use appendChild, not + or +=.'],
+  ['an element joined into a string', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[i] + "</li>";\n}`, 'An element was used as text, so the page shows [object HTMLHeadingElement]. To show its text, use its textContent. To add the element itself, use appendChild.'],
 ]);
 
 rightAttempts('contents', [
@@ -302,10 +299,20 @@ wrongAttempts('more', [
   ['the handler called', `${M}function addSquare() {\n${ADD}}\nbutton.addEventListener("click", addSquare());`, 'The click has no function to call. Keep the `function () { }` shape from the starting code.'],
   ['code outside the function', `${M}${ADD}button.addEventListener("click", function () {\n});`, 'The square appeared right away, and clicks add nothing. Move your code inside the function.'],
   ['one element, outside the function', `${M}let cell = document.createElement("div");\ncell.className = "cell";\nbutton.addEventListener("click", function () {\n  grid.appendChild(cell);\n});`, 'Only the first click added a square. Make the new element inside the function, so each click makes a new one.'],
+  ['one element, outside the function, clicked', `${M}let cell = document.createElement("div");\ncell.className = "cell";\nbutton.addEventListener("click", function () {\n  grid.appendChild(cell);\n});`, 'The same <div> element was added 3 times, so it only moved, and the page shows it once. Call createElement inside the function, so each click makes a new element.', [...CLICKS, ...CLICKS, ...CLICKS]],
   ['nothing inside the function', HANDLER(''), 'A click adds no squares yet. Inside the function, make a `div` with the class `cell`, and add it to `grid`.'],
   ['no class', HANDLER('  grid.appendChild(document.createElement("div"));'), 'Each click should add one square with the class `cell`.'],
   ['a mistake that shows only on a click', HANDLER('  grid.appendChild(square);'), 'Your code stops when the button is clicked. Click the button on your page to see the error.'],
 ]);
+
+test('more: a loose element gets no note until a click, since the handler may add it', () => {
+  const code = `${M}let cell = document.createElement("div");\ncell.className = "cell";\nbutton.addEventListener("click", function () {\n  grid.appendChild(cell);\n});`;
+  expect(said(attempt('more', code))).not.toContain('The <div> element made on this line never went on the page. Use appendChild to add it to an element that is on the page.');
+});
+
+test('more: correct code asks for a click', () => {
+  expect(said(attempt('more', MORE_DONE))).toContain('Your code is ready. Click the button on your page to try it.');
+});
 
 rightAttempts('more', [
   ['createElement and className', MORE_DONE, CLICKS],

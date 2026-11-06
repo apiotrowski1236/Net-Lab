@@ -23,7 +23,7 @@ about.appendChild(fact);
 `;
 
 export const LIST_DONE = `let favorites = ["ramen", "chess", "hiking", "jazz"];
-let list = document.getElementById("favorites");
+let list = document.getElementById("list");
 
 for (let i = 0; i < favorites.length; i++) {
   let item = document.createElement("li");

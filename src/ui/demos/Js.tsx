@@ -291,7 +291,7 @@ function Preview({ page, onClick }: { page: PageState; onClick: (path: string) =
         <h4>Your page</h4>
         {page.made > 0 && (
           <span class="js-made">
-            {page.made.toLocaleString('en-US')} {page.made === 1 ? 'element' : 'elements'} made by {page.lines} {page.lines === 1 ? 'line' : 'lines'} of code
+            {page.made.toLocaleString('en-US')} {page.made === 1 ? 'element' : 'elements'} added by {page.lines} {page.lines === 1 ? 'line' : 'lines'} of code
           </span>
         )}
       </div>

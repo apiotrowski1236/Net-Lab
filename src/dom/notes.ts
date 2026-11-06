@@ -112,6 +112,10 @@ export class PageLog {
   private missed?: { on: 'document' | 'element' | 'list' | 'collection' | 'text'; name: string };
   /** The run ended on an error, so an element it made may be waiting for a line that never ran. */
   private cut = false;
+  /** The clicks are being delivered, so a repeat comes from a click and not a loop. */
+  clicking = false;
+  /** The page has a click handler and nobody has clicked, so a loose element may still be waiting for that code. */
+  awaitingClick = false;
 
   constructor(
     private readonly doc: () => DomDocument,
@@ -229,7 +233,7 @@ export class PageLog {
   }
 
   elementAsText(tagClass: string): void {
-    this.note('element-as-text', `An element was used as text, so the page shows ${tagClass}. To show its text, use its textContent. To add the element itself, use appendChild, not + or +=.`);
+    this.note('element-as-text', `An element was used as text, so the page shows ${tagClass}. To show its text, use its textContent. To add the element itself, use appendChild.`);
   }
 
   handlerCalled(): void {
@@ -250,9 +254,11 @@ export class PageLog {
     const seen = lines.get(at.line);
     if (seen && seen.parent === parent && wasThere) {
       seen.times++;
-      this.note('moved-same-element', `The same <${n.tag}> element was added ${seen.times} times, so it only moved, and the page shows it once. Call createElement inside the loop, so each pass makes a new element.`);
+      const fix = this.clicking ? 'Call createElement inside the function, so each click makes a new element.' : 'Call createElement inside the loop, so each pass makes a new element.';
+      const text = `The same <${n.tag}> element was added ${seen.times} times, so it only moved, and the page shows it once. ${fix}`;
+      this.note('moved-same-element', text);
       const note = this.found.get(`moved-same-element:${at.file}:${at.line}`);
-      if (note) note.text = `The same <${n.tag}> element was added ${seen.times} times, so it only moved, and the page shows it once. Call createElement inside the loop, so each pass makes a new element.`;
+      if (note) note.text = text;
     } else lines.set(at.line, { parent, times: 1, file: at.file });
   }
 
@@ -275,7 +281,7 @@ export class PageLog {
   }
 
   notes(): LintNote[] {
-    return [...this.found.values(), ...this.unruledClasses(), ...(this.cut ? [] : this.neverAdded())].sort((a, b) => (a.file === b.file ? a.line - b.line : a.file.localeCompare(b.file)));
+    return [...this.found.values(), ...this.unruledClasses(), ...(this.cut || this.awaitingClick ? [] : this.neverAdded())].sort((a, b) => (a.file === b.file ? a.line - b.line : a.file.localeCompare(b.file)));
   }
 
   private lineOf(file: string, line: number): string {

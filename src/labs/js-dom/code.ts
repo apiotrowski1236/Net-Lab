@@ -35,7 +35,7 @@ export const HELLO_PAGE = page(ABOUT);
 export const ONE_PAGE = page(ABOUT);
 export const LIST_PAGE = page(`    <section>
       <h2>My favorites</h2>
-      <ul id="favorites"></ul>
+      <ul id="list"></ul>
     </section>`);
 export const GRID_PAGE = page(`    <section>
       <h2>Color grid</h2>
@@ -139,6 +139,7 @@ ul {
   width: 14px;
   height: 14px;
   border-radius: 3px;
+  background: #dfe6ee;
 }
 
 #cards {
@@ -168,7 +169,7 @@ button {
 
 export const files = (html: string, script: string): JsFile[] => [
   { name: 'index.html', text: html, locked: true },
-  { name: 'style.css', text: STYLE },
+  { name: 'style.css', text: STYLE, locked: true },
   { name: 'script.js', text: script },
 ];
 
@@ -184,7 +185,7 @@ export const ONE_SCRIPT = `let about = document.getElementById("about");
 `;
 
 export const LIST_SCRIPT = `let favorites = ["pizza", "soccer", "drawing"];
-let list = document.getElementById("favorites");
+let list = document.getElementById("list");
 
 // Add your loop here.
 `;
@@ -192,7 +193,8 @@ let list = document.getElementById("favorites");
 export const GRID_SCRIPT = `let count = 144;
 let grid = document.getElementById("grid");
 
-// Add your loop here. Your loop needs these two lines:
+// Write your loop here. Put these two lines inside it,
+// after you make cell, and take off the // in front:
 // let color = "hsl(" + i * 5 + ", 80%, 60%)";
 // cell.style.backgroundColor = color;
 `;
@@ -265,7 +267,7 @@ export const LOOK: JsCheck = {
     if (title.attr('style') || (title.classes.length && !dotted && !noted(c.notes, 'class-no-rule'))) return undefined;
     if (!c.ok) return STOPPED;
     if (dotted) return 'The class went on with a dot in its name, so no CSS rule matches it. Take the dot out of the string.';
-    if (title.classes.length) return 'That class has no rule in `style.css`, so the heading looks the same. Use `highlight`, or add your own rule.';
+    if (title.classes.length) return 'That class has no rule in `style.css`, so the heading looks the same. Use `highlight`.';
     return 'The heading looks the same as before. Set a `style` on `title`, or add the class `highlight`.';
   },
   hints: ['You can change a look two ways: set a `style` property, or add a class from `style.css`.', 'A color is a string, so it goes in quotes: `title.style.color = "gold";`', 'Write `title.classList.add("highlight");`'],
@@ -311,14 +313,14 @@ export const ITEMS: JsCheck = {
     if (r.dataMissing.length) return KEEP('favorites');
     if (!r.ok) return STOPPED;
     const p = r.page!;
-    const got = p.texts('#favorites li');
+    const got = p.texts('#list li');
     // The array as it ended, since a student may push to it.
     const want = Array.isArray(r.vars.favorites) ? r.vars.favorites.map(String) : FIVE;
-    if (got.length > 1 && new Set(got).size === 1) return 'Every item shows the same text. Use `favorites[i]`, so each item shows one string.';
+    if (got.length > 1 && new Set(got).size === 1) return 'Every item shows the same text. Use `favorites[i]` with no quotes, so each item shows one string.';
     if (got.length === want.length && got.every((t, i) => has(t, want[i]))) return undefined;
     if (!got.length) {
       if (noted(c.notes, 'tags-as-text')) return 'The page shows the tags as plain text, so the list has no `<li>` elements. Use `createElement`, or use `innerHTML` with `+=`.';
-      return p.text('#favorites') ? 'The list has text, but no `<li>` elements. Make one `<li>` for each string.' : 'The list is empty. Write a loop that adds one `<li>` for each string in `favorites`.';
+      return p.text('#list') ? 'The list has text, but no `<li>` elements. Make one `<li>` for each string.' : 'The list is empty. Write a loop that adds one `<li>` for each string in `favorites`.';
     }
     if (got.length === 1) {
       if (noted(c.notes, 'moved-same-element')) return 'The list shows one item, because the loop adds the same element each time. Move `document.createElement("li")` inside the loop.';
@@ -356,6 +358,7 @@ export const CELLS: JsCheck = {
     if (!any) return 'The grid is empty. In a loop that runs `count` times, make a `div` and add it to `grid`.';
     if (any === 30) return 'The squares are there, but they have no size yet. Give each one the class `cell`.';
     if (any === 1 && noted(c.notes, 'moved-same-element')) return 'The grid has one square, because the loop adds the same element each time. Move `document.createElement("div")` inside the loop.';
+    if (any === 31) return 'The grid has one square too many. Use `i < count`, not `i <= count`.';
     return 'The number of squares did not follow `count`. Use `i < count` in the loop, not a number.';
   },
   hints: ['Write a `for` loop with `i < count`.', 'Inside the loop, make a `div` and store it in a variable called `cell`.', 'Write `cell.classList.add("cell");`, then `grid.appendChild(cell);`'],
@@ -370,6 +373,7 @@ export const COLORS: JsCheck = {
     if (colors.size > 1) return undefined;
     if (noted(c.notes, 'style-bad-value')) return 'JavaScript does not look inside quotes, so `i` in that string is only a letter. Build the string with `+`, the way the instructions show.';
     if (colors.size === 1) return 'Every square is the same color. Build the color from `i`, so it changes on each pass.';
+    if (/^\s*\/\/\s*cell\.style\.backgroundColor/m.test(c.source('script.js'))) return 'The two color lines still start with `//`, so they do not run. Put them inside your loop, and take off the `//`.';
     return 'The squares have no color yet. Set `cell.style.backgroundColor` inside the loop.';
   },
   hints: ['An `hsl()` color is a string, and its first number picks a spot on the color wheel.', 'Use `i` for that first number, so each pass of the loop gets a new color.', 'Write `cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";`'],
@@ -475,8 +479,9 @@ export const CARDS: JsCheck = {
     if (n === size) return undefined;
     const any = p.count('#cards > *');
     if (!any) return 'The `cards` element is empty. Write a loop that adds one `div` to it for each index.';
-    if (any === size) return 'The cards are there, but they have no border or size yet. Give each one the class `card`.';
+    if (p.count('#cards > div') === size) return 'The cards are there, but they have no border or size yet. Give each one the class `card`.';
     if (any === 1 && noted(c.notes, 'moved-same-element')) return 'The page has one card, because the loop adds the same element each time. Move `document.createElement("div")` inside the loop.';
+    if (!n) return 'The element with the id `cards` has no cards in it yet. Each card is a `div` with the class `card`. Add the `h3` and the `p` to the card, then add the card to `cards`.';
     return `The page has ${n} cards and your arrays have ${size} items. Make the loop run once per item, with \`.length\`.`;
   },
   hints: ['Write a `for` loop that counts through `titles`.', 'Make a `div` in the loop, and give it the class `card`.', 'Add each card with `document.getElementById("cards").appendChild(card);`'],
@@ -497,7 +502,7 @@ export const FOLLOWS: JsCheck = {
     const right = (card: string, row: string[]) => row.filter((v) => card.includes(v.toLowerCase())).length;
     const differ = new Set(cards).size > 1;
     if (differ && other.want.every((row, i) => right(cards[i], row) >= 2)) return undefined;
-    if (differ && other.want.every((row, i) => right(cards[i], row) >= 1)) return 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
+    if (differ && other.want.every((row, i) => right(cards[i], row) >= 1)) return noted(c.notes, 'never-added') ? 'One element from each card never went on it. Add both the `h3` and the `p` to the card with `appendChild`.' : 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
     return 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, so each card shows its own values.';
   },
   hints: ['Each card needs a title and a detail from the same index.', 'Inside the loop, make an `h3` and a `p`, and add both to the card.', 'Write `heading.textContent = titles[i];` and `text.textContent = details[i];`, then `card.appendChild(heading);` and `card.appendChild(text);`'],
@@ -538,4 +543,11 @@ export const ADDS: JsCheck = {
     return 'Each click should add one square with the class `cell`.';
   },
   hints: ['The code inside the function runs once for each click.', 'Inside the function, make a `div` and give it the class `cell`.', 'Write `cell.style.backgroundColor = "gold";`, then `grid.appendChild(cell);`'],
+};
+
+export const CLICKED: JsCheck = {
+  id: 'clicked',
+  label: 'Click the button on your page',
+  test: (c) => (c.clicks ? undefined : 'Your code is ready. Click the button on your page to try it.'),
+  hints: ['Press Run first, so your page has your new code.', 'Click the button on your page, above the output.'],
 };

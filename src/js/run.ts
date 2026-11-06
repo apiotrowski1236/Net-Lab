@@ -2,6 +2,7 @@ import { textOf, walk, type Assign, type Block, type Call, type DoWhile, type Ex
 import type { JsError, Pos } from './errors';
 import { logLine, shownText } from './format';
 import { closestName, notDefinedHelp, notFunctionHelp, type Receiver } from './help';
+import { Query } from './query';
 import { ARRAY_METHODS, BOOLEAN_METHODS, NOT_ARRAY, NOT_FUNCTION, NOT_GLOBAL, NOT_NUMBER, NOT_OBJECT, NOT_STRING, NUMBER_METHODS, OBJECT_METHODS, STATIC_DENY, STRING_METHODS, joinArray, makeGlobals, type LibIo } from './lib';
 import { HostObject, JsArray, JsFunction, JsNamespace, JsNative, JsObject, Scope, arrayIndex, isCallable, ownKeys, type Binding, type Primitive, type Runtime, type Value } from './values';
 
@@ -782,7 +783,8 @@ class Interp implements Runtime {
     }
     const names = new Set<string>();
     for (let c: Scope | null = s; c; c = c.parent) for (const k of c.vars.keys()) names.add(k);
-    this.throwError('ReferenceError', `${name} is not defined`, 'not-defined', pos, notDefinedHelp(name, names));
+    const made = new Query(this.programs).declarations().find((d) => d.name === name && d.scope !== 'top' && d.file === pos.file);
+    this.throwError('ReferenceError', `${name} is not defined`, 'not-defined', pos, notDefinedHelp(name, names, made?.line));
   }
 
   private write(name: string, v: Value, s: Scope, pos: Pos): void {

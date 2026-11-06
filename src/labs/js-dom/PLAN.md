@@ -4,7 +4,7 @@ Status: built. Code is in this folder and `src/dom/`.
 
 Intro CS, third JavaScript lab, after arrays and loops. Students have made personal websites in HTML and CSS, and they know variables, prompt, alert, if/else, arrays, and loops. They have not learned functions or objects. The point is automation: a loop can build what would take hours to write by hand.
 
-Tabs are `index.html` (read only in every step), `style.css` (carries from step to step), and `script.js`. Syntax reminders sit in the step text, not in a `note` demo, so the editor, preview, and output fit on one screen at 1366x768. Each step starts a new `script.js`, because a chained `prompt()` would fire on every later Run. The page shows the sections a step needs, so a student never faces empty headings.
+Tabs are `index.html` and `style.css` (both read only in every step) and `script.js`. Syntax reminders sit in the step text, not in a `note` demo, so the editor, preview, and output fit on one screen at 1366x768. Each step starts a new `script.js`, because a chained `prompt()` would fire on every later Run. The page shows the sections a step needs, so a student never faces empty headings.
 
 ## Mistakes each step catches
 
@@ -78,3 +78,5 @@ Where a line says "shared", the words come from `src/dom/notes.ts` or `src/js/he
 9. Optional extra challenge: `addEventListener` with its shape given. A click is a recorded input.
 
 The student panel moved the prompt greeting out of the lab and the table of contents into the optional steps, because round 1 ran 54.5 minutes at the median.
+
+Round 3 locked `style.css`, because three students typed their script into that tab and got a note about the wrong line. The goal for clicking in step 10 became a check, so the list under the code matches the Goals box.

@@ -259,7 +259,7 @@ function need(page: Page, args: Value[], n: number, method: string, on: string):
 function nodeArg(page: Page, v: Value, method: string, position = 1): DomNode | DomFragment {
   if (v instanceof NodeHost && v.node.kind !== 'document') return v.node as DomNode | DomFragment;
   let help = `${method} takes an element. Make one with document.createElement, or find one with document.getElementById.`;
-  if (typeof v === 'string') help = `${method} takes an element, and this is a string. Make an element with document.createElement and set its textContent first. To add a string as it is, use append.`;
+  if (typeof v === 'string') help = `${method} takes an element, and this is a string. Make an element with document.createElement and set its textContent first.`;
   else if (v === null) help = `${method} was given null, which usually means a search found nothing. Check the id or selector that gave you this value.`;
   else if (v === undefined) help = `${method} was given undefined. Check that the variable in the parentheses holds an element.`;
   page.rt.fail('TypeError', `Failed to execute '${method}' on 'Node': parameter ${position} is not of type 'Node'.`, 'not-a-node', help);
@@ -1229,10 +1229,13 @@ export function pageHosts(rt: Runtime, files: readonly SourceText[]): Record<str
   const hooks: PageHooks<PageState, PageView> = {
     finish(clicks) {
       page.fire(page.doc, 'DOMContentLoaded');
+      page.log.awaitingClick = !clicks.length && page.listening() > 0;
+      page.log.clicking = true;
       for (const c of clicks) {
         const target = page.find(c);
         if (target) page.fire(target, 'click');
       }
+      page.log.clicking = false;
     },
     state: (whole) => pageState(page.doc, files, page.listening(), whole),
     view: () => new PageView(page.doc, page.log.firstOfMany),

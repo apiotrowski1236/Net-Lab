@@ -122,7 +122,8 @@ export function createEditor(parent: HTMLElement, onChange: (text: string) => vo
   let name = '';
   const states = new Map<string, EditorState>();
 
-  const lockFor = (readOnly: boolean): Extension => [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)];
+  // A tabindex keeps a read-only file focusable, so Ctrl+A selects its code and not the whole site.
+  const lockFor = (readOnly: boolean): Extension => [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly), readOnly ? EditorView.contentAttributes.of({ tabindex: '0' }) : []];
 
   const extensions = (readOnly: boolean, file: string): Extension[] => {
     const { support, brackets } = LANGUAGES[typeof language === 'string' ? language : language(file)];

@@ -66,6 +66,8 @@ export function ExtraChallengeBanner({ session }: { session: LabSession }) {
   const k = extras.indexOf(session.lab.steps[p.step]) + 1;
   const endpoint = hasEndpoint();
   const fresh = lastExtraWork(session) > (p.submittedAt ?? 0);
+  // The box at the bottom of the last step takes over, with the same button.
+  const below = fresh && k === extras.length && session.stepComplete(p.step);
   const where = extras.length > 1 ? `, step ${k} of ${extras.length}` : '';
   const noPoints = extras.length > 1 ? 'These steps earn no points.' : 'This step earns no points.';
 
@@ -74,14 +76,17 @@ export function ExtraChallengeBanner({ session }: { session: LabSession }) {
   if (!p.submittedAt) {
     text = `${noPoints} You haven't handed in your work yet. If class is almost over, hand it in now. You can come back here after.`;
     label = endpoint ? 'Submit my work now' : 'Download my report now';
+  } else if (below) {
+    text = 'You finished the challenge. Scroll to the bottom of this step to hand in your updated report.';
+    label = '';
   } else if (fresh) {
-    text = `You've worked on the challenge since your last report. ${endpoint ? 'Hand in your report again so your teacher sees it.' : `Download it again, then ${handInWhere()}.`}`;
+    text = `You've worked on the challenge since your last report. ${endpoint ? 'If class is almost over, hand in your report again now.' : `If class is almost over, download it again now, then ${handInWhere()}.`}`;
     label = endpoint ? 'Submit again with my challenge work' : 'Download my updated report';
   } else {
     text = `${noPoints} ${
       endpoint
         ? 'You already handed in your report. If you change any of your work, here or on an earlier step, hand it in again.'
-        : `You already downloaded your report. If you haven't yet, ${handInWhere()}. If you change any of your work, here or on an earlier step, download it again and hand in the new file.`
+        : `You already downloaded your report. Make sure you ${handInWhere()}. If you change any of your work, here or on an earlier step, download it again and hand in the new file.`
     }`;
     label = endpoint ? 'Submit again' : 'Download my report again';
   }
@@ -90,7 +95,7 @@ export function ExtraChallengeBanner({ session }: { session: LabSession }) {
       <p>
         <Icon name="trophy" size={14} /> <strong>Optional extra challenge{where}.</strong> {text}
       </p>
-      <HandInAgain key={`${p.step}:${label}`} session={session} label={label} />
+      {label && <HandInAgain key={`${p.step}:${label}`} session={session} label={label} />}
     </div>
   );
 }
@@ -103,7 +108,7 @@ export function ExtraChallengeDone({ session }: { session: LabSession }) {
     return (
       <div class="callout good extra-challenge" tabIndex={-1}>
         <Icon name="check" size={14} /> <strong>You finished the extra challenge.</strong> Your latest report includes it. If you change anything after this, hand in again.
-        {!hasEndpoint() && ` If you haven't yet, ${handInWhere()}.`}
+        {!hasEndpoint() && ` Make sure you ${handInWhere()}.`}
       </div>
     );
   }
