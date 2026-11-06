@@ -292,7 +292,7 @@ class Builder {
     charge: (n: number) => void,
   ) {
     this.lex = new Lexer(html);
-    charge(html.length >> 3);
+    charge(html.length >> 2);
   }
 
   private get cur(): DomElement {
