@@ -44,7 +44,7 @@ let grid = document.getElementById("grid");
 
 for (let i = 0; i < count; i++) {
   let cell = document.createElement("div");
-  cell.className = "cell";
+  cell.classList.add("cell");
   let color = "hsl(" + i * 5 + ", 80%, 60%)";
   cell.style.backgroundColor = color;
   grid.appendChild(cell);
@@ -69,14 +69,15 @@ let cards = document.getElementById("cards");
 
 for (let i = 0; i < titles.length; i++) {
   let card = document.createElement("div");
-  card.className = "card";
+  card.classList.add("card");
 
   let heading = document.createElement("h3");
   heading.textContent = titles[i];
   let text = document.createElement("p");
   text.textContent = details[i];
 
-  card.append(heading, text);
+  card.appendChild(heading);
+  card.appendChild(text);
   cards.appendChild(card);
 }
 `;
@@ -87,7 +88,7 @@ let n = 0;
 
 button.addEventListener("click", function () {
   let cell = document.createElement("div");
-  cell.className = "cell";
+  cell.classList.add("cell");
   cell.style.backgroundColor = "hsl(" + n * 20 + ", 80%, 60%)";
   grid.appendChild(cell);
   n = n + 1;

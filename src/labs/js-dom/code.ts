@@ -260,7 +260,7 @@ export const LOOK: JsCheck = {
     if (title.classes.length) return 'That class has no rule in `style.css`, so the heading looks the same. Use `highlight`, or add your own rule.';
     return 'The heading looks the same as before. Set a `style` on `title`, or add the class `highlight`.';
   },
-  hints: ['You can change a look two ways: set a `style` property, or add a class from `style.css`.', 'A style looks like `title.style.color = "gold";`. A color is a string, so it goes in quotes.', 'Write `title.classList.add("highlight");`.'],
+  hints: ['You can change a look two ways: set a `style` property, or add a class from `style.css`.', 'A color is a string, so it goes in quotes: `title.style.color = "gold";`', 'Write `title.classList.add("highlight");`'],
 };
 
 export const GREET: JsCheck = {
@@ -281,7 +281,7 @@ export const GREET: JsCheck = {
     if (shown === other && shown !== START_GREETING) return 'The greeting says the same words for every visitor. Join the variable that holds the answer to `prompt()` into the message.';
     return 'Put the answer from `prompt()` into the element with the id `greeting`.';
   },
-  hints: ['`prompt()` gives back what the visitor typed, so store it in a variable.', 'Write `let name = prompt("What is your name?");`.', 'Write `greeting.textContent = "Welcome, " + name + "!";`.'],
+  hints: ['`prompt()` gives back what the visitor typed, so store it in a variable.', 'Write `let name = prompt("What is your name?");`', 'Write `greeting.textContent = "Welcome, " + name + "!";`'],
 };
 
 // --- step 3 ---
@@ -300,7 +300,7 @@ export const NEW_ELEMENT: JsCheck = {
     if (!p.exists('#about h2')) return 'The text of `about` changed, but the page has no new element. Use `document.createElement` to make one.';
     return 'Use `document.createElement("p")` to make a new element, then add it to `about`.';
   },
-  hints: ['`document.createElement("p")` makes a `<p>` that is not on the page yet. Store it in a variable.', 'Add it with `appendChild`, called on the element that will hold it.', 'Write `let fact = document.createElement("p");`, then `about.appendChild(fact);`.'],
+  hints: ['`document.createElement("p")` makes a `<p>` that is not on the page yet. Store it in a variable.', 'Add it with `appendChild`, called on the element that will hold it.', 'Write `let fact = document.createElement("p");`, then `about.appendChild(fact);`'],
 };
 
 export const NEW_TEXT: JsCheck = {
@@ -340,7 +340,7 @@ export const ITEMS: JsCheck = {
     if (got.every((t, i) => has(t, want[i]))) return `The list stops after ${got.length} items, and the array can be longer. Use \`favorites.length\` in the loop.`;
     return 'The list did not follow the array. Build each item from `favorites` in a loop, so the array decides what the page shows.';
   },
-  hints: ['Start with a `for` loop that counts through `favorites`, like the loops from the last lab.', 'Inside the loop, make an `<li>`, set its `textContent` to `favorites[i]`, and add it to `list`.', 'Write `let item = document.createElement("li");`, then `item.textContent = favorites[i];`, then `list.appendChild(item);`.'],
+  hints: ['Start with a `for` loop that counts through `favorites`, like the loops from the last lab.', 'Inside the loop, make an `<li>`, set its `textContent` to `favorites[i]`, and add it to `list`.', 'Write `let item = document.createElement("li");`, then `item.textContent = favorites[i];`, then `list.appendChild(item);`'],
 };
 
 export const ONE_MORE: JsCheck = {
@@ -350,7 +350,7 @@ export const ONE_MORE: JsCheck = {
     const a = c.vars.favorites;
     return Array.isArray(a) && a.length > 3 ? undefined : 'Add one more string to `favorites`, then press Run. Change only the array.';
   },
-  hints: ['Go to the line that makes `favorites`.', 'Put a comma after the last string, then type a new string in quotes.', 'For example: `let favorites = ["pizza", "soccer", "drawing", "chess"];`.'],
+  hints: ['Go to the line that makes `favorites`.', 'Put a comma after the last string, then type a new string in quotes.', 'For example: `let favorites = ["pizza", "soccer", "drawing", "chess"];`'],
 };
 
 // --- step 5 ---
@@ -370,7 +370,7 @@ export const CELLS: JsCheck = {
     if (any === 1 && noted(c.notes, 'moved-same-element')) return 'The grid has one square, because the loop adds the same element each time. Move `document.createElement("div")` inside the loop.';
     return 'The number of squares did not follow `count`. Use `i < count` in the loop, not a number.';
   },
-  hints: ['Write a `for` loop with `i < count`.', 'Inside the loop, make a `div` and store it in a variable called `cell`.', 'Write `cell.className = "cell";`, then `grid.appendChild(cell);`.'],
+  hints: ['Write a `for` loop with `i < count`.', 'Inside the loop, make a `div` and store it in a variable called `cell`.', 'Write `cell.classList.add("cell");`, then `grid.appendChild(cell);`'],
 };
 
 export const COLORS: JsCheck = {
@@ -384,7 +384,7 @@ export const COLORS: JsCheck = {
     if (colors.size === 1) return 'Every square is the same color. Build the color from `i`, so it changes on each pass.';
     return 'The squares have no color yet. Set `cell.style.backgroundColor` inside the loop.';
   },
-  hints: ['An `hsl()` color is a string, and its first number picks the color.', 'Use `i` for that first number, so each pass of the loop gets a new color.', 'Write `cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";`.'],
+  hints: ['An `hsl()` color is a string, and its first number picks the color.', 'Use `i` for that first number, so each pass of the loop gets a new color.', 'Write `cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";`'],
 };
 
 export const MANY: JsCheck = {
@@ -393,7 +393,7 @@ export const MANY: JsCheck = {
   test(c) {
     return c.page!.count('#grid .cell') >= 400 ? undefined : 'Change `count` to 400 on the first line, then press Run. The loop stays the same.';
   },
-  hints: ['Find the line `let count = 144;`.', 'Write `let count = 400;`, then press Run.'],
+  hints: ['Find the line `let count = 144;`', 'Write `let count = 400;`, then press Run.'],
 };
 
 // --- step 6 ---
@@ -416,7 +416,7 @@ export const EVERY: JsCheck = {
     if (!done) return 'The headings look the same as before. Use `document.querySelectorAll("h2")`, then add the class `accent` to each heading in a loop.';
     return 'Some headings changed and others did not. Loop over the whole list, so this works on a page with any number of headings.';
   },
-  hints: ['`document.querySelectorAll("h2")` gives a list of every `h2`.', 'A `for` loop can use the list\'s `.length`, and `headings[i]` is one heading.', 'Inside the loop, write `headings[i].classList.add("accent");`.'],
+  hints: ['`document.querySelectorAll("h2")` gives a list of every `h2`.', 'A `for` loop can use the list\'s `.length`, and `headings[i]` is one heading.', 'Inside the loop, write `headings[i].classList.add("accent");`'],
 };
 
 export const CONTENTS: JsCheck = {
@@ -431,7 +431,7 @@ export const CONTENTS: JsCheck = {
     if (got.length === HEADINGS.length && got.every((t, i) => has(t, HEADINGS[i]))) return 'This list has the right words, but it was typed by hand. Read each heading\'s `textContent` in the loop, so the list follows the page.';
     return 'The table of contents does not match the headings. Add one `<li>` for each `h2`, in order, with that heading\'s text.';
   },
-  hints: ['Find the list with `document.getElementById("toc")`.', 'In the loop, make an `<li>` and set its `textContent` to the heading\'s `textContent`.', 'Write `item.textContent = headings[i].textContent;`, then `toc.appendChild(item);`.'],
+  hints: ['Find the list with `document.getElementById("toc")`.', 'In the loop, make an `<li>` and set its `textContent` to the heading\'s `textContent`.', 'Write `item.textContent = headings[i].textContent;`, then `toc.appendChild(item);`'],
 };
 
 // --- step 7 ---
@@ -503,7 +503,7 @@ export const CARDS: JsCheck = {
     if (any === 1 && noted(c.notes, 'moved-same-element')) return 'The page has one card, because the loop adds the same element each time. Move `document.createElement("div")` inside the loop.';
     return `The page has ${n} cards and your arrays have ${size} items. Make the loop run once per item, with \`.length\`.`;
   },
-  hints: ['Write a `for` loop that counts through `titles`.', 'Make a `div` in the loop, and give it the class `card`.', 'Add each card with `document.getElementById("cards").appendChild(card);`.'],
+  hints: ['Write a `for` loop that counts through `titles`.', 'Make a `div` in the loop, and give it the class `card`.', 'Add each card with `document.getElementById("cards").appendChild(card);`'],
 };
 
 export const FOLLOWS: JsCheck = {
@@ -522,7 +522,7 @@ export const FOLLOWS: JsCheck = {
     if (other.want.every((row, i) => right(cards[i], row) >= 1)) return 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
     return 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, not a number.';
   },
-  hints: ['Each card needs a title and a detail from the same index.', 'Inside the loop, make an `h3` and a `p`, and add both to the card.', 'Write `heading.textContent = titles[i];`, then `text.textContent = details[i];`, then `card.append(heading, text);`.'],
+  hints: ['Each card needs a title and a detail from the same index.', 'Inside the loop, make an `h3` and a `p`, and add both to the card.', 'Write `heading.textContent = titles[i];` and `text.textContent = details[i];`, then `card.appendChild(heading);` and `card.appendChild(text);`'],
 };
 
 // --- optional extra challenge ---
@@ -542,5 +542,5 @@ export const ADDS: JsCheck = {
     if (!r.page!.count('#grid > *')) return 'A click adds no squares yet. Inside the function, make a `div` with the class `cell`, and add it to `grid`.';
     return 'Each click should add one square with the class `cell`.';
   },
-  hints: ['The code inside the function runs once for each click.', 'Inside the function, make a `div` and give it the class `cell`.', 'Give it a color too, then write `grid.appendChild(cell);`.'],
+  hints: ['The code inside the function runs once for each click.', 'Inside the function, make a `div` and give it the class `cell`.', 'Give it a color too, then write `grid.appendChild(cell);`'],
 };

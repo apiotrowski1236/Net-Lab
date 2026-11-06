@@ -59,6 +59,7 @@ export const jsDomLab: LabDef = {
         1. Open **index.html**, and read the ids on the heading and the paragraph under it.
         2. In **script.js**, put your name in the heading.
         3. Change the paragraph under the heading to a sentence about you.
+        4. Scroll down to the question at the bottom of this step, and answer it.
 
         A reminder from the lecture:
 
@@ -109,7 +110,7 @@ export const jsDomLab: LabDef = {
         editor('look', code.LOOK_PAGE, code.LOOK_SCRIPT, [code.LOOK, code.GREET], ['hello', 'hello']),
       ],
       goals: [
-        passed('look', code.LOOK, 'Change how the heading looks.', 'Try `title.classList.add("highlight");`.'),
+        passed('look', code.LOOK, 'Change how the heading looks.', 'Try `title.classList.add("highlight");`'),
         passed('look', code.GREET, 'Greet the visitor by name.', 'Store the answer from `prompt()` in a variable, then join it into a message.'),
       ],
     },
@@ -152,6 +153,7 @@ export const jsDomLab: LabDef = {
         1. Change the strings in \`favorites\` to your own favorites.
         2. Write a loop that adds one \`<li>\` to the list for each string.
         3. Add one more string to the array, and press **Run**. The page gets a new item, and the HTML stays the same.
+        4. Scroll down to the question at the bottom of this step, and answer it.
       `,
       demos: [editor('list', code.LIST_PAGE, code.LIST_SCRIPT, [code.ITEMS, code.ONE_MORE], ['one', 'one'])],
       goals: [
@@ -181,7 +183,7 @@ export const jsDomLab: LabDef = {
       body: md`
         By hand, a grid of 144 squares would take 144 lines of HTML.
 
-        1. Write a loop that runs \`count\` times. Each pass makes a \`div\`, gives it the class \`cell\`, and adds it to \`grid\`.
+        1. Write a loop that runs \`count\` times, with \`i\` as its counter. Each pass stores a new \`div\` in a variable named \`cell\`, gives it the class \`cell\`, and adds it to \`grid\`.
         2. Give each square its own color with the two lines below, inside your loop. **hsl** is a way to write a color, and its first number picks the shade.
         3. Change \`count\` to 400, and press **Run**.
 
@@ -194,7 +196,7 @@ export const jsDomLab: LabDef = {
       `,
       demos: [editor('grid', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY], ['list', 'list'])],
       goals: [
-        passed('grid', code.CELLS, 'Make as many squares as count says.', 'Use `i < count` in the loop, and set `className` to `"cell"`.'),
+        passed('grid', code.CELLS, 'Make as many squares as count says.', 'Use `i < count` in the loop, and add the class `cell` to each `div`.'),
         passed('grid', code.COLORS, 'Give the squares different colors.', 'Use the two lines in the instructions, inside the loop.'),
         passed('grid', code.MANY, 'Change count to 400.', 'The loop stays the same. Only the first line changes.'),
       ],
@@ -209,6 +211,17 @@ export const jsDomLab: LabDef = {
 
         1. Find every \`h2\` on the page. In a loop, add the class \`accent\` to each one.
         2. In the same loop, add an \`<li>\` to the list with the id \`toc\`, with that heading's text.
+
+        A reminder of how to loop over the list:
+
+        \`\`\`js
+        let items = document.querySelectorAll("p");
+        for (let i = 0; i < items.length; i++) {
+          items[i].classList.add("big");
+        }
+        \`\`\`
+
+        \`textContent\` reads text as well as sets it, so \`items[i].textContent\` gives you that element's text.
 
         Your table of contents now comes from the page, so a new heading would appear in it on the next **Run**.
       `,
@@ -227,8 +240,9 @@ export const jsDomLab: LabDef = {
         Write this one on your own. Choose a section for your own site: projects, books, places, or teams. Two arrays that line up by index are called **parallel arrays**, so \`titles[0]\` goes with \`details[0]\`.
 
         1. Make two parallel arrays with at least 3 items each.
-        2. Loop through them. For each index, make a \`div\` with the class \`card\`, with an \`h3\` for the title and a \`p\` for the detail.
-        3. Add each card to the element with the id \`cards\`.
+        2. Loop through them. For each index, make a \`div\` with the class \`card\`, an \`h3\` for the title, and a \`p\` for the detail.
+        3. Use \`appendChild\` to add the \`h3\` and the \`p\` to the card. A new element can hold other new elements.
+        4. Add the card to the element with the id \`cards\`.
       `,
       demos: [editor('cards', code.CARDS_PAGE, code.CARDS_SCRIPT, [code.ARRAYS, code.CARDS, code.FOLLOWS], ['every', 'every'])],
       goals: [
@@ -249,9 +263,9 @@ export const jsDomLab: LabDef = {
         {
           id: 'own-site',
           kind: 'text',
-          prompt: 'Name one section of your own website that you could build with an array and a loop. Explain what the array would hold, what the loop would make, and why that is better than typing the HTML by hand.',
+          prompt: 'Name one section of your own website that you could build with an array and a loop.\n\n1. What would the array hold?\n2. What would the loop make?\n3. Why is that better than typing the HTML by hand?',
           minWords: 40,
-          lines: 5,
+          lines: 7,
         },
       ],
     },
