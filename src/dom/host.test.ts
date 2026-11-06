@@ -197,13 +197,13 @@ describe('limits and what stays out', () => {
     expect(play(make(code), { run: true }).last?.page?.body).not.toContain('<meta');
   });
 
-  test.each(['document.getElementById("nope");', 'document.body.innerHTML;', 'document.body.outerHTML;', 'document.body.textContent;', 'document.body.lastElementChild;', 'cells.nextElementSibling;'])('a loop around %s pays for what it reads', (read) => {
+  test.each(['document.getElementById("nope");', 'document.body.innerHTML;', 'document.body.outerHTML;', 'document.body.textContent;', 'document.body.lastElementChild;', 'cells.nextElementSibling;', 'document.getElementsByClassName("nope").length;', 'document.getElementsByTagName("nope").length;', 'document.title;', 'cells.textContent = long;'])('a loop around %s pays for what it reads', (read) => {
     const files = make('').files;
     const steps = (code: string) => {
       const { programs } = parseFiles([...files.slice(0, -1), { name: 'script.js', text: code }]);
       return runProgram(programs, { hosts: (rt) => pageHosts(rt, files) }).steps;
     };
-    const page = 'let cells = document.body.lastElementChild;\nfor (let i = 0; i < 4000; i++) {\n  document.body.appendChild(document.createElement("div"));\n}\n';
+    const page = 'let long = "x".repeat(100000);\nlet cells = document.body.lastElementChild;\nfor (let i = 0; i < 4000; i++) {\n  document.body.appendChild(document.createElement("div"));\n}\n';
     const reads = steps(`${page}for (let i = 0; i < 100; i++) { ${read} }`) - steps(page);
     expect(reads).toBeGreaterThan(5000);
   });

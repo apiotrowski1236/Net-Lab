@@ -100,11 +100,16 @@ class Page {
     if (this.count > MAX_ELEMENTS) this.rt.fail('RangeError', `This page has more than ${MAX_ELEMENTS.toLocaleString('en-US')} elements.`, 'page-too-big', 'The program stopped here because the page got too big to draw. A loop may be adding more elements than you meant.');
   }
 
-  /** A read of everything under `p`. It takes time, so it takes steps, and a loop around it still runs out. */
+  /** Every element under `p`. A walk takes time, so it takes steps, and a loop around it still runs out. */
+  every(p: DomParent): DomElement[] {
+    const all = allElements(p);
+    this.rt.charge(all.length >> 2);
+    return all;
+  }
+
+  /** A read of everything under `p`, paid for like a walk. */
   whole(p: DomParent, read: () => string): string {
-    let elements = 0;
-    walkElements(p, () => void elements++);
-    this.rt.charge(elements >> 2);
+    this.every(p);
     const text = read();
     this.rt.checkLength(text.length);
     return text;
@@ -181,6 +186,7 @@ class Page {
 
   /** A browser shows these as they are, which is rarely what a beginner meant. */
   watchText(text: string, prop: string): void {
+    this.rt.charge(text.length >> 5);
     if (/<\/?[a-zA-Z][^<>]*>/.test(text)) this.log.tagsAsText(prop);
     const shown = /\[object HTML\w*Element\]/.exec(text);
     if (shown) this.log.elementAsText(shown[0]);
@@ -339,13 +345,13 @@ function byClass(page: Page, p: DomParent, args: Value[], on: string): Value {
   const text = page.rt.str(args[0]);
   if (text.startsWith('.')) page.log.classWithDot('getElementsByClassName', text);
   const names = text.split(/\s+/).filter(Boolean);
-  return new ListHost(page, () => allElements(p).filter((e) => names.length > 0 && names.every((k) => (e.attrs.get('class') ?? '').split(/\s+/).includes(k))), 'HTMLCollection', 'getElementsByClassName');
+  return new ListHost(page, () => page.every(p).filter((e) => names.length > 0 && names.every((k) => (e.attrs.get('class') ?? '').split(/\s+/).includes(k))), 'HTMLCollection', 'getElementsByClassName');
 }
 
 function byTag(page: Page, p: DomParent, args: Value[], on: string): Value {
   need(page, args, 1, 'getElementsByTagName', on);
   const tag = page.rt.str(args[0]).toLowerCase();
-  return new ListHost(page, () => allElements(p).filter((e) => tag === '*' || e.tag.toLowerCase() === tag), 'HTMLCollection', 'getElementsByTagName');
+  return new ListHost(page, () => page.every(p).filter((e) => tag === '*' || e.tag.toLowerCase() === tag), 'HTMLCollection', 'getElementsByTagName');
 }
 
 /** What every node that can hold others can do. Undefined: not one of these. */
@@ -738,7 +744,7 @@ class FragmentHost extends NodeHost {
   }
 
   get(name: string): Value {
-    if (name === 'textContent') return textOf(this.f);
+    if (name === 'textContent') return this.page.whole(this.f, () => textOf(this.f));
     if (PARENT_GET.includes(name)) return parentGet(this.page, this.f, name);
     return nodeGet(this.page, this.f, name);
   }
@@ -768,7 +774,7 @@ class DocumentHost extends NodeHost {
   }
 
   private titleEl(): DomElement | undefined {
-    return selectAll(this.page.doc, parseSelector('title'))[0];
+    return selectAll(this.page.doc, parseSelector('title'), (n) => this.page.rt.charge(n >> 2))[0];
   }
 
   get(name: string): Value {
