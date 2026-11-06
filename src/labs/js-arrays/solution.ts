@@ -55,6 +55,9 @@ console.log(votes);
 
 export const EDGES_DONE = `const playlist = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon", "Hallway Echo"];
 
+// push adds to the end. pop removes from the end.
+// unshift adds to the front. shift removes from the front.
+
 let removed = playlist.pop();
 console.log(removed);
 playlist.push("Thunder Gym");
@@ -69,6 +72,8 @@ export const SEARCH_DONE = `const banned = ["detention anthem", "food fight", "s
 const playlist = ["neon lockers", "bus stop rain", "last bell", "cafeteria moon"];
 
 let request = prompt("What song do you want to hear?");
+
+// The arrays are in lowercase, so the request needs to be too.
 request = request.toLowerCase();
 
 let spot = playlist.indexOf(request);
@@ -81,15 +86,7 @@ if (banned.includes(request)) {
 }
 `;
 
-export const SHOW_DONE = `const playlist = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon", "Hallway Echo"];
-
-alert(playlist.join(", "));
-
-let spot = Math.floor(Math.random() * playlist.length);
-console.log(playlist[spot]);
-`;
-
-export const PROGRAM_DONE = `// The request line for the dance.
+export const PROGRAM_DONE = `// Song requests for the dance.
 let requests = ["Neon Lockers", "Bus Stop Rain", "Last Bell"];
 let song = prompt("What song do you want to hear?");
 
@@ -101,9 +98,6 @@ if (requests.includes(song)) {
 
 console.log(requests.join(", "));
 console.log(requests.length + " songs on the list.");
-
-let spot = Math.floor(Math.random() * requests.length);
-console.log("Next up: " + requests[spot]);
 `;
 
 export const REMOVE_DONE = `const requests = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon"];
@@ -120,6 +114,12 @@ if (spot === -1) {
 console.log(requests.join(", "));
 `;
 
+export const PICK_DONE = `const playlist = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon", "Hallway Echo"];
+
+let spot = Math.floor(Math.random() * playlist.length);
+console.log(playlist[spot]);
+`;
+
 /** Steps through a whole program, one press of Next at a time. */
 const stepAll = (demo: string, steps: number) => on(demo, { stepping: true }, ...Array.from({ length: steps }, (_, i) => ({ seek: i + 1 })), { stepping: false });
 
@@ -130,7 +130,6 @@ export const jsArraysSolution: LabSolution = {
   change: { moves: edit('change', CHANGE_DONE) },
   edges: { moves: edit('edges', EDGES_DONE) },
   search: { moves: [...edit('search', SEARCH_DONE), ...on('search', { answer: 'Last Bell' })] },
-  show: { moves: edit('show', SHOW_DONE) },
   program: { moves: [...edit('program', PROGRAM_DONE), ...on('program', { answer: 'Thunder Gym' })] },
   reflect: {
     text: {
@@ -139,4 +138,5 @@ export const jsArraysSolution: LabSolution = {
     },
   },
   remove: { moves: [...edit('remove', REMOVE_DONE), ...on('remove', { answer: 'Last Bell' })] },
+  pick: { moves: edit('pick', PICK_DONE) },
 };

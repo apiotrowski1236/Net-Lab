@@ -257,10 +257,18 @@ export type Receiver = 'array' | 'string' | 'number' | 'boolean' | 'object' | 'f
 
 const KIND_WORD: Record<Receiver, string> = { array: 'An array', string: 'A string', number: 'A number', boolean: 'A boolean', object: 'This object', function: 'A function', undefined: 'undefined', null: 'null' };
 
+/** Names that only work after a value and a dot, so a new variable is the wrong fix. */
+const BELONGS: Record<string, string> = {
+  length: 'an array, like names.length',
+  ...Object.fromEntries(['push', 'pop', 'shift', 'unshift', 'includes', 'indexOf', 'join', 'slice', 'splice'].map((m) => [m, `an array, like names.${m}()`])),
+  ...Object.fromEntries(['toLowerCase', 'toUpperCase'].map((m) => [m, `a string, like name.${m}()`])),
+};
+
 /** `totl is not defined`. */
 export function notDefinedHelp(name: string, inScope: Iterable<string>): string {
   const lower = lowercaseKeyword(name);
   if (lower) return `JavaScript keywords are all lowercase. Write ${lower}, not ${name}.`;
+  if (Object.hasOwn(BELONGS, name)) return `${name} belongs to ${BELONGS[name]}. Put the name of your variable and a dot in front of it.`;
   const near = closestName(name, inScope);
   if (near) {
     const caps = near.toLowerCase() === name.toLowerCase();

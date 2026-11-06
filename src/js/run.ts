@@ -1447,6 +1447,7 @@ class Interp implements Runtime {
   private readOfNothing(o: undefined | null, key: string, e: Member | Index): never {
     const from = e.obj;
     let help = `${this.src(from)} is ${String(o)}, so it has no properties to read. Check where ${this.src(from)} gets its value.`;
+    if (o === null && this.facts.prompts) help += ' prompt gives back null when you press Cancel.';
     if (from.k === 'index') {
       help = `${this.src(from)} is ${String(o)}. That usually means the index is past the end of the array, and an array of n items has indexes 0 to n - 1. Check the index, or the loop that sets it.`;
     }

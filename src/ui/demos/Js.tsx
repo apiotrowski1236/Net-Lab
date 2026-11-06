@@ -327,8 +327,12 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
   const last = s.last;
   // Like a console, show the end. A loop that printed 2,000 lines has its stop message down there.
   const side = useRef<HTMLDivElement>(null);
+  const shown = useRef(last);
   useLayoutEffect(() => {
     if (side.current) side.current.scrollTop = side.current.scrollHeight;
+    // On a narrow screen the page scrolls, and the output can land under the lesson's bottom bar.
+    if (side.current && last !== shown.current && matchMedia('(max-width: 900px)').matches) side.current.scrollIntoView({ block: 'nearest' });
+    shown.current = last;
   }, [last]);
 
   const fresh = !s.edited && !stepping;
@@ -396,7 +400,7 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
               Back a line
             </button>
             <span class="java-count" aria-live="polite">
-              Step {s.at! + 1} of {count}
+              Move {s.at! + 1} of {count}
             </span>
             <button class="btn primary small java-next" disabled={s.at === count - 1} onClick={() => send({ seek: s.at! + 1 })}>
               Next

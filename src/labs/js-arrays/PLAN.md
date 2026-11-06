@@ -15,16 +15,18 @@ Target: 45 minutes.
 | 3 | read | 5 | Predicts `playlist[5]`, then prints the third song, the count, and the last song | `arr[3]` for the third, `arr.length()`, `arr[arr.length]`, fixed index, typed answers, `length - 1` as the count |
 | 4 | change | 4 | Replaces two songs and adds a vote, on `const` arrays | counting from 1, reassigning a `const`, retyping the array, `arr[arr.length] = x`, `votes[2] = 16`, `votes[2] + 1;` |
 | 5 | edges | 6 | Uses `pop`, `push`, `shift`, and `unshift` in order | `arr[3] = x` for push, `arr = arr.push(x)`, `arr.push[x]`, `arr + x`, forgetting what `pop` gives back, popping twice, `shift` and `unshift` swapped, `arr[0] = x` for unshift |
-| 6 | search | 7 | Writes an if/else from a `prompt` with `includes` and `indexOf` | `request === banned`, quoted `"request"`, `banned.includes` with no parentheses, case sensitivity, printing the index, `spot > 0`, treating -1 as a position |
-| 7 | show | 5 | Replaces a raw `alert` with `join`, and picks a random song | bare commas, `join()`, unused `join`, typed lists, no `floor`, `Math.round`, `+ 1`, `Math.random` with no parentheses, fixed length, printing the index |
-| 8 | program | 9 | Writes the request line with one comment of help | no prompt, overwriting a spot, adding a duplicate, no message, `alert(arr)`, count or list printed too early, a pick that never changes |
-| 9 | reflect | 2 | Explains `arr[arr.length]` and -1 to a friend | |
-| 10 | submit | | Hands in | |
-| 11 | remove | extra | Removes a song by name with `splice` | `splice(-1, 1)` removing the last song, `spot > 0`, `pop`, one argument to `splice`, a fixed index |
+| 6 | search | 8 | Writes an if, else if, and else from a `prompt` with `includes` and `indexOf`, then predicts what -1 prints | `request === banned`, quoted `"request"`, `banned.includes` with no parentheses, printing the index, `+` gluing the 1 onto the text, `spot > 0`, treating -1 as a song number |
+| 7 | program | 8 | Writes the song request program with one comment of help, and meets `join` | no prompt, overwriting a spot, adding a duplicate, no message, `alert(arr)`, `join()`, count or list printed too early |
+| 8 | reflect | 3 | Explains `arr[arr.length]` and -1 to a friend | |
+| 9 | submit | | Hands in | |
+| 10 | remove | extra | Removes a song by name with `splice` | `splice(-1, 1)` removing the last song, `spot > 0`, `pop`, one argument to `splice`, a fixed index, the song's name in `splice` |
+| 11 | pick | extra | Prints a random song | no `floor`, `Math.round`, `+ 1`, `Math.random` with no parentheses, fixed length, printing the index |
+
+The first student panel moved `Math.random` to an optional step and folded `join` into the program, because the lab ran 20 minutes over a class period. Step 6 also gives students `toLowerCase`, so that the step teaches searching and -1.
 
 ## Scaffolding
 
-Steps 1 to 4 start from nearly complete code. Step 5 gives a one-line comment and a reminder table. Step 6 gives the arrays and the prompt. Step 7 gives the array and the bare `alert`. Step 8 gives one comment.
+Steps 1 to 4 start from nearly complete code. Step 5 lists the methods again in a comment. Step 6 gives the arrays, the prompt, and the lowercase line. Step 7 gives one comment.
 
 ## How the checks work
 

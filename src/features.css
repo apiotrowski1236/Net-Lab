@@ -156,6 +156,10 @@
     bottom: 0;
     z-index: 5;
   }
+  /* Leaves room for that bar when a run scrolls the output into view. */
+  .java-side {
+    scroll-margin-bottom: 72px;
+  }
 }
 .link-btn {
   display: inline-flex;

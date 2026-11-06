@@ -477,7 +477,7 @@ export function JavaView({ spec, state: s, send }: DemoViewProps<JavaSpec, JavaS
               Back a line
             </button>
             <span class="java-count" aria-live="polite">
-              Step {s.at! + 1} of {count}
+              Move {s.at! + 1} of {count}
             </span>
             <button class="btn primary small java-next" disabled={s.at === count - 1} onClick={() => send({ seek: s.at! + 1 })}>
               Next

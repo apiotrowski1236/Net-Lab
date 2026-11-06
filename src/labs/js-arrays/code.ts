@@ -80,7 +80,7 @@ function pickMistake(c: JsCheckCtx, runs: Run[], items: string[], name: string):
   if (runs.some((r) => items.filter((s) => printed(r.output, items, s)).length > 1)) return 'Your program prints more than one song. Print only the one song at the random index.';
   const picked = items.flatMap((s, i) => (lines.some((t) => t.includes(s)) ? [i] : []));
   if (!picked.length) {
-    if (new Set(lines.filter((t) => /\b\d+\b/.test(t))).size > 1) return `That prints the index. Print the song at that index with square brackets, like \`${name}[spot]\`.`;
+    if (new Set(lines.filter((t) => /\b\d+\b/.test(t))).size > 1) return `That prints the index. Print the song at that index: put the number in square brackets after \`${name}\`.`;
     return 'Print one song picked at random.';
   }
   if (picked.length === 1) {
@@ -173,6 +173,7 @@ export const REQUESTS: JsCheck = {
     const v = c.vars.requests;
     if (Array.isArray(v)) return v.length ? 'An empty array has nothing between its square brackets, not even quote marks.' : undefined;
     if (v === '') return 'An empty string is not an empty array. Replace the quote marks with square brackets.';
+    if (typeof v === 'string' && v.trim() === '[]') return 'Those quote marks make it a string that only looks like an array. Take the quote marks off.';
     if (typeof v === 'object' && v !== null) return 'Curly braces make an object. An empty array is two square brackets with nothing between them.';
     return 'Make `requests` an empty array: two square brackets with nothing between them.';
   },
@@ -206,9 +207,10 @@ export const THIRD: JsCheck = {
   label: 'Print the third song',
   test(c) {
     const r = longer(c);
+    // A crash on a later line doesn't undo a print that worked.
+    if (printed(r.output, SONGS, 'Coral')) return undefined;
     const bad = trouble(r);
     if (bad) return bad;
-    if (printed(r.output, SONGS, 'Coral')) return undefined;
     if (printed(c.output, READ_LIST, 'Last Bell')) return TYPED_SONG;
     if (printed(r.output, SONGS, 'Dune')) return 'Indexes count from 0, so `playlist[3]` is the fourth song. The third song is at index 2.';
     if (loose(r.output, SONGS).some((t) => t.includes('playlist['))) return 'The quote marks turn that into plain text. Take them away, so that JavaScript reads the index.';
@@ -223,10 +225,10 @@ export const COUNT: JsCheck = {
   label: 'Print how many songs are on the playlist',
   test(c) {
     const r = longer(c);
-    const bad = trouble(r);
-    if (bad) return bad;
     const lines = loose(r.output, SONGS);
     if (lines.some((t) => /\b7\b/.test(t))) return undefined;
+    const bad = trouble(r);
+    if (bad) return bad;
     if (lines.some((t) => /\b6\b/.test(t))) return '`playlist.length - 1` is the last index. The number of songs is `playlist.length`, with nothing subtracted.';
     if (c.output.some((l) => /\b5\b/.test(l.text))) return 'You typed the number. Use `playlist.length`, so that the count stays right when songs are added.';
     return 'Add a line that prints `playlist.length`.';
@@ -236,7 +238,7 @@ export const COUNT: JsCheck = {
 
 export const LAST: JsCheck = {
   id: 'last',
-  label: 'Print the last song, using length',
+  label: 'Print the last song',
   test(c) {
     const r = longer(c);
     const bad = trouble(r);
@@ -269,7 +271,7 @@ const has = (v: unknown, item: unknown) => Array.isArray(v) && v.includes(item);
 
 export const SECOND: JsCheck = {
   id: 'second',
-  label: 'Put Thunder Gym in place of the second song',
+  label: 'Replace the second song with Thunder Gym',
   test(c) {
     const r = changed(c);
     const bad = trouble(r);
@@ -289,7 +291,7 @@ export const SECOND: JsCheck = {
 
 export const LAST_SPOT: JsCheck = {
   id: 'last-spot',
-  label: 'Put Parking Lot Stars in place of the last song',
+  label: 'Replace the last song with Parking Lot Stars',
   test(c) {
     const r = changed(c);
     const bad = trouble(r);
@@ -328,6 +330,9 @@ export const VOTE: JsCheck = {
 // --- step 5: edges ---
 
 export const EDGES = script(`const playlist = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon", "Hallway Echo"];
+
+// push adds to the end. pop removes from the end.
+// unshift adds to the front. shift removes from the front.
 
 // Make the four changes here, in order.
 
@@ -368,7 +373,7 @@ export const POP: JsCheck = {
     if (printed(r.output, SONGS, 'Fjord')) return `That prints the song that is last now. ${POP_RETURN}`;
     return `The song came off the playlist, and now it needs printing. ${POP_RETURN}`;
   },
-  hints: ['`pop` takes no value, and it removes the last item.', '`pop` also gives back the item it removed, so you can save it in a variable.', 'Write `let removed = playlist.pop();`, then `console.log(removed);`.'],
+  hints: ['Call it on the array: `playlist.pop()`. It takes no value, and it removes the last item.', '`pop` also gives back the item it removed, so you can save it in a variable.', 'Write `let removed = playlist.pop();`, then `console.log(removed);`.'],
 };
 
 export const PUSH: JsCheck = {
@@ -404,7 +409,11 @@ export const SHIFT: JsCheck = {
     const bad = arrayLeft(c, r);
     if (bad) return bad;
     const p = r.vars.playlist as unknown[];
-    if (p.includes('Aqua')) return 'The first song is still on the playlist. Remove it with `playlist.shift()`.';
+    if (p.includes('Aqua')) {
+      const first = c.calls('unshift')[0];
+      if (first && c.calls('shift').some((k) => k.line > first.line)) return 'Your `shift` ran after your `unshift`, so it removed Senior Sunset. Make the changes in the order listed.';
+      return 'The first song is still on the playlist. Remove it with `playlist.shift()`.';
+    }
     if (/\.shift\(\s*["'`]/.test(c.code())) return '`shift` removes the first song and ignores what you pass it. `unshift` is the method that adds to the front.';
     if (!p.includes('Birch') && p[0] !== WANT_FRONT) return TWO_SHIFTS;
     if (printed(r.output, SONGS, 'Aqua')) return undefined;
@@ -436,6 +445,9 @@ export const SEARCH = script(`const banned = ["detention anthem", "food fight", 
 const playlist = ["neon lockers", "bus stop rain", "last bell", "cafeteria moon"];
 
 let request = prompt("What song do you want to hear?");
+
+// The arrays are in lowercase, so the request needs to be too.
+request = request.toLowerCase();
 
 // Decide what to print.
 
@@ -472,31 +484,22 @@ export const IS_BANNED: JsCheck = {
   hints: ['Start with `if (...)`, and put the test between the parentheses.', '`banned.includes(request)` gives true or false.', 'Write `if (banned.includes(request)) {`, and print `Sorry, that song is banned.` inside the braces.'],
 };
 
-export const ANY_CAPS: JsCheck = {
-  id: 'any-caps',
-  label: 'Find banned songs however they are capitalized',
-  test(c) {
-    if (saysBanned(asked(c, 'YAK')) && saysBanned(asked(c, 'Yak'))) return undefined;
-    return '`includes` is case sensitive, so "YAK" does not match "yak". Search for `request.toLowerCase()` instead of `request`.';
-  },
-  hints: ['`request.toLowerCase()` gives back the request in lowercase.', 'You can save it at the top: `request = request.toLowerCase();`.', 'Or put it in the test: `banned.includes(request.toLowerCase())`.'],
-};
-
 export const POSITION: JsCheck = {
   id: 'position',
-  label: 'Print where a song is in line, counting from 1',
+  label: 'Print the number of a song on the list, counting from 1',
   test(c) {
     const found = asked(c, 'delta');
     const bad = trouble(found);
     if (bad) return bad;
     const fourth = numbersIn(found);
     const first = numbersIn(asked(c, 'alpha'));
+    if (fourth.includes(31)) return 'That printed 31, because `+` glued the 1 onto the text instead of adding. Put parentheses around the math, like `(spot + 1)`.';
     if (fourth.includes(3) && !fourth.includes(4)) return 'People count from 1, so the song at index 3 is number 4. Print the index plus 1.';
     if (!fourth.includes(4)) return 'When the request is on the playlist, find it with `playlist.indexOf(request)`, then print that number plus 1.';
     if (!first.includes(1)) return 'The first song is at index 0, and your code treated it as missing. Compare what `indexOf` gives back with -1.';
-    return numbersIn(asked(c, 'DELTA')).includes(4) ? undefined : '`indexOf` is case sensitive too, so search for `request.toLowerCase()` here as well.';
+    return undefined;
   },
-  hints: ['`playlist.indexOf(request)` gives the index of the song. Save it in a variable named `spot`.', 'People count from 1, so the number to print is `spot + 1`.', 'Write `console.log("That song is number " + (spot + 1) + ".");`.'],
+  hints: ['After the `}` of your first `if`, add `else if (playlist.includes(request)) {`.', 'Inside it, write `let spot = playlist.indexOf(request);`. People count from 1, so the number to print is `spot + 1`.', 'Write `console.log("That song is number " + (spot + 1) + ".");`.'],
 };
 
 export const NOT_FOUND: JsCheck = {
@@ -507,50 +510,16 @@ export const NOT_FOUND: JsCheck = {
     const bad = trouble(r);
     if (bad) return bad;
     const said = numbersIn(r);
-    if (said.includes(0) || said.includes(-1) || /undefined/.test(r.text)) return '`indexOf` gave -1 because that song is not on the playlist, and your code treated -1 as a place in line. Test for it first: `if (spot === -1)`.';
+    // A line that says so is the answer, and a -1 beside it is a student's own test print.
+    if (!/not on/i.test(r.text) && (said.includes(0) || said.includes(-1) || /undefined/.test(r.text))) return '`indexOf` gave -1 because that song is not on the playlist, and your code treated -1 as a song number. Test for it first: `if (spot === -1)`.';
     return r.text.trim() && !saysBanned(r) ? undefined : 'When the song is not on the playlist, print `Not on the playlist yet.`';
   },
-  hints: ['`indexOf` gives -1 when it cannot find the song.', 'Compare the result with -1 in an `if`.', 'Write `if (spot === -1) {`, and print `Not on the playlist yet.` inside the braces.'],
+  hints: ['What is left after your first two tests is a song that is not on the playlist.', 'Add `else {` after the last `}`.', 'Inside the `else`, write `console.log("Not on the playlist yet.");`.'],
 };
 
-// --- step 7: show ---
+// --- step 7: program ---
 
-export const SHOW = script(`const playlist = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon", "Hallway Echo"];
-
-alert(playlist);
-
-// Pick a random song here.
-
-`);
-
-export const JOINED: JsCheck = {
-  id: 'joined',
-  label: 'Show the playlist with join',
-  test(c) {
-    const r = longer(c);
-    const bad = trouble(r);
-    if (bad) return bad;
-    if (readable(r.text, SONGS)) return undefined;
-    const mistake = listMistake(c, r, SONGS, 'playlist');
-    if (mistake) return mistake;
-    if (readable(c.text, ['Neon Lockers', 'Bus Stop Rain', 'Last Bell', 'Cafeteria Moon', 'Hallway Echo'])) return 'That works for these five songs only. Use `join`, so that the line follows the list when it grows.';
-    return 'Show the whole playlist with `playlist.join(", ")`.';
-  },
-  hints: ['`join` gives back one string with all the items in it.', 'Put what goes between the songs in the parentheses, in quote marks.', 'Write `alert(playlist.join(", "));`.'],
-};
-
-export const PICK: JsCheck = {
-  id: 'pick',
-  label: 'Print one song picked at random',
-  test(c) {
-    return pickMistake(c, SEEDS.map((seed) => c.run({ seed, data: { playlist: SONGS } })), SONGS, 'playlist');
-  },
-  hints: ['First save a random index in a variable named `spot`.', 'Write `let spot = Math.floor(Math.random() * playlist.length);`.', 'Then print the song at that index: `console.log(playlist[spot]);`.'],
-};
-
-// --- step 8: program ---
-
-export const PROGRAM = script(`// The request line for the dance.
+export const PROGRAM = script(`// Song requests for the dance.
 `);
 
 const BOOTH = ['aqua', 'birch', 'coral', 'dune', 'ember', 'fjord', 'glow', 'haze', 'iris'];
@@ -573,7 +542,7 @@ function asking(c: JsCheckCtx, song: string, options: RunOptions = {}): Run {
   return fallback ?? last!;
 }
 
-const inBooth = (c: JsCheckCtx, song: string, seed = 1) => asking(c, song, { seed, data: { requests: BOOTH } });
+const inBooth = (c: JsCheckCtx, song: string) => asking(c, song, { data: { requests: BOOTH } });
 
 export const LIST: JsCheck = {
   id: 'list',
@@ -624,7 +593,7 @@ export const ADD: JsCheck = {
 
 export const NO_REPEAT: JsCheck = {
   id: 'no-repeat',
-  label: 'Keep a repeat off the list, and say so',
+  label: 'Do not add a song twice, and print a message',
   test(c) {
     const r = inBooth(c, 'coral');
     const bad = trouble(r);
@@ -665,15 +634,6 @@ export const HOW_MANY: JsCheck = {
   hints: ['`length` tells you how many items an array has.', 'Print it after the new song has gone on the list.', 'Write `console.log(requests.length);`.'],
 };
 
-export const NEXT_SONG: JsCheck = {
-  id: 'next-song',
-  label: 'Print a random song from the list',
-  test(c) {
-    return pickMistake(c, SEEDS.map((seed) => inBooth(c, NEW_SONG, seed)), BOOTH, 'requests');
-  },
-  hints: ['You did this in the last step, with `playlist`.', 'Write `let spot = Math.floor(Math.random() * requests.length);`.', 'Then write `console.log("Next up: " + requests[spot]);`.'],
-};
-
 // --- optional extra challenge: remove ---
 
 export const REMOVE = script(`const requests = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon"];
@@ -688,7 +648,7 @@ const without = (song: string) => JSON.stringify(SHORT_LIST.filter((s) => s !== 
 
 export const TAKE_OFF: JsCheck = {
   id: 'take-off',
-  label: 'Remove the song the user names',
+  label: 'Remove the song the student typed',
   test(c) {
     const r = removing(c, 'birch');
     const bad = trouble(r);
@@ -699,6 +659,7 @@ export const TAKE_OFF: JsCheck = {
       return JSON.stringify(removing(c, 'aqua').vars.requests) === without('aqua') ? undefined : 'The first song is at index 0, and your code left it on the list. Compare what `indexOf` gives back with -1.';
     }
     if (JSON.stringify(p) === JSON.stringify(SHORT_LIST.slice(0, 1))) return '`splice` with one value removes everything from that index to the end. Add a second value, 1, to remove one song.';
+    if (/\.splice\(\s*song\b/.test(c.code())) return '`splice` needs an index, not the name of the song. Find the index with `requests.indexOf(song)` first.';
     if (JSON.stringify(p) === JSON.stringify(SHORT_LIST.slice(0, -1))) return '`pop` removes the last song, whatever the user typed. Find the song with `indexOf`, then use `splice`.';
     return 'Find the song with `requests.indexOf(song)`, then remove it with `splice`.';
   },
@@ -729,4 +690,21 @@ export const SHOW_LEFT: JsCheck = {
     return listMistake(c, r, left, 'requests') ?? 'Print what is left with `requests.join(", ")`, after your `if` and `else`.';
   },
   hints: ['Print the list after the `splice`.', 'Put the line after your `if` and `else`, so that it always runs.', 'Write `console.log(requests.join(", "));`.'],
+};
+
+// --- optional extra challenge: pick ---
+
+export const PICK_START = script(`const playlist = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon", "Hallway Echo"];
+
+// Pick a random song here.
+
+`);
+
+export const PICK: JsCheck = {
+  id: 'pick',
+  label: 'Print one song picked at random',
+  test(c) {
+    return pickMistake(c, SEEDS.map((seed) => c.run({ seed, data: { playlist: SONGS } })), SONGS, 'playlist');
+  },
+  hints: ['First save a random index in a variable named `spot`.', 'Write `let spot = Math.floor(Math.random() * playlist.length);`.', 'Then print the song at that index: `console.log(playlist[spot]);`.'],
 };

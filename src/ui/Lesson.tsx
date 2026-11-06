@@ -527,7 +527,7 @@ export function LessonPanel({
         {session.replayWarning && <div class="callout warn small">{session.replayWarning}</div>}
         {reviewing && (
           <div class="callout info small review-banner">
-            You're reviewing an earlier step. {isLesson(session.lab) ? 'Your work stays the way you left it.' : 'The network stays the way you left it.'}
+            You're reviewing an earlier step. {isLesson(session.lab) ? 'Changes you make here are saved.' : 'The network stays the way you left it.'}
             <div class="row gap-sm">
               {session.canReplay(p.step) && (
                 <button class="btn tiny" onClick={() => session.startReplay(p.step)} disabled={replayingThis === p.step}>

@@ -117,7 +117,7 @@ export function Summary({ session }: { session: LabSession }) {
         </div>
         <div class="sstat">
           <div class="sstat-num">{report.activeMinutes}</div>
-          <div class="sstat-label">minutes on this page</div>
+          <div class="sstat-label">minutes on this lab</div>
         </div>
       </div>
 
