@@ -316,7 +316,7 @@ export class PageLog {
   private explainList(e: JsError): string | undefined {
     const r = [...this.lists].reverse().find((l) => l.file === e.pos.file && l.line === e.pos.line);
     if (!r) return undefined;
-    return `${r.source} gives a list of elements, not one element, so the list has no ${r.name}. Use a loop, and use ${r.name} on each element, with [i] after the name of the list.`;
+    return `${r.source} gives a list of elements, not one element, so the list has no ${r.name}. In a loop, use ${r.name} on each element, with [i] after the name of the list.`;
   }
 
   private explainNotFunction(e: JsError): string | undefined {

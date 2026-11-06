@@ -42,7 +42,7 @@ describe('help on an error names the mistake', () => {
     ['a color with no quotes', `${E}e.style.color = red;`, 'red has no quotes, so JavaScript looks for a variable called red. Text goes in quotes, so write "red".'],
     ['a bare word that is an id', 'document.querySelector("tagline").textContent = "x";', 'querySelector("tagline") looks for a <tagline> tag, and this page has none. An id needs a # in front, so write "#tagline".'],
     ['a wrong class', 'document.querySelector(".titel").textContent = "x";', 'querySelector(".titel") found no element, so it gave back null. The classes on this page are title, card. Did you mean ".title"?'],
-    ['style on a list', 'document.querySelectorAll("h2").style.color = "red";', 'querySelectorAll gives a list of elements, not one element, so the list has no style. Use a loop, and use style on each element, with [i] after the name of the list.'],
+    ['style on a list', 'document.querySelectorAll("h2").style.color = "red";', 'querySelectorAll gives a list of elements, not one element, so the list has no style. In a loop, use style on each element, with [i] after the name of the list.'],
     ['forEach on a collection', 'document.getElementsByClassName("card").forEach(function (c) { });', 'getElementsByClassName and children give a collection, which has no forEach. Use a for loop with an index, or use querySelectorAll.'],
     ['map on a list', 'document.querySelectorAll("h2").map(function (c) { });', 'A list of elements is not an array, so it has no map. Use a for loop with an index.'],
     ['document.write', 'document.write("hi");', 'document.write replaces the whole page in a real browser, so it is left out here. Find an element and set its textContent, or make one with createElement and add it with appendChild.'],
@@ -52,7 +52,7 @@ describe('help on an error names the mistake', () => {
     ['no document in front', 'let e = getElementById("title");', 'getElementById belongs to document, so write document.getElementById.'],
     ['a capital D', 'let e = Document.getElementById("title");', 'The name for the page is document, in all lowercase letters.'],
     ['appending to document', 'document.appendChild(document.createElement("p"));', 'document stands for the whole page, which already has its one <html> element. Add to document.body, or to an element inside it.'],
-    ['a list method that is not there', 'document.querySelectorAll("h2").classList.add("x");', 'querySelectorAll gives a list of elements, not one element, so the list has no classList. Use a loop, and use classList on each element, with [i] after the name of the list.'],
+    ['a list method that is not there', 'document.querySelectorAll("h2").classList.add("x");', 'querySelectorAll gives a list of elements, not one element, so the list has no classList. In a loop, use classList on each element, with [i] after the name of the list.'],
   ];
   for (const [name, code, help] of cases) test(name, () => expect(run(code).last?.error?.help).toBe(help));
 

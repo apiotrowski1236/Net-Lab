@@ -134,7 +134,7 @@ export const jsDomLab: LabDef = {
         Your script has an array named \`favorites\`, and \`list\` holds the empty list on the page.
 
         1. Change the strings in \`favorites\` to your own favorites.
-        2. Write a loop over \`favorites\`. Each pass through the loop makes an \`<li>\`, sets its text to \`favorites[i]\`, and adds it to \`list\`.
+        2. Write a loop over \`favorites\`. One time through the loop is a **pass**. Each pass makes an \`<li>\`, sets its text to \`favorites[i]\`, and adds it to \`list\`.
         3. Add one more string to the array, and press **Run**. The page gets a new item, and the HTML stays the same.
         4. Scroll down to the question at the bottom of this step, and answer it.
       `,
@@ -147,9 +147,9 @@ export const jsDomLab: LabDef = {
         {
           id: 'once',
           kind: 'choice',
-          prompt: 'An element that is already on the page moves when you add it again. It does not make a copy.\n\nA friend puts the createElement line above the loop, so only one element is made. Their array has 3 strings. What shows on the page?',
+          prompt: 'An element that is already on the page moves when you add it again. It does not make a copy.\n\nA friend wrote this, and `favorites` has 3 strings. What shows on the page?\n\n```\nlet item = document.createElement("li");\nfor (let i = 0; i < favorites.length; i++) {\n  item.textContent = favorites[i];\n  list.appendChild(item);\n}\n```',
           options: [
-            { id: 'three', text: 'Three items', feedback: 'The loop runs three times, but there is only one element, and each pass moves it.' },
+            { id: 'three', text: 'Three items', feedback: 'The loop runs three times, but there is only one element. Each pass moves it and changes its text.' },
             { id: 'one', text: 'One item, with the last string', correct: true },
             { id: 'first', text: 'One item, with the first string', feedback: 'Each pass sets the text again, so the first string gets replaced.' },
             { id: 'error', text: 'An error', feedback: 'No error appears. A browser moves the element, and that is why this mistake is hard to find.' },
@@ -219,7 +219,7 @@ export const jsDomLab: LabDef = {
       id: 'cards',
       title: 'Build your own cards',
       body: md`
-        Write this one on your own. Choose what your cards show, such as projects, books, places, or teams. Two arrays that line up by index are called **parallel arrays**, so \`titles[0]\` goes with \`details[0]\`.
+        Write this one from the comments in your script. Choose what your cards show, such as projects, books, places, or teams. Two arrays that match by index are called **parallel arrays**, so \`titles[0]\` goes with \`details[0]\`.
 
         1. Make two parallel arrays with at least 3 items each.
         2. Loop through them. For each index, make a \`div\` with the class \`card\`, an \`h3\` for the title, and a \`p\` for the detail.
@@ -298,10 +298,10 @@ export const jsDomLab: LabDef = {
       title: 'Optional extra challenge: a button that adds squares',
       extra: true,
       body: md`
-        A page can run code when someone clicks. \`addEventListener\` takes the kind of event and a function, and the function runs on each click. Your script already has this shape.
+        A page can run code when someone clicks. \`addEventListener\` takes the kind of event and a function, and the function runs on each click. Your script already has this code.
 
         1. Inside the function, make one \`div\` with the class \`cell\`, and add it to \`grid\`.
-        2. To give it a color, pick one like \`"gold"\`. This function has no loop, so there is no \`i\` to use.
+        2. You can also give it a color. Set its \`style.backgroundColor\` to one color, like \`"gold"\`. This function has no loop, so there is no \`i\` to use.
         3. Press **Run**, then click **Add a square** on your page a few times.
       `,
       demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS, code.CLICKED])],

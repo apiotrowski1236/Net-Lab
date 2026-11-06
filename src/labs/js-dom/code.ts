@@ -225,7 +225,7 @@ export const MORE_SCRIPT = `let grid = document.getElementById("grid");
 let button = document.getElementById("more");
 
 button.addEventListener("click", function () {
-  // This code runs each time someone clicks the button.
+  // This runs each time someone clicks.
 });
 `;
 
@@ -508,9 +508,10 @@ export const FOLLOWS: JsCheck = {
     const counts = other.want.map((row, i) => right(cards[i], row));
     const differ = new Set(cards).size > 1;
     // A whole array on a card holds that card's value too, so look for the values of the other cards.
-    if (differ && other.want.some((row, i) => cards.some((card, j) => j !== i && right(card, row) > 0))) return 'Some cards show values from other cards. Use `titles[i]` and `details[i]`, not the whole arrays, so each card shows only its own values.';
-    if (differ && counts.every((n) => n >= 2)) return undefined;
+    if (differ && other.want.some((row, i) => cards.some((card, j) => j !== i && right(card, row) > 0))) return 'Some cards show values from other cards. Use `titles[i]` and `details[i]`, so each card shows only its own values.';
+    if (differ && counts.every((n) => n >= 2)) return r.page!.all('#cards .card').every((n) => n.all('h3').some((h) => h.text) && n.all('p').some((p) => p.text)) ? undefined : 'Put the title in an `h3` and the detail in a `p`, so your cards look like the example.';
     if (counts[counts.length - 1] > counts[0]) return 'Only the last card has both of its values. Adding an element again moves it, so make the `h3` and the `p` inside the loop.';
+    if (differ && r.page!.count('#cards > *') > cards.length) return 'Some of your elements are next to the cards, not inside them. Add the `h3` and the `p` to the card, not to the element with the id `cards`.';
     if (differ && counts.every((n) => n >= 1)) return noted(c.notes, 'never-added') ? 'Each card is missing one element. Add both the `h3` and the `p` to the card with `appendChild`.' : 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
     return 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, so each card shows its own values.';
   },
@@ -547,8 +548,11 @@ export const ADDS: JsCheck = {
     if (r.error?.msg === 'i is not defined') return 'This function has no loop, so there is no `i`. Pick one color, like `"gold"`.';
     if (!r.ok) return c.ok ? 'Your code stops when the button is clicked. Click the button on your page to see the error.' : STOPPED;
     const added = r.page!.count('#grid .cell') - start;
-    if (added === 3) return undefined;
-    if (noted(c.notes, 'handler-called')) return 'The click has no function to call. Keep the `function () { }` shape from the starting code.';
+    if (added === 3) {
+      const square = r.page!.all('#grid .cell').pop();
+      return square?.style('color') && !square.style('background-color') ? 'Your squares have no text, so `color` shows nothing. Use `backgroundColor`, as you did in step 4.' : undefined;
+    }
+    if (noted(c.notes, 'handler-called')) return 'The click has no function to call. Keep the `function () { }` from the starting code.';
     if (start > 0 && added === 0) return 'The square appeared right away, and clicks add nothing. Move your code inside the function.';
     if (added === 1) return 'Only the first click added a square. Make the new element inside the function, so each click makes a new one.';
     if (!r.page!.count('#grid > *')) return 'A click adds no squares yet. Inside the function, make a `div` with the class `cell`, and add it to `grid`.';

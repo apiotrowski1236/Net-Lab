@@ -455,7 +455,7 @@ describe('help on runtime errors', () => {
     expect(help('const a = [1];\na = [2];')).toBe("a was declared with const, so it can't be given a whole new array. You can still change it one item at a time, with an index or a method like push. If you do want a new array, change const to let where a is declared.");
   });
   test('used before its line', () => {
-    expect(help('console.log(x);\nlet x = 1;')).toBe('x is used before the line that declares it. Move the let or const line above this line.');
+    expect(help('console.log(x);\nlet x = 1;')).toBe('x is used before the line that declares it. Move that line above this one.');
   });
   test('every error has help', () => {
     for (const code of ['nope;', 'let a = 1; a();', 'let u; u.x;', 'let u; u.x = 1;', 'for (const a of 5) { }', '"x" in 5;', '[].reduce((a, b) => a);', '[1].map(5);', '"a".repeat(-1);', '(1).toFixed(101);', '(1).toString(1);', 'let a = []; a.length = -1;', '[1].sort(5);', 'let o = {toString: 1, valueOf: 1}; o + 1;']) {
