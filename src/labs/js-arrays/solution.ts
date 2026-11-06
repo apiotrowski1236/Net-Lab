@@ -55,8 +55,8 @@ console.log(votes);
 
 export const EDGES_DONE = `const playlist = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon", "Hallway Echo"];
 
-// push adds to the end. pop removes from the end.
-// unshift adds to the front. shift removes from the front.
+// End: push adds, pop removes.
+// Front: unshift adds, shift removes.
 
 let removed = playlist.pop();
 console.log(removed);
@@ -68,18 +68,15 @@ playlist.unshift("Senior Sunset");
 console.log(playlist);
 `;
 
-export const SEARCH_DONE = `const banned = ["detention anthem", "food fight", "skip class"];
-const playlist = ["neon lockers", "bus stop rain", "last bell", "cafeteria moon"];
+export const SEARCH_DONE = `const playlist = ["neon lockers", "bus stop rain", "last bell", "cafeteria moon"];
 
 let request = prompt("What song do you want to hear?");
 
-// The arrays are in lowercase, so the request needs to be too.
+// The playlist is in lowercase, so the request needs to be too.
 request = request.toLowerCase();
 
 let spot = playlist.indexOf(request);
-if (banned.includes(request)) {
-  console.log("Sorry, that song is banned.");
-} else if (spot === -1) {
+if (spot === -1) {
   console.log("Not on the playlist yet.");
 } else {
   console.log("That song is number " + (spot + 1) + ".");
@@ -102,7 +99,7 @@ console.log(requests.length + " songs on the list.");
 
 export const REMOVE_DONE = `const requests = ["Neon Lockers", "Bus Stop Rain", "Last Bell", "Cafeteria Moon"];
 
-let song = prompt("Which song should come off the list?");
+let song = prompt("Which song should I remove?");
 
 let spot = requests.indexOf(song);
 if (spot === -1) {

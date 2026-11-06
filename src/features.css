@@ -4318,6 +4318,10 @@ button.pl-tile:active {
   border-radius: 6px;
   background: var(--input-bg);
 }
+/* A question's column is narrow, and the long line can be the one that matters. */
+.qcard .prose pre code {
+  white-space: pre-wrap;
+}
 .prose pre code {
   padding: 0;
   border: none;
@@ -5390,5 +5394,15 @@ button.pl-tile:active {
   .js-preview {
     flex: none;
     height: 300px;
+  }
+  /* The page scrolls here, so this panel grows with what's in it. With a shared height it shrinks to its minimum. */
+  .js-panes .java-side,
+  .js.has-page .js-panes .java-side,
+  .js.has-page .js-panes.quiet .java-side {
+    flex: none;
+    max-height: 70vh;
+  }
+  .java-checks li {
+    scroll-margin-bottom: 72px;
   }
 }

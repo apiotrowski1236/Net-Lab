@@ -363,6 +363,13 @@ function QuestionCard(props: { session: LabSession; step: StepDef; q: QuestionDe
 
 function Outline({ session, onClose }: { session: LabSession; onClose: () => void }) {
   const p = session.progress;
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [onClose]);
   return (
     <div class="outline" role="dialog" aria-label="All steps">
       <ol>

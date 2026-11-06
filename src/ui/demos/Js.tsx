@@ -106,7 +106,7 @@ function Output({ last, stale, ask, onLine }: { last?: JsLast; stale: boolean; a
   return (
     <>
       <div class="java-result" role="status">
-        {stale && <p class="java-stale">You changed the code since this ran.</p>}
+        {stale && <p class="java-stale">You changed the code since this ran. Press Run to check it.</p>}
         {!stale && last.status === 'waiting' && !ask && <p class="java-stale">This run stopped at a prompt. Press Run to start it again.</p>}
         {lines.length > 0 && <Lines lines={lines} />}
         {last.status === 'ok' && !lines.length && <p class="java-empty">It ran, and printed nothing.</p>}
@@ -212,8 +212,15 @@ function Stepper({ step, lines, ask }: { step: TraceStep; lines: OutputLine[]; a
 
 function CheckRow({ check: c, result: r, note, first, shown, send }: { check: JsCheck; result?: JsCheckResult; note?: string; first: boolean; shown: number; send: (input: DemoInput) => void }) {
   const hints = first ? (c.hints ?? []) : [];
+  // A new hint can land below the edge of the panel, along with the button for the next one.
+  const row = useRef<HTMLLIElement>(null);
+  const seen = useRef(shown);
+  useEffect(() => {
+    if (shown !== seen.current) row.current?.scrollIntoView({ block: 'nearest' });
+    seen.current = shown;
+  }, [shown]);
   return (
-    <li class={r?.ok ? 'ok' : note ? 'no' : ''}>
+    <li ref={row} class={r?.ok ? 'ok' : note ? 'no' : ''}>
       <span class="java-mark" aria-hidden="true">
         {r?.ok ? '✓' : note ? '✗' : '○'}
       </span>
@@ -330,12 +337,14 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
   const shown = useRef(last);
   useLayoutEffect(() => {
     if (side.current) side.current.scrollTop = side.current.scrollHeight;
-    // On a narrow screen the page scrolls, and the output can land under the lesson's bottom bar.
-    if (side.current && last !== shown.current && matchMedia('(max-width: 900px)').matches) side.current.scrollIntoView({ block: 'nearest' });
+    // On a narrow screen the page scrolls, and the output or the note on what to fix can land under the lesson's bottom bar.
+    if (last !== shown.current && matchMedia('(max-width: 900px)').matches) (root.current?.querySelector('.java-checks li.no') ?? side.current)?.scrollIntoView({ block: 'nearest' });
     shown.current = last;
   }, [last]);
 
   const fresh = !s.edited && !stepping;
+  // Nothing has run on the first move, so its line is the next one, not the last one.
+  const starting = s.at === 0;
   const errorLines = fresh ? [last?.error, last?.limit && { pos: { file: last.limit.file, line: last.limit.line } }].flatMap((e) => (e?.pos.file === file.name && e.pos.line ? [e.pos.line] : [])) : [];
 
   const checks = spec.checks;
@@ -412,7 +421,7 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
         )}
       </div>
       <div class={`java-main ${stepping ? 'stepping' : ''}`}>
-        <EditorPane language={languageOf} label={page ? 'Code' : 'JavaScript code'} file={file} readOnly={stepping || !!file.locked} runLine={step?.line} nextLine={step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
+        <EditorPane language={languageOf} label={page ? 'Code' : 'JavaScript code'} file={file} readOnly={stepping || !!file.locked} runLine={starting ? undefined : step?.line} nextLine={starting ? step?.line : step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
         {/* A column of panes, so a page preview can sit above the output. */}
         <div class={`js-panes ${quiet ? 'quiet' : ''}`}>
           {page && <Preview page={page} onClick={click} />}
@@ -432,6 +441,7 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
       {checks && (
         <ul class="java-checks" aria-label="Checks">
           {s.held && <li class="java-held">The checks wait until your code has no syntax errors. Fix the error, then press Run.</li>}
+          {stepping && s.edited && <li class="java-held">You changed your code, and only Run checks it. Press Stop, then Run.</li>}
           {checks.map((c) => {
             const r = s.checks?.find((x) => x.id === c.id);
             return <CheckRow key={c.id} check={c} result={r} note={s.held ? undefined : r?.note} first={c === unmet} shown={s.hints?.[c.id] ?? 0} send={send} />;

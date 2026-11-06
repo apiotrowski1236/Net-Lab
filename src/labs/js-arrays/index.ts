@@ -25,7 +25,7 @@ const make: JsSpec = { kind: 'js', id: 'make', title: 'Three arrays', files: cod
 const read: JsSpec = { kind: 'js', id: 'read', title: 'The first hour', files: code.READ, step: true, report: true, checks: [code.THIRD, code.COUNT, code.LAST] };
 const change: JsSpec = { kind: 'js', id: 'change', title: 'New plans', files: code.CHANGE, step: true, report: true, checks: [code.SECOND, code.LAST_SPOT, code.VOTE] };
 const edges: JsSpec = { kind: 'js', id: 'edges', title: 'During the dance', files: code.EDGES, step: true, report: true, checks: [code.POP, code.PUSH, code.SHIFT, code.UNSHIFT] };
-const search: JsSpec = { kind: 'js', id: 'search', title: 'Check the request', files: code.SEARCH, step: true, report: true, checks: [code.IS_BANNED, code.POSITION, code.NOT_FOUND] };
+const search: JsSpec = { kind: 'js', id: 'search', title: 'Check the request', files: code.SEARCH, step: true, report: true, checks: [code.POSITION, code.NOT_FOUND] };
 const program: JsSpec = { kind: 'js', id: 'program', title: 'Song requests', files: code.PROGRAM, step: true, report: true, checks: [code.LIST, code.ASK, code.ADD, code.NO_REPEAT, code.SHOW_LIST, code.HOW_MANY] };
 const remove: JsSpec = { kind: 'js', id: 'remove', title: 'Remove a request', files: code.REMOVE, step: true, report: true, checks: [code.TAKE_OFF, code.NOT_THERE, code.SHOW_LEFT] };
 const pick: JsSpec = { kind: 'js', id: 'pick', title: 'A surprise song', files: code.PICK_START, step: true, report: true, checks: [code.PICK] };
@@ -56,8 +56,8 @@ export const jsArraysLab: LabDef = {
 
         1. Press **Run**. Your program's output appears in the **Output** panel. An \`alert\` prints there too, and no popup opens in this editor.
         2. Press **Hint** under the code. Each press shows one more clue for your current task. Hints never cost you points.
-        3. \`console.log\` is another way to print, and it never opens a popup, even in a real browser. Put what you want to print between its parentheses. Print \`playlist\` under the \`alert\` line, then press **Run**.
-        4. Press **Step through**, then press **Next** until the program ends. The yellow line ran last, and the blue line runs next. Watch \`playlist\` appear under **Variables** as a row of numbered boxes. Press **Stop** to go back to editing.
+        3. \`console.log\` is another way to print. Put what you want to print between its parentheses. Print \`playlist\` under the \`alert\` line, then press **Run**.
+        4. Press **Step through**, then press **Next** until the program ends. The blue line runs next, and the yellow line ran last. Watch \`playlist\` appear under **Variables** as a row of numbered boxes. Press **Stop** to go back to editing.
       `,
       demos: [warmup],
       goals: [
@@ -74,7 +74,7 @@ export const jsArraysLab: LabDef = {
       id: 'make',
       title: 'Make three arrays',
       body: md`
-        The dance needs three arrays. Text in quote marks is called a **string**, and numbers have no quote marks. Change the code so that:
+        The dance needs three arrays. Text in quote marks is called a **string**, and numbers have no quote marks. Single and double quotes work the same way, so **Output** may show different quote marks than your code. Change the code so that:
 
         1. \`openers\` has three songs. You choose the third song.
         2. \`ticketsSold\` is an array of the numbers 40, 55, 62, and 71, in that order.
@@ -91,11 +91,11 @@ export const jsArraysLab: LabDef = {
       body: md`
         Every item in an array has a number called its **index**. Those are the small numbers you saw over the boxes in step 1. Indexes start at 0, so these 5 songs have the indexes 0, 1, 2, 3, and 4. \`playlist[0]\` reads the first song, and \`playlist.length\` gives the number of items.
 
-        First, scroll down past the editor and answer the question. A wrong guess costs nothing, and the feedback explains the answer. Then add to the program so that it prints:
+        First, find the question below the **Goals** list and answer it. A wrong guess costs no points, and the feedback explains the answer. Then add to the program so that it prints:
 
         1. the third song
         2. how many songs are on the playlist
-        3. the last song
+        3. the last song. Its index is one less than the length, so put that math inside the square brackets.
 
         Use \`playlist.length\` for the last two, so that your code still works after more songs are added.
       `,
@@ -122,7 +122,7 @@ export const jsArraysLab: LabDef = {
       id: 'change',
       title: 'Change songs on the list',
       body: md`
-        Some plans changed. To change an item, use \`=\` with its index: \`votes[0] = 20;\` puts 20 in the first spot.
+        Some plans changed. To change an item, use \`=\` with its index: \`votes[0] = 20;\` puts 20 in the first spot. To add to an item, start from the number already there: \`votes[0] = votes[0] + 5;\` adds 5.
 
         \`playlist\` and \`votes\` are both \`const\`, and that is fine here. \`const\` means the variable can never hold a different array, so \`votes = [1, 2];\` is an error. The items inside the array can still change.
 
@@ -139,11 +139,11 @@ export const jsArraysLab: LabDef = {
       id: 'edges',
       title: 'Add and remove songs',
       body: md`
-        The playlist keeps changing during the dance. A **method** is an action that belongs to an array. You call it with a dot after the array's name. These four methods add or remove one item. "Gives back" means you can save the result in a variable.
+        The playlist keeps changing during the dance. A **method** is an action that belongs to a value, like an array. You use it with a dot after the name. These four methods add or remove one item. "Gives back" means you can save the result in a variable.
 
-        - \`playlist.push(x)\` adds \`x\` to the end and gives back the new length.
+        - \`playlist.push(x)\` adds \`x\` to the end.
         - \`playlist.pop()\` removes the last item and gives it back.
-        - \`playlist.unshift(x)\` adds \`x\` to the front and gives back the new length.
+        - \`playlist.unshift(x)\` adds \`x\` to the front.
         - \`playlist.shift()\` removes the first item and gives it back.
 
         Make these four changes, in this order. Press **Step through** to watch the boxes change.
@@ -162,22 +162,21 @@ export const jsArraysLab: LabDef = {
       id: 'search',
       title: 'Check a request',
       body: md`
-        Requests are coming in. The school banned a few songs, and \`request\` holds what a student typed. Two methods search an array:
+        Requests are coming in, and \`request\` holds what a student typed. Two methods search an array:
 
         - \`playlist.includes("last bell")\` gives back \`true\`. For an item that is not in the array, it gives back \`false\`.
         - \`playlist.indexOf("last bell")\` gives back 2, the index of that song. For an item that is not in the array, it gives back **-1**. No item has the index -1, so -1 means "not found".
 
-        Both are **case sensitive**, which means capital letters count: "Food Fight" does not match "food fight". That is why the code already changes the request to lowercase.
+        Both are **case sensitive**, which means capital letters count: "Last Bell" does not match "last bell". That is why the code already changes the request to lowercase.
 
-        Use \`if\`, \`else if\`, and \`else\` so that the program prints one of three answers:
+        Save the index with \`let spot = playlist.indexOf(request);\`. Then use \`if\` and \`else\` so that the program prints one of two answers:
 
-        1. If the request is banned, print \`Sorry, that song is banned.\`
-        2. If the request is on the playlist, print its number on the list, counting from 1, like \`That song is number 2.\`
-        3. Otherwise, print \`Not on the playlist yet.\`
+        1. If the request is on the playlist, print its number on the list, counting from 1, like \`That song is number 3.\`
+        2. Otherwise, print \`Not on the playlist yet.\`
 
-        When text and math share a line, put parentheses around the math. Without them, \`+\` glues the numbers onto the text instead of adding: \`"Total: " + (a + 1)\`.
+        When text and math share a line, put parentheses around the math: \`"That song is number " + (spot + 1)\`. Without them, \`+\` glues the 1 onto the text, and song 3 prints as number 21.
 
-        Run your program with different requests. The checks try other requests too, so a goal can turn green before you test that case yourself. Then answer the question under the editor.
+        Run your program with a song on the list, then with a song that is not. The checks try other requests too, so a goal can turn green before you test it. Then find the question below the **Goals** list and answer it.
       `,
       demos: [search],
       goals: eachCheck(search),
@@ -192,7 +191,7 @@ export const jsArraysLab: LabDef = {
             { id: 'undefined', text: 'That song is number undefined.', feedback: '`indexOf` always gives back a number. For a song it cannot find, that number is -1.' },
             { id: 'error', text: 'An error', feedback: 'The program keeps running. `indexOf` gives back -1, and the code carries on with that number.' },
           ],
-          explain: '`indexOf` gave -1, and -1 + 1 is 0, so the program prints a song number that makes no sense. That is why your code has to rule out -1 before it uses the number.',
+          explain: '`indexOf` gave -1, and -1 + 1 is 0, so the program prints a song number that makes no sense. That is why your code has to check for -1 before it uses the number.',
         },
       ],
     },
@@ -212,7 +211,7 @@ export const jsArraysLab: LabDef = {
         4. Print the whole list with \`join\`.
         5. Print how many songs are on the list.
 
-        Try it yourself with a new song, then with a song that is already on your list, so that you see both answers.
+        Try it yourself with a new song, then with a song that is already on your list, so that you see both answers. Capital letters count here too, so type that song exactly as it is on the list.
       `,
       demos: [program],
       goals: eachCheck(program),
@@ -254,7 +253,7 @@ export const jsArraysLab: LabDef = {
       title: 'Optional extra challenge: Take a song off the list',
       extra: true,
       body: md`
-        A student changed their mind, so your program needs to remove a song by name.
+        A student no longer wants their song, so your program needs to remove a song by name.
 
         \`splice\` removes items from anywhere in an array. For example, \`requests.splice(2, 1)\` goes to index 2 and removes 1 item.
 
@@ -264,7 +263,7 @@ export const jsArraysLab: LabDef = {
         2. removes the song with \`splice\` if it is on the list, or prints a message if it is not
         3. prints the list with \`join\`
 
-        Be careful with -1 here: \`requests.splice(-1, 1)\` removes the last song, so test for -1 before you call \`splice\`.
+        Be careful with -1 here. In \`splice\`, a negative index counts back from the end, so \`requests.splice(-1, 1)\` removes the last song. Test for -1 before you call \`splice\`, with \`if (spot === -1)\`.
       `,
       demos: [remove],
       goals: eachCheck(remove),
@@ -278,7 +277,7 @@ export const jsArraysLab: LabDef = {
       body: md`
         The DJ wants a surprise song. Print one song picked at random.
 
-        \`Math.random()\` gives a random decimal from 0 up to, but not including, 1. Multiplying it by \`playlist.length\` stretches it to the size of the list, and \`Math.floor\` rounds it down. With 5 songs, 0.73 becomes 3.65 and then 3. Even 0.99 becomes 4.95 and then 4, so the pick never reaches 5.
+        \`Math.random()\` gives a random decimal from 0 up to, but not including, 1. Multiplying it by \`playlist.length\` stretches it to the size of the list, and \`Math.floor\` rounds it down. With 5 songs, 0.73 × 5 is 3.65, which rounds down to 3. Even 0.99 × 5 is 4.95, which rounds down to 4, so the pick never reaches 5.
 
         That makes \`Math.floor(Math.random() * playlist.length)\` a good index every time. Save it in a variable, then print the song at that index. Press **Run** several times to see the pick change.
       `,
