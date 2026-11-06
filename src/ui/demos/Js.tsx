@@ -447,8 +447,8 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
       </div>
       {checks && (
         <ul class="java-checks" aria-label="Checks">
-          {s.held && <li class="java-held">The checks wait until your code has no syntax errors. Fix the error, then press Run.</li>}
-          {s.waiting && <li class="java-held">After this run, the site tests your code with its own answers, so the checks can pass even if you press Stop.</li>}
+          {s.held && <li class="java-held">The checks wait until your code can run. Fix the error, then press Run.</li>}
+          {s.waiting && <li class="java-held">After this run, the site tests your code with its own answers, so the checks still run if you press Stop.</li>}
           {stepping && s.edited && <li class="java-held">You changed your code, and only Run checks it. Press Stop, then Run.</li>}
           {checks.map((c) => {
             const r = s.checks?.find((x) => x.id === c.id);

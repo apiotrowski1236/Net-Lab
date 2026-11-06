@@ -55,7 +55,7 @@ export const jsLoopsLab: LabDef = {
 
         The night starts with a countdown. One time through a loop is called a **pass**.
 
-        1. Press **Run** to see what this loop prints. It will not pass the check yet.
+        1. Press **Run** to see what this loop prints. The check will show a red X at first.
         2. Change the loop so that it counts down from 10 to 0.
         3. After the loop, print \`Doors open!\`.
       `,
@@ -152,7 +152,7 @@ export const jsLoopsLab: LabDef = {
         1. Double every number inside \`tokens\`.
         2. After the loop, print \`tokens\`.
 
-        Here are the two ways to loop over an array. \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`.
+        Here are two ways to loop over an array. \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`.
 
         \`\`\`js
         // Use this when you change the array
@@ -220,7 +220,7 @@ export const jsLoopsLab: LabDef = {
       id: 'finals',
       title: 'Pick the finalists',
       body: md`
-        Anyone who scored 100 or more moves on to the finals. Each score belongs to the player at the same index, so Maya scored 140.
+        Anyone who scored 100 or more moves on to the final round. Each score belongs to the player at the same index, so Maya scored 140.
 
         Start with an empty array named \`finalists\`. In a loop, use \`push\` to add the name of each player who scored 100 or more. Print \`finalists\` after the loop.
       `,
@@ -264,7 +264,7 @@ export const jsLoopsLab: LabDef = {
       title: 'Optional extra challenge: the token table',
       extra: true,
       body: md`
-        The prize desk wants a token table. Rows are players, columns are games, and each player pays 1 token per game. So each number is the row times the column. With \`size\` set to 3, the table looks like this:
+        The prize desk wants a table of token costs. Each player pays 1 token per game, so 2 players who play 3 games pay 6 tokens. That is row 2, column 3 of the table. With \`size\` set to 3, the table looks like this:
 
         \`\`\`
         1 2 3

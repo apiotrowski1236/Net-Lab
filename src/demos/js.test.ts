@@ -116,7 +116,7 @@ describe('prompts', () => {
 
     it('says why as soon as the loop asks again', () => {
       expect(play(trap, [{ run: true }]).notes).toBeUndefined();
-      expect(play(trap, [{ run: true }, { answer: '7' }]).notes?.map((n) => `${n.rule}:${n.line}`)).toEqual(['prompt-compare:2']);
+      expect(play(trap, [{ run: true }, { answer: '7' }]).notes?.map((n) => `${n.rule}:${n.line}`)).toEqual(['prompt-compare:3']);
     });
 
     it('says why when the answer is never saved', () => {

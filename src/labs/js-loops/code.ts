@@ -240,7 +240,7 @@ export const GAME_ENDS = check(
     if (r.status === 'limit') return 'The loop never asks again, so the guess stays the same and the loop cannot end. Put a `prompt()` inside the loop, and save its answer.';
     if (r.facts.promptCompare.length) {
       const line = barePrompt(c);
-      if (line) return `The \`prompt()\` on line ${line} has no \`Number()\` around it, so its answer is a string, and the right guess never matches \`secret\`.`;
+      if (line) return `The \`prompt()\` on line ${line} has no \`Number()\` around it, so its answer is a string, and the right guess never matches \`secret\`. \`<\` and \`>\` still work on a string, but \`===\` and \`!==\` do not.`;
       return '`prompt()` gives back a string, and a string is never `===` to a number, so the right guess never matches `secret`. Write `guess = Number(prompt("Your guess"));`';
     }
     if (r.status === 'waiting') {
@@ -385,7 +385,7 @@ export const TOP_SCORE = check(
     if (mixed.includes(0)) return 'Your top score stayed at 0. Inside the loop, give `best` a new value when a score is bigger than `best`.';
     return 'Print the biggest number in `scores`. Your code has to work when every score is negative.';
   },
-  ['Keep the best score so far in a variable, and start it at the first score in the list.', 'On each pass, an `if` asks whether this score is bigger than `best`.', 'Write `let best = scores[0];` above the loop. Inside the loop, use an `if` that gives `best` the new score when that score is bigger than `best`.'],
+  ['Keep the top score so far in a variable, and start it at the first score in the list.', 'On each pass, an `if` asks whether this score is bigger than `best`.', 'Write `let best = scores[0];` above the loop. Inside the loop, use an `if` that gives `best` the new score when that score is bigger than `best`.'],
 );
 
 // --- step 7: fix the end-of-night report ------------------------------------------
@@ -439,7 +439,7 @@ function boothProblem(c: JsCheckCtx, booths: number[]): string | undefined {
   const rows = r.output.filter((l) => /booth/i.test(l.text));
   if (!rows.length) return r.error ? BROKE : 'Keep the line inside loop 2 that prints each booth.';
   const fixed = fixedStop(c);
-  if (rows.some((l) => l.text.includes('undefined'))) return fixed ? 'Loop 2 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.' : 'The last booth line says `undefined`, so loop 2 reads one item past the end of `booths`. Look at its condition.';
+  if (rows.some((l) => l.text.includes('undefined'))) return fixed ? 'Loop 2 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.' : 'The last booth line says `undefined`, which means nothing is there. Loop 2 reads one item past the end of `booths`. Look at its condition.';
   if (!numbersIn(rows[0].text).includes(booths[0])) return 'Booth 1 is missing, because the loop skips the first item. Start `i` at 0.';
   if (rows.length < booths.length) return fixed ? 'Loop 2 stops at a fixed number, so it fails on a longer list. Use `booths.length` in the condition.' : 'The last booth is missing. The loop should run while `i < booths.length`.';
   return rows.length === booths.length ? undefined : 'Print one line for each booth.';
@@ -550,6 +550,7 @@ export const TOKEN_TABLE = check(
     if (r.output.length === 3 && r.output.every((l, k) => l.text.replace(/\s/g, '') === tableFor(3)[k].join(''))) return 'Your numbers run together. Add a space after each number.';
     if (rows.length === 3 && rows[1].length === 6) return 'Each row keeps the numbers from the row above. Start the string over at `""` inside the outer loop, above the inner loop.';
     if (rows.length < 3 || rows[0].length < 3) return 'Your table came out too small. It needs as many rows and as many columns as `size`, so both loops should go up to and including `size`.';
+    if (same(rows, tableFor(rows.length))) return 'Your table did not follow `size`. Use `size` in both loops, so that the table changes when `size` does.';
     return 'With `size` set to 3, the table should print `1 2 3`, then `2 4 6`, then `3 6 9`.';
   },
   ['Use `r` for the row number in the outer loop and `c` for the column number in the inner loop. Both start at 1 and go up to and including `size`.', 'Inside the outer loop, start the row in a string with `let line = "";` and have the inner loop add `r * c + " "` to `line`.', 'Inside the inner loop, write `line = line + r * c + " ";` and after the inner loop, write `console.log(line);`'],

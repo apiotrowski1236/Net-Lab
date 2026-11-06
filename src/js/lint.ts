@@ -385,8 +385,10 @@ function declaredOutside(name: string, loop: Loop, c: Ctx): boolean {
 }
 
 function promptCompare(n: Node, c: Ctx): void {
-  if (n.k !== 'binary' || !c.run?.facts.promptCompare.some((f) => f.file === n.pos.file && f.off === n.pos.off)) return;
-  c.add('prompt-compare', n.pos.line, `prompt() always gives back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Fix it on each line with a prompt(), like this: let age = Number(prompt("How old are you?"));`);
+  if (n.k !== 'binary') return;
+  const hit = c.run?.facts.promptCompare.find((f) => f.file === n.pos.file && f.off === n.pos.off);
+  if (!hit) return;
+  c.add('prompt-compare', hit.prompt.file === n.pos.file ? hit.prompt.line : n.pos.line, `This prompt() gave back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Put Number() around the prompt(), like this: Number(prompt("Pick a number"))`);
 }
 
 function alertExtraArgs(n: Node, c: Ctx, alertIsMine: boolean): void {

@@ -155,7 +155,7 @@ describe('a loop that never gets an acceptable answer', () => {
     expect(state.notes).toBeUndefined();
     state = jsModel.apply(s, state, { answer: '5' });
     expect(state.waiting?.message).toBe('Guess again');
-    expect(state.notes?.[0].text).toBe('prompt() always gives back a string, and a string is never === to a number, so guess !== secret is always true. Fix it on each line with a prompt(), like this: let age = Number(prompt("How old are you?"));');
+    expect(state.notes?.[0].text).toBe('This prompt() gave back a string, and a string is never === to a number, so guess !== secret is always true. Put Number() around the prompt(), like this: Number(prompt("Pick a number"))');
   });
 
   test('Stop ends the run, and the step says what to change', () => {
@@ -347,7 +347,7 @@ describe('step 7: the end-of-night report', () => {
     ['let total inside the loop', swap(REPORT, ['  total = total + booths[i];\n', '  let total = 0;\n  total = total + booths[i];\n']), '`let total` inside the loop makes a second variable, so the total above the loop stays 0. Leave out the word `let`.'],
     ['typing the total', swap(REPORT, ['"Total: " + total', '"Total: 100"']), 'Loop 1 should add every booth to `total`, so type no numbers into the print line.'],
     ['a renamed array', REPORT.replaceAll('booths', 'stands'), 'Keep the variable named `booths`. Your code has to read it, so that it works on any value.'],
-    ['loop 2 left as it was', swap(REPORT, ['i < booths.length; i++) {\n  console.log("Booth', 'i <= booths.length; i++) {\n  console.log("Booth']), 'The last booth line says `undefined`, so loop 2 reads one item past the end of `booths`. Look at its condition.'],
+    ['loop 2 left as it was', swap(REPORT, ['i < booths.length; i++) {\n  console.log("Booth', 'i <= booths.length; i++) {\n  console.log("Booth']), 'The last booth line says `undefined`, which means nothing is there. Loop 2 reads one item past the end of `booths`. Look at its condition.'],
     ['loop 2 starting at 1', swap(REPORT, ['for (let i = 0; i < booths.length; i++) {\n  console.log("Booth', 'for (let i = 1; i < booths.length; i++) {\n  console.log("Booth']), 'Booth 1 is missing, because the loop skips the first item. Start `i` at 0.'],
     ['loop 2 one short', swap(REPORT, ['i < booths.length; i++) {\n  console.log("Booth', 'i < booths.length - 1; i++) {\n  console.log("Booth']), 'The last booth is missing. The loop should run while `i < booths.length`.'],
     ['a fixed count in both loops', REPORT.replaceAll('i < booths.length', 'i < 4'), 'Loop 1 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.'],

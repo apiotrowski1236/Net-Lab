@@ -75,10 +75,14 @@ export function ExtraChallengeBanner({ session }: { session: LabSession }) {
     text = `${noPoints} You haven't handed in your work yet. If class is almost over, hand it in now. You can come back here after.`;
     label = endpoint ? 'Submit my work now' : 'Download my report now';
   } else if (fresh) {
-    text = "You've worked on the challenge since you last handed in. Hand in your report again so your teacher sees it.";
+    text = `You've worked on the challenge since your last report. ${endpoint ? 'Hand in your report again so your teacher sees it.' : `Download it again, then ${handInWhere()}.`}`;
     label = endpoint ? 'Submit again with my challenge work' : 'Download my updated report';
   } else {
-    text = `${noPoints} You already handed in a report. If you change any of your work, here or on an earlier step, hand in your report again.`;
+    text = `${noPoints} ${
+      endpoint
+        ? 'You already handed in your report. If you change any of your work, here or on an earlier step, hand it in again.'
+        : `You already downloaded your report. If you haven't yet, ${handInWhere()}. If you change any of your work, here or on an earlier step, download it again and hand in the new file.`
+    }`;
     label = endpoint ? 'Submit again' : 'Download my report again';
   }
   return (

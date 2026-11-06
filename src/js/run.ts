@@ -59,8 +59,8 @@ export interface RunFacts {
   indexAtLength: { file: string; line: number; off: number; target: string; index: number; length: number }[];
   /** `+` that joined a number-like prompt() answer to a number or to another answer. */
   promptPlus: { file: string; line: number }[];
-  /** `===` or `!==` that compared a prompt() answer with a number, which a string never matches. `off` is where the comparison starts. */
-  promptCompare: { file: string; line: number; off: number }[];
+  /** `===` or `!==` that compared a prompt() answer with a number, which a string never matches. `off` is where the comparison starts, and `prompt` is where the answer came from. */
+  promptCompare: { file: string; line: number; off: number; prompt: Pos }[];
   /** Property reads that came back undefined and were close to a real name. */
   misspelled: { file: string; line: number; object: string; name: string; suggestion: string }[];
   /** How many times each loop's body ran. */
@@ -421,7 +421,7 @@ class Interp implements Runtime {
   private readonly seenIndex = new Set<number>();
   private readonly seenPlus = new Set<string>();
   private readonly seenMisspelled = new Set<string>();
-  private readonly promptAnswers = new Set<string>();
+  private readonly promptAnswers = new Map<string, Pos>();
   /** Names still waiting for their `data` value. */
   private readonly pending = new Map<string, unknown>();
   /** Names that have had their `data` value. */
@@ -722,7 +722,7 @@ class Interp implements Runtime {
     const answer = this.answers[this.asked++];
     this.facts.prompts++;
     this.print({ kind, text: message, answer });
-    if (kind === 'prompt' && answer !== null) this.promptAnswers.add(answer);
+    if (kind === 'prompt' && answer !== null) this.promptAnswers.set(answer, this.here);
     return answer;
   }
 
@@ -1347,10 +1347,10 @@ class Interp implements Runtime {
   }
 
   private notePromptCompare(a: Value, b: Value, pos: Pos): void {
-    const answer = (v: Value) => typeof v === 'string' && this.promptAnswers.has(v);
-    const hit = (answer(a) && typeof b === 'number') || (answer(b) && typeof a === 'number');
-    if (!hit || this.facts.promptCompare.some((f) => f.file === pos.file && f.off === pos.off)) return;
-    this.facts.promptCompare.push({ file: pos.file, line: pos.line, off: pos.off });
+    const from = (v: Value, other: Value) => (typeof v === 'string' && typeof other === 'number' ? this.promptAnswers.get(v) : undefined);
+    const prompt = from(a, b) ?? from(b, a);
+    if (!prompt || this.facts.promptCompare.some((f) => f.file === pos.file && f.off === pos.off)) return;
+    this.facts.promptCompare.push({ file: pos.file, line: pos.line, off: pos.off, prompt });
   }
 
   private looseEq(l: Value, r: Value): boolean {

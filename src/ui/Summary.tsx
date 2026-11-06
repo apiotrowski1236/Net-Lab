@@ -186,7 +186,7 @@ export function Summary({ session }: { session: LabSession }) {
           <h3>
             <Icon name="hint" /> Your answers
           </h3>
-          <p class="muted small">Want to change one? Choose Change, fix it, then come back here and submit again.</p>
+          <p class="muted small">Want to change one? Choose Change, fix it, then come back here and hand it in again.</p>
           {all.map(({ s, i }) => {
             const qs = report.questions.filter((q) => q.step === s.id);
             if (!qs.length) return null;
