@@ -353,6 +353,7 @@ describe('step 7: show', () => {
     ['console.log and a saved string', 'const playlist = ["a", "b", "c", "d", "e"];\nlet line = playlist.join(", ");\nconsole.log(line);\nlet pick = playlist[Math.floor(Math.random() * playlist.length)];\nconsole.log("First dance: " + pick);\n'],
     ['let, single quotes, and a template literal', "let playlist = ['a', 'b', 'c', 'd', 'e'];\nalert(playlist.join(', '));\nconst spot = Math.floor(Math.random() * playlist.length);\nalert(`First dance: ${playlist[spot]}`);\n"],
     ['another separator', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist.join(" | "));\nconsole.log(playlist[Math.floor(Math.random() * playlist.length)]);\n'],
+    ['a word between the songs', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist.join(" and "));\nconsole.log(playlist[Math.floor(Math.random() * playlist.length)]);\n'],
     ['one song on each line', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist.join("\\n"));\nconsole.log(playlist[Math.floor(Math.random() * playlist.length)]);\n'],
     ['a loop that builds the line', 'let playlist = ["a", "b", "c", "d", "e"];\nlet line = "";\nfor (let i = 0; i < playlist.length; i++) {\n  line += playlist[i] + ", ";\n}\nconsole.log(line);\nconsole.log(playlist[Math.floor(Math.random() * playlist.length)]);\n'],
     ['Math.trunc', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist.join(", "));\nconsole.log(playlist[Math.trunc(Math.random() * playlist.length)]);\n'],

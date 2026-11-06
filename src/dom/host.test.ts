@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { JsCheckCtx, jsModel, type JsState } from '../demos/js';
+import { JsCheckCtx, jsModel, pageOf, type JsState } from '../demos/js';
 import type { DemoInput, JsCheck, JsSpec } from '../demos/types';
+import { parseFiles, runProgram } from '../js';
 import { pageHosts, pageOfFiles, PageView } from './index';
 
 const HTML = `<!doctype html><html><head><title>Me</title><link rel="stylesheet" href="style.css"></head><body>
@@ -190,6 +191,31 @@ document.getElementById("more").addEventListener("click", function () { u.textCo
 
 describe('limits and what stays out', () => {
   const stop = (code: string) => play(make(code), { run: true }).last?.error;
+
+  test.each(['svg', 'textarea'])('a style tag under %s cannot open a real tag', (box) => {
+    const code = `let box = document.createElement("${box}");\nlet s = document.createElement("style");\ns.textContent = '</textarea><meta http-equiv="refresh" content="0;url=https://example.com/">';\nbox.appendChild(s);\ndocument.body.appendChild(box);`;
+    expect(play(make(code), { run: true }).last?.page?.body).not.toContain('<meta');
+  });
+
+  test.each(['document.getElementById("nope");', 'document.body.innerHTML;', 'document.body.outerHTML;', 'document.body.textContent;', 'document.body.lastElementChild;', 'cells.nextElementSibling;'])('a loop around %s pays for what it reads', (read) => {
+    const files = make('').files;
+    const steps = (code: string) => {
+      const { programs } = parseFiles([...files.slice(0, -1), { name: 'script.js', text: code }]);
+      return runProgram(programs, { hosts: (rt) => pageHosts(rt, files) }).steps;
+    };
+    const page = 'let cells = document.body.lastElementChild;\nfor (let i = 0; i < 4000; i++) {\n  document.body.appendChild(document.createElement("div"));\n}\n';
+    const reads = steps(`${page}for (let i = 0; i < 100; i++) { ${read} }`) - steps(page);
+    expect(reads).toBeGreaterThan(5000);
+  });
+
+  test('a long page stays as it was Run while the code is edited', () => {
+    const spec = make('for (let i = 0; i < 6000; i++) {\n  let c = document.createElement("div");\n  c.textContent = "ran".repeat(20);\n  document.body.appendChild(c);\n}');
+    const ran = play(spec, { run: true });
+    expect(ran.last?.page?.big).toBe(true);
+    const page = pageOf(spec, ran);
+    const edited = jsModel.apply(spec, ran, { edit: 'script.js', code: 'document.body.textContent = "edited";' });
+    expect(pageOf(spec, edited)).toBe(page);
+  });
 
   test('a runaway loop stops at the element cap', () => {
     expect(stop('for (let i = 0; i < 50000; i++) { document.body.appendChild(document.createElement("p")); }')?.code).toBe('page-too-big');

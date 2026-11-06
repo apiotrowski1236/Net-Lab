@@ -64,7 +64,8 @@ function cleanNode(n: DomNode, path: string | undefined, out: string[]): void {
   out.push('>');
   if (n.ns === 'html' && VOID_TAGS.has(lower)) return;
   if (n.ns === 'html' && lower === 'style') {
-    out.push(n.children.map((c) => (c.kind === 'text' ? cssText(c.data) : '')).join(''));
+    // Under <svg> or <textarea> a browser doesn't read this as CSS, so any < here could open a real tag.
+    out.push(n.children.map((c) => (c.kind === 'text' ? c.data.replace(/</g, '\\3c ') : '')).join(''));
   } else {
     let at = 0;
     for (const c of n.children) {

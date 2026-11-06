@@ -95,6 +95,9 @@ function foundNothing(doc: DomDocument, l: Lookup): string {
 }
 
 
+/** How many lookups a log keeps. A loop can make millions of them. */
+const KEEP = 1_000;
+
 export class PageLog {
   private readonly found = new Map<string, LintNote>();
   private readonly nulls: Lookup[] = [];
@@ -121,26 +124,25 @@ export class PageLog {
     return { file, line };
   }
 
-  note(rule: string, text: string): void {
+  /** `text` can be a function, for a note that takes a walk of the page to write. A loop repeats the call, and only the first one needs the words. */
+  note(rule: string, text: string | (() => string)): void {
     const at = this.here();
     const key = `${rule}:${at.file}:${at.line}`;
-    if (!this.found.has(key)) this.found.set(key, { rule, ...at, text });
+    if (!this.found.has(key)) this.found.set(key, { rule, ...at, text: typeof text === 'string' ? text : text() });
   }
 
   /** `getElementById("#title")`: a real search with no chance of working, which a null check would hide. */
   lookedUp(how: string, query: string, hit: boolean, doc: DomDocument): void {
     if (hit) return;
     const miss: Lookup = { how, query, ...this.here() };
-    this.nulls.push(miss);
-    if (how === 'getElementById' && /^[#.]/.test(query)) this.note('id-with-hash', foundNothing(doc, miss));
-    else this.note('selector-nothing', foundNothing(doc, miss));
+    if (this.nulls.push(miss) > KEEP) this.nulls.shift();
+    this.note(how === 'getElementById' && /^[#.]/.test(query) ? 'id-with-hash' : 'selector-nothing', () => foundNothing(doc, miss));
   }
 
   /** A list search that matched nothing, so the loop after it has nothing to do. */
   emptyList(how: string, query: string, doc: DomDocument): void {
     const place = this.here();
-    const near = foundNothing(doc, { how, query, ...place }).replace('found no element, so it gave back null.', 'found no elements, so a loop over it has nothing to do.');
-    this.note('selector-nothing', near);
+    this.note('selector-nothing', () => foundNothing(doc, { how, query, ...place }).replace('found no element, so it gave back null.', 'found no elements, so a loop over it has nothing to do.'));
   }
 
   /** `querySelector("title")` that landed on the `<title>` tag when the page has a `.title`. */
@@ -152,7 +154,7 @@ export class PageLog {
   }
 
   firstMatch(selector: string, matches: number): void {
-    if (matches > 1) this.firstOfMany.push({ selector, matches, ...this.here() });
+    if (matches > 1 && this.firstOfMany.length < KEEP) this.firstOfMany.push({ selector, matches, ...this.here() });
   }
 
   classWithDot(call: string, name: string): void {

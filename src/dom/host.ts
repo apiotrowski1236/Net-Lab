@@ -100,6 +100,16 @@ class Page {
     if (this.count > MAX_ELEMENTS) this.rt.fail('RangeError', `This page has more than ${MAX_ELEMENTS.toLocaleString('en-US')} elements.`, 'page-too-big', 'The program stopped here because the page got too big to draw. A loop may be adding more elements than you meant.');
   }
 
+  /** A read of everything under `p`. It takes time, so it takes steps, and a loop around it still runs out. */
+  whole(p: DomParent, read: () => string): string {
+    let elements = 0;
+    walkElements(p, () => void elements++);
+    this.rt.charge(elements >> 2);
+    const text = read();
+    this.rt.checkLength(text.length);
+    return text;
+  }
+
   fragment(html: string, context: DomElement): DomFragment {
     return parseFragment(html, context, this.doc.quirks, { fresh: () => this.counted(), charge: (n) => this.rt.charge(n) });
   }
@@ -250,6 +260,7 @@ function nodeArg(page: Page, v: Value, method: string, position = 1): DomNode | 
 
 function nodeGet(page: Page, n: DomNode | DomDocument | DomFragment, name: string): Value {
   const node = n.kind === 'document' || n.kind === 'fragment' ? undefined : n;
+  if (name.endsWith('Sibling')) page.rt.charge((n.parent?.children.length ?? 0) >> 6);
   switch (name) {
     case 'parentNode':
       return page.wrap(n.parent);
@@ -282,6 +293,10 @@ function nodeGet(page: Page, n: DomNode | DomDocument | DomFragment, name: strin
 }
 
 function parentGet(page: Page, p: DomParent, name: string): Value {
+  const kids = () => {
+    page.rt.charge(p.children.length >> 4);
+    return elementsIn(p);
+  };
   switch (name) {
     case 'children':
       return new ListHost(page, () => elementsIn(p), 'HTMLCollection', 'children');
@@ -292,11 +307,11 @@ function parentGet(page: Page, p: DomParent, name: string): Value {
     case 'lastChild':
       return page.wrap(p.children.at(-1));
     case 'firstElementChild':
-      return page.wrap(elementsIn(p)[0]);
+      return page.wrap(kids()[0]);
     case 'lastElementChild':
-      return page.wrap(elementsIn(p).at(-1));
+      return page.wrap(kids().at(-1));
     case 'childElementCount':
-      return elementsIn(p).length;
+      return kids().length;
   }
   return undefined;
 }
@@ -471,11 +486,11 @@ class ElementHost extends NodeHost {
     switch (name) {
       case 'textContent':
       case 'innerText':
-        return textOf(el);
+        return page.whole(el, () => textOf(el));
       case 'innerHTML':
-        return innerHtml(el);
+        return page.whole(el, () => innerHtml(el));
       case 'outerHTML':
-        return outerHtml(el);
+        return page.whole(el, () => outerHtml(el));
       case 'tagName':
         return nodeGet(page, el, 'nodeName');
       case 'classList':
@@ -800,11 +815,14 @@ class DocumentHost extends NodeHost {
         need(page, args, 1, name, 'Document');
         const id = rt.str(args[0]);
         let hit: DomElement | undefined;
+        let seen = 0;
         walkElements(doc, (e) => {
+          seen++;
           if (e.attrs.get('id') !== id) return false;
           hit = e;
           return true;
         });
+        rt.charge(seen >> 2);
         page.log.lookedUp(name, id, !!hit, doc);
         return page.wrap(hit);
       }

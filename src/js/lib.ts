@@ -291,6 +291,7 @@ const STRING_RAW: Record<string, (s: string, a: Value[], rt: Runtime) => Value> 
   },
   replace(s, a, rt) {
     if (isCallable(a[1])) rt.notAvailable('replace with a function is not available in this editor. Use a string for the new text.');
+    rt.charge(s.length >> 5);
     return s.replace(rt.str(a[0]), rt.str(a[1]));
   },
   padStart(s, a, rt) {
@@ -307,6 +308,7 @@ const STRING_RAW: Record<string, (s: string, a: Value[], rt: Runtime) => Value> 
 
 for (const name of STRING_PLAIN) {
   STRING_RAW[name] = (s, a, rt) => {
+    rt.charge(s.length >> 5); // a scan can answer with one number, so its result says nothing about its cost
     const out = (String.prototype[name] as (...x: unknown[]) => string | number | boolean).apply(s, a.map((v) => rt.prim(v)));
     rt.checkLength(typeof out === 'string' ? out.length : 0);
     return out;

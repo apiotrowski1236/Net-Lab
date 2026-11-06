@@ -30,10 +30,10 @@ function trouble(r: Run): string | undefined {
 
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Three or more of these items in a row with one separator between them: a list printed in a line. */
+/** Three or more of these items in a row with one separator between them: a list printed in a line. Words can separate items on one line (` and `), but not across lines, where `Song: a` on each line is three separate prints. */
 function listIn(items: string[]): RegExp {
   const one = `(?:${items.map(escaped).join('|')})`;
-  return new RegExp(`${one}([^A-Za-z0-9]{1,8})${one}(?:\\1${one})+`, 'g');
+  return new RegExp(`${one}([^A-Za-z0-9]{1,8}|[^\\n]{1,12}?)${one}(?:\\1${one})+`, 'g');
 }
 
 /** Printed lines with any printed list taken out, since a list holds every song and would pass "did it print this song". */

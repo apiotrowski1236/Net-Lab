@@ -248,6 +248,8 @@ let rebuilt: { spec: JsSpec; key: string; page?: PageState } | undefined;
 export function pageOf(spec: JsSpec, s: JsState): PageState | undefined {
   const saved = s.last?.page;
   if (!saved?.big) return saved;
+  // Edited code hasn't been Run, so it doesn't run here either. The last page stays up until the next Run.
+  if (s.edited) return rebuilt?.spec === spec ? rebuilt.page : undefined;
   const key = JSON.stringify([s.files, s.answers, s.clicks, s.runs]);
   if (rebuilt?.spec !== spec || rebuilt.key !== key) {
     const { programs } = parseFiles(s.files);
