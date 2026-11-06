@@ -22,7 +22,7 @@ const prizeEditor: JsSpec = { kind: 'js', id: 'prizes', title: 'The prize wall',
 const doorEditor: JsSpec = { kind: 'js', id: 'door', title: 'The door code', files: code.DOOR_START, step: true, checks: [code.KEEPS_ASKING, code.WELCOME] };
 const guessEditor: JsSpec = { kind: 'js', id: 'guess', title: 'The guessing game', files: code.GUESS_START, step: true, report: true, checks: [code.GAME_ENDS, code.GAME_HINTS, code.GAME_COUNT, code.SECRET_RANDOM] };
 const lineEditor: JsSpec = { kind: 'js', id: 'line', title: 'The prize line', files: code.LINE_START, step: true, report: true, checks: [code.PLACES, code.DOUBLED] };
-const scoreEditor: JsSpec = { kind: 'js', id: 'scores', title: 'The laser tag scoreboard', files: code.SCORES_START, step: true, report: true, checks: [code.TEAM_TOTAL, code.HIGH_COUNT, code.TOP_SCORE] };
+const scoreEditor: JsSpec = { kind: 'js', id: 'scores', title: 'The laser tag scoreboard', files: code.SCORES_START, step: true, report: true, checks: [code.TOP_SCORE] };
 const reportEditor: JsSpec = { kind: 'js', id: 'report', title: 'The closing report', files: code.REPORT_START, step: true, report: true, checks: [code.REPORT_TOTAL, code.REPORT_BOOTHS, code.REPORT_LIGHTS] };
 const finalsEditor: JsSpec = { kind: 'js', id: 'finals', title: 'The finals list', files: code.FINALS_START, step: true, report: true, checks: [code.FINALISTS, code.SHOW_FINALISTS] };
 const tableEditor: JsSpec = { kind: 'js', id: 'table', title: 'The token table', files: code.TABLE_START, step: true, report: true, checks: [code.TOKEN_TABLE] };
@@ -32,7 +32,7 @@ export const WATCH_STEPS = 14;
 
 export const jsLoopsLab: LabDef = {
   id: 'js-loops',
-  version: 1,
+  version: 2,
   title: 'Loops at Arcade Night',
   tagline: 'Write the loops behind a school Arcade Night: a countdown, a door code, a guessing game, and a scoreboard. Then fix a report full of broken loops.',
   unit: 0,
@@ -53,7 +53,7 @@ export const jsLoopsLab: LabDef = {
       body: md`
         Our school is holding an Arcade Night fundraiser, and you are writing the code for it. Remember that \`console.log\` prints a line in the output panel without a popup.
 
-        The night starts with a countdown. One trip through a loop is called a **pass**.
+        The night starts with a countdown. One time through a loop is called a **pass**.
 
         1. Press **Run** to see what this loop prints.
         2. Change the loop so that it counts down from 10 to 0.
@@ -68,16 +68,16 @@ export const jsLoopsLab: LabDef = {
       id: 'prizes',
       title: 'Price the prize wall',
       body: md`
-        The prize wall has one prize every 50 tokens, up to \`top\` tokens. This \`for\` loop counts by 1, so it prints far too many prices. The first line of a \`for\` loop is its **header**, and the last part of the header says how the variable changes after each pass.
+        Players spend tokens on prizes. The prize wall has one prize every 50 tokens, and the most expensive prize costs \`maxPrice\` tokens. This \`for\` loop counts by 1, so it prints far too many prices.
 
         1. Find the question below **Goals**, at the bottom of this step. Answer it before you change the loop.
-        2. Fix the loop so that it prints 50, 100, 150, and so on, up to \`top\`.
-        3. Work out what it costs to buy one of each prize, and print that total after the loop. Use a **running total**: a variable that starts at 0 above the loop and adds to itself on each pass.
+        2. Fix the loop so that it prints 50, 100, 150, and so on, up to \`maxPrice\`. The first line of a \`for\` loop is its **header**, and the last part of the header says how the variable changes after each pass.
+        3. Add up all the prices to find what one of each prize costs, and print that total after the loop. Use a **running total**: a variable that starts at 0 above the loop. On each pass, add the price to it.
 
         To add to a variable, you can write \`score = score + 5\` or the short form \`score += 5\`.
       `,
       demos: [prizeEditor],
-      goals: [passed('prizes', code.PRICES, 'Print every price, counting up by 50.'), passed('prizes', code.PRIZE_TOTAL, 'Print what one of each prize costs.')],
+      goals: [passed('prizes', code.PRICES, 'Print every price, counting up by 50.'), passed('prizes', code.PRIZE_TOTAL, 'Print the total of all the prices.')],
       questions: [
         {
           id: 'passes',
@@ -104,7 +104,7 @@ export const jsLoopsLab: LabDef = {
         1. Press **Run** and give two wrong answers. Notice that the program lets you in anyway.
         2. Change the code so that it keeps asking until the answer is \`pixel\`.
 
-        We use \`while\` here because nobody knows how many tries a person will need. A \`for\` loop fits better when you know the count ahead of time.
+        We use \`while\` here because nobody knows how many tries a person will need. A \`for\` loop fits better when you know the count ahead of time. If a prompt keeps coming back and you want to end the run, press **Stop** on the prompt.
       `,
       demos: [doorEditor],
       goals: [passed('door', code.KEEPS_ASKING, 'Keep asking until the answer is pixel.'), passed('door', code.WELCOME, 'Print the welcome after the loop.')],
@@ -131,7 +131,7 @@ export const jsLoopsLab: LabDef = {
         passed('guess', code.GAME_ENDS, 'Keep asking until the guess matches secret.'),
         passed('guess', code.GAME_HINTS, 'Print Too high or Too low after each wrong guess.'),
         passed('guess', code.GAME_COUNT, 'Print how many guesses it took.'),
-        passed('guess', code.SECRET_RANDOM, 'Keep secret random.'),
+        passed('guess', code.SECRET_RANDOM, 'Leave the line that picks secret as it is.'),
       ],
     },
 
@@ -145,17 +145,19 @@ export const jsLoopsLab: LabDef = {
         1. Print each player's place in line, like \`1. Maya\`.
         2. It is double-token hour. Double every number inside \`tokens\`, then print \`tokens\` after the loop.
 
-        Use the counting \`for\` when you need the index, and \`for...of\` when you only need each item. Here \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`:
+        Use the counting \`for\` when you need the index, or when you change the array. Use \`for...of\` when you only read each item. It hands you a copy, so changing that copy leaves the array the same.
 
         \`\`\`js
         for (let i = 0; i < list.length; i++) {
           console.log(list[i]);
         }
 
-        for (const item of list) {
+        for (let item of list) {
           console.log(item);
         }
         \`\`\`
+
+        Here \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`.
       `,
       demos: [lineEditor],
       goals: [passed('line', code.PLACES, 'Print each player with their place in line.'), passed('line', code.DOUBLED, 'Double every number inside tokens.')],
@@ -164,22 +166,16 @@ export const jsLoopsLab: LabDef = {
     // -----------------------------------------------------------------------
     {
       id: 'scores',
-      title: 'Read the laser tag scores',
+      title: 'Find the top laser tag score',
       body: md`
-        In laser tag, a hit adds points and getting tagged takes points away, so a score can drop below 0. Print three lines, in this order:
+        In laser tag, a hit adds points and getting tagged takes points away, so a score can drop below 0.
 
-        1. The team total.
-        2. How many scores are 100 or more.
-        3. The top score. Keep the best score so far in a variable, and compare each score with it.
+        Print the top score. Keep the best score so far in a variable named \`best\`, and compare each score with it.
 
-        Your code has to work on any list of scores, including a list where every score is negative.
+        Your code has to work on other lists too, including a list where every score is negative.
       `,
       demos: [scoreEditor],
-      goals: [
-        passed('scores', code.TEAM_TOTAL, 'Print the team total.'),
-        passed('scores', code.HIGH_COUNT, 'Print how many scores are 100 or more.'),
-        passed('scores', code.TOP_SCORE, 'Print the top score.'),
-      ],
+      goals: [passed('scores', code.TOP_SCORE, 'Print the top score.')],
     },
 
     // -----------------------------------------------------------------------
@@ -189,15 +185,16 @@ export const jsLoopsLab: LabDef = {
       body: md`
         Last year's volunteer left us this closing report, and each of its three loops has a bug.
 
-        1. Press **Run**. One loop never ends, so the program stops itself. Read the stop message and the notes under **Something to check**.
-        2. Press **Step through**, then press **Next** until loop 1 has run three times. Watch what happens to \`total\`.
-        3. Press **Stop**, then fix all three loops.
+        1. Press **Step through**, then press **Next** until the counter says Move 15. By then, loop 1 has run three times. Watch what happens to \`total\`. Blue is the line that runs next, and yellow is the line that ran last. The counter goes up to 2000 because one loop never ends, and you do not need those moves.
+        2. Press **Stop**, then press **Run**. This editor stops the loop that never ends. A real browser tab would freeze. Read the stop message and the notes under **Something to check**, then scroll up in the output to see what the first two loops printed.
+        3. Fix all three loops.
       `,
       demos: [reportEditor],
       goals: [
         {
           id: 'watched',
           label: 'Step through loop 1 and watch total.',
+          hint: 'Press **Step through**, then press **Next** until the counter says Move 15.',
           check: demoFact('report', (f) => (f.far as number) >= WATCH_STEPS),
         },
         passed('report', code.REPORT_TOTAL, 'Fix loop 1.'),
@@ -213,7 +210,7 @@ export const jsLoopsLab: LabDef = {
       body: md`
         Anyone who scored 100 or more moves on to the finals. The arrays \`players\` and \`scores\` match up by index.
 
-        Build a new array named \`finalists\` that holds the name of each player who made it. Print \`finalists\` after the loop.
+        Start with an empty array named \`finalists\`. In a loop, use \`push\` to add the name of each player who scored 100 or more. Print \`finalists\` after the loop.
       `,
       demos: [finalsEditor],
       goals: [passed('finals', code.FINALISTS, 'Build finalists.'), passed('finals', code.SHOW_FINALISTS, 'Print finalists after the loop.')],
@@ -230,7 +227,7 @@ export const jsLoopsLab: LabDef = {
         {
           id: 'which-loop',
           kind: 'text',
-          prompt: 'A friend needs two loops: one prints every item in a list, and one keeps asking for a password until it is right. Tell them whether to use `for` or `while` for each loop, and why. Then describe one loop bug you hit in this lab and how you found it.',
+          prompt: 'A friend needs two loops. Tell them whether to use `for` or `while` for each one, and why.\n\n1. One loop prints every item in a list.\n2. One loop keeps asking for a password until it is right.\n\nThen describe one loop bug from this lab and how you found it.',
           minWords: 40,
           lines: 7,
         },

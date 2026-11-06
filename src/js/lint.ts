@@ -355,14 +355,11 @@ function resetInLoop(n: Node, c: Ctx): void {
   for (let i = 0; i < list.length; i++) {
     const s = list[i];
     let name: string | undefined;
-    let shown = '';
     if (s.k === 'expr' && s.e.k === 'assign' && s.e.op === '=' && s.e.target.k === 'id' && isLiteral(s.e.value)) {
       name = s.e.target.name;
-      shown = c.text(s.e);
     } else if (s.k === 'var' && s.decls.length === 1 && s.decls[0].init && isLiteral(s.decls[0].init) && s.kind !== 'const') {
       if (!declaredOutside(s.decls[0].name, n, c)) continue;
       name = s.decls[0].name;
-      shown = `${name} = ${c.text(s.decls[0].init)}`;
     }
     if (!name) continue;
     const add = list.findIndex((x, j) => j > i && accumulates(x) === name);
@@ -370,7 +367,7 @@ function resetInLoop(n: Node, c: Ctx): void {
     const readLater = list.slice(add + 1).some((x) => accumulates(x) !== name && namesIn(x).has(name!));
     const between = list.slice(i + 1, add).some((x) => namesIn(x).has(name!) && accumulates(x) !== name);
     if (readLater || between) continue;
-    c.add('reset-in-loop', s.pos.line, `This line sets ${name} back every time the loop runs, so ${name} never builds up. Move ${shown} above the loop.`);
+    c.add('reset-in-loop', s.pos.line, `This line sets ${name} back every time the loop runs, so ${name} never builds up. Set ${name} once, above the loop, and delete this line.`);
   }
 }
 
