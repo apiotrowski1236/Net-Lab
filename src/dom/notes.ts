@@ -190,6 +190,10 @@ export class PageLog {
     this.note('not-a-property', `An element has no property called ${name}, so nothing changed on the page. A browser gives no error for this. Did you mean ${meant}?${caps ? ' Capital and lowercase letters count in JavaScript.' : ''}`);
   }
 
+  elementLength(): void {
+    this.note('element-length', 'An element has no length, so a loop over it never runs. querySelector and getElementById give one element. To get a list, use querySelectorAll.');
+  }
+
   readMiss(name: string, meant: string): void {
     this.note('not-a-property', `An element has no property called ${name}, so reading it gives undefined. Did you mean ${meant}?${meant.toLowerCase() === name.toLowerCase() ? ' Capital and lowercase letters count in JavaScript.' : ''}`);
   }
@@ -225,7 +229,7 @@ export class PageLog {
   }
 
   elementAsText(tagClass: string): void {
-    this.note('element-as-text', `An element was joined into a string, so the page shows ${tagClass}. To show its text, use its textContent. To add the element itself, use appendChild, not + or +=.`);
+    this.note('element-as-text', `An element was used as text, so the page shows ${tagClass}. To show its text, use its textContent. To add the element itself, use appendChild, not + or +=.`);
   }
 
   handlerCalled(): void {
@@ -306,7 +310,7 @@ export class PageLog {
   private explainList(e: JsError): string | undefined {
     const r = [...this.lists].reverse().find((l) => l.file === e.pos.file && l.line === e.pos.line);
     if (!r) return undefined;
-    return `${r.source} gives a list of elements, not one element, so the list has no ${r.name}. Use a loop, and use ${r.name} on each element.`;
+    return `${r.source} gives a list of elements, not one element, so the list has no ${r.name}. Use a loop, and use ${r.name} on each element, with [i] after the name of the list.`;
   }
 
   private explainNotFunction(e: JsError): string | undefined {

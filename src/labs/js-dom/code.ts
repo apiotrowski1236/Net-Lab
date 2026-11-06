@@ -47,7 +47,7 @@ const SECTIONS = (heads: string[]) =>
     .map(
       (h) => `    <section>
       <h2>${h}</h2>
-      <p>This part of my site is still growing.</p>
+      <p>This part of my site is not finished yet.</p>
     </section>`,
     )
     .join('\n');
@@ -148,7 +148,7 @@ ul {
 }
 
 .card {
-  flex: 1 1 160px;
+  flex: 0 1 160px;
   padding: 0 14px 4px;
   border: 1px solid #c6d3df;
   border-radius: 10px;
@@ -192,7 +192,9 @@ let list = document.getElementById("favorites");
 export const GRID_SCRIPT = `let count = 144;
 let grid = document.getElementById("grid");
 
-// Add your loop here.
+// Add your loop here. Your loop needs these two lines:
+// let color = "hsl(" + i * 5 + ", 80%, 60%)";
+// cell.style.backgroundColor = color;
 `;
 
 export const EVERY_SCRIPT = `// Add your code here.
@@ -202,8 +204,8 @@ export const CARDS_SCRIPT = `// Make your two arrays here.
 
 // Find the element with the id cards here.
 
-// Write your loop here. Each pass does four things:
-// make the div, the h3, and the p
+// Write your loop here. Inside it:
+// make the div with the class card, the h3, and the p
 // set the text of the h3 and the p
 // add the h3 and the p to the div
 // add the div to cards
@@ -223,7 +225,7 @@ button.addEventListener("click", function () {
 });
 `;
 
-const STOPPED = 'The program stopped before it finished. Read the error under your page, fix that line, and press Run.';
+const STOPPED = 'The program stopped before it finished. Read the error under your page, fix it, and press Run.';
 const KEEP = (name: string) => `Keep the variable named \`${name}\` at the top of \`script.js\`, so the checks can try other values.`;
 
 const noted = (notes: readonly { rule: string }[], rule: string) => notes.some((n) => n.rule === rule);
@@ -280,7 +282,7 @@ export const NEW_ELEMENT: JsCheck = {
     const p = c.page!;
     if (freshIn(p, '#about').length) return undefined;
     if (!c.ok) return STOPPED;
-    if (noted(c.notes, 'never-added')) return 'You made an element, but it is not on the page yet. Add it with `about.appendChild(...)`, with your variable in the parentheses.';
+    if (noted(c.notes, 'never-added')) return 'You made an element, but it is not on the page yet. Put your variable inside `about.appendChild()`.';
     if (p.made > 0) return 'Your new element is on the page, but outside the About me section. Call `appendChild` on `about`.';
     if (!p.exists('#about h2')) return 'The text of `about` changed, but the page has no new element. Use `document.createElement` to make one.';
     return 'Use `document.createElement("p")` to make a new element, then add it to `about`.';
@@ -312,6 +314,7 @@ export const ITEMS: JsCheck = {
     const got = p.texts('#favorites li');
     // The array as it ended, since a student may push to it.
     const want = Array.isArray(r.vars.favorites) ? r.vars.favorites.map(String) : FIVE;
+    if (got.length > 1 && new Set(got).size === 1) return 'Every item shows the same text. Use `favorites[i]`, so each item shows one string.';
     if (got.length === want.length && got.every((t, i) => has(t, want[i]))) return undefined;
     if (!got.length) {
       if (noted(c.notes, 'tags-as-text')) return 'The page shows the tags as plain text, so the list has no `<li>` elements. Use `createElement`, or use `innerHTML` with `+=`.';
@@ -383,7 +386,8 @@ export const MANY: JsCheck = {
 
 // --- step 5 ---
 
-const changed = (n: PageNode) => !!n.attr('style') || n.classes.length > 0;
+const dotted = (n: PageNode) => n.classes.some((k) => k.startsWith('.'));
+const changed = (n: PageNode) => !!n.attr('style') || (n.classes.length > 0 && !dotted(n));
 
 export const EVERY: JsCheck = {
   id: 'every',
@@ -394,9 +398,11 @@ export const EVERY: JsCheck = {
     const p = r.page!;
     const heads = p.all('h2');
     const done = heads.filter(changed).length;
-    if (done === heads.length) return undefined;
+    if (done === heads.length && !noted(c.notes, 'class-no-rule')) return undefined;
     const first = c.page!.firstOnly();
     if (first) return first;
+    if (heads.some(dotted)) return 'The class went on with a dot in its name, so no CSS rule matches it. Take the dot out of the string.';
+    if (noted(c.notes, 'class-no-rule')) return 'That class has no rule in `style.css`, so the headings look the same. Use `accent`.';
     if (noted(c.notes, 'list-property')) return 'Setting a property on the list changes nothing. Write a loop, and set it on one heading at a time.';
     if (!done) return 'The headings look the same as before. Use `document.querySelectorAll("h2")`, then add the class `accent` to each heading in a loop.';
     return 'Some headings changed and others did not. Loop over the whole list, so this works on a page with any number of headings.';
@@ -489,9 +495,10 @@ export const FOLLOWS: JsCheck = {
     if (cards.length !== other.want.length) return 'The cards did not follow your arrays. Use the arrays and `.length` in the loop, so a new item makes a new card.';
     if (r.page!.all('#cards .card').every((n) => !n.text)) return 'Your cards are empty. Add the `h3` and the `p` to each card, not to the element with the id `cards`.';
     const right = (card: string, row: string[]) => row.filter((v) => card.includes(v.toLowerCase())).length;
-    if (other.want.every((row, i) => right(cards[i], row) >= 2)) return undefined;
-    if (other.want.every((row, i) => right(cards[i], row) >= 1)) return 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
-    return 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, not a number.';
+    const differ = new Set(cards).size > 1;
+    if (differ && other.want.every((row, i) => right(cards[i], row) >= 2)) return undefined;
+    if (differ && other.want.every((row, i) => right(cards[i], row) >= 1)) return 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
+    return 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, so each card shows its own values.';
   },
   hints: ['Each card needs a title and a detail from the same index.', 'Inside the loop, make an `h3` and a `p`, and add both to the card.', 'Write `heading.textContent = titles[i];` and `text.textContent = details[i];`, then `card.appendChild(heading);` and `card.appendChild(text);`'],
 };
@@ -504,9 +511,11 @@ export const CONTENTS: JsCheck = {
   test(c) {
     const r = c.run({ files: { 'index.html': OTHER_CONTENTS_PAGE } });
     if (!r.ok) return STOPPED;
+    if (r.page!.count('section h2') < OTHER_HEADINGS.length) return 'The headings moved into your list, and the sections lost them. Adding an element that is already on the page moves it. Use each heading\'s `textContent`, not the heading itself.';
     const got = r.page!.all('#toc > *').map((n) => n.text);
     if (got.length === OTHER_HEADINGS.length && got.every((t, i) => has(t, OTHER_HEADINGS[i]))) return undefined;
     if (!got.length) return 'The table of contents is empty. In a loop, add one `<li>` to the element with the id `toc`.';
+    if (got.length > 1 && new Set(got).size === 1) return 'Every item shows the same text. Use `headings[i].textContent`, so each item shows its own heading.';
     if (got.length === HEADINGS.length && got.every((t, i) => has(t, HEADINGS[i]))) return 'This list has the right words, but it was typed by hand. Read each heading\'s `textContent` in the loop, so the list follows the page.';
     return 'The table of contents does not match the headings. Add one `<li>` for each `h2`, in order, with that heading\'s text.';
   },
@@ -515,7 +524,7 @@ export const CONTENTS: JsCheck = {
 
 export const ADDS: JsCheck = {
   id: 'adds',
-  label: 'Add one square for each click',
+  label: 'Write the code that adds one square for each click',
   test(c) {
     const start = c.run().page!.count('#grid .cell');
     const r = c.run({ clicks: ['#more', '#more', '#more'] });

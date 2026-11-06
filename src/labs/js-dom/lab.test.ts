@@ -52,7 +52,7 @@ function rightAttempts(step: string, cases: Right[]) {
   });
 }
 
-const STOPPED = 'The program stopped before it finished. Read the error under your page, fix that line, and press Run.';
+const STOPPED = 'The program stopped before it finished. Read the error under your page, fix it, and press Run.';
 const T = 'let title = document.getElementById("title");\n';
 const A = 'let about = document.getElementById("about");\n';
 const L = 'let favorites = ["pizza", "soccer", "drawing"];\nlet list = document.getElementById("favorites");\n';
@@ -133,7 +133,7 @@ test('hello: a class with a rule the student wrote in style.css passes', () => {
 
 wrongAttempts('one', [
   ['made and never added', `${A}let fact = document.createElement("p");\nfact.textContent = "I have two cats.";`, 'The <p> element made on this line never went on the page. Use appendChild to add it to an element that is on the page.'],
-  ['made and never added, in the check', `${A}let fact = document.createElement("p");\nfact.textContent = "I have two cats.";`, 'You made an element, but it is not on the page yet. Add it with `about.appendChild(...)`, with your variable in the parentheses.'],
+  ['made and never added, in the check', `${A}let fact = document.createElement("p");\nfact.textContent = "I have two cats.";`, 'You made an element, but it is not on the page yet. Put your variable inside `about.appendChild()`.'],
   ['appendChild with a string', `${A}about.appendChild("I have two cats.");`, 'appendChild takes an element, and this is a string. Make an element with document.createElement and set its textContent first. To add a string as it is, use append.'],
   ['a tag with brackets', `${A}let fact = document.createElement("<p>");`, 'createElement takes the tag name alone, with no angle brackets or spaces. Write createElement("p").'],
   ['a tag with no quotes', `${A}let fact = document.createElement(p);`, 'p has no quotes, so JavaScript looks for a variable called p. Text goes in quotes, so write "p".'],
@@ -163,6 +163,8 @@ wrongAttempts('list', [
   ['innerHTML = in the loop', FULL_LOOP('  list.innerHTML = "<li>" + favorites[i] + "</li>";'), 'Each pass of the loop replaced the list, so only the last item is left. Use `+=` with `innerHTML`, or use `appendChild`.'],
   ['tags as text', FULL_LOOP('  list.append("<li>" + favorites[i] + "</li>");'), 'The page shows the tags as plain text, so the list has no `<li>` elements. Use `createElement`, or use `innerHTML` with `+=`.'],
   ['items typed by hand', `${L}list.innerHTML = "<li>pizza</li><li>soccer</li><li>drawing</li>";`, 'The list did not follow the array. Build each item from `favorites` in a loop, so the array decides what the page shows.'],
+  ['the whole array on every item', FULL_LOOP('  let item = document.createElement("li");\n  item.textContent = favorites;\n  list.appendChild(item);'), 'Every item shows the same text. Use `favorites[i]`, so each item shows one string.'],
+  ['the same index each pass', FULL_LOOP('  let item = document.createElement("li");\n  item.textContent = favorites[0];\n  list.appendChild(item);'), 'Every item shows the same text. Use `favorites[i]`, so each item shows one string.'],
   ['no loop', L, 'The list is empty. Write a loop that adds one `<li>` for each string in `favorites`.'],
   ['a renamed array', 'let foods = ["pizza", "soccer", "drawing"];\nlet list = document.getElementById("favorites");\nfor (let i = 0; i < foods.length; i++) {\n  list.innerHTML += "<li>" + foods[i] + "</li>";\n}', 'Keep the variable named `favorites` at the top of `script.js`, so the checks can try other values.'],
   ['the array left at 3 strings', FULL_LOOP(BAD_ITEM), 'Add one more string to `favorites`, then press Run. Change only the array.'],
@@ -225,8 +227,13 @@ test('grid: 400 squares from a script under 10 lines', () => {
 
 wrongAttempts('every', [
   ['a property set on the list', `${H}headings.textContent = "x";`, 'querySelectorAll gives a list of elements, not one element, so setting textContent on the list changes nothing. A browser gives no error for this. Use a loop and set textContent on each element.'],
-  ['style on the list', `${H}headings.style.color = "red";`, 'querySelectorAll gives a list of elements, not one element, so the list has no style. Use a loop, and use style on each element.'],
+  ['style on the list', `${H}headings.style.color = "red";`, 'querySelectorAll gives a list of elements, not one element, so the list has no style. Use a loop, and use style on each element, with [i] after the name of the list.'],
   ['querySelector', 'let first = document.querySelector("h2");\nfirst.classList.add("accent");', '`querySelector("h2")` finds only the first match, and this page has 4. Use `querySelectorAll` and a loop to reach all of them.'],
+  ['querySelector with the loop', 'let items = document.querySelector("h2");\nfor (let i = 0; i < items.length; i++) {\n  items[i].classList.add("accent");\n}', 'An element has no length, so a loop over it never runs. querySelector and getElementById give one element. To get a list, use querySelectorAll.'],
+  ['querySelector with the loop, in the check', 'let items = document.querySelector("h2");\nfor (let i = 0; i < items.length; i++) {\n  items[i].classList.add("accent");\n}', '`querySelector("h2")` finds only the first match, and this page has 4. Use `querySelectorAll` and a loop to reach all of them.'],
+  ['a dot in the class', `${H}for (let i = 0; i < headings.length; i++) {\n  headings[i].classList.add(".accent");\n}`, 'The class went on with a dot in its name, so no CSS rule matches it. Take the dot out of the string.'],
+  ['a class with no rule', `${H}for (let i = 0; i < headings.length; i++) {\n  headings[i].classList.add("big");\n}`, 'That class has no rule in `style.css`, so the headings look the same. Use `accent`.'],
+  ['classList on the list, in a loop', `${H}for (let i = 0; i < headings.length; i++) {\n  headings.classList.add("accent");\n}`, 'querySelectorAll gives a list of elements, not one element, so the list has no classList. Use a loop, and use classList on each element, with [i] after the name of the list.'],
   ['a dot on a tag', 'let headings = document.querySelectorAll(".h2");\nfor (let i = 0; i < headings.length; i++) {\n  headings[i].classList.add("accent");\n}', 'querySelectorAll(".h2") looks for the class h2, and no element has it. To find <h2> tags, write "h2" with no dot.'],
   ['indexes typed by hand', `${H}headings[0].classList.add("accent");\nheadings[1].classList.add("accent");\nheadings[2].classList.add("accent");\nheadings[3].classList.add("accent");`, 'Some headings changed and others did not. Loop over the whole list, so this works on a page with any number of headings.'],
   ['nothing on the headings', H, 'The headings look the same as before. Use `document.querySelectorAll("h2")`, then add the class `accent` to each heading in a loop.'],
@@ -251,7 +258,8 @@ wrongAttempts('cards', [
   ['a card short of the array', `${P}for (let i = 0; i < 2; i++) {\n  box.innerHTML += '<div class="card">' + titles[i] + "</div>";\n}`, 'The page has 2 cards and your arrays have 3 items. Make the loop run once per item, with `.length`.'],
   ['cards typed by hand', `${P}box.innerHTML = '<div class="card">Chess club We meet on Fridays.</div><div class="card">Robot arm It stacks blocks.</div><div class="card">Bake sale We raised $80.</div>';`, 'The cards did not follow your arrays. Use the arrays and `.length` in the loop, so a new item makes a new card.'],
   ['a card shows one array', CARD_LOOP('  card.textContent = titles[i];'), 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.'],
-  ['the same index each pass', CARD_LOOP('  card.textContent = titles[0] + details[0];'), 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, not a number.'],
+  ['the same index each pass', CARD_LOOP('  card.textContent = titles[0] + details[0];'), 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, so each card shows its own values.'],
+  ['the whole arrays on every card', CARD_LOOP('  card.textContent = titles + " " + details;'), 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, so each card shows its own values.'],
   ['the h3 and p added to cards, not the card', `${P}for (let i = 0; i < titles.length; i++) {\n  let card = document.createElement("div");\n  card.classList.add("card");\n  let heading = document.createElement("h3");\n  heading.textContent = titles[i];\n  let text = document.createElement("p");\n  text.textContent = details[i];\n  box.appendChild(heading);\n  box.appendChild(text);\n  box.appendChild(card);\n}`, 'Your cards are empty. Add the `h3` and the `p` to each card, not to the element with the id `cards`.'],
 ]);
 
@@ -272,8 +280,10 @@ const TOC = `${H}let toc = document.getElementById("toc");\n`;
 wrongAttempts('contents', [
   ['a list typed by hand', `${TOC}toc.innerHTML = "<li>About me</li><li>My projects</li><li>Places I want to see</li><li>Say hello</li>";`, 'This list has the right words, but it was typed by hand. Read each heading\'s `textContent` in the loop, so the list follows the page.'],
   ['nothing added to the list', TOC, 'The table of contents is empty. In a loop, add one `<li>` to the element with the id `toc`.'],
-  ['the same text for each item', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[0].textContent + "</li>";\n}`, 'The table of contents does not match the headings. Add one `<li>` for each `h2`, in order, with that heading\'s text.'],
-  ['an element joined into a string', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[i] + "</li>";\n}`, 'An element was joined into a string, so the page shows [object HTMLHeadingElement]. To show its text, use its textContent. To add the element itself, use appendChild, not + or +=.'],
+  ['the same text for each item', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[0].textContent + "</li>";\n}`, 'Every item shows the same text. Use `headings[i].textContent`, so each item shows its own heading.'],
+  ['the list as text', `${TOC}for (let i = 0; i < headings.length; i++) {\n  let item = document.createElement("li");\n  item.textContent = headings;\n  toc.appendChild(item);\n}`, 'Every item shows the same text. Use `headings[i].textContent`, so each item shows its own heading.'],
+  ['the headings moved into the list', `${TOC}for (let i = 0; i < headings.length; i++) {\n  let item = document.createElement("li");\n  item.appendChild(headings[i]);\n  toc.appendChild(item);\n}`, 'The headings moved into your list, and the sections lost them. Adding an element that is already on the page moves it. Use each heading\'s `textContent`, not the heading itself.'],
+  ['an element joined into a string', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[i] + "</li>";\n}`, 'An element was used as text, so the page shows [object HTMLHeadingElement]. To show its text, use its textContent. To add the element itself, use appendChild, not + or +=.'],
 ]);
 
 rightAttempts('contents', [

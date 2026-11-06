@@ -33,6 +33,7 @@ Where a line says "shared", the words come from `src/dom/notes.ts` or `src/js/he
 | list | `list.innerHTML = "<li>..."` in the loop | check |
 | list | `list.append("<li>...")` | shared note, then the check |
 | list | three `<li>` strings typed by hand | check, with five hidden strings |
+| list | `item.textContent = favorites`, or `favorites[0]` | check: every item shows the same text |
 | grid | `i < 144` | check, with `count` replaced |
 | grid | no class, `cell.class = "cell"` | check, and a shared note |
 | grid | every square one color | check |
@@ -42,13 +43,18 @@ Where a line says "shared", the words come from `src/dom/notes.ts` or `src/js/he
 | every | `querySelector("h2")` | shared fact `firstOnly`, in the check |
 | every | `headings.style.color = "red"` | shared help |
 | every | `querySelectorAll(".h2")` | shared note |
+| every | `querySelector("h2")` with the loop from the reminder | shared note on `length`, then the check |
+| every | `classList.add(".accent")` | shared note, then the check |
+| every | a class with no rule, like `big` | shared note, then the check |
 | every | `headings[0]`, `headings[1]`, `headings[2]` | check, on a page with other headings |
 | contents | a table of contents typed by hand | check, on a page with other headings |
-| contents | an element joined into a string | shared note |
+| contents | an element used as text | shared note |
+| contents | `item.appendChild(headings[i])`, which moves the headings | check |
+| contents | `item.textContent = headings` | check: every item shows the same text |
 | cards | one array, or arrays of different lengths | check |
 | cards | three cards typed by hand | check, with new arrays |
 | cards | a card that shows only one array | check |
-| cards | `titles[0]` in the loop | check |
+| cards | `titles[0]`, or the whole arrays, in the loop | check |
 | cards | no `card` class | check |
 | cards | the `h3` and `p` added to `cards`, not the card | check |
 | extra | `addEventListener("click", addSquare())` | shared note |

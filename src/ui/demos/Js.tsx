@@ -109,7 +109,7 @@ function Output({ last, stale, ask, onLine }: { last?: JsLast; stale: boolean; a
         {stale && <p class="java-stale">You changed the code since this ran. Press Run to check it.</p>}
         {!stale && last.status === 'waiting' && !ask && <p class="java-stale">This run stopped at a prompt. Press Run to start it again.</p>}
         {lines.length > 0 && <Lines lines={lines} />}
-        {last.status === 'ok' && !lines.length && <p class="java-empty">It ran, and printed nothing.</p>}
+        {last.status === 'ok' && !lines.length && <p class="java-empty">{last.page ? 'It ran. See your page above.' : 'It ran, and printed nothing.'}</p>}
         {error && (
           <>
             <p class="java-head bad">{syntax ? 'This code has a syntax error, so none of it ran.' : 'The program stopped here.'}</p>

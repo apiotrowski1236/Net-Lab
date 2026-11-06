@@ -587,6 +587,10 @@ class ElementHost extends NodeHost {
 
   read(name: string): { value: Value } | undefined {
     if (this.loose.has(name)) return { value: this.loose.get(name) };
+    if (name === 'length') {
+      this.page.log.elementLength();
+      return { value: undefined };
+    }
     const meant = meantProperty(name, ELEMENT_NAMES);
     if (meant === undefined) return undefined;
     this.page.log.miss('element', name);

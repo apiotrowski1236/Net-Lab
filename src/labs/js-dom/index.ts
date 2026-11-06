@@ -54,7 +54,7 @@ export const jsDomLab: LabDef = {
       id: 'hello',
       title: 'Change the page from a script',
       body: md`
-        This editor has three tabs. **index.html** is the page, **style.css** is its look, and **script.js** is your code. You can only read the HTML here, so changes to the page come from your script. After each **Run**, your page shows above the output.
+        This editor has three tabs. **index.html** is the page, **style.css** is its look, and **script.js** is your code. You can only read the HTML here. No step needs a change to **style.css**, so your changes to the page come from your script. After each **Run**, your page shows above the output.
 
         1. Open **index.html**, and read the ids on the heading and the paragraph under it.
         2. In **script.js**, put your name in the heading.
@@ -133,10 +133,10 @@ export const jsDomLab: LabDef = {
       id: 'list',
       title: 'Turn an array into a list',
       body: md`
-        This page has an empty list with the id \`favorites\`, and your script has an array.
+        Your script has an array named \`favorites\`, and \`list\` holds the empty list on the page.
 
         1. Change the strings in \`favorites\` to your own favorites.
-        2. Write a loop that adds one \`<li>\` to the list for each string. The three lines from the last step go inside the loop, with \`li\` in place of \`p\`.
+        2. Write a loop over \`favorites\`. Each pass makes an \`<li>\`, sets its text to \`favorites[i]\`, and adds it to \`list\`.
         3. Add one more string to the array, and press **Run**. The page gets a new item, and the HTML stays the same.
         4. Scroll down to the question at the bottom of this step, and answer it.
       `,
@@ -149,7 +149,7 @@ export const jsDomLab: LabDef = {
         {
           id: 'once',
           kind: 'choice',
-          prompt: 'Adding an element that is already on the page moves it, and does not make a copy. A friend moves the line with createElement above the loop, so one element is made before the loop starts. Their array has 3 strings. What shows on the page?',
+          prompt: 'An element that is already on the page moves when you add it again. It does not make a copy.\n\nA friend puts the createElement line above the loop, so only one element is made. Their array has 3 strings. What shows on the page?',
           options: [
             { id: 'three', text: 'Three items', feedback: 'The loop runs three times, but there is only one element, and each pass moves it.' },
             { id: 'one', text: 'One item, with the last string', correct: true },
@@ -170,7 +170,7 @@ export const jsDomLab: LabDef = {
 
         1. Write a loop that runs \`count\` times, with \`i\` as its counter.
         2. Inside the loop, make a new \`div\` and store it in a variable named \`cell\`.
-        3. Give \`cell\` the class \`cell\`, and add it to \`grid\`.
+        3. Give it the class \`"cell"\` with \`classList.add\`, and add it to \`grid\`.
         4. Give the squares different colors. Put these two lines inside your loop:
 
         \`\`\`js
@@ -178,11 +178,10 @@ export const jsDomLab: LabDef = {
         cell.style.backgroundColor = color;
         \`\`\`
 
-        **hsl** is a way to write a color. Its first number picks a spot on the color wheel, from 0 to 360. Past 360, the colors start over.
+        **hsl** is a way to write a color. Its first number picks a spot on the color wheel, from 0 to 360. Past 360, the colors start over. The other two numbers set how strong and how light the color is.
 
         5. Change \`count\` to 400, and press **Run**.
-
-        Above your page, read how many elements your script made and how many lines of code it took. Blank lines and comments do not count.
+        6. Above your page, read how many elements your script made and how many lines of code it took. Blank lines and comments do not count.
       `,
       demos: [editor('grid', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY], ['list', 'list'])],
       goals: [
@@ -197,7 +196,7 @@ export const jsDomLab: LabDef = {
       id: 'every',
       title: 'Change every match',
       body: md`
-        \`document.querySelector\` finds only the first match. \`document.querySelectorAll\` finds every match, and you can loop over the matches like an array. Both take a CSS selector, like \`"h2"\` or \`".big"\`.
+        \`document.querySelector\` finds only the first match. \`document.querySelectorAll\` finds every match, and you can loop over the matches like an array. Both take a CSS selector, the part of a CSS rule that picks elements, like \`"h2"\` or \`".note"\`.
 
         1. Find every \`h2\` on the page.
         2. In a loop, add the class \`accent\` to each one.
@@ -222,7 +221,7 @@ export const jsDomLab: LabDef = {
       id: 'cards',
       title: 'Build your own cards',
       body: md`
-        Write this one on your own. Choose a section for your own site: projects, books, places, or teams. Two arrays that line up by index are called **parallel arrays**, so \`titles[0]\` goes with \`details[0]\`.
+        Write this one on your own. Choose what your cards show, such as projects, books, places, or teams. Two arrays that line up by index are called **parallel arrays**, so \`titles[0]\` goes with \`details[0]\`.
 
         1. Make two parallel arrays with at least 3 items each.
         2. Loop through them. For each index, make a \`div\` with the class \`card\`, an \`h3\` for the title, and a \`p\` for the detail.
@@ -309,7 +308,7 @@ export const jsDomLab: LabDef = {
       `,
       demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS], ['cards', 'cards'])],
       goals: [
-        passed('more', code.ADDS, 'Add one square for each click.', 'Put `createElement` and `appendChild` inside the function.'),
+        passed('more', code.ADDS, 'Write the code that adds one square for each click.', 'Put `createElement` and `appendChild` inside the function.'),
         { id: 'clicked', label: 'Click the button on your page.', hint: 'Press **Run**, then click **Add a square** on your page.', check: demoFact('more', (f) => (f.clicks as number) > 0 && f['check:adds'] === true) },
       ],
     },
