@@ -440,6 +440,7 @@ class Interp implements Runtime {
   private ret: Value = undefined;
   private here: Pos = { file: '', line: 1, col: 0, off: 0 };
   private readonly after?: (rt: Runtime) => void;
+  private ended = false;
   private nextFrame = 1;
 
   constructor(
@@ -485,6 +486,8 @@ class Interp implements Runtime {
       this.step(this.here, 'The program finished.', this.top, 'done');
     } catch (e) {
       out = this.stopped(e);
+    } finally {
+      this.ended = true;
     }
     return { ...out, lines: this.lines, vars: this.finalVars(), facts: this.finishFacts(), dataMissing: [...this.pending.keys()].filter((k) => !this.taken.has(k)), steps: this.steps, ...(this.trace ? { trace: this.trace } : {}) };
   }
@@ -607,6 +610,7 @@ class Interp implements Runtime {
   }
 
   charge(n: number): void {
+    if (this.ended) return; // reading a live list for the final variables is not the program running
     this.steps += n;
     if (this.steps > this.maxSteps) this.outOfSteps();
   }

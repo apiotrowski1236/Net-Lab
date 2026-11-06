@@ -103,9 +103,9 @@ export class PageLog {
   private readonly nulls: Lookup[] = [];
   private readonly lists: ListRead[] = [];
   private readonly made: (Place & { el: DomElement })[] = [];
-  private readonly addedHere = new Map<DomNode, Map<number, { parent: DomParent; times: number; file: string }>>();
+  private readonly addedHere = new WeakMap<DomNode, Map<number, { parent: DomParent; times: number; file: string }>>();
   /** Things that have been on the page, so taking one off isn't "never added". */
-  private readonly placed = new Set<DomNode>();
+  private readonly placed = new WeakSet<DomNode>();
   private readonly usedClasses: (Place & { name: string })[] = [];
   readonly firstOfMany: FirstOfMany[] = [];
   /** The last name read from a host that it doesn't have, for `x is not a function`. */
@@ -163,7 +163,7 @@ export class PageLog {
 
   /** The script gave an element this class. */
   classGiven(name: string): void {
-    if (!name.startsWith('.')) this.usedClasses.push({ name, ...this.here() });
+    if (!name.startsWith('.') && this.usedClasses.length < KEEP) this.usedClasses.push({ name, ...this.here() });
   }
 
   /** A class no CSS uses changes nothing on the page, which looks the same as code that didn't run. */

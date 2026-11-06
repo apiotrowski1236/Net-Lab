@@ -158,6 +158,7 @@ class Page {
   }
 
   setAttr(e: DomElement, name: string, value: string): void {
+    this.rt.charge(value.length >> 5);
     e.attrs.set(name, value);
     this.version++;
   }

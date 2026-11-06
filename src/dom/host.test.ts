@@ -197,7 +197,7 @@ describe('limits and what stays out', () => {
     expect(play(make(code), { run: true }).last?.page?.body).not.toContain('<meta');
   });
 
-  test.each(['document.getElementById("nope");', 'document.body.innerHTML;', 'document.body.outerHTML;', 'document.body.textContent;', 'document.body.lastElementChild;', 'cells.nextElementSibling;', 'document.getElementsByClassName("nope").length;', 'document.getElementsByTagName("nope").length;', 'document.title;', 'cells.textContent = long;'])('a loop around %s pays for what it reads', (read) => {
+  test.each(['document.getElementById("nope");', 'document.body.innerHTML;', 'document.body.outerHTML;', 'document.body.textContent;', 'document.body.lastElementChild;', 'cells.nextElementSibling;', 'document.getElementsByClassName("nope").length;', 'document.getElementsByTagName("nope").length;', 'document.title;', 'cells.textContent = long;', 'cells.className = long;'])('a loop around %s pays for what it reads', (read) => {
     const files = make('').files;
     const steps = (code: string) => {
       const { programs } = parseFiles([...files.slice(0, -1), { name: 'script.js', text: code }]);
@@ -206,6 +206,17 @@ describe('limits and what stays out', () => {
     const page = 'let long = "x".repeat(100000);\nlet cells = document.body.lastElementChild;\nfor (let i = 0; i < 4000; i++) {\n  document.body.appendChild(document.createElement("div"));\n}\n';
     const reads = steps(`${page}for (let i = 0; i < 100; i++) { ${read} }`) - steps(page);
     expect(reads).toBeGreaterThan(5000);
+  });
+
+  test('a forgotten i++ over a list ends with the loop message at every step count', () => {
+    const files = make('').files;
+    for (const list of ['getElementsByTagName("li")', 'querySelectorAll("li")']) {
+      for (let pad = 0; pad < 60; pad++) {
+        const code = `let a = 0;\n${'a = a + 1;\n'.repeat(pad)}let items = document.${list};\nlet i = 0;\nwhile (i < items.length) {\n  items[i].classList.add("x");\n}\n`;
+        const { programs } = parseFiles([...files.slice(0, -1), { name: 'script.js', text: code }]);
+        expect(runProgram(programs, { maxSteps: 3000, hosts: (rt) => pageHosts(rt, files) }).limit?.why).toBe('loop');
+      }
+    }
   });
 
   test('a long page stays as it was Run while the code is edited', () => {
