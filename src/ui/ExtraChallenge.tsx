@@ -102,7 +102,7 @@ export function ExtraChallengeDone({ session }: { session: LabSession }) {
   if (lastExtraWork(session) <= (p.submittedAt ?? 0)) {
     return (
       <div class="callout good extra-challenge" tabIndex={-1}>
-        <Icon name="check" size={14} /> <strong>You finished the extra challenge.</strong> Your latest report includes it.
+        <Icon name="check" size={14} /> <strong>You finished the extra challenge.</strong> Your latest report includes it. If you change anything after this, hand in again.
         {!hasEndpoint() && ` If you haven't yet, ${handInWhere()}.`}
       </div>
     );

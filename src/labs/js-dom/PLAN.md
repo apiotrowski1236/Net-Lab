@@ -17,13 +17,10 @@ Where a line says "shared", the words come from `src/dom/notes.ts` or `src/js/he
 | hello | `getElementById("titel")` | shared help, names the ids that exist |
 | hello | `title.textcontent = "x"`, `title.innerHtml = "x"` | shared note |
 | hello | `title.textContent("x")` | shared help |
-| look | `title.style.background-color = "gold"` | shared syntax help |
-| look | `title.style.color = gold` | shared help |
-| look | `title.classList.add(".highlight")` | shared note, then the check |
-| look | `title.classList.add("highlght")` | shared note, then the check |
-| look | `greeting.textContent = "Welcome, Mia!"` | check, with two hidden prompts |
-| look | `"Welcome, " + "name"` | check names the quotes |
-| look | `let name = prompt("Name?")` with the result never used | check |
+| hello | `title.style.background-color = "gold"` | shared syntax help |
+| hello | `title.style.color = gold` | shared help |
+| hello | `title.classList.add(".highlight")` | shared note, then the check |
+| hello | `title.classList.add("highlght")` | shared note, then the check |
 | one | made and never added | shared note, then the check |
 | one | `about.appendChild("text")` | shared help |
 | one | added to `document.body` | check |
@@ -46,14 +43,17 @@ Where a line says "shared", the words come from `src/dom/notes.ts` or `src/js/he
 | every | `headings.style.color = "red"` | shared help |
 | every | `querySelectorAll(".h2")` | shared note |
 | every | `headings[0]`, `headings[1]`, `headings[2]` | check, on a page with other headings |
-| every | a table of contents typed by hand | check, on a page with other headings |
+| contents | a table of contents typed by hand | check, on a page with other headings |
+| contents | an element joined into a string | shared note |
 | cards | one array, or arrays of different lengths | check |
 | cards | three cards typed by hand | check, with new arrays |
 | cards | a card that shows only one array | check |
 | cards | `titles[0]` in the loop | check |
 | cards | no `card` class | check |
+| cards | the `h3` and `p` added to `cards`, not the card | check |
 | extra | `addEventListener("click", addSquare())` | shared note |
 | extra | listener added and no square added | check |
+| extra | a mistake inside the function that shows only on a click | check says to click and read the error |
 
 ## Correct styles each step tests
 
@@ -61,12 +61,14 @@ Where a line says "shared", the words come from `src/dom/notes.ts` or `src/js/he
 
 ## Steps
 
-1. hello: find by id, set `textContent`, on the heading and tagline. One prediction question: the file stays as it was after a Run.
-2. look: `style` or `classList`, and a `prompt()` answer on the page.
-3. one: `createElement` and `appendChild`.
-4. list: an array becomes a list, and one new string makes one new item. One prediction question.
-5. grid: a color grid, `count` controls it, and the bar above the preview counts the elements.
-6. every: `querySelectorAll` with a loop, then a table of contents from the headings.
-7. cards: parallel arrays, written with no starter code.
-8. reflect, then submit.
+1. hello: find by id, set `textContent`, on the heading and tagline, then change the heading's look with `style` or `classList`. One prediction question: the file stays as it was after a Run.
+2. one: `createElement` and `appendChild`.
+3. list: an array becomes a list, and one new string makes one new item. One prediction question.
+4. grid: a color grid, `count` controls it, and the bar above the preview counts the elements.
+5. every: `querySelector` against `querySelectorAll`, then a loop over the matches.
+6. cards: parallel arrays, written from an outline in comments.
+7. reflect, then submit.
+8. Optional extra challenge: a table of contents built from the headings, starting from `querySelectorAll`.
 9. Optional extra challenge: `addEventListener` with its shape given. A click is a recorded input.
+
+The student panel moved the prompt greeting out of the lab and the table of contents into the optional steps, because round 1 ran 54.5 minutes at the median.

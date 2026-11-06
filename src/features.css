@@ -5391,7 +5391,8 @@ button.pl-tile:active {
     grid-template-columns: minmax(0, 1fr);
     height: auto;
   }
-  .js-preview {
+  .js-preview,
+  .js.has-page .js-panes.quiet .js-preview {
     flex: none;
     height: 300px;
   }

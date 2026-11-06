@@ -5,7 +5,6 @@ import type { PageNode, PageView } from '../../dom';
 
 export const START_NAME = 'Your Name';
 export const START_TAGLINE = 'Write a sentence about yourself here.';
-const START_GREETING = 'Welcome to my site.';
 
 const page = (main: string): string => `<!doctype html>
 <html lang="en">
@@ -33,7 +32,6 @@ const ABOUT = `    <section id="about">
     </section>`;
 
 export const HELLO_PAGE = page(ABOUT);
-export const LOOK_PAGE = page(`    <p id="greeting">${START_GREETING}</p>\n${ABOUT}`);
 export const ONE_PAGE = page(ABOUT);
 export const LIST_PAGE = page(`    <section>
       <h2>My favorites</h2>
@@ -61,11 +59,13 @@ const TOC = `    <nav>
 export const HEADINGS = ['About me', 'My projects', 'Places I want to see', 'Say hello'];
 /** The same page with other headings, so a list typed by hand shows. */
 export const OTHER_HEADINGS = ['Music', 'Recipes', 'Book reviews', 'Games', 'Photos'];
-export const EVERY_PAGE = page(`${TOC}\n${SECTIONS(HEADINGS)}`);
-const OTHER_PAGE = page(`${TOC}\n${SECTIONS(OTHER_HEADINGS)}`);
+export const EVERY_PAGE = page(SECTIONS(HEADINGS));
+const OTHER_PAGE = page(SECTIONS(OTHER_HEADINGS));
+export const CONTENTS_PAGE = page(`${TOC}\n${SECTIONS(HEADINGS)}`);
+const OTHER_CONTENTS_PAGE = page(`${TOC}\n${SECTIONS(OTHER_HEADINGS)}`);
 
 export const CARDS_PAGE = page(`    <section>
-      <h2>My projects</h2>
+      <h2>Things I like</h2>
       <div id="cards"></div>
     </section>`);
 export const MORE_PAGE = page(`    <section>
@@ -178,12 +178,6 @@ let title = document.getElementById("title");
 // Add your code here.
 `;
 
-export const LOOK_SCRIPT = `let title = document.getElementById("title");
-let greeting = document.getElementById("greeting");
-
-// Add your code here.
-`;
-
 export const ONE_SCRIPT = `let about = document.getElementById("about");
 
 // Add your code here.
@@ -204,7 +198,21 @@ let grid = document.getElementById("grid");
 export const EVERY_SCRIPT = `// Add your code here.
 `;
 
-export const CARDS_SCRIPT = `// Add your arrays and your loop here.
+export const CARDS_SCRIPT = `// Make your two arrays here.
+
+// Find the element with the id cards here.
+
+// Write your loop here. Each pass does four things:
+// make the div, the h3, and the p
+// set the text of the h3 and the p
+// add the h3 and the p to the div
+// add the div to cards
+`;
+
+export const CONTENTS_SCRIPT = `let headings = document.querySelectorAll("h2");
+let toc = document.getElementById("toc");
+
+// Add your loop here.
 `;
 
 export const MORE_SCRIPT = `let grid = document.getElementById("grid");
@@ -236,16 +244,14 @@ export const TITLE: JsCheck = {
 
 export const TAGLINE: JsCheck = {
   id: 'tagline',
-  label: 'Change the sentence under the heading',
+  label: 'Change the paragraph under the heading',
   test(c) {
     const text = c.page!.text('#tagline');
-    if (text === START_TAGLINE) return c.ok ? 'The sentence under the heading has not changed. Open `index.html` to find its id, then find it the way the first line finds `title`.' : STOPPED;
+    if (text === START_TAGLINE) return c.ok ? 'The paragraph under the heading has not changed. Open `index.html` to find its id, then find it the way the first line finds `title`.' : STOPPED;
     return text ? undefined : 'That paragraph is empty now. Give it a sentence about you.';
   },
   hints: ['Open the `index.html` tab and read the `id` on the paragraph under the heading.', 'Make a new variable with `document.getElementById("tagline")`.', 'Write `document.getElementById("tagline").textContent = "I build websites.";` with your own sentence.'],
 };
-
-// --- step 2 ---
 
 export const LOOK: JsCheck = {
   id: 'look',
@@ -263,28 +269,7 @@ export const LOOK: JsCheck = {
   hints: ['You can change a look two ways: set a `style` property, or add a class from `style.css`.', 'A color is a string, so it goes in quotes: `title.style.color = "gold";`', 'Write `title.classList.add("highlight");`'],
 };
 
-export const GREET: JsCheck = {
-  id: 'greet',
-  label: 'Greet the visitor by name',
-  test(c) {
-    const asks = (who: string) => c.run({ prompts: [who, who, who, who] });
-    const mia = asks('Mia');
-    if (!mia.ok) return STOPPED;
-    if (!mia.facts.prompts) return 'Use `prompt()` to ask for the visitor\'s name.';
-    const zed = asks('Zed');
-    if (!zed.ok) return STOPPED;
-    const shown = mia.page!.text('#greeting');
-    const other = zed.page!.text('#greeting');
-    if (has(shown, 'Mia') && has(other, 'Zed')) return undefined;
-    const held = Object.keys(mia.vars).find((k) => mia.vars[k] === 'Mia');
-    if (held && new RegExp(`\\b${held}\\b`).test(shown)) return `The page shows the word ${held}, not the name. Quotes make it plain text, so take the quotes off \`${held}\`.`;
-    if (shown === other && shown !== START_GREETING) return 'The greeting says the same words for every visitor. Join the variable that holds the answer to `prompt()` into the message.';
-    return 'Put the answer from `prompt()` into the element with the id `greeting`.';
-  },
-  hints: ['`prompt()` gives back what the visitor typed, so store it in a variable.', 'Write `let name = prompt("What is your name?");`', 'Write `greeting.textContent = "Welcome, " + name + "!";`'],
-};
-
-// --- step 3 ---
+// --- step 2 ---
 
 const freshIn = (p: PageView, selector: string): PageNode[] => p.all(`${selector} *`).filter((n) => !n.original);
 
@@ -312,7 +297,7 @@ export const NEW_TEXT: JsCheck = {
   hints: ['A new element starts out empty.', 'Set the text on your new variable, not on `about`.', 'Write `fact.textContent = "I have two cats.";` with your own fact.'],
 };
 
-// --- step 4 ---
+// --- step 3 ---
 
 const FIVE = ['alpha', 'bravo', 'charlie', 'delta', 'echo'];
 
@@ -353,7 +338,7 @@ export const ONE_MORE: JsCheck = {
   hints: ['Go to the line that makes `favorites`.', 'Put a comma after the last string, then type a new string in quotes.', 'For example: `let favorites = ["pizza", "soccer", "drawing", "chess"];`'],
 };
 
-// --- step 5 ---
+// --- step 4 ---
 
 export const CELLS: JsCheck = {
   id: 'cells',
@@ -384,7 +369,7 @@ export const COLORS: JsCheck = {
     if (colors.size === 1) return 'Every square is the same color. Build the color from `i`, so it changes on each pass.';
     return 'The squares have no color yet. Set `cell.style.backgroundColor` inside the loop.';
   },
-  hints: ['An `hsl()` color is a string, and its first number picks the color.', 'Use `i` for that first number, so each pass of the loop gets a new color.', 'Write `cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";`'],
+  hints: ['An `hsl()` color is a string, and its first number picks a spot on the color wheel.', 'Use `i` for that first number, so each pass of the loop gets a new color.', 'Write `cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";`'],
 };
 
 export const MANY: JsCheck = {
@@ -396,7 +381,7 @@ export const MANY: JsCheck = {
   hints: ['Find the line `let count = 144;`', 'Write `let count = 400;`, then press Run.'],
 };
 
-// --- step 6 ---
+// --- step 5 ---
 
 const changed = (n: PageNode) => !!n.attr('style') || n.classes.length > 0;
 
@@ -410,7 +395,7 @@ export const EVERY: JsCheck = {
     const heads = p.all('h2');
     const done = heads.filter(changed).length;
     if (done === heads.length) return undefined;
-    const first = p.firstOnly();
+    const first = c.page!.firstOnly();
     if (first) return first;
     if (noted(c.notes, 'list-property')) return 'Setting a property on the list changes nothing. Write a loop, and set it on one heading at a time.';
     if (!done) return 'The headings look the same as before. Use `document.querySelectorAll("h2")`, then add the class `accent` to each heading in a loop.';
@@ -419,22 +404,7 @@ export const EVERY: JsCheck = {
   hints: ['`document.querySelectorAll("h2")` gives a list of every `h2`.', 'A `for` loop can use the list\'s `.length`, and `headings[i]` is one heading.', 'Inside the loop, write `headings[i].classList.add("accent");`'],
 };
 
-export const CONTENTS: JsCheck = {
-  id: 'contents',
-  label: 'Build the table of contents from the headings',
-  test(c) {
-    const r = c.run({ files: { 'index.html': OTHER_PAGE } });
-    if (!r.ok) return STOPPED;
-    const got = r.page!.all('#toc > *').map((n) => n.text);
-    if (got.length === OTHER_HEADINGS.length && got.every((t, i) => has(t, OTHER_HEADINGS[i]))) return undefined;
-    if (!got.length) return 'The table of contents is empty. In your loop, add one `<li>` to the element with the id `toc`.';
-    if (got.length === HEADINGS.length && got.every((t, i) => has(t, HEADINGS[i]))) return 'This list has the right words, but it was typed by hand. Read each heading\'s `textContent` in the loop, so the list follows the page.';
-    return 'The table of contents does not match the headings. Add one `<li>` for each `h2`, in order, with that heading\'s text.';
-  },
-  hints: ['Find the list with `document.getElementById("toc")`.', 'In the loop, make an `<li>` and set its `textContent` to the heading\'s `textContent`.', 'Write `item.textContent = headings[i].textContent;`, then `toc.appendChild(item);`'],
-};
-
-// --- step 7 ---
+// --- step 6 ---
 
 type Plain = string | number;
 const isPlain = (x: unknown): x is Plain => typeof x === 'string' || typeof x === 'number';
@@ -484,7 +454,7 @@ export const ARRAYS: JsCheck = {
     if (lists.length >= 2) return 'Your arrays need the same number of items, with at least 3 in each, so `titles[0]` and `details[0]` go together.';
     return 'Make two arrays at the top of your script, such as `titles` and `details`, with at least 3 strings in each.';
   },
-  hints: ['Choose something for your own site: projects, books, places, or teams.', 'One array holds a title for each card. The other holds a detail for each card.', 'Write `let titles = ["Chess club", "Robot arm", "Bake sale"];`, then a `details` array with 3 strings.'],
+  hints: ['Make one array of titles and one array of details.', 'Each array needs at least 3 strings, and `titles[0]` goes with `details[0]`.', 'Write `let titles = ["Chess club", "Robot arm", "Bake sale"];`, then a `details` array with 3 strings.'],
 };
 
 export const CARDS: JsCheck = {
@@ -517,6 +487,7 @@ export const FOLLOWS: JsCheck = {
     if (!r.ok) return STOPPED;
     const cards = r.page!.all('#cards .card').map((n) => n.outer.toLowerCase());
     if (cards.length !== other.want.length) return 'The cards did not follow your arrays. Use the arrays and `.length` in the loop, so a new item makes a new card.';
+    if (r.page!.all('#cards .card').every((n) => !n.text)) return 'Your cards are empty. Add the `h3` and the `p` to each card, not to the element with the id `cards`.';
     const right = (card: string, row: string[]) => row.filter((v) => card.includes(v.toLowerCase())).length;
     if (other.want.every((row, i) => right(cards[i], row) >= 2)) return undefined;
     if (other.want.every((row, i) => right(cards[i], row) >= 1)) return 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
@@ -527,13 +498,28 @@ export const FOLLOWS: JsCheck = {
 
 // --- optional extra challenge ---
 
+export const CONTENTS: JsCheck = {
+  id: 'contents',
+  label: 'Build the table of contents from the headings',
+  test(c) {
+    const r = c.run({ files: { 'index.html': OTHER_CONTENTS_PAGE } });
+    if (!r.ok) return STOPPED;
+    const got = r.page!.all('#toc > *').map((n) => n.text);
+    if (got.length === OTHER_HEADINGS.length && got.every((t, i) => has(t, OTHER_HEADINGS[i]))) return undefined;
+    if (!got.length) return 'The table of contents is empty. In a loop, add one `<li>` to the element with the id `toc`.';
+    if (got.length === HEADINGS.length && got.every((t, i) => has(t, HEADINGS[i]))) return 'This list has the right words, but it was typed by hand. Read each heading\'s `textContent` in the loop, so the list follows the page.';
+    return 'The table of contents does not match the headings. Add one `<li>` for each `h2`, in order, with that heading\'s text.';
+  },
+  hints: ['Write a `for` loop with `i < headings.length`.', 'In the loop, make an `<li>` and set its `textContent` to the heading\'s `textContent`.', 'Write `item.textContent = headings[i].textContent;`, then `toc.appendChild(item);`'],
+};
+
 export const ADDS: JsCheck = {
   id: 'adds',
   label: 'Add one square for each click',
   test(c) {
     const start = c.run().page!.count('#grid .cell');
     const r = c.run({ clicks: ['#more', '#more', '#more'] });
-    if (!r.ok) return STOPPED;
+    if (!r.ok) return c.ok ? 'Your code stops when the button is clicked. Click the button on your page to see the error.' : STOPPED;
     const added = r.page!.count('#grid .cell') - start;
     if (added === 3) return undefined;
     if (noted(c.notes, 'handler-called')) return 'The click has no function to call. Keep the `function () { }` shape from the starting code.';
@@ -542,5 +528,5 @@ export const ADDS: JsCheck = {
     if (!r.page!.count('#grid > *')) return 'A click adds no squares yet. Inside the function, make a `div` with the class `cell`, and add it to `grid`.';
     return 'Each click should add one square with the class `cell`.';
   },
-  hints: ['The code inside the function runs once for each click.', 'Inside the function, make a `div` and give it the class `cell`.', 'Give it a color too, then write `grid.appendChild(cell);`'],
+  hints: ['The code inside the function runs once for each click.', 'Inside the function, make a `div` and give it the class `cell`.', 'Write `cell.style.backgroundColor = "gold";`, then `grid.appendChild(cell);`'],
 };

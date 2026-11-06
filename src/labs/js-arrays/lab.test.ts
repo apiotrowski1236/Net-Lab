@@ -138,7 +138,7 @@ describe('step 2: make', () => {
   });
 
   test('a song with no quote marks gets help that says so', () => {
-    expect(help(attempt('make', swap('"Bus Stop Rain"]', '"Bus Stop Rain", Midnight]')))).toBe('There is no variable called Midnight. Declare it first with let, and check the spelling. Text in quotes is a string, and a word with no quotes has to be a variable.');
+    expect(help(attempt('make', swap('"Bus Stop Rain"]', '"Bus Stop Rain", Midnight]')))).toBe('There is no variable called Midnight. Make it first with let, or use a variable you already have. Check the spelling too. Text in quotes is a string, and a word with no quotes has to be a variable.');
   });
 
   correct('make', [

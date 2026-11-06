@@ -11,15 +11,8 @@ title.textContent = "Sam Lee";
 
 let tagline = document.getElementById("tagline");
 tagline.textContent = "I build websites and bake bread.";
-`;
-
-export const LOOK_DONE = `let title = document.getElementById("title");
-let greeting = document.getElementById("greeting");
 
 title.classList.add("highlight");
-
-let name = prompt("What is your name?");
-greeting.textContent = "Welcome, " + name + "!";
 `;
 
 export const ONE_DONE = `let about = document.getElementById("about");
@@ -52,11 +45,16 @@ for (let i = 0; i < count; i++) {
 `;
 
 export const EVERY_DONE = `let headings = document.querySelectorAll("h2");
-let toc = document.getElementById("toc");
 
 for (let i = 0; i < headings.length; i++) {
   headings[i].classList.add("accent");
+}
+`;
 
+export const CONTENTS_DONE = `let headings = document.querySelectorAll("h2");
+let toc = document.getElementById("toc");
+
+for (let i = 0; i < headings.length; i++) {
   let item = document.createElement("li");
   item.textContent = headings[i].textContent;
   toc.appendChild(item);
@@ -97,7 +95,6 @@ button.addEventListener("click", function () {
 
 export const jsDomSolution: LabSolution = {
   hello: { moves: edit('hello', HELLO_DONE) },
-  look: { moves: [...edit('look', LOOK_DONE), ...on('look', { answer: 'Mia' })] },
   one: { moves: edit('one', ONE_DONE) },
   list: { moves: edit('list', LIST_DONE) },
   grid: { moves: edit('grid', GRID_DONE) },
@@ -108,5 +105,6 @@ export const jsDomSolution: LabSolution = {
       'own-site': 'My site has a page of movies I like. The array would hold each movie title, and a second array would hold what I thought of it. The loop would make one card for each movie. Adding a movie would take one line, and I would not have to copy the HTML again.',
     },
   },
+  contents: { moves: edit('contents', CONTENTS_DONE) },
   more: { moves: [...edit('more', MORE_DONE), ...on('more', { click: '#more' }, { click: '#more' })] },
 };

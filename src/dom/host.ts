@@ -997,7 +997,7 @@ class ClassListHost extends HostObject {
   private token(v: Value, method: string, rt: Runtime): string {
     const t = rt.str(v);
     if (!t) rt.fail('DOMException', `Failed to execute '${method}' on 'DOMTokenList': The token provided must not be empty.`, 'bad-token', 'A class name can\'t be empty.');
-    if (/[ \t\n\f\r]/.test(t)) rt.fail('DOMException', `Failed to execute '${method}' on 'DOMTokenList': The token provided ('${t}') contains HTML space characters, which are not valid in tokens.`, 'bad-token', `A class name is one word. To add two classes, give ${method} two strings, with a comma between them.`);
+    if (/[ \t\n\f\r]/.test(t)) rt.fail('DOMException', `Failed to execute '${method}' on 'DOMTokenList': The token provided ('${t}') contains HTML space characters, which are not valid in tokens.`, 'bad-token', v instanceof ElementHost ? 'A class name goes in quotes, like classList.add("big"). This line gave it an element.' : `A class name is one word. To add two classes, give ${method} two strings, with a comma between them.`);
     if (method === 'add' || method === 'toggle') {
       if (t.startsWith('.')) this.page.log.classWithDot(`classList.${method}`, t);
       this.page.log.classGiven(t);

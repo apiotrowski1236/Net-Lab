@@ -225,7 +225,7 @@ export class PageLog {
   }
 
   elementAsText(tagClass: string): void {
-    this.note('element-as-text', `An element was joined into a string, so the page shows ${tagClass}. Add the element with appendChild, not with + or +=.`);
+    this.note('element-as-text', `An element was joined into a string, so the page shows ${tagClass}. To show its text, use its textContent. To add the element itself, use appendChild, not + or +=.`);
   }
 
   handlerCalled(): void {
@@ -246,9 +246,9 @@ export class PageLog {
     const seen = lines.get(at.line);
     if (seen && seen.parent === parent && wasThere) {
       seen.times++;
-      this.note('moved-same-element', `The same <${n.tag}> element was added ${seen.times} times, so it only moved, and one copy stayed on the page. Call createElement inside the loop, so each pass makes a new element.`);
+      this.note('moved-same-element', `The same <${n.tag}> element was added ${seen.times} times, so it only moved, and the page shows it once. Call createElement inside the loop, so each pass makes a new element.`);
       const note = this.found.get(`moved-same-element:${at.file}:${at.line}`);
-      if (note) note.text = `The same <${n.tag}> element was added ${seen.times} times, so it only moved, and one copy stayed on the page. Call createElement inside the loop, so each pass makes a new element.`;
+      if (note) note.text = `The same <${n.tag}> element was added ${seen.times} times, so it only moved, and the page shows it once. Call createElement inside the loop, so each pass makes a new element.`;
     } else lines.set(at.line, { parent, times: 1, file: at.file });
   }
 

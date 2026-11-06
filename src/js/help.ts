@@ -281,7 +281,7 @@ export function notDefinedHelp(name: string, inScope: Iterable<string>): string 
     const caps = near.toLowerCase() === name.toLowerCase();
     return `There is no variable called ${name}. Did you mean ${near}?${caps ? ' JavaScript treats capital and lowercase letters as different.' : ''}`;
   }
-  return `There is no variable called ${name}. Declare it first with let, and check the spelling. Text in quotes is a string, and a word with no quotes has to be a variable.`;
+  return `There is no variable called ${name}. Make it first with let, or use a variable you already have. Check the spelling too. Text in quotes is a string, and a word with no quotes has to be a variable.`;
 }
 
 /** `x is not a function`, when there is a value on the left. */

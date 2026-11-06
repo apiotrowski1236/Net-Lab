@@ -6,7 +6,7 @@ import { buildReport } from '../../store/report';
 import { playStep } from '../solution';
 import { STYLE } from './code';
 import { jsDomLab } from './index';
-import { CARDS_DONE, EVERY_DONE, GRID_DONE, HELLO_DONE, jsDomSolution, LIST_DONE, LOOK_DONE, MORE_DONE, ONE_DONE } from './solution';
+import { CARDS_DONE, CONTENTS_DONE, EVERY_DONE, GRID_DONE, HELLO_DONE, jsDomSolution, LIST_DONE, MORE_DONE, ONE_DONE } from './solution';
 
 const spec = (step: string): JsSpec => jsDomLab.steps.find((s) => s.id === step)!.demos!.find((d) => d.kind === 'js') as JsSpec;
 
@@ -54,7 +54,6 @@ function rightAttempts(step: string, cases: Right[]) {
 
 const STOPPED = 'The program stopped before it finished. Read the error under your page, fix that line, and press Run.';
 const T = 'let title = document.getElementById("title");\n';
-const G = 'let greeting = document.getElementById("greeting");\n';
 const A = 'let about = document.getElementById("about");\n';
 const L = 'let favorites = ["pizza", "soccer", "drawing"];\nlet list = document.getElementById("favorites");\n';
 const C = 'let count = 144;\nlet grid = document.getElementById("grid");\n';
@@ -62,16 +61,15 @@ const H = 'let headings = document.querySelectorAll("h2");\n';
 const P = 'let titles = ["Chess club", "Robot arm", "Bake sale"];\nlet details = ["We meet on Fridays.", "It stacks blocks.", "We raised $80."];\nlet box = document.getElementById("cards");\n';
 const M = 'let grid = document.getElementById("grid");\nlet button = document.getElementById("more");\n';
 const ADD = 'let cell = document.createElement("div");\ncell.className = "cell";\ngrid.appendChild(cell);\n';
-const MIA: DemoInput[] = [{ answer: 'Mia' }];
 const TASK = `${T}title.textContent = "Sam";\n`;
+const WORDS = `${TASK}document.getElementById("tagline").textContent = "I bake.";\n`;
 const FULL_LOOP = (body: string) => `${L}for (let i = 0; i < favorites.length; i++) {\n${body}\n}\n`;
 
 describe('starting code', () => {
   for (const step of jsDomLab.steps.filter((s) => s.demos?.some((d) => d.kind === 'js')).map((s) => s.id)) {
     test(`${step} runs clean, draws no note, and passes no check`, () => {
       const s = spec(step);
-      const r = jsModel.apply(s, jsModel.init(s), { run: true });
-      const done = r.waiting ? jsModel.apply(s, r, { answer: 'Mia' }) : r;
+      const done = jsModel.apply(s, jsModel.init(s), { run: true });
       expect(done.last?.status).toBe('ok');
       expect(done.notes).toBeUndefined();
       expect(done.checks?.[0].ok).toBe(false);
@@ -105,48 +103,33 @@ wrongAttempts('hello', [
   ['innerHtml', `${T}title.innerHtml = "Sam";`, 'An element has no property called innerHtml, so nothing changed on the page. A browser gives no error for this. Did you mean innerHTML? Capital and lowercase letters count in JavaScript.'],
   ['textContent called like a method', `${T}title.textContent("Sam");`, 'textContent is a property, not a method, so it takes no parentheses. Set it with an equals sign, like this: title.textContent = "new value";'],
   ['no change at all', T, 'The heading still says "Your Name". Set `textContent` on `title`, then press Run.'],
-  ['the tagline left alone', TASK, 'The sentence under the heading has not changed. Open `index.html` to find its id, then find it the way the first line finds `title`.'],
+  ['the tagline left alone', TASK, 'The paragraph under the heading has not changed. Open `index.html` to find its id, then find it the way the first line finds `title`.'],
   ['an empty heading', `${T}title.textContent = "";`, 'The heading is empty now. Put your name in quotes after the equals sign.'],
+  ['a dash in the style name', `${WORDS}title.style.background-color = "gold";`, 'JavaScript reads the dash in background-color as a minus sign, so this line tries to subtract. Property names in JavaScript use a capital letter where CSS uses a dash. Write backgroundColor.'],
+  ['a color with no quotes', `${WORDS}title.style.color = gold;`, 'gold has no quotes, so JavaScript looks for a variable called gold. Text goes in quotes, so write "gold".'],
+  ['a dot in the class', `${WORDS}title.classList.add(".highlight");`, 'A class name has no dot here. The dot belongs only in a CSS selector. Write classList.add("highlight").'],
+  ['a misspelled class', `${WORDS}title.classList.add("highlght");`, 'No rule in style.css uses the class highlght, so this class changes nothing on the page. Did you mean highlight?'],
+  ['title.class', `${WORDS}title.class = "highlight";`, 'An element has no property called class, so nothing changed on the page. A browser gives no error for this. Did you mean className?'],
+  ['no look changed', WORDS, 'The heading looks the same as before. Set a `style` on `title`, or add the class `highlight`.'],
 ]);
 
 rightAttempts('hello', [
   ['textContent with one variable each', HELLO_DONE],
-  ['innerHTML and querySelector', 'const a = document.querySelector("#title");\na.innerHTML = "Sam";\nconst b = document.querySelector("#tagline");\nb.innerHTML = "I <em>build</em> sites.";'],
-  ['no variables, and a tag selector', 'document.querySelector("h1").textContent = "Sam";\ndocument.querySelector("header p").textContent = "I build sites.";'],
+  ['innerHTML, querySelector, and style', 'const a = document.querySelector("#title");\na.innerHTML = "Sam";\na.style.color = "gold";\nconst b = document.querySelector("#tagline");\nb.innerHTML = "I <em>build</em> sites.";'],
+  ['no variables, a tag selector, and className', 'document.querySelector("h1").textContent = "Sam";\ndocument.querySelector("h1").className = "accent";\ndocument.querySelector("header p").textContent = "I build sites.";'],
+  ['setAttribute', `${WORDS}title.setAttribute("style", "color: gold");`],
+  ['style and a class together', `${WORDS}title.style.backgroundColor = "gold";\ntitle.classList.add("highlight");`],
 ]);
 
-// --- step 2 ---
-
-wrongAttempts('look', [
-  ['a dash in the style name', `${T}title.style.background-color = "gold";`, 'JavaScript reads the dash in background-color as a minus sign, so this line tries to subtract. Property names in JavaScript use a capital letter where CSS uses a dash. Write backgroundColor.'],
-  ['a color with no quotes', `${T}title.style.color = gold;`, 'gold has no quotes, so JavaScript looks for a variable called gold. Text goes in quotes, so write "gold".'],
-  ['a dot in the class', `${T}title.classList.add(".highlight");`, 'A class name has no dot here. The dot belongs only in a CSS selector. Write classList.add("highlight").'],
-  ['a misspelled class', `${T}title.classList.add("highlght");`, 'No rule in style.css uses the class highlght, so this class changes nothing on the page. Did you mean highlight?'],
-  ['title.class', `${T}title.class = "highlight";`, 'An element has no property called class, so nothing changed on the page. A browser gives no error for this. Did you mean className?'],
-  ['no look changed', G, 'The heading looks the same as before. Set a `style` on `title`, or add the class `highlight`.'],
-  ['no prompt', `${T}${G}title.classList.add("highlight");\ngreeting.textContent = "Welcome, Mia!";`, 'Use `prompt()` to ask for the visitor\'s name.'],
-  ['a name typed by hand', `${T}${G}title.classList.add("highlight");\nlet name = prompt("Name?");\ngreeting.textContent = "Welcome, Mia!";`, 'The greeting says the same words for every visitor. Join the variable that holds the answer to `prompt()` into the message.', MIA],
-  ['the variable in quotes', `${T}${G}title.classList.add("highlight");\nlet name = prompt("Name?");\ngreeting.textContent = "Welcome, " + "name";`, 'The page shows the word name, not the name. Quotes make it plain text, so take the quotes off `name`.', MIA],
-  ['an answer that goes nowhere', `${T}title.classList.add("highlight");\nlet name = prompt("Name?");`, 'Put the answer from `prompt()` into the element with the id `greeting`.', MIA],
-]);
-
-rightAttempts('look', [
-  ['classList.add and +', LOOK_DONE, MIA],
-  ['style and innerHTML', `${T}${G}title.style.color = "gold";\nconst who = prompt("Name?");\ngreeting.innerHTML = "Hi, <b>" + who + "</b>";`, MIA],
-  ['className and a template string', `${T}${G}title.className = "accent";\nlet who = prompt("Name?");\ngreeting.textContent = \`Hello, \${who}!\`;`, MIA],
-  ['setAttribute and querySelector', `document.querySelector("#title").setAttribute("style", "color: gold");\nlet who = prompt("Name?");\ndocument.querySelector("#greeting").textContent = "Hi " + who.toUpperCase();`, MIA],
-  ['a class of their own with a rule of its own', `${T}${G}title.style.backgroundColor = "gold";\ntitle.classList.add("highlight");\nlet name = prompt("Name?");\nif (name === "") {\n  greeting.textContent = "Welcome!";\n} else {\n  greeting.textContent = "Welcome, " + name;\n}`, MIA],
-]);
-
-test('look: a class with a rule the student wrote in style.css passes', () => {
-  const s = spec('look');
+test('hello: a class with a rule the student wrote in style.css passes', () => {
+  const s = spec('hello');
   let state = jsModel.apply(s, jsModel.init(s), { edit: 'style.css', code: `${STYLE}\n.fancy { color: gold; }\n` });
-  state = jsModel.apply(s, state, { edit: 'script.js', code: `${T}${G}title.classList.add("fancy");\nlet name = prompt("Name?");\ngreeting.textContent = "Hi " + name;` });
-  state = jsModel.apply(s, jsModel.apply(s, state, { run: true }), { answer: 'Mia' });
+  state = jsModel.apply(s, state, { edit: 'script.js', code: `${WORDS}title.classList.add("fancy");` });
+  state = jsModel.apply(s, state, { run: true });
   expect(allPassed(state)).toBe(true);
 });
 
-// --- step 3 ---
+// --- step 2 ---
 
 wrongAttempts('one', [
   ['made and never added', `${A}let fact = document.createElement("p");\nfact.textContent = "I have two cats.";`, 'The <p> element made on this line never went on the page. Use appendChild to add it to an element that is on the page.'],
@@ -167,13 +150,13 @@ rightAttempts('one', [
   ['prepend and querySelector', `let about = document.querySelector("#about");\nlet fact = document.createElement("p");\nfact.textContent = "I have two cats.";\nabout.prepend(fact);`],
 ]);
 
-// --- step 4 ---
+// --- step 3 ---
 
 const BAD_ITEM = '  let item = document.createElement("li");\n  item.textContent = favorites[i];\n  list.appendChild(item);';
 
 wrongAttempts('list', [
   ['one element, above the loop', `${L}let item = document.createElement("li");\nfor (let i = 0; i < favorites.length; i++) {\n  item.textContent = favorites[i];\n  list.appendChild(item);\n}`, 'The list shows one item, because the loop adds the same element each time. Move `document.createElement("li")` inside the loop.'],
-  ['one element, the shared note', `${L}let item = document.createElement("li");\nfor (let i = 0; i < favorites.length; i++) {\n  item.textContent = favorites[i];\n  list.appendChild(item);\n}`, 'The same <li> element was added 3 times, so it only moved, and one copy stayed on the page. Call createElement inside the loop, so each pass makes a new element.'],
+  ['one element, the shared note', `${L}let item = document.createElement("li");\nfor (let i = 0; i < favorites.length; i++) {\n  item.textContent = favorites[i];\n  list.appendChild(item);\n}`, 'The same <li> element was added 3 times, so it only moved, and the page shows it once. Call createElement inside the loop, so each pass makes a new element.'],
   ['textContent on the list', FULL_LOOP('  list.textContent = favorites[i];'), 'The list has text, but no `<li>` elements. Make one `<li>` for each string.'],
   ['one past the end', `${L}for (let i = 0; i <= favorites.length; i++) {\n${BAD_ITEM}\n}`, 'The list has one item too many, because the loop runs past the end of the array. Use `i < favorites.length`.'],
   ['a loop with a fixed number', `${L}for (let i = 0; i < 3; i++) {\n${BAD_ITEM}\n}`, 'The list stops after 3 items, and the array can be longer. Use `favorites.length` in the loop.'],
@@ -204,13 +187,14 @@ test('list: one more string makes one more item, with no HTML edited', () => {
   expect(four.files.find((f) => f.name === 'index.html')?.text).toBe(three.files.find((f) => f.name === 'index.html')?.text);
 });
 
-// --- step 5 ---
+// --- step 4 ---
 
 const SQUARES = (body: string, top = C) => `${top}for (let i = 0; i < count; i++) {\n  let cell = document.createElement("div");\n${body}\n  grid.appendChild(cell);\n}`;
 const SHADE = '  cell.style.backgroundColor = "hsl(" + i * 5 + ", 80%, 60%)";';
 
 wrongAttempts('grid', [
   ['a fixed number in the loop', `${C}for (let i = 0; i < 144; i++) {\n  grid.innerHTML += '<div class="cell"></div>';\n}`, 'The number of squares did not follow `count`. Use `i < count` in the loop, not a number.'],
+  ['the element given to classList.add', SQUARES('  cell.classList.add(cell);'), 'A class name goes in quotes, like classList.add("big"). This line gave it an element.'],
   ['no class', SQUARES(SHADE), 'The squares are there, but they have no size yet. Give each one the class `cell`.'],
   ['cell.class', SQUARES('  cell.class = "cell";'), 'An element has no property called class, so nothing changed on the page. A browser gives no error for this. Did you mean className?'],
   ['one element, above the loop', `${C}let cell = document.createElement("div");\ncell.className = "cell";\nfor (let i = 0; i < count; i++) {\n  grid.appendChild(cell);\n}`, 'The grid has one square, because the loop adds the same element each time. Move `document.createElement("div")` inside the loop.'],
@@ -237,28 +221,24 @@ test('grid: 400 squares from a script under 10 lines', () => {
   expect(s.last?.page?.lines).toBeLessThan(10);
 });
 
-// --- step 6 ---
+// --- step 5 ---
 
 wrongAttempts('every', [
   ['a property set on the list', `${H}headings.textContent = "x";`, 'querySelectorAll gives a list of elements, not one element, so setting textContent on the list changes nothing. A browser gives no error for this. Use a loop and set textContent on each element.'],
   ['style on the list', `${H}headings.style.color = "red";`, 'querySelectorAll gives a list of elements, not one element, so the list has no style. Use a loop, and use style on each element.'],
-  ['querySelector', 'let first = document.querySelector("h2");\nfirst.classList.add("accent");', '`querySelector("h2")` finds only the first match, and this page has 5. Use `querySelectorAll` and a loop to reach all of them.'],
+  ['querySelector', 'let first = document.querySelector("h2");\nfirst.classList.add("accent");', '`querySelector("h2")` finds only the first match, and this page has 4. Use `querySelectorAll` and a loop to reach all of them.'],
   ['a dot on a tag', 'let headings = document.querySelectorAll(".h2");\nfor (let i = 0; i < headings.length; i++) {\n  headings[i].classList.add("accent");\n}', 'querySelectorAll(".h2") looks for the class h2, and no element has it. To find <h2> tags, write "h2" with no dot.'],
   ['indexes typed by hand', `${H}headings[0].classList.add("accent");\nheadings[1].classList.add("accent");\nheadings[2].classList.add("accent");\nheadings[3].classList.add("accent");`, 'Some headings changed and others did not. Loop over the whole list, so this works on a page with any number of headings.'],
-  ['a list typed by hand', `${H}for (let i = 0; i < headings.length; i++) {\n  headings[i].classList.add("accent");\n}\nlet toc = document.getElementById("toc");\ntoc.innerHTML = "<li>About me</li><li>My projects</li><li>Places I want to see</li><li>Say hello</li>";`, 'This list has the right words, but it was typed by hand. Read each heading\'s `textContent` in the loop, so the list follows the page.'],
-  ['nothing added to the list', `${H}for (let i = 0; i < headings.length; i++) {\n  headings[i].classList.add("accent");\n}`, 'The table of contents is empty. In your loop, add one `<li>` to the element with the id `toc`.'],
-  ['nothing on the headings', `let toc = document.getElementById("toc");\n`, 'The headings look the same as before. Use `document.querySelectorAll("h2")`, then add the class `accent` to each heading in a loop.'],
-  ['the same text for each item', `${H}let toc = document.getElementById("toc");\nfor (let i = 0; i < headings.length; i++) {\n  headings[i].classList.add("accent");\n  toc.innerHTML += "<li>" + headings[0].textContent + "</li>";\n}`, 'The table of contents does not match the headings. Add one `<li>` for each `h2`, in order, with that heading\'s text.'],
+  ['nothing on the headings', H, 'The headings look the same as before. Use `document.querySelectorAll("h2")`, then add the class `accent` to each heading in a loop.'],
 ]);
 
 rightAttempts('every', [
-  ['for, classList, and appendChild', EVERY_DONE],
-  ['for...of, style, and innerHTML +=', `const toc = document.querySelector("#toc");\nfor (const h of document.querySelectorAll("main h2")) {\n  h.style.color = "tomato";\n  toc.innerHTML += "<li>" + h.textContent + "</li>";\n}`],
-  ['getElementsByTagName and links', `let heads = document.getElementsByTagName("h2");\nlet toc = document.getElementById("toc");\nfor (let i = 0; i < heads.length; i++) {\n  heads[i].className = "accent";\n  let item = document.createElement("li");\n  let link = document.createElement("a");\n  link.textContent = heads[i].textContent;\n  item.append(link);\n  toc.append(item);\n}`],
-  ['two loops', `${H}let toc = document.getElementById("toc");\nfor (let i = 0; i < headings.length; i++) {\n  headings[i].classList.add("accent");\n}\nfor (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + (i + 1) + ". " + headings[i].textContent + "</li>";\n}`],
+  ['for and classList', EVERY_DONE],
+  ['for...of and style', `for (const h of document.querySelectorAll("main h2")) {\n  h.style.color = "tomato";\n}`],
+  ['getElementsByTagName and className', `let heads = document.getElementsByTagName("h2");\nfor (let i = 0; i < heads.length; i++) {\n  heads[i].className = "accent";\n}`],
 ]);
 
-// --- step 7 ---
+// --- step 6 ---
 
 const CARD_LOOP = (extra = '  card.innerHTML = "<h3>" + titles[i] + "</h3><p>" + details[i] + "</p>";') => `${P}for (let i = 0; i < titles.length; i++) {\n  let card = document.createElement("div");\n  card.className = "card";\n${extra}\n  box.appendChild(card);\n}`;
 
@@ -272,6 +252,7 @@ wrongAttempts('cards', [
   ['cards typed by hand', `${P}box.innerHTML = '<div class="card">Chess club We meet on Fridays.</div><div class="card">Robot arm It stacks blocks.</div><div class="card">Bake sale We raised $80.</div>';`, 'The cards did not follow your arrays. Use the arrays and `.length` in the loop, so a new item makes a new card.'],
   ['a card shows one array', CARD_LOOP('  card.textContent = titles[i];'), 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.'],
   ['the same index each pass', CARD_LOOP('  card.textContent = titles[0] + details[0];'), 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, not a number.'],
+  ['the h3 and p added to cards, not the card', `${P}for (let i = 0; i < titles.length; i++) {\n  let card = document.createElement("div");\n  card.classList.add("card");\n  let heading = document.createElement("h3");\n  heading.textContent = titles[i];\n  let text = document.createElement("p");\n  text.textContent = details[i];\n  box.appendChild(heading);\n  box.appendChild(text);\n  box.appendChild(card);\n}`, 'Your cards are empty. Add the `h3` and the `p` to each card, not to the element with the id `cards`.'],
 ]);
 
 rightAttempts('cards', [
@@ -284,7 +265,25 @@ rightAttempts('cards', [
   ['an array of objects and for...of', `const books = [{ title: "Holes", pages: 233 }, { title: "Dune", pages: 412 }, { title: "Hatchet", pages: 186 }];\nconst box = document.getElementById("cards");\nfor (const b of books) {\n  const card = document.createElement("div");\n  card.className = "card";\n  card.textContent = b.title + " has " + b.pages + " pages";\n  box.append(card);\n}`],
 ]);
 
-// --- optional extra challenge ---
+// --- optional extra challenge: table of contents ---
+
+const TOC = `${H}let toc = document.getElementById("toc");\n`;
+
+wrongAttempts('contents', [
+  ['a list typed by hand', `${TOC}toc.innerHTML = "<li>About me</li><li>My projects</li><li>Places I want to see</li><li>Say hello</li>";`, 'This list has the right words, but it was typed by hand. Read each heading\'s `textContent` in the loop, so the list follows the page.'],
+  ['nothing added to the list', TOC, 'The table of contents is empty. In a loop, add one `<li>` to the element with the id `toc`.'],
+  ['the same text for each item', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[0].textContent + "</li>";\n}`, 'The table of contents does not match the headings. Add one `<li>` for each `h2`, in order, with that heading\'s text.'],
+  ['an element joined into a string', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + headings[i] + "</li>";\n}`, 'An element was joined into a string, so the page shows [object HTMLHeadingElement]. To show its text, use its textContent. To add the element itself, use appendChild, not + or +=.'],
+]);
+
+rightAttempts('contents', [
+  ['for and appendChild', CONTENTS_DONE],
+  ['for...of and innerHTML +=', `const toc = document.querySelector("#toc");\nfor (const h of document.querySelectorAll("main h2")) {\n  toc.innerHTML += "<li>" + h.textContent + "</li>";\n}`],
+  ['getElementsByTagName and links', `let heads = document.getElementsByTagName("h2");\nlet toc = document.getElementById("toc");\nfor (let i = 0; i < heads.length; i++) {\n  let item = document.createElement("li");\n  let link = document.createElement("a");\n  link.textContent = heads[i].textContent;\n  item.append(link);\n  toc.append(item);\n}`],
+  ['numbers added to each item', `${TOC}for (let i = 0; i < headings.length; i++) {\n  toc.innerHTML += "<li>" + (i + 1) + ". " + headings[i].textContent + "</li>";\n}`],
+]);
+
+// --- optional extra challenge: a button ---
 
 const CLICKS: DemoInput[] = [{ click: '#more' }];
 const HANDLER = (body: string) => `${M}button.addEventListener("click", function () {\n${body}\n});\n`;
@@ -295,6 +294,7 @@ wrongAttempts('more', [
   ['one element, outside the function', `${M}let cell = document.createElement("div");\ncell.className = "cell";\nbutton.addEventListener("click", function () {\n  grid.appendChild(cell);\n});`, 'Only the first click added a square. Make the new element inside the function, so each click makes a new one.'],
   ['nothing inside the function', HANDLER(''), 'A click adds no squares yet. Inside the function, make a `div` with the class `cell`, and add it to `grid`.'],
   ['no class', HANDLER('  grid.appendChild(document.createElement("div"));'), 'Each click should add one square with the class `cell`.'],
+  ['a mistake that shows only on a click', HANDLER('  grid.appendChild(square);'), 'Your code stops when the button is clicked. Click the button on your page to see the error.'],
 ]);
 
 rightAttempts('more', [
@@ -303,6 +303,16 @@ rightAttempts('more', [
   ['an arrow function and append', `const grid = document.querySelector("#grid");\ndocument.getElementById("more").addEventListener("click", () => {\n  const cell = document.createElement("div");\n  cell.classList.add("cell");\n  grid.append(cell);\n});`, CLICKS],
   ['a named function passed by name', `${M}function addSquare() {\n${ADD}}\nbutton.addEventListener("click", addSquare);`, CLICKS],
 ]);
+
+test('more: a click that stops with an error does not tick the click goal', () => {
+  const s = attempt('more', HANDLER('  grid.appendChild(square);'), CLICKS);
+  const facts = jsModel.facts(spec('more'), s);
+  expect(facts.clicks).toBe(1);
+  const clicked = jsDomLab.steps.find((x) => x.id === 'more')!.goals!.find((g) => g.id === 'clicked')!;
+  const met = (f: typeof facts) => clicked.check({ ev: { type: 'ui:demo', demo: 'more', facts: f } } as never);
+  expect(met(facts)).toBe(false);
+  expect(met(jsModel.facts(spec('more'), attempt('more', MORE_DONE, CLICKS)))).toBe(true);
+});
 
 test('more: a click re-runs through the model, and replays', () => {
   const s = attempt('more', MORE_DONE, [{ click: '#more' }, { click: '#more' }]);
@@ -335,13 +345,14 @@ describe('lab', () => {
       session.goTo(session.progress.step + 1);
     }
     const report = buildReport(jsDomLab, session.progress, { id: 's', name: 'Sam', period: '1', createdAt: 0 }, 'submitted');
-    expect(report.code?.map((c) => c.step)).toEqual(['hello', 'look', 'one', 'list', 'grid', 'every', 'cards']);
+    expect(report.code?.map((c) => c.step)).toEqual(['hello', 'one', 'list', 'grid', 'every', 'cards']);
     expect(report.score.auto).toBe(report.score.autoMax);
   });
 
   test('the optional extra challenge comes after submit, and its title says what it is', () => {
-    const more = jsDomLab.steps.find((s) => s.extra)!;
-    expect(more.title).toMatch(/^Optional extra challenge: /);
-    expect(jsDomLab.steps.at(-2)?.kind).toBe('submit');
+    const extras = jsDomLab.steps.filter((s) => s.extra);
+    expect(extras.map((s) => s.id)).toEqual(['contents', 'more']);
+    for (const s of extras) expect(s.title).toMatch(/^Optional extra challenge: /);
+    expect(jsDomLab.steps.at(-3)?.kind).toBe('submit');
   });
 });
