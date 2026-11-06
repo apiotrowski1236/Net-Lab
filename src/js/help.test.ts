@@ -9,7 +9,7 @@ const MISTAKES: [string, number, string, RegExp][] = [
   ['console.log("a";\n', 1, 'missing-paren', /needs a \) to close it/],
   ['console.log("a"\nlet x = 1;\n', 1, 'missing-paren', /needs a \) to close it/],
   ['if (true) {\n  let a = 1;\n', 3, 'missing-brace', /The \{ on line 1 never closes/],
-  ['function f() {\n  if (true) {\n    return 1;\n}\n', 5, 'missing-brace', /The \{ on line 1 never closes/],
+  ['function f() {\n  if (true) {\n    return 1;\n}\n', 5, 'missing-brace', /The \{ on line 1, or one inside it, never closes/],
   ['Let x = 1;\n', 1, 'capital-keyword', /Write let, not Let/],
   ['For (let i = 0; i < 3; i++) {\n}\n', 1, 'capital-keyword', /Write for, not For/],
   ['If (true) {\n}\n', 1, 'capital-keyword', /Write if, not If/],

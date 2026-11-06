@@ -134,7 +134,9 @@ export function explainSyntax(e: Omit<JsError, 'help'>, seen: Token[], at: Token
     if (top) {
       const close = OPENS[top.v];
       const what = top.v === '${' ? 'The ${ ' : `The ${top.v} `;
-      return { code: top.v === '{' ? 'missing-brace' : top.v === '[' ? 'missing-bracket' : 'missing-paren', help: `${what}on line ${top.pos.line} never closes. Add a ${close} for it. Each opening mark needs a matching closing mark.` };
+      // The last } closes the nearest {, so a missing inner } shows up as the outer { staying open.
+      const inner = top.v === '{' && before.slice(before.indexOf(top) + 1).some((t) => t.t === 'op' && t.v === '{');
+      return { code: top.v === '{' ? 'missing-brace' : top.v === '[' ? 'missing-bracket' : 'missing-paren', help: `${what}on line ${top.pos.line}${inner ? ', or one inside it,' : ''} never closes. Add a ${close} for it. Each opening mark needs a matching closing mark.` };
     }
     if (prev) return { code: 'unexpected-end', help: `The code stops in the middle of something on line ${prev.pos.line}. Finish that line.` };
     return { code: 'unexpected-end', help: 'The code stops before it is finished.' };

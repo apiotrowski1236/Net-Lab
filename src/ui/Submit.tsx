@@ -217,7 +217,7 @@ export function SubmitBox({ session }: { session: LabSession }) {
           ) : (
             <div class="callout info">
               <Icon name="upload" /> <strong>One more step.</strong> Your report downloaded {when(new Date(p.submittedAt).toISOString())} as{' '}
-              <strong>{reportFileName(who.name, lab.title)}</strong>, in your Downloads folder. Now {handInWhere()}. Your teacher doesn't have it until you do.
+              <strong>{reportFileName(who.name, lab.title)}</strong>, in your downloads. Now {handInWhere()}. Your teacher doesn't have it until you do.
             </div>
           )
         ) : (

@@ -42,7 +42,7 @@ export const jsLoopsLab: LabDef = {
   objectives: [
     'Write while and for loops that count up, count down, and count by steps, and choose the loop that fits',
     'Keep a running total and a counter, and repeat a prompt until the answer is acceptable',
-    'Walk an array by index, find the largest value, and build a new array with push',
+    'Go through an array by index, find the largest value, and build a new array with push',
     'Fix broken loops with the output, the stop message, and Step through',
   ],
   steps: [
@@ -117,21 +117,16 @@ export const jsLoopsLab: LabDef = {
       id: 'guess',
       title: 'Build the guessing game',
       body: md`
-        The first booth is a guessing game. The variable \`secret\` holds a random number from 1 to 10. Write the rest of the game:
+        The first booth is a guessing game. The variable \`secret\` holds a random number from 1 to 10. Follow the comments in the code to write the rest of the game.
 
-        1. Ask for a guess with \`prompt()\`.
-        2. Keep asking until the guess matches \`secret\`.
-        3. After each wrong guess, print \`Too high\` or \`Too low\`.
-        4. After the loop, print how many guesses it took. Use a **counter**, which is a running total that adds 1 each time.
-
-        \`prompt()\` gives back a string, even when the player types a number:
+        Every \`prompt()\` in this game needs \`Number()\`, like this: \`Number(prompt("Your guess"))\`. Here is why: \`prompt()\` gives back a string, even when the player types a number.
 
         \`\`\`js
         "5" === 5   // false
         5 === 5     // true
         \`\`\`
 
-        Every \`prompt()\` in this game needs \`Number()\`, like this: \`Number(prompt("Your guess"))\`.
+        Use a **counter** to count the guesses. A counter is a running total that adds 1 each time.
       `,
       demos: [guessEditor],
       goals: [
@@ -152,7 +147,7 @@ export const jsLoopsLab: LabDef = {
         1. Double every number inside \`tokens\`.
         2. After the loop, print \`tokens\`.
 
-        Here are two ways to loop over an array. \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`.
+        Here are two ways to loop over an array: a \`for\` loop and a \`for...of\` loop. \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`.
 
         \`\`\`js
         // Use this when you change the array

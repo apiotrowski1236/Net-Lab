@@ -36,6 +36,8 @@ function expectCorrect(s: JsSpec, code: string, answers: (string | null)[] = [])
 }
 
 /** One table per step: what the student wrote, and the note they should get, word for word. */
+const PLUS_NOTE = 'Your table uses `+` on the row and the column. Each number in the table is the row times the column: 2 players who play 3 games pay 6 tokens.';
+
 function wrong(id: string, cases: [string, string, string][]) {
   test.each(cases)(`${id}: %s`, (_, code, note) => {
     expect(noteFor(editor(id), code)).toBe(note);
@@ -155,7 +157,7 @@ describe('a loop that never gets an acceptable answer', () => {
     expect(state.notes).toBeUndefined();
     state = jsModel.apply(s, state, { answer: '5' });
     expect(state.waiting?.message).toBe('Guess again');
-    expect(state.notes?.[0].text).toBe('This prompt() gave back a string, and a string is never === to a number, so guess !== secret is always true. Put Number() around the prompt(), like this: Number(prompt("Pick a number"))');
+    expect(state.notes?.[0].text).toBe('This prompt() gave back a string, and a string is never === to a number, so guess !== secret is always true. Put Number() around the prompt(), like this: Number(prompt("..."))');
   });
 
   test('Stop ends the run, and the step says what to change', () => {
@@ -406,6 +408,8 @@ describe('optional extra challenge: the token table', () => {
     ['printing in the inner loop', 'let size = 4;\nfor (let r = 1; r <= size; r++) {\n  for (let k = 1; k <= size; k++) {\n    console.log(r * k);\n  }\n}\n', 'Each number printed on its own line, because `console.log` is inside the inner loop. Build one row in a string, and print the string after the inner loop.'],
     ['the row kept across rows', swap(TABLE, ['  let line = "";\n', ''], ['for (let r = 1;', 'let line = "";\nfor (let r = 1;']), 'Each row keeps the numbers from the row above. Start the string over at `""` inside the outer loop, above the inner loop.'],
     ['starting at 0', TABLE.replaceAll('= 1;', '= 0;'), 'Your table starts at 0. Start both loops at 1.'],
+    ['adding the row and column', swap(TABLE, ['r * c', '(r + c)']), PLUS_NOTE],
+    ['gluing the row and column together', swap(TABLE, ['r * c', 'r + c']), PLUS_NOTE],
     ['a fixed size', TABLE.replaceAll('<= size', '<= 3'), 'Use `size` in both loops, so that the table changes when `size` does.'],
     ['a renamed size', TABLE.replaceAll('size', 'rows'), 'Keep the variable named `size`. Your code has to read it, so that it works on any value.'],
     ['< where <= was needed', TABLE.replaceAll('<= size', '< size'), 'Your table came out too small. It needs as many rows and as many columns as `size`, so both loops should go up to and including `size`.'],

@@ -388,7 +388,7 @@ function promptCompare(n: Node, c: Ctx): void {
   if (n.k !== 'binary') return;
   const hit = c.run?.facts.promptCompare.find((f) => f.file === n.pos.file && f.off === n.pos.off);
   if (!hit) return;
-  c.add('prompt-compare', hit.prompt.file === n.pos.file ? hit.prompt.line : n.pos.line, `This prompt() gave back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Put Number() around the prompt(), like this: Number(prompt("Pick a number"))`);
+  c.add('prompt-compare', hit.prompt.file === n.pos.file ? hit.prompt.line : n.pos.line, `This prompt() gave back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Put Number() around the prompt(), like this: Number(prompt("..."))`);
 }
 
 function alertExtraArgs(n: Node, c: Ctx, alertIsMine: boolean): void {

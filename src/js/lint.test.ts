@@ -142,8 +142,8 @@ describe('each rule fires', () => {
     expect(rules('let a = prompt("a");\nif (5 !== a) { console.log(a); }')).toEqual(['prompt-compare:1']);
     expect(rules('let a = Number(prompt("a"));\nwhile (a !== 4) {\n  a = prompt("b");\n}')).toEqual(['prompt-compare:3']);
     const say = (code: string) => notes(code)[0].text;
-    expect(say('let guess = prompt("a");\nif (guess === 5) { console.log(1); }')).toBe('This prompt() gave back a string, and a string is never === to a number, so guess === 5 is never true. Put Number() around the prompt(), like this: Number(prompt("Pick a number"))');
-    expect(say('let guess = prompt("a");\nif (guess !== 5) { console.log(1); }')).toBe('This prompt() gave back a string, and a string is never === to a number, so guess !== 5 is always true. Put Number() around the prompt(), like this: Number(prompt("Pick a number"))');
+    expect(say('let guess = prompt("a");\nif (guess === 5) { console.log(1); }')).toBe('This prompt() gave back a string, and a string is never === to a number, so guess === 5 is never true. Put Number() around the prompt(), like this: Number(prompt("..."))');
+    expect(say('let guess = prompt("a");\nif (guess !== 5) { console.log(1); }')).toBe('This prompt() gave back a string, and a string is never === to a number, so guess !== 5 is always true. Put Number() around the prompt(), like this: Number(prompt("..."))');
   });
 
   test('prompt-plus', () => {

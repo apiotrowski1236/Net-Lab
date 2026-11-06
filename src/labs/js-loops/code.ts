@@ -240,7 +240,7 @@ export const GAME_ENDS = check(
     if (r.status === 'limit') return 'The loop never asks again, so the guess stays the same and the loop cannot end. Put a `prompt()` inside the loop, and save its answer.';
     if (r.facts.promptCompare.length) {
       const line = barePrompt(c);
-      if (line) return `The \`prompt()\` on line ${line} has no \`Number()\` around it, so its answer is a string, and the right guess never matches \`secret\`. \`<\` and \`>\` still work on a string, but \`===\` and \`!==\` do not.`;
+      if (line) return `The \`prompt()\` on line ${line} has no \`Number()\` around it, so its answer is a string, and the right guess never matches \`secret\`. \`<\` and \`>\` turn that string into a number before they compare it with \`secret\`, but \`===\` and \`!==\` do not.`;
       return '`prompt()` gives back a string, and a string is never `===` to a number, so the right guess never matches `secret`. Write `guess = Number(prompt("Your guess"));`';
     }
     if (r.status === 'waiting') {
@@ -385,7 +385,7 @@ export const TOP_SCORE = check(
     if (mixed.includes(0)) return 'Your top score stayed at 0. Inside the loop, give `best` a new value when a score is bigger than `best`.';
     return 'Print the biggest number in `scores`. Your code has to work when every score is negative.';
   },
-  ['Keep the top score so far in a variable, and start it at the first score in the list.', 'On each pass, an `if` asks whether this score is bigger than `best`.', 'Write `let best = scores[0];` above the loop. Inside the loop, use an `if` that gives `best` the new score when that score is bigger than `best`.'],
+  ['Start `best` at the first score in the list.', 'On each pass, an `if` asks whether this score is bigger than `best`.', 'Write `let best = scores[0];` above the loop. Inside the loop, use an `if` that gives `best` the new score when that score is bigger than `best`.'],
 );
 
 // --- step 7: fix the end-of-night report ------------------------------------------
@@ -548,6 +548,8 @@ export const TOKEN_TABLE = check(
     if (rows.length === 9) return rows[1].length === 1 ? 'Each number printed on its own line, because `console.log` is inside the inner loop. Build one row in a string, and print the string after the inner loop.' : 'The row printed on every pass of the inner loop, because `console.log` is inside it. Move it after the inner loop ends.';
     if (rows[0][0] === 0) return 'Your table starts at 0. Start both loops at 1.';
     if (r.output.length === 3 && r.output.every((l, k) => l.text.replace(/\s/g, '') === tableFor(3)[k].join(''))) return 'Your numbers run together. Add a space after each number.';
+    // r + c, and line + r + c, which glues the digits together.
+    if (same(rows, [[2, 3, 4], [3, 4, 5], [4, 5, 6]]) || same(rows, [[11, 12, 13], [21, 22, 23], [31, 32, 33]])) return 'Your table uses `+` on the row and the column. Each number in the table is the row times the column: 2 players who play 3 games pay 6 tokens.';
     if (rows.length === 3 && rows[1].length === 6) return 'Each row keeps the numbers from the row above. Start the string over at `""` inside the outer loop, above the inner loop.';
     if (rows.length < 3 || rows[0].length < 3) return 'Your table came out too small. It needs as many rows and as many columns as `size`, so both loops should go up to and including `size`.';
     if (same(rows, tableFor(rows.length))) return 'Your table did not follow `size`. Use `size` in both loops, so that the table changes when `size` does.';
