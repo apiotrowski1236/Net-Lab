@@ -21,7 +21,7 @@ const countEditor: JsSpec = { kind: 'js', id: 'countdown', title: 'The countdown
 const prizeEditor: JsSpec = { kind: 'js', id: 'prizes', title: 'The prize wall', files: code.PRIZES_START, step: true, checks: [code.PRICES, code.PRIZE_TOTAL] };
 const doorEditor: JsSpec = { kind: 'js', id: 'door', title: 'The door code', files: code.DOOR_START, step: true, checks: [code.KEEPS_ASKING, code.WELCOME] };
 const guessEditor: JsSpec = { kind: 'js', id: 'guess', title: 'The guessing game', files: code.GUESS_START, step: true, report: true, checks: [code.GAME_ENDS, code.GAME_HINTS, code.GAME_COUNT, code.SECRET_RANDOM] };
-const doubleEditor: JsSpec = { kind: 'js', id: 'double', title: 'Double-token hour', files: code.DOUBLE_START, step: true, report: true, checks: [code.DOUBLED] };
+const doubleEditor: JsSpec = { kind: 'js', id: 'double', title: 'Double-token hour', files: code.DOUBLE_START, step: true, report: true, checks: [code.DOUBLED], lintOff: ['index-at-length'] };
 const scoreEditor: JsSpec = { kind: 'js', id: 'scores', title: 'The laser tag scoreboard', files: code.SCORES_START, step: true, report: true, checks: [code.TOP_SCORE] };
 const reportEditor: JsSpec = { kind: 'js', id: 'report', title: 'The closing report', files: code.REPORT_START, step: true, report: true, checks: [code.REPORT_TOTAL, code.REPORT_BOOTHS, code.REPORT_LIGHTS], lintOff: ['reset-in-loop', 'index-at-length', 'while-unchanged', 'result-unused'] };
 const finalsEditor: JsSpec = { kind: 'js', id: 'finals', title: 'The finals list', files: code.FINALS_START, step: true, report: true, checks: [code.FINALISTS, code.SHOW_FINALISTS] };
@@ -104,7 +104,7 @@ export const jsLoopsLab: LabDef = {
         1. Press **Run** and give two wrong answers. Notice that the program lets you in anyway.
         2. Change the code so that it keeps asking until the answer is \`pixel\`.
 
-        We use \`while\` here because nobody knows how many tries a person will need. A \`for\` loop fits better when you know the count ahead of time. If a prompt keeps coming back and you want to end the run, press **Stop** on the prompt. **Stop** is part of this editor. **Cancel** counts as a wrong answer.
+        We use \`while\` here because nobody knows how many tries a person will need. A \`for\` loop fits better when you know the count ahead of time. If a prompt keeps coming back and you want to end the run, press **Stop** on the prompt. A real browser has no **Stop** button there. **Cancel** counts as a wrong answer.
       `,
       demos: [doorEditor],
       goals: [passed('door', code.KEEPS_ASKING, 'Keep asking until the answer is pixel.'), passed('door', code.WELCOME, 'Print the welcome after the loop.')],
@@ -122,7 +122,14 @@ export const jsLoopsLab: LabDef = {
         3. After each wrong guess, print \`Too high\` or \`Too low\`.
         4. After the loop, print how many guesses it took. Use a **counter**, which is a running total that adds 1 each time.
 
-        \`prompt()\` gives back a string, even when the player types a number, and a string is never \`===\` to a number. \`Number(prompt("Your guess"))\` turns the answer into a number.
+        \`prompt()\` gives back a string, even when the player types a number:
+
+        \`\`\`js
+        "5" === 5   // false
+        5 === 5     // true
+        \`\`\`
+
+        Every \`prompt()\` in this game needs \`Number()\`, like this: \`Number(prompt("Your guess"))\`.
       `,
       demos: [guessEditor],
       goals: [
@@ -143,15 +150,16 @@ export const jsLoopsLab: LabDef = {
         1. Double every number inside \`tokens\`.
         2. After the loop, print \`tokens\`.
 
-        Use the counting \`for\` when you change the array or need the index. Use \`for...of\` when you only read each item. It gives you each value in a new variable, so changing that variable leaves the array the same.
-
-        In these samples, \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`.
+        Here are the two ways to loop over an array. \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`.
 
         \`\`\`js
+        // Use this when you change the array or need the index.
         for (let i = 0; i < list.length; i++) {
           console.log(list[i]);
         }
 
+        // Use this when you only read each item.
+        // item is a new variable, so changing it leaves the array the same.
         for (let item of list) {
           console.log(item);
         }
@@ -183,11 +191,11 @@ export const jsLoopsLab: LabDef = {
       body: md`
         Last year's volunteer left us this closing report, and each of its three loops has a bug.
 
-        1. Press **Step through**, then press **Next** until you reach Move 15. Watch what happens to \`total\` on each of the three passes.
+        1. Press **Step through**, then press **Next** until you reach Move 15. Watch what happens to \`total\` on the first three passes.
         2. Press **Stop**, then press **Run**. One loop never ends, so this editor stops it. A real browser tab would freeze.
         3. Read the output from the top, and read the stop message. Then fix all three loops.
 
-        While you step, blue is the line that runs next, and yellow is the line that ran last. This editor shows at most 2000 moves.
+        While you step, blue is the line that runs next, and yellow is the line that ran last. The 2000 in the move count is this editor's limit, because one loop never ends.
       `,
       demos: [reportEditor],
       goals: [
@@ -227,7 +235,7 @@ export const jsLoopsLab: LabDef = {
         {
           id: 'which-loop',
           kind: 'text',
-          prompt: 'Answer both parts.\n\n1. A friend needs a loop that keeps asking for a password until it is right. Should they use `for` or `while`, and why?\n2. Describe one loop bug from this lab and how you found it.',
+          prompt: 'Answer both parts.\n\n1. A friend needs a loop that keeps rolling a die until it lands on 6. Should they use `for` or `while`, and why?\n2. Describe one loop bug from this lab and how you found it.',
           minWords: 30,
           lines: 6,
         },
@@ -252,7 +260,7 @@ export const jsLoopsLab: LabDef = {
       title: 'Optional extra challenge: the token table',
       extra: true,
       body: md`
-        The prize desk wants a table that shows how many tokens a group needs. Each row is a number of players, each column is a number of games, and each cell is the two multiplied. With \`size\` set to 3, the table looks like this:
+        The prize desk wants a table that shows how many tokens a group needs, at 1 token for each player in each game. Each row is a number of players, each column is a number of games, and each cell is the two multiplied. With \`size\` set to 3, the table looks like this:
 
         \`\`\`
         1 2 3
@@ -260,7 +268,14 @@ export const jsLoopsLab: LabDef = {
         3 6 9
         \`\`\`
 
-        Write a loop inside a loop to print the table for any \`size\`. The outer loop picks the row, and the inner loop goes across that row. \`console.log\` always ends the line, so build each row in a string: start with \`""\`, add each number and a space, and print the string after the inner loop.
+        Write a loop inside a loop to print the table for any \`size\`. The outer loop picks the row, and the inner loop goes across that row. \`console.log\` always ends the line, so build each row in a string: start with \`""\`, add each number and a space, and print the string after the inner loop. The first row grows like this:
+
+        \`\`\`
+        ""
+        "1 "
+        "1 2 "
+        "1 2 3 "
+        \`\`\`
       `,
       demos: [tableEditor],
       goals: [passed('table', code.TOKEN_TABLE, 'Print the token table.')],

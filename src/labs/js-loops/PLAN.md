@@ -18,7 +18,7 @@ Each step is a short task. The editor carries the step: `JsCheck`s in `code.ts` 
 | 6 | scores | Print the top score | finding the largest | One array and one comment |
 | 7 | report | Watch one loop in Step through, then Run and fix all three | debugging, the loop stop, reading output | Three bugs, and a required Step through |
 | 8 | finals | Build `finalists` from two arrays | `push` inside a loop, matching arrays by index | Two arrays and one comment |
-| 9 | reflect | Pick a loop for a password, and describe one bug | choosing a loop | Text question, 30 words |
+| 9 | reflect | Pick a loop for rolling a die, and describe one bug | choosing a loop | Text question, 30 words |
 | 10 | submit | Submit | | |
 | 11 | table | Optional extra challenge: the token table | nested loops | No points |
 

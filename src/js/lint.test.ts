@@ -141,8 +141,8 @@ describe('each rule fires', () => {
     expect(rules('let a = prompt("a");\nif (a === 5) { console.log(a); }')).toEqual(['prompt-compare:2']);
     expect(rules('let a = prompt("a");\nif (5 !== a) { console.log(a); }')).toEqual(['prompt-compare:2']);
     const say = (code: string) => notes(code)[0].text;
-    expect(say('let guess = prompt("a");\nif (guess === 5) { console.log(1); }')).toBe('prompt() always gives back a string, and a string is never === to a number, so guess === 5 is never true. Turn the answer into a number first: let age = Number(prompt("How old are you?"));');
-    expect(say('let guess = prompt("a");\nif (guess !== 5) { console.log(1); }')).toBe('prompt() always gives back a string, and a string is never === to a number, so guess !== 5 is always true. Turn the answer into a number first: let age = Number(prompt("How old are you?"));');
+    expect(say('let guess = prompt("a");\nif (guess === 5) { console.log(1); }')).toBe('prompt() always gives back a string, and a string is never === to a number, so guess === 5 is never true. Turn every answer into a number first: let age = Number(prompt("How old are you?"));');
+    expect(say('let guess = prompt("a");\nif (guess !== 5) { console.log(1); }')).toBe('prompt() always gives back a string, and a string is never === to a number, so guess !== 5 is always true. Turn every answer into a number first: let age = Number(prompt("How old are you?"));');
   });
 
   test('prompt-plus', () => {
