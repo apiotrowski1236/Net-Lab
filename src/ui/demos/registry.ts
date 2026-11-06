@@ -5,6 +5,7 @@ import { CompareView } from './Compare';
 import { CounterView } from './Counter';
 import { FitWalkView } from './FitWalk';
 import { JavaView } from './Java';
+import { JsView } from './Js';
 import { NoteView } from './Note';
 import { ObjectsView } from './Objects';
 import type { DemoView } from './parts';
@@ -26,6 +27,7 @@ export const DEMO_VIEWS: { [K in DemoKind]: DemoView<Extract<DemoSpec, { kind: K
   ascii: AsciiView,
   note: NoteView,
   java: JavaView,
+  js: JsView,
   objects: ObjectsView,
 };
 
@@ -42,5 +44,6 @@ export const DEMO_NAME: Record<DemoKind, string> = {
   ascii: 'ASCII',
   note: 'Notes',
   java: 'Code editor',
+  js: 'Code editor',
   objects: 'Class and objects',
 };

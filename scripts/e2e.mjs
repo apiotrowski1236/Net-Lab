@@ -544,7 +544,7 @@ try {
     await page.waitForSelector('.modal');
     await expectCount('.modal .class-option', 0, 'Class choices in Change name');
     await page.fill('input[autocomplete=name]', 'Casey Renamed');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     if ((await chip.innerText()).trim() !== 'Casey Renamed') throw new Error('Name chip did not update');
     if ((await savedProfile()).curriculum !== 'intro') throw new Error('Change name lost the class');
     page.once('dialog', (d) => d.accept());
@@ -602,6 +602,45 @@ try {
     if ((await savedProfile()).curriculum !== 'cyber') throw new Error('Returning student should be in AP Cybersecurity');
     await page.goto(`${url}#/`);
     await expectHash('#/cyber', '#/ for a returning student');
+    await ctx.close();
+    page = p;
+  }
+
+  step('page lab: the preview draws the page, takes a click, and keeps links and inline handlers inert');
+  {
+    const ctx = await browser.newContext({ ...VIEW, serviceWorkers: 'block' });
+    await ctx.addInitScript(() => {
+      if (window !== window.top) return; // the preview frame has no storage
+      localStorage.setItem('netlab:v1:profile', JSON.stringify({ id: 'e2e', name: 'Pat Page', period: '1', createdAt: 0, curriculum: 'intro' }));
+    });
+    const p = page;
+    page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(String(e)));
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    await page.goto(`${url}#/lab/js-dom`);
+    await page.waitForSelector('.lesson');
+    const stage = page.locator('[data-demo="hello"]');
+    await stage.locator('.java-tab', { hasText: 'script.js' }).click();
+    await stage.locator('.cm-content').click();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.insertText(`let title = document.getElementById("title");
+let count = 0;
+title.addEventListener("click", function () {
+  count = count + 1;
+  title.textContent = "clicks " + count;
+});
+document.getElementById("tagline").innerHTML = '<a id="go" href="https://example.com/">go</a> <b id="in" onclick="document.body.dataset.ran = 1">in</b>';
+`);
+    await page.waitForTimeout(400);
+    await stage.getByRole('button', { name: 'Run', exact: true }).click();
+    const frame = stage.locator('[data-preview]').frameLocator('iframe');
+    await frame.locator('#go').click();
+    await frame.locator('#in').click();
+    if ((await frame.locator('body').getAttribute('data-ran')) !== null) throw new Error('An inline handler ran in the preview');
+    await frame.locator('#title').click();
+    await frame.locator('#title', { hasText: 'clicks 1' }).waitFor({ timeout: 5_000 });
+    await frame.locator('#title').click();
+    await frame.locator('#title', { hasText: 'clicks 2' }).waitFor({ timeout: 5_000 });
     await ctx.close();
     page = p;
   }

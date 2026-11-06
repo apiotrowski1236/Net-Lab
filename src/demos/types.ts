@@ -170,6 +170,45 @@ export interface JavaSpec extends DemoBase {
   report?: boolean;
 }
 
+/** A file in a js demo. A file whose name doesn't end in .js is shown but not run. */
+export type JsFile = JavaFile;
+
+/** What a check gets. See src/demos/js.ts. */
+export type JsCheckCtx = import('./js').JsCheckCtx;
+
+/** A test of the student's code, run when a Run finishes. Returns what's still wrong, or nothing if it passes. */
+export interface JsCheck {
+  id: string;
+  /** What the check wants, shown beside a check mark. */
+  label: string;
+  test: (c: JsCheckCtx) => string | undefined;
+  /** Shown one at a time by the Hint button on the first unmet check. The last one sits close to the answer. */
+  hints?: string[];
+}
+
+/**
+ * A JavaScript editor with Run: src/js runs the code in the browser, with
+ * prompts answered in the output panel. `step` adds Step through.
+ */
+export interface JsSpec extends DemoBase {
+  kind: 'js';
+  files: JsFile[];
+  /** Start from the student's own code in an earlier step. `files`: which files. Default: every file both have. */
+  from?: { step: string; demo: string; files?: string[] };
+  /** Tab to open first. Default: the first file. */
+  open?: string;
+  step?: boolean;
+  checks?: JsCheck[];
+  /** Put the student's final code in the report the teacher reads. */
+  report?: boolean;
+  /** Mistake detector rules to leave out (see LINT_RULES in src/js/lint.ts), for a step that teaches the pattern a rule warns about. */
+  lintOff?: string[];
+  /** Objects the program can reach as globals, such as `document`. Each run gets new ones, built from the student's files. */
+  hosts?: (rt: import('../js').Runtime, files: JsFile[]) => Record<string, import('../js').HostObject>;
+  /** The page before the first Run. Having one is what turns on the preview. */
+  startPage?: (files: JsFile[]) => import('../dom').PageState;
+}
+
 /** One class stamping out objects: press to make one, and hit one to see that only it changes. */
 export interface ObjectsSpec extends DemoBase {
   kind: 'objects';
@@ -180,7 +219,7 @@ export interface ObjectsSpec extends DemoBase {
   hit: number;
 }
 
-export type DemoSpec = SwitchesSpec | BitsSpec | PlacesSpec | ReadWalkSpec | FitWalkSpec | CompareSpec | CounterSpec | RoundingSpec | AsciiSpec | NoteSpec | JavaSpec | ObjectsSpec;
+export type DemoSpec = SwitchesSpec | BitsSpec | PlacesSpec | ReadWalkSpec | FitWalkSpec | CompareSpec | CounterSpec | RoundingSpec | AsciiSpec | NoteSpec | JavaSpec | JsSpec | ObjectsSpec;
 
 export type DemoKind = DemoSpec['kind'];
 
@@ -216,6 +255,12 @@ export type DemoInput =
   | { run: true }
   | { stepping: boolean }
   | { seek: number }
+  // js, which also takes the java inputs above
+  | { answer: string | null }
+  | { stop: true }
+  | { hint: string }
+  /** An element on the preview, by its path or a selector. It re-executes from the start, then clicks in order, the way `answer` does. */
+  | { click: string }
   // objects
   | { make: true }
   | { hit: number };
