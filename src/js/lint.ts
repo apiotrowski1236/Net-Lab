@@ -367,7 +367,7 @@ function resetInLoop(n: Node, c: Ctx): void {
     const readLater = list.slice(add + 1).some((x) => accumulates(x) !== name && namesIn(x).has(name!));
     const between = list.slice(i + 1, add).some((x) => namesIn(x).has(name!) && accumulates(x) !== name);
     if (readLater || between) continue;
-    c.add('reset-in-loop', s.pos.line, `This line sets ${name} back every time the loop runs, so ${name} never builds up. Set ${name} once, above the loop, and delete this line.`);
+    c.add('reset-in-loop', s.pos.line, `This line sets ${name} back every time the loop runs, so ${name} never builds up. Start ${name} above the loop, not inside it.`);
   }
 }
 

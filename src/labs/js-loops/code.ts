@@ -44,7 +44,7 @@ const declaredInLoop = (c: JsCheckCtx, name: string) => c.declarations().some((d
 const hasNote = (c: JsCheckCtx, rule: string) => c.notes.some((n) => n.rule === rule);
 
 const BROKE = 'Your code stopped with an error before it finished. Fix the error under the output, then press Run.';
-const NEVER_RAN = 'Your loop never ran, because its condition was false the first time. Change the condition.';
+const NEVER_RAN = 'Your loop never ran, because its condition was false the first time. A loop runs while its condition is true, so change the condition.';
 const SPUN = 'One of your loops never ended. Read the message under the output, fix the loop, then press Run.';
 const keepName = (name: string) => `Keep the variable named \`${name}\`. Your code has to read it, so that it works on any value.`;
 
@@ -79,7 +79,7 @@ export const COUNTS_DOWN = check(
     const n = withNumbers(r).map(firstNumber);
     if (!n.length) return neverRan(c, r) ? NEVER_RAN : 'Print `count` inside the loop, so that each number shows up on its own line.';
     const spun = r.status === 'limit';
-    if (spun && n[1] === n[0]) return '`count` never changes, so the loop never ends. Writing `count - 1` works out an answer and throws it away. Write `count = count - 1;` inside the loop.';
+    if (spun && n[1] === n[0]) return '`count` never changes, so the loop never ends. Writing `count - 1` calculates an answer and throws it away. Write `count = count - 1;` inside the loop.';
     if (spun && n[1] > n[0]) return '`count` keeps going up, so the condition stays true and the loop never ends. Write `count = count - 1;` to make it go down.';
     if (spun) return SPUN;
     if (n[1] > n[0]) return 'These numbers go up. Start `count` at 10, and make it go down by 1 on each pass.';
@@ -129,7 +129,7 @@ export const PRICES = check(
     if (!withNumbers(r).length) return none;
     const got = pricesFrom(r);
     if (got.length < 2) return none;
-    if (r.status === 'limit') return got[1] === got[0] ? '`price` never changes, so the loop never ends. Writing `price + 50` works out an answer and throws it away. Write `price = price + 50` in the header.' : SPUN;
+    if (r.status === 'limit') return got[1] === got[0] ? '`price` never changes, so the loop never ends. Writing `price + 50` calculates an answer and throws it away. Write `price = price + 50` in the header.' : SPUN;
     if (got[0] !== 50) return `The first price should be 50, and yours is ${got[0]}. Start \`price\` at 50.`;
     if (got[1] - got[0] !== 50) return `Your prices go up by ${got[1] - got[0]}. Change the last part of the \`for\` header so that \`price\` goes up by 50.`;
     if (lastOf(got)! > 200) return 'With `maxPrice` set to 200, your list went past 200. Use `maxPrice` in the condition, with no fixed number.';
@@ -209,6 +209,8 @@ export const WELCOME = check(
 export const GUESS_START = script(`let secret = Math.floor(Math.random() * 10) + 1;
 
 // Ask for the first guess.
+
+// Make a counter. The first guess counts too.
 
 // While the guess is wrong:
 //   Print Too high or Too low.
@@ -292,58 +294,22 @@ export const SECRET_RANDOM = check(
   ['The starting code already picks a random number from 1 to 10.', 'Put back `let secret = Math.floor(Math.random() * 10) + 1;` as the first line.'],
 );
 
-// --- step 5: walk an array by index ------------------------------------------
+// --- step 5: change an array by index ----------------------------------------
 
-export const LINE_START = script(`let players = ["Maya", "Dev", "Priya", "Sam", "Zoe"];
-let tokens = [30, 12, 45, 8, 25];
+export const DOUBLE_START = script(`let tokens = [30, 12, 45, 8, 25];
 
-// Print each player's place in line, like "1. Maya".
+// Double every number in tokens.
+
+// Print tokens.
 `);
 
-const THREE = { players: ['Ana', 'Bo', 'Cy'], tokens: [3, 5, 9] };
-const SEVEN = { players: ['Ana', 'Bo', 'Cy', 'Di', 'Eli', 'Fay', 'Gus'], tokens: [1, 2, 3, 4, 5, 6, 7] };
-const NOBODY = { players: [], tokens: [] };
-
-const rowsFor = (r: Run, names: string[]) => r.output.filter((l) => l.text.includes('undefined') || names.some((n) => l.text.includes(n)));
+const THREE = { tokens: [3, 5, 9] };
+const SEVEN = { tokens: [1, 2, 3, 4, 5, 6, 7] };
+const NOBODY = { tokens: [] };
 
 /** Writing to `tokens[i]` with `<=` adds an item on every pass, so `i` never reaches the end. */
 const spinning = (c: JsCheckCtx) =>
   c.loops().some((l) => /<=\s*tokens\.length/.test(l.test ?? '')) ? '`i <= tokens.length` reaches one past the end. Writing to that index makes `tokens` longer, so the loop never catches up and never ends. Use `i < tokens.length`.' : SPUN;
-
-function placeProblem(c: JsCheckCtx, data: { players: string[]; tokens: number[] }): string | undefined {
-  const r = c.run({ data });
-  if (r.dataMissing.length) return keepName(r.dataMissing[0]);
-  if (r.status === 'limit') return spinning(c);
-  const names = data.players;
-  const rows = rowsFor(r, names);
-  if (r.error && rows.length < names.length) return BROKE;
-  if (!rows.length) {
-    if (c.loops().some((l) => /[<>]=?\s*players\s*$/.test(l.test ?? ''))) return '`i < players` compares a number with a whole array, so the loop never runs. Use `i < players.length`.';
-    return 'Print one line for each player from inside a loop.';
-  }
-  if (rows.length === 1) return 'That printed one line. Put the `console.log` inside the loop, so that each player gets a line.';
-  if (rows.some((l) => l.text.includes('undefined'))) {
-    return fixedStop(c) ? 'Your loop stops at a fixed number, so it fails on a shorter list. Use `players.length` in the condition.' : 'The last line says `undefined`, because the loop reads one past the end of `players`. Use `i < players.length`, not `<=`.';
-  }
-  if (!rows[0].text.includes(names[0])) return `Your list starts with ${rows[0].text.includes(names[1]) ? names[1] : 'the wrong player'} and skips ${names[0]}. The first item is at index 0, so start \`i\` at 0.`;
-  if (rows.length < names.length) return fixedStop(c) ? 'Your loop stops at a fixed number, so it fails on a longer list. Use `players.length` in the condition.' : 'Your list stops before the last player. The loop should run while `i < players.length`.';
-  for (let k = 0; k < names.length; k++) {
-    const text = rows[k].text;
-    if (new RegExp(`^\\D*${k + 1}\\b`).test(text) && text.includes(names[k])) continue;
-    if (new RegExp(`^\\D*${k}1\\b`).test(text)) return '`+` joined `i` and 1 as text. Put parentheses around them: `(i + 1)`.';
-    if (new RegExp(`^\\D*${k}\\b`).test(text)) return 'Your places start at 0. Indexes start at 0 and places start at 1, so print `i + 1`.';
-    if (!numbersIn(text).length) return 'Each line needs a place number, like `1. Maya`. A `for...of` loop hands you each name without its position, so use `for (let i = 0; i < players.length; i++)` and print `i + 1`.';
-    return 'Print the place first and then the name, like `1. Maya`.';
-  }
-  return undefined;
-}
-
-export const PLACES = check(
-  'places',
-  'Print each player with their place in line',
-  (c) => placeProblem(c, THREE) ?? placeProblem(c, SEVEN) ?? (rowsFor(c.run({ data: NOBODY }), ['undefined']).length ? 'With an empty list, your code should print no players. Use `players.length` in the condition.' : undefined),
-  ['The place is one more than the index, because indexes start at 0.', 'Loop with `for (let i = 0; i < players.length; i++)`.', 'Inside the loop, write `console.log((i + 1) + ". " + players[i]);`'],
-);
 
 export const DOUBLED = check(
   'doubled',
@@ -361,8 +327,8 @@ export const DOUBLED = check(
       return same(r.output.flatMap((l) => numbersIn(l.text)).slice(-3), [6, 10, 18]) ? undefined : 'The numbers changed. After the loop, print `tokens` with `console.log(tokens);`';
     }
     if (same(got, THREE.tokens)) {
-      if (c.loops().some((l) => l.kind === 'for-of')) return 'A `for...of` loop hands you a copy of each number, so changing that copy leaves `tokens` the same. Use `for (let i = 0; i < tokens.length; i++)` and write `tokens[i] = tokens[i] * 2;`';
-      if (hasNote(c, 'result-unused')) return 'Writing `tokens[i] * 2` works out an answer and throws it away. Write `tokens[i] = tokens[i] * 2;`';
+      if (c.loops().some((l) => l.kind === 'for-of')) return 'A `for...of` loop gives you each number in a new variable, so changing that variable leaves `tokens` the same. Use the counting `for`, and change `tokens[i]`.';
+      if (hasNote(c, 'result-unused')) return 'Writing `tokens[i] * 2` calculates an answer and throws it away. Write `tokens[i] = tokens[i] * 2;`';
       return '`tokens` did not change. Inside a loop, give each `tokens[i]` a new value.';
     }
     if (same(got, [0, 2, 4])) return 'You doubled the index `i`, not the number at that index. Write `tokens[i] = tokens[i] * 2;`';
@@ -402,7 +368,7 @@ export const TOP_SCORE = check(
     const bad = printed(ALL_NEGATIVE);
     const isIndex = (n: number | undefined, list: number[]) => n !== undefined && n > 0 && n < list.length && !list.includes(n);
     if (mixed.includes(120) && bad.includes(-2) && printed({ scores: [3, 9, 4] }).includes(9)) return undefined;
-    if (mixed.includes(120) && bad.includes(0)) return 'When every score is negative, your code prints 0, and 0 is not in the list. Start `best` at `scores[0]`, not at 0.';
+    if (mixed.includes(120) && bad.includes(0)) return 'When every score is negative, your code prints 0, and 0 is not in the list. Start `best` at a score from the list.';
     if (mixed.includes(7)) return 'Your code printed the last score. Change `best` only when a score is bigger than `best`, with an `if`.';
     if (mixed.includes(-3)) return 'Your code found the lowest score. Use `>` to look for a bigger one.';
     if (isIndex(mixed[0], MIXED.scores) || isIndex(bad[0], ALL_NEGATIVE.scores)) return 'You stored the index `i`, not the score at that index. Write `best = scores[i];`';
@@ -429,7 +395,7 @@ for (let i = 0; i <= booths.length; i++) {
   console.log("Booth " + (i + 1) + ": " + booths[i]);
 }
 
-// Loop 3: dim the lights by 25 until they are off.
+// Loop 3: lower the lights by 25 until they are off.
 let lights = 100;
 while (lights > 0) {
   lights - 25;
@@ -451,7 +417,7 @@ export const REPORT_TOTAL = check(
     if (line.text.includes('NaN')) return fixedStop(c) ? 'Loop 1 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.' : 'The total came out as `NaN`, because the loop read past the end and added `undefined`. Use `i < booths.length`.';
     const got = firstNumber(line);
     if (got === 18) return numbersIn(c.run({ data: SIX_BOOTHS }).output.find((l) => /total/i.test(l.text))?.text ?? '').includes(27) ? undefined : 'The total has to change when `booths` changes. Add up `booths[i]` in the loop.';
-    if (got === 7) return 'The total is only the last booth, because `total = 0` inside the loop wipes it on every pass. Delete that line.';
+    if (got === 7) return 'The total is only the last booth, so something erases it on every pass. Think about what you saw in Step through.';
     if (got === 0) return declaredInLoop(c, 'total') ? '`let total` inside the loop makes a second variable, so the total above the loop stays 0. Leave out the word `let`.' : 'The total stays at 0. Add each booth to it inside the loop.';
     return 'Loop 1 should add every booth to `total`, so type no numbers into the print line.';
   },
@@ -463,7 +429,7 @@ function boothProblem(c: JsCheckCtx, booths: number[]): string | undefined {
   const rows = r.output.filter((l) => /booth/i.test(l.text));
   if (!rows.length) return r.error ? BROKE : 'Keep the line inside loop 2 that prints each booth.';
   const fixed = fixedStop(c);
-  if (rows.some((l) => l.text.includes('undefined'))) return fixed ? 'Loop 2 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.' : 'The last line says `undefined`, because `i <= booths.length` reads one past the end. Use `i < booths.length`.';
+  if (rows.some((l) => l.text.includes('undefined'))) return fixed ? 'Loop 2 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.' : 'The last booth line says `undefined`, so loop 2 reads one item past the end of `booths`. Look at its condition.';
   if (!numbersIn(rows[0].text).includes(booths[0])) return 'Booth 1 is missing, because the loop skips the first item. Start `i` at 0.';
   if (rows.length < booths.length) return fixed ? 'Loop 2 stops at a fixed number, so it fails on a longer list. Use `booths.length` in the condition.' : 'The last booth is missing. The loop should run while `i < booths.length`.';
   return rows.length === booths.length ? undefined : 'Print one line for each booth.';
@@ -473,7 +439,7 @@ export const REPORT_BOOTHS = check(
   'report-booths',
   'Fix loop 2, so that it stops at the last booth',
   (c) => boothProblem(c, THREE_BOOTHS.booths) ?? boothProblem(c, SIX_BOOTHS.booths),
-  ['Read the note about loop 2 under the output, and look at the last line it printed.', 'An array of 4 items has indexes 0 to 3.', 'Change `i <= booths.length` to `i < booths.length`.'],
+  ['Look at the last line that loop 2 printed.', 'An array of 4 items has indexes 0 to 3.', 'Change `i <= booths.length` to `i < booths.length`.'],
 );
 
 export const REPORT_LIGHTS = check(
@@ -483,17 +449,17 @@ export const REPORT_LIGHTS = check(
     const r = c.run();
     if (r.status === 'limit') {
       if (c.assigned('lights').length) return 'The loop still never ends. `lights` has to go down by 25 on every pass until it reaches 0.';
-      return '`lights - 25` works out an answer and throws it away, so `lights` stays at 100 forever. Write `lights = lights - 25;`';
+      return '`lights` stays at 100 forever, so loop 3 never ends. Look at the line inside the loop.';
     }
     if (r.error) return BROKE;
     const runs = passesOf(c, r, 'lights');
     if (!runs) return 'Loop 3 has to run, so keep the loop and its condition `lights > 0`. The lights should go from 100 to 0.';
-    if (runs !== 4) return `Loop 3 ran ${runs} ${runs === 1 ? 'time' : 'times'}. Dimming by 25 from 100 takes 4 passes, so change \`lights\` by 25 on each pass.`;
+    if (runs !== 4) return `Loop 3 ran ${runs} ${runs === 1 ? 'time' : 'times'}. Going down by 25 from 100 takes 4 passes, so change \`lights\` by 25 on each pass.`;
     const fifty = c.run({ data: { lights: 50 } });
     if (!fifty.dataMissing.length && passesOf(c, fifty, 'lights') !== 2) return 'Loop 3 should depend on `lights`, so that a lower starting value takes fewer passes.';
     return /lights out/i.test(lastOf(r.output)?.text ?? '') ? undefined : 'Keep `Lights out` as the last line, after the loop.';
   },
-  ['Look at the stop message under the output. It tells you what stayed the same.', 'The line inside the loop works out an answer and never saves it.', 'Change `lights - 25;` to `lights = lights - 25;`'],
+  ['Look at the stop message under the output. It tells you what stayed the same.', 'The line inside the loop calculates an answer and never saves it.', 'Change `lights - 25;` to `lights = lights - 25;`'],
 );
 
 // --- step 8: build a new array -----------------------------------------------
@@ -534,7 +500,7 @@ export const FINALISTS = check(
     if (!got.length && c.loops().some((l) => l.kind === 'for-of')) return 'A `for...of` loop hands you each name without its index, and the score sits at the same index in `scores`. Use `for (let i = 0; i < players.length; i++)`, so that `i` works on both arrays.';
     return '`finalists` should hold the name of each player whose score is 100 or more.';
   },
-  ['The two arrays match up by index: `scores[i]` belongs to `players[i]`.', 'Start with `let finalists = [];` above the loop. Inside the loop, use an `if` on `scores[i]`.', 'Write `if (scores[i] >= 100) { finalists.push(players[i]); }` inside the loop.'],
+  ['Each score belongs to the player at the same index: `scores[i]` belongs to `players[i]`.', 'Start with `let finalists = [];` above the loop. Inside the loop, use an `if` on `scores[i]`.', 'Write `if (scores[i] >= 100) { finalists.push(players[i]); }` inside the loop.'],
 );
 
 export const SHOW_FINALISTS = check(
@@ -571,8 +537,9 @@ export const TOKEN_TABLE = check(
     if (!rows.length) return 'Print one line for each row of the table.';
     if (rows.length === 9) return rows[1].length === 1 ? 'Each number printed on its own line, because `console.log` is inside the inner loop. Build one row in a string, and print the string after the inner loop.' : 'The row printed on every pass of the inner loop, because `console.log` is inside it. Move it after the inner loop ends.';
     if (rows[0][0] === 0) return 'Your table starts at 0. Start both loops at 1, so that the first row is `1 2 3`.';
-    if (rows.length === 3 && rows[1].length === 6) return 'Each row keeps the numbers from the row above. Start the string over inside the outer loop, with `let line = "";` above the inner loop.';
+    if (rows.length === 3 && rows[1].length === 6) return 'Each row keeps the numbers from the row above. Start the string over at `""` inside the outer loop, above the inner loop.';
+    if (rows.length < 3 || rows[0].length < 3) return 'When `size` is 3, the table needs 3 rows and 3 columns, and yours came out smaller. Both loops should go up to and including `size`.';
     return 'With `size` set to 3, the table should print `1 2 3`, then `2 4 6`, then `3 6 9`.';
   },
-  ['Use `r` for the row number in the outer loop and `k` for the column number in the inner loop. Both start at 1 and stop at `size`.', 'Inside the outer loop, start with `let line = "";` and have the inner loop add `r * k + " "` to `line`.', 'Inside the inner loop, write `line = line + r * k + " ";` and after the inner loop, write `console.log(line);`'],
+  ['Use `r` for the row number in the outer loop and `c` for the column number in the inner loop. Both start at 1 and go up to and including `size`.', 'Inside the outer loop, start with `let line = "";` and have the inner loop add `r * c + " "` to `line`.', 'Inside the inner loop, write `line = line + r * c + " ";` and after the inner loop, write `console.log(line);`'],
 );

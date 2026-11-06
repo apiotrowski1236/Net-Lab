@@ -7,7 +7,7 @@ import { buildReport } from '../../store/report';
 import { findLab } from '../index';
 import { playStep } from '../solution';
 import { jsLoopsLab, WATCH_STEPS } from './index';
-import { COUNTDOWN, DOOR, FINALS, GUESS, GUESS_STRINGS, jsLoopsSolution, LINE, PRIZES, REPORT, SCORES, TABLE } from './solution';
+import { COUNTDOWN, DOOR, DOUBLE, FINALS, GUESS, GUESS_STRINGS, jsLoopsSolution, PRIZES, REPORT, SCORES, TABLE } from './solution';
 
 const editors = jsLoopsLab.steps.flatMap((s) => (s.demos ?? []).filter((d): d is JsSpec => d.kind === 'js'));
 const editor = (id: string) => editors.find((d) => d.id === id)!;
@@ -84,13 +84,13 @@ describe('the lab', () => {
       s.goTo(s.progress.step + 1);
     }
     const report = buildReport(jsLoopsLab, s.progress, { id: 's', name: 'Sam', period: '1', createdAt: 0 }, 'submitted');
-    expect(report.code?.map((c) => c.step)).toEqual(['guess', 'line', 'scores', 'report', 'finals', 'table']);
+    expect(report.code?.map((c) => c.step)).toEqual(['guess', 'double', 'scores', 'report', 'finals', 'table']);
     expect(report.code?.[0].files[0].text).toBe(GUESS);
   });
 });
 
 describe('starting code', () => {
-  test.each(['countdown', 'prizes', 'door', 'guess', 'line', 'scores', 'finals', 'table'])('%s draws no note', (id) => {
+  test.each(['countdown', 'prizes', 'door', 'guess', 'double', 'scores', 'finals', 'table'])('%s draws no note', (id) => {
     const s = editor(id);
     let state = jsModel.apply(s, jsModel.init(s), { run: true });
     for (const answer of ['pixel']) state = jsModel.apply(s, state, { answer });
@@ -98,11 +98,11 @@ describe('starting code', () => {
     expect(state.notes).toBeUndefined();
   });
 
-  test('the report is broken on purpose, and the stop and the notes name each bug', () => {
+  test('the report is broken on purpose, and leaves the student to find each bug', () => {
     const s = editor('report');
     const state = jsModel.apply(s, jsModel.init(s), { run: true });
     expect(state.last?.limit).toMatchObject({ why: 'loop', line: 18, text: 'The loop on line 18 ran 100,000 times without stopping. Its condition is lights > 0, and lights stayed 100 the whole time.' });
-    expect(state.notes?.map((n) => `${n.rule}:${n.line}`)).toEqual(['reset-in-loop:6', 'index-at-length:12', 'while-unchanged:18', 'result-unused:19']);
+    expect(state.notes).toBeUndefined();
     expect(state.last?.lines.map((l) => l.text)).toEqual(['Total: 20', 'Booth 1: 40', 'Booth 2: 15', 'Booth 3: 25', 'Booth 4: 20', 'Booth 5: undefined']);
   });
 
@@ -119,13 +119,8 @@ describe('starting code', () => {
   });
 
   test('a loop that never ran says so, and no longer asks for a print that is already there', () => {
-    expect(noteFor(editor('countdown'), swap(COUNTDOWN, ['count >= 0', 'count <= 3']))).toBe('Your loop never ran, because its condition was false the first time. Change the condition.');
-    expect(noteFor(editor('prizes'), swap(PRIZES, ['price <= maxPrice', 'price >= maxPrice']))).toBe('Your loop never ran, because its condition was false the first time. Change the condition.');
-  });
-
-  test('a crash in the doubling loop leaves the places check alone', () => {
-    const state = attempt(editor('line'), swap(LINE, ['for (let i = 0; i < tokens.length; i++) {\n  tokens[i] = tokens[i] * 2;\n}', 'for (const item of tokens) {\n  item = item * 2;\n}']));
-    expect(state.checks?.find((c) => c.id === 'places')?.ok).toBe(true);
+    expect(noteFor(editor('countdown'), swap(COUNTDOWN, ['count >= 0', 'count <= 3']))).toBe('Your loop never ran, because its condition was false the first time. A loop runs while its condition is true, so change the condition.');
+    expect(noteFor(editor('prizes'), swap(PRIZES, ['price <= maxPrice', 'price >= maxPrice']))).toBe('Your loop never ran, because its condition was false the first time. A loop runs while its condition is true, so change the condition.');
   });
 });
 
@@ -134,7 +129,7 @@ describe('answer key', () => {
     ['countdown', COUNTDOWN, []],
     ['prizes', PRIZES, []],
     ['door', DOOR, ['open', 'pixel']],
-    ['line', LINE, []],
+    ['double', DOUBLE, []],
     ['scores', SCORES, []],
     ['report', REPORT, []],
     ['finals', FINALS, []],
@@ -172,7 +167,7 @@ describe('a loop that never gets an acceptable answer', () => {
 
 describe('step 1: the countdown', () => {
   const up = '`count` keeps going up, so the condition stays true and the loop never ends. Write `count = count - 1;` to make it go down.';
-  const still = '`count` never changes, so the loop never ends. Writing `count - 1` works out an answer and throws it away. Write `count = count - 1;` inside the loop.';
+  const still = '`count` never changes, so the loop never ends. Writing `count - 1` calculates an answer and throws it away. Write `count = count - 1;` inside the loop.';
   wrong('countdown', [
     ['the starting code', 'let count = 1;\nwhile (count <= 3) {\n  console.log(count);\n  count = count + 1;\n}\n', 'These numbers go up. Start `count` at 10, and make it go down by 1 on each pass.'],
     ['updating in the wrong direction', swap(COUNTDOWN, ['count - 1', 'count + 1']), up],
@@ -201,7 +196,7 @@ describe('step 1: the countdown', () => {
 describe('step 2: the prize wall', () => {
   wrong('prizes', [
     ['the starting code', 'let maxPrice = 300;\n\nfor (let price = 50; price <= maxPrice; price = price + 1) {\n  console.log(price);\n}\n', 'Your prices go up by 1. Change the last part of the `for` header so that `price` goes up by 50.'],
-    ['price + 50 with no assignment', swap(PRIZES, ['price = price + 50', 'price + 50']), '`price` never changes, so the loop never ends. Writing `price + 50` works out an answer and throws it away. Write `price = price + 50` in the header.'],
+    ['price + 50 with no assignment', swap(PRIZES, ['price = price + 50', 'price + 50']), '`price` never changes, so the loop never ends. Writing `price + 50` calculates an answer and throws it away. Write `price = price + 50` in the header.'],
     ['< where <= was needed', swap(PRIZES, ['price <= maxPrice', 'price < maxPrice']), 'Your list stops one price short of `maxPrice`. `price < maxPrice` ends the loop too soon. Use `price <= maxPrice`.'],
     ['a fixed number in the condition', swap(PRIZES, ['price <= maxPrice', 'price <= 300']), 'With `maxPrice` set to 200, your list went past 200. Use `maxPrice` in the condition, with no fixed number.'],
     ['a renamed maxPrice', PRIZES.replaceAll('maxPrice', 'limit'), 'Keep the variable named `maxPrice`. Your code has to read it, so that it works on any value.'],
@@ -290,39 +285,26 @@ describe('step 4: the guessing game', () => {
   ]);
 });
 
-describe('step 5: the prize line', () => {
-  const places = (loop: string) => swap(LINE, ['for (let i = 0; i < players.length; i++) {\n  console.log((i + 1) + ". " + players[i]);\n}\n', loop]);
-  const doubling = (loop: string) => swap(LINE, ['for (let i = 0; i < tokens.length; i++) {\n  tokens[i] = tokens[i] * 2;\n}\n', loop]);
-  wrong('line', [
-    ['the starting code', 'let players = ["Maya", "Dev"];\nlet tokens = [30, 12];\n', 'Print one line for each player from inside a loop.'],
-    ['i <= arr.length', swap(LINE, ['i < players.length', 'i <= players.length']), 'The last line says `undefined`, because the loop reads one past the end of `players`. Use `i < players.length`, not `<=`.'],
-    ['tokens doubled and never printed', swap(LINE, ['console.log(tokens);\n', '']), 'The numbers changed. After the loop, print `tokens` with `console.log(tokens);`'],
-    ['a renamed array', LINE.replaceAll('players', 'names'), 'Keep the variable named `players`. Your code has to read it, so that it works on any value.'],
-    ['starting at 1', places('for (let i = 1; i < players.length; i++) {\n  console.log(i + ". " + players[i]);\n}\n'), 'Your list starts with Bo and skips Ana. The first item is at index 0, so start `i` at 0.'],
-    ['i < arr with no .length', swap(LINE, ['i < players.length', 'i < players']), '`i < players` compares a number with a whole array, so the loop never runs. Use `i < players.length`.'],
-    ['a fixed count', swap(LINE, ['i < players.length', 'i < 5']), 'Your loop stops at a fixed number, so it fails on a shorter list. Use `players.length` in the condition.'],
-    ['one short', swap(LINE, ['i < players.length', 'i < players.length - 1']), 'Your list stops before the last player. The loop should run while `i < players.length`.'],
-    ['the index with no + 1', places('for (let i = 0; i < players.length; i++) {\n  console.log(i + ". " + players[i]);\n}\n'), 'Your places start at 0. Indexes start at 0 and places start at 1, so print `i + 1`.'],
-    ['+ joining i and 1 as text', places('for (let i = 0; i < players.length; i++) {\n  console.log("Place " + i + 1 + ": " + players[i]);\n}\n'), '`+` joined `i` and 1 as text. Put parentheses around them: `(i + 1)`.'],
-    ['for...of with no place', places('for (const name of players) {\n  console.log(name);\n}\n'), 'Each line needs a place number, like `1. Maya`. A `for...of` loop hands you each name without its position, so use `for (let i = 0; i < players.length; i++)` and print `i + 1`.'],
-    ['the print after the loop', places('for (let i = 0; i < players.length; i++) {\n}\nconsole.log(players[0]);\n'), 'That printed one line. Put the `console.log` inside the loop, so that each player gets a line.'],
-    ['a semicolon after the header', swap(LINE, ['i < players.length; i++) {', 'i < players.length; i++); {']), 'There is a semicolon right after a `for`, `while`, or `if` header, so that header has nothing to run. Delete the semicolon.'],
-    ['for...of on tokens', doubling('for (let n of tokens) {\n  n = n * 2;\n}\n'), 'A `for...of` loop hands you a copy of each number, so changing that copy leaves `tokens` the same. Use `for (let i = 0; i < tokens.length; i++)` and write `tokens[i] = tokens[i] * 2;`'],
-    ['tokens[i] * 2 with no assignment', swap(LINE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] * 2;']), 'Writing `tokens[i] * 2` works out an answer and throws it away. Write `tokens[i] = tokens[i] * 2;`'],
-    ['replacing the array', swap(LINE, ['tokens[i] = tokens[i] * 2;', 'tokens = tokens[0] * 2;'], ['i < tokens.length', 'i < 1']), '`tokens = ...` replaced the whole array with one number. Write `tokens[i] = tokens[i] * 2;` to change one item.'],
-    ['doubling i', swap(LINE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] = i * 2;']), 'You doubled the index `i`, not the number at that index. Write `tokens[i] = tokens[i] * 2;`'],
-    ['<= on tokens', swap(LINE, ['i < tokens.length', 'i <= tokens.length']), '`i <= tokens.length` reaches one past the end. Writing to that index makes `tokens` longer, so the loop never catches up and never ends. Use `i < tokens.length`.'],
-    ['push in place of changing each number', swap(LINE, ['for (let i = 0; i < tokens.length; i++) {\n  tokens[i] = tokens[i] * 2;', 'let size = tokens.length;\nfor (let i = 0; i < size; i++) {\n  tokens.push(tokens[i] * 2);']), '`tokens` grew. Change each number where it sits with `tokens[i] = tokens[i] * 2;`, and add no new items.'],
-    ['a fixed count on tokens', swap(LINE, ['i < tokens.length', 'i < 3']), 'Your loop stops at a fixed number, so it fails on a longer list. Use `tokens.length` in the condition.'],
+describe('step 5: double the tokens', () => {
+  const doubling = (loop: string) => swap(DOUBLE, ['for (let i = 0; i < tokens.length; i++) {\n  tokens[i] = tokens[i] * 2;\n}\n', loop]);
+  wrong('double', [
+    ['the starting code', 'let tokens = [30, 12, 45, 8, 25];\n', '`tokens` did not change. Inside a loop, give each `tokens[i]` a new value.'],
+    ['a renamed array', DOUBLE.replaceAll('tokens', 'coins'), 'Keep the variable named `tokens`. Your code has to read it, so that it works on any value.'],
+    ['tokens doubled and never printed', swap(DOUBLE, ['console.log(tokens);\n', '']), 'The numbers changed. After the loop, print `tokens` with `console.log(tokens);`'],
+    ['for...of on tokens', doubling('for (let n of tokens) {\n  n = n * 2;\n}\n'), 'A `for...of` loop gives you each number in a new variable, so changing that variable leaves `tokens` the same. Use the counting `for`, and change `tokens[i]`.'],
+    ['tokens[i] * 2 with no assignment', swap(DOUBLE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] * 2;']), 'Writing `tokens[i] * 2` calculates an answer and throws it away. Write `tokens[i] = tokens[i] * 2;`'],
+    ['replacing the array', swap(DOUBLE, ['tokens[i] = tokens[i] * 2;', 'tokens = tokens[0] * 2;'], ['i < tokens.length', 'i < 1']), '`tokens = ...` replaced the whole array with one number. Write `tokens[i] = tokens[i] * 2;` to change one item.'],
+    ['doubling i', swap(DOUBLE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] = i * 2;']), 'You doubled the index `i`, not the number at that index. Write `tokens[i] = tokens[i] * 2;`'],
+    ['<= on tokens', swap(DOUBLE, ['i < tokens.length', 'i <= tokens.length']), '`i <= tokens.length` reaches one past the end. Writing to that index makes `tokens` longer, so the loop never catches up and never ends. Use `i < tokens.length`.'],
+    ['push in place of changing each number', swap(DOUBLE, ['for (let i = 0; i < tokens.length; i++) {\n  tokens[i] = tokens[i] * 2;', 'let size = tokens.length;\nfor (let i = 0; i < size; i++) {\n  tokens.push(tokens[i] * 2);']), '`tokens` grew. Change each number where it sits with `tokens[i] = tokens[i] * 2;`, and add no new items.'],
+    ['a fixed count on tokens', swap(DOUBLE, ['i < tokens.length', 'i < 3']), 'Your loop stops at a fixed number, so it fails on a longer list. Use `tokens.length` in the condition.'],
     ['a typed answer', doubling('tokens = [60, 24, 90, 16, 50];\n'), 'Double the numbers from inside a loop, with no numbers typed in, so that your code works on any list.'],
   ]);
-  right('line', [
-    ['for...of with a counter for the places', places('let place = 1;\nfor (const name of players) {\n  console.log(place + ". " + name);\n  place = place + 1;\n}\n')],
-    ['while with an index', swap(LINE, ['for (let i = 0; i < players.length; i++) {\n  console.log((i + 1) + ". " + players[i]);\n}\n', 'let i = 0;\nwhile (i < players.length) {\n  console.log((i + 1) + ". " + players[i]);\n  i = i + 1;\n}\n'], ['for (let i = 0; i < tokens.length; i++) {\n  tokens[i] = tokens[i] * 2;\n}\n', 'i = 0;\nwhile (i < tokens.length) {\n  tokens[i] = tokens[i] * 2;\n  i += 1;\n}\n'])],
-    ['a template literal, *=, and i += 1', swap(LINE, ['console.log((i + 1) + ". " + players[i]);', 'console.log(`${i + 1}. ${players[i]}`);'], ['tokens[i] = tokens[i] * 2;', 'tokens[i] *= 2;'], ['i < tokens.length; i++', 'i < tokens.length; i += 1'])],
-    ['one loop for both jobs', swap(LINE, ['  console.log((i + 1) + ". " + players[i]);\n}\n\nfor (let i = 0; i < tokens.length; i++) {\n', '  console.log((i + 1) + ". " + players[i]);\n'])],
-    ['const arrays and single quotes', swap(LINE, ['let players', 'const players'], ['let tokens', 'const tokens'], ['". "', "'. '"])],
-    ['i = i + 1', swap(LINE, ['i < players.length; i++', 'i < players.length; i = i + 1'])],
+  right('double', [
+    ['while with an index', doubling('let i = 0;\nwhile (i < tokens.length) {\n  tokens[i] = tokens[i] * 2;\n  i += 1;\n}\n')],
+    ['*= and i += 1', swap(DOUBLE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] *= 2;'], ['i < tokens.length; i++', 'i < tokens.length; i += 1'])],
+    ['const tokens', swap(DOUBLE, ['let tokens', 'const tokens'])],
+    ['i = i + 1', swap(DOUBLE, ['i < tokens.length; i++', 'i < tokens.length; i = i + 1'])],
     ['a new array assigned back', doubling('let doubled = [];\nfor (const n of tokens) {\n  doubled.push(n * 2);\n}\ntokens = doubled;\n')],
   ]);
 });
@@ -335,7 +317,7 @@ describe('step 6: the top score', () => {
     ['i < arr with no .length', swap(SCORES, ['i < scores.length', 'i < scores']), '`i < scores` compares a number with a whole array, so the loop never runs. Use `i < scores.length`.'],
     ['typing the answer', 'let scores = [85, -20, 140, 60, 110, -5];\nconsole.log(140);\n', 'Use a loop to go through `scores`, so that your code works on any list.'],
     ['printing inside the loop', swap(SCORES, ['  }\n}\nconsole.log(best);', '  }\n  console.log(best);\n}']), 'Your top score prints on every pass, because that `console.log` is inside the loop. Move it below the closing `}`.'],
-    ['best starting at 0', swap(SCORES, ['let best = scores[0];', 'let best = 0;']), 'When every score is negative, your code prints 0, and 0 is not in the list. Start `best` at `scores[0]`, not at 0.'],
+    ['best starting at 0', swap(SCORES, ['let best = scores[0];', 'let best = 0;']), 'When every score is negative, your code prints 0, and 0 is not in the list. Start `best` at a score from the list.'],
     ['best with no if', swap(SCORES, noIf), 'Your code printed the last score. Change `best` only when a score is bigger than `best`, with an `if`.'],
     ['< where > was needed', swap(SCORES, ['scores[i] > best', 'scores[i] < best']), 'Your code found the lowest score. Use `>` to look for a bigger one.'],
     ['storing i', swap(SCORES, ['    best = scores[i];\n', '    best = i;\n']), 'You stored the index `i`, not the score at that index. Write `best = scores[i];`'],
@@ -353,19 +335,19 @@ describe('step 6: the top score', () => {
 
 describe('step 7: the closing report', () => {
   wrong('report', [
-    ['the starting code', jsModel.init(editor('report')).files[0].text, 'The total is only the last booth, because `total = 0` inside the loop wipes it on every pass. Delete that line.'],
+    ['the starting code', jsModel.init(editor('report')).files[0].text, 'The total is only the last booth, so something erases it on every pass. Think about what you saw in Step through.'],
     ['let total inside the loop', swap(REPORT, ['  total = total + booths[i];\n', '  let total = 0;\n  total = total + booths[i];\n']), '`let total` inside the loop makes a second variable, so the total above the loop stays 0. Leave out the word `let`.'],
     ['typing the total', swap(REPORT, ['"Total: " + total', '"Total: 100"']), 'Loop 1 should add every booth to `total`, so type no numbers into the print line.'],
     ['a renamed array', REPORT.replaceAll('booths', 'stands'), 'Keep the variable named `booths`. Your code has to read it, so that it works on any value.'],
-    ['loop 2 left as it was', swap(REPORT, ['i < booths.length; i++) {\n  console.log("Booth', 'i <= booths.length; i++) {\n  console.log("Booth']), 'The last line says `undefined`, because `i <= booths.length` reads one past the end. Use `i < booths.length`.'],
+    ['loop 2 left as it was', swap(REPORT, ['i < booths.length; i++) {\n  console.log("Booth', 'i <= booths.length; i++) {\n  console.log("Booth']), 'The last booth line says `undefined`, so loop 2 reads one item past the end of `booths`. Look at its condition.'],
     ['loop 2 starting at 1', swap(REPORT, ['for (let i = 0; i < booths.length; i++) {\n  console.log("Booth', 'for (let i = 1; i < booths.length; i++) {\n  console.log("Booth']), 'Booth 1 is missing, because the loop skips the first item. Start `i` at 0.'],
     ['loop 2 one short', swap(REPORT, ['i < booths.length; i++) {\n  console.log("Booth', 'i < booths.length - 1; i++) {\n  console.log("Booth']), 'The last booth is missing. The loop should run while `i < booths.length`.'],
     ['a fixed count in both loops', REPORT.replaceAll('i < booths.length', 'i < 4'), 'Loop 1 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.'],
     ['<= in loop 1', swap(REPORT, ['i < booths.length', 'i <= booths.length']), 'The total came out as `NaN`, because the loop read past the end and added `undefined`. Use `i < booths.length`.'],
     ['a fixed count in loop 2', swap(REPORT, ['i < booths.length; i++) {\n  console.log("Booth', 'i < 4; i++) {\n  console.log("Booth']), 'Loop 2 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.'],
-    ['loop 3 left as it was', swap(REPORT, ['lights = lights - 25;', 'lights - 25;']), '`lights - 25` works out an answer and throws it away, so `lights` stays at 100 forever. Write `lights = lights - 25;`'],
+    ['loop 3 left as it was', swap(REPORT, ['lights = lights - 25;', 'lights - 25;']), '`lights` stays at 100 forever, so loop 3 never ends. Look at the line inside the loop.'],
     ['loop 3 going up', swap(REPORT, ['lights = lights - 25;', 'lights = lights + 25;']), 'The loop still never ends. `lights` has to go down by 25 on every pass until it reaches 0.'],
-    ['loop 3 jumping to 0', swap(REPORT, ['lights = lights - 25;', 'lights = 0;']), 'Loop 3 ran 1 time. Dimming by 25 from 100 takes 4 passes, so change `lights` by 25 on each pass.'],
+    ['loop 3 jumping to 0', swap(REPORT, ['lights = lights - 25;', 'lights = 0;']), 'Loop 3 ran 1 time. Going down by 25 from 100 takes 4 passes, so change `lights` by 25 on each pass.'],
     ['loop 3 with its condition flipped', swap(REPORT, ['lights > 0', 'lights < 0']), 'Loop 3 has to run, so keep the loop and its condition `lights > 0`. The lights should go from 100 to 0.'],
     ['loop 3 deleted', swap(REPORT, ['while (lights > 0) {\n  lights = lights - 25;\n}\n', '']), 'Loop 3 has to run, so keep the loop and its condition `lights > 0`. The lights should go from 100 to 0.'],
     ['no Lights out', swap(REPORT, ['console.log("Lights out");\n', '']), 'Keep `Lights out` as the last line, after the loop.'],
@@ -413,16 +395,16 @@ describe('optional extra challenge: the token table', () => {
   wrong('table', [
     ['the starting code', 'let size = 4;\n', 'Print one line for each row of the table.'],
     ['printing in the inner loop', 'let size = 4;\nfor (let r = 1; r <= size; r++) {\n  for (let k = 1; k <= size; k++) {\n    console.log(r * k);\n  }\n}\n', 'Each number printed on its own line, because `console.log` is inside the inner loop. Build one row in a string, and print the string after the inner loop.'],
-    ['the row kept across rows', swap(TABLE, ['  let line = "";\n', ''], ['for (let r = 1;', 'let line = "";\nfor (let r = 1;']), 'Each row keeps the numbers from the row above. Start the string over inside the outer loop, with `let line = "";` above the inner loop.'],
+    ['the row kept across rows', swap(TABLE, ['  let line = "";\n', ''], ['for (let r = 1;', 'let line = "";\nfor (let r = 1;']), 'Each row keeps the numbers from the row above. Start the string over at `""` inside the outer loop, above the inner loop.'],
     ['starting at 0', TABLE.replaceAll('= 1;', '= 0;'), 'Your table starts at 0. Start both loops at 1, so that the first row is `1 2 3`.'],
     ['a fixed size', TABLE.replaceAll('<= size', '<= 3'), 'Use `size` in both loops, so that the table changes when `size` does.'],
     ['a renamed size', TABLE.replaceAll('size', 'rows'), 'Keep the variable named `size`. Your code has to read it, so that it works on any value.'],
-    ['< where <= was needed', TABLE.replaceAll('<= size', '< size'), 'With `size` set to 3, the table should print `1 2 3`, then `2 4 6`, then `3 6 9`.'],
+    ['< where <= was needed', TABLE.replaceAll('<= size', '< size'), 'When `size` is 3, the table needs 3 rows and 3 columns, and yours came out smaller. Both loops should go up to and including `size`.'],
   ]);
   right('table', [
     ['while loops', 'let size = 4;\nlet r = 1;\nwhile (r <= size) {\n  let row = "";\n  let k = 1;\n  while (k <= size) {\n    row += r * k + " ";\n    k += 1;\n  }\n  console.log(row);\n  r = r + 1;\n}\n'],
     ['an array and join', 'const size = 4;\nfor (let r = 1; r <= size; r++) {\n  const row = [];\n  for (let k = 1; k <= size; k++) {\n    row.push(r * k);\n  }\n  console.log(row.join(" "));\n}\n'],
-    ['template literals with tabs', swap(TABLE, ['line = line + r * k + " ";', 'line = `${line}${r * k}\\t`;'])],
+    ['template literals with tabs', swap(TABLE, ['line = line + r * c + " ";', 'line = `${line}${r * c}\\t`;'])],
   ]);
 });
 

@@ -61,12 +61,7 @@ while (guess !== secret) {
 console.log("You got it in " + guesses + " guesses");
 `;
 
-export const LINE = `let players = ["Maya", "Dev", "Priya", "Sam", "Zoe"];
-let tokens = [30, 12, 45, 8, 25];
-
-for (let i = 0; i < players.length; i++) {
-  console.log((i + 1) + ". " + players[i]);
-}
+export const DOUBLE = `let tokens = [30, 12, 45, 8, 25];
 
 for (let i = 0; i < tokens.length; i++) {
   tokens[i] = tokens[i] * 2;
@@ -99,7 +94,7 @@ for (let i = 0; i < booths.length; i++) {
   console.log("Booth " + (i + 1) + ": " + booths[i]);
 }
 
-// Loop 3: dim the lights by 25 until they are off.
+// Loop 3: lower the lights by 25 until they are off.
 let lights = 100;
 while (lights > 0) {
   lights = lights - 25;
@@ -123,8 +118,8 @@ export const TABLE = `let size = 4;
 
 for (let r = 1; r <= size; r++) {
   let line = "";
-  for (let k = 1; k <= size; k++) {
-    line = line + r * k + " ";
+  for (let c = 1; c <= size; c++) {
+    line = line + r * c + " ";
   }
   console.log(line);
 }
@@ -139,13 +134,13 @@ export const jsLoopsSolution: LabSolution = {
   door: { moves: on('door', ...write(DOOR), { answer: 'open' }, { answer: 'pixel' }) },
   // The second Run's secret is 8.
   guess: { moves: on('guess', ...write(GUESS_STRINGS), { answer: '5' }, { stop: true }, ...write(GUESS), { answer: '5' }, { answer: '9' }, { answer: '8' }) },
-  line: { moves: on('line', ...write(LINE)) },
+  double: { moves: on('double', ...write(DOUBLE)) },
   scores: { moves: on('scores', ...write(SCORES)) },
   report: { moves: on('report', { stepping: true }, ...WATCH, { stepping: false }, { run: true }, ...write(REPORT)) },
   finals: { moves: on('finals', ...write(FINALS)) },
   reflect: {
     text: {
-      'which-loop': 'I would use for to print every item in a list because the list has a known length, and while for the password because nobody knows how many tries it takes. My bug was a total that stayed at the last number. Step through showed it going back to 0 on every pass.',
+      'which-loop': 'They should use while for the password, because nobody knows how many tries it takes. My bug was a total that stayed at the last number. Step through showed it going back to 0 on every pass.',
     },
   },
   table: { moves: on('table', ...write(TABLE)) },
