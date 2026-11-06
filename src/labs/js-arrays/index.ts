@@ -55,7 +55,7 @@ export const jsArraysLab: LabDef = {
         You are running the music for the spring dance. Your playlist is an **array**: one variable that holds a list of items, in order, inside square brackets. Before we start on the playlist, try each part of this editor.
 
         1. Press **Run**. Your program's output appears in the **Output** panel. An \`alert\` prints there too, and no popup opens in this editor.
-        2. Press **Hint** under the code. Each press shows one more clue for your current task. Hints never cost you points.
+        2. Press **Hint** under the code. Each press shows one more clue for your current task. Hints never cost you points. The checks go in order, so each one waits for the check above it.
         3. \`console.log\` is another way to print. Put what you want to print between its parentheses. Print \`playlist\` under the \`alert\` line, then press **Run**.
         4. Press **Step through**, then press **Next** until the program ends. The blue line runs next, and the yellow line ran last. Watch \`playlist\` appear under **Variables** as a row of numbered boxes. Press **Stop** to go back to editing.
       `,
@@ -91,13 +91,13 @@ export const jsArraysLab: LabDef = {
       body: md`
         Every item in an array has a number called its **index**. Those are the small numbers you saw over the boxes in step 1. Indexes start at 0, so these 5 songs have the indexes 0, 1, 2, 3, and 4. \`playlist[0]\` reads the first song, and \`playlist.length\` gives the number of items.
 
-        First, find the question below the **Goals** list and answer it. A wrong guess costs no points, and the feedback explains the answer. Then add to the program so that it prints:
+        First, find the question below **Goals**, at the bottom of this step, and answer it. A wrong guess costs no points, and the feedback explains the answer. Then add to the program so that it prints:
 
         1. the third song
         2. how many songs are on the playlist
         3. the last song. Its index is one less than the length, so put that math inside the square brackets.
 
-        Use \`playlist.length\` for the last two, so that your code still works after more songs are added.
+        Use \`playlist.length\` for tasks 2 and 3, so that your code still works after more songs are added.
       `,
       demos: [read],
       goals: eachCheck(read),
@@ -124,11 +124,11 @@ export const jsArraysLab: LabDef = {
       body: md`
         Some plans changed. To change an item, use \`=\` with its index: \`votes[0] = 20;\` puts 20 in the first spot. To add to an item, start from the number already there: \`votes[0] = votes[0] + 5;\` adds 5.
 
-        \`playlist\` and \`votes\` are both \`const\`, and that is fine here. \`const\` means the variable can never hold a different array, so \`votes = [1, 2];\` is an error. The items inside the array can still change.
-
         1. Replace the second song with "Thunder Gym".
-        2. Replace the last song with "Parking Lot Stars". Use \`length\` to find its index.
+        2. Replace the last song with "Parking Lot Stars". Use \`playlist.length\` to find its index.
         3. One more person voted for the third song. Add 1 to its number in \`votes\`.
+
+        \`playlist\` and \`votes\` are both \`const\`, and that is fine here. \`const\` means the variable can never hold a different array, so \`votes = [1, 2];\` is an error. The items inside the array can still change.
       `,
       demos: [change],
       goals: eachCheck(change),
@@ -162,21 +162,21 @@ export const jsArraysLab: LabDef = {
       id: 'search',
       title: 'Check a request',
       body: md`
-        Requests are coming in, and \`request\` holds what a student typed. Two methods search an array:
+        Requests are coming in, and \`request\` holds what a student typed. The method \`indexOf\` searches an array:
 
-        - \`playlist.includes("last bell")\` gives back \`true\`. For an item that is not in the array, it gives back \`false\`.
-        - \`playlist.indexOf("last bell")\` gives back 2, the index of that song. For an item that is not in the array, it gives back **-1**. No item has the index -1, so -1 means "not found".
+        - \`playlist.indexOf("last bell")\` gives back 2, the index of that song.
+        - \`playlist.indexOf("polka time")\` gives back **-1**, because that song is not in the array. No item has the index -1, so -1 means "not found".
 
-        Both are **case sensitive**, which means capital letters count: "Last Bell" does not match "last bell". That is why the code already changes the request to lowercase.
+        \`indexOf\` is **case sensitive**, which means capital letters count: "Last Bell" does not match "last bell". That is why the code already changes the request to lowercase.
 
         Save the index with \`let spot = playlist.indexOf(request);\`. Then use \`if\` and \`else\` so that the program prints one of two answers:
 
-        1. If the request is on the playlist, print its number on the list, counting from 1, like \`That song is number 3.\`
+        1. If \`spot\` is not -1, print the song's number on the list, counting from 1, like \`That song is number 3.\` The test is \`spot !== -1\`, and \`!==\` means "is not".
         2. Otherwise, print \`Not on the playlist yet.\`
 
-        When text and math share a line, put parentheses around the math: \`"That song is number " + (spot + 1)\`. Without them, \`+\` glues the 1 onto the text, and song 3 prints as number 21.
+        When text and math share a line, put parentheses around the math: \`"That song is number " + (spot + 1)\`. Without them, \`+\` glues the numbers onto the text, so a \`spot\` of 2 prints as number 21.
 
-        Run your program with a song on the list, then with a song that is not. The checks try other requests too, so a goal can turn green before you test it. Then find the question below the **Goals** list and answer it.
+        Run your program with a song on the list, then with a song that is not. The checks also try other songs. A goal can turn green before you test it. Then find the question below **Goals**, at the bottom of this step, and answer it.
       `,
       demos: [search],
       goals: eachCheck(search),
@@ -201,17 +201,20 @@ export const jsArraysLab: LabDef = {
       id: 'program',
       title: 'Write the song request program',
       body: md`
-        Now write a whole program yourself: the song requests for the dance. You need one new method. \`requests.join(", ")\` gives back all the songs as one string, with a comma and a space between them.
+        Now write a whole program yourself: the song requests for the dance. You need two new methods:
+
+        - \`requests.includes(song)\` gives back \`true\` if the song is in the array, and \`false\` if it is not. Capital letters count here too.
+        - \`requests.join(", ")\` gives back all the songs as one string, with a comma and a space between them.
 
         Your program should:
 
         1. Make an array named \`requests\` with at least three songs.
         2. Use \`prompt\` to ask for a song.
         3. If the song is already in \`requests\`, print a message that says so. If it is not, add it to the end.
-        4. Print the whole list with \`join\`.
-        5. Print how many songs are on the list.
+        4. In both cases, print the whole list with \`join\`.
+        5. In both cases, print how many songs are on the list.
 
-        Try it yourself with a new song, then with a song that is already on your list, so that you see both answers. Capital letters count here too, so type that song exactly as it is on the list.
+        Try it yourself with a new song, then with a song that is already on your list, typed exactly the same. The checks also try both. A goal can turn green before you test it.
       `,
       demos: [program],
       goals: eachCheck(program),
@@ -230,7 +233,7 @@ export const jsArraysLab: LabDef = {
           kind: 'text',
           prompt: 'A friend missed this lesson. Explain these two problems to them, using the words index and length.\n\n1. They wrote `playlist[playlist.length]` to get the last song. What goes wrong, and how do they fix it?\n2. They printed `playlist.indexOf("polka time")` and got -1. What does -1 mean, and what should their code do before it uses that number?',
           minWords: 40,
-          lines: 5,
+          lines: 7,
         },
       ],
     },
@@ -259,11 +262,11 @@ export const jsArraysLab: LabDef = {
 
         Add to the program so that it:
 
-        1. finds the song with \`indexOf\`
+        1. finds the song with \`indexOf\`, and saves the index in \`spot\`
         2. removes the song with \`splice\` if it is on the list, or prints a message if it is not
         3. prints the list with \`join\`
 
-        Be careful with -1 here. In \`splice\`, a negative index counts back from the end, so \`requests.splice(-1, 1)\` removes the last song. Test for -1 before you call \`splice\`, with \`if (spot === -1)\`.
+        Be careful with -1 here. In \`splice\`, a negative index counts back from the end, so \`requests.splice(-1, 1)\` removes the last song. Test for -1 before you call \`splice\`, with \`if (spot === -1)\`. \`===\` means "is equal to", the opposite of \`!==\`.
       `,
       demos: [remove],
       goals: eachCheck(remove),

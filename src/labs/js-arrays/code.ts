@@ -475,12 +475,12 @@ export const POSITION: JsCheck = {
     if (fourth.includes(3) && !fourth.includes(4)) return 'People count from 1, so the song at index 3 is number 4. Print the index plus 1.';
     if (!fourth.includes(4)) {
       const code = c.code();
-      if (/\brequest\s*===?\s*playlist\b|\bplaylist\s*===?\s*request\b/.test(code)) return '`===` compares the request with the whole array, which is never true. `playlist.includes(request)` looks through the items.';
-      if (/includes\(\s*["'`]request/.test(code)) return 'With quote marks, `"request"` is the word request. Take them away, so that `includes` looks for what the student typed.';
-      if (numbersIn(c.run({ prompts: ['last bell'] })).includes(3)) return 'Your code only knows the songs you typed. Use `playlist.includes(request)`, so that it follows the list when the list changes.';
+      if (/\brequest\s*===?\s*playlist\b|\bplaylist\s*===?\s*request\b/.test(code)) return '`===` compares the request with the whole array, which is never true. `playlist.indexOf(request)` looks through the items.';
+      if (/indexOf\(\s*["'`]request/.test(code)) return 'With quote marks, `"request"` is the word request. Take them away, so that `indexOf` looks for what the student typed.';
+      if (numbersIn(c.run({ prompts: ['last bell'] })).includes(3)) return 'Your code only knows the songs you typed. Use `playlist.indexOf(request)`, so that it follows the list when the list changes.';
       return 'When the request is on the playlist, find it with `playlist.indexOf(request)`, then print that number plus 1.';
     }
-    if (!first.includes(1)) return 'The first song is at index 0, and your code treated it as missing. Compare what `indexOf` gives back with -1.';
+    if (!first.includes(1)) return 'The first song is at index 0, and your code treated it as missing. Test with `spot !== -1`.';
     return undefined;
   },
   hints: ['Save the index under the lowercase line: `let spot = playlist.indexOf(request);`', 'Write `if (spot !== -1) {`. People count from 1, so the number to print is `spot + 1`.', 'Inside the `if`, write `console.log("That song is number " + (spot + 1) + ".");`'],
@@ -597,7 +597,10 @@ export const SHOW_LIST: JsCheck = {
   test(c) {
     const r = inBooth(c, NEW_SONG);
     const items = r.vars.requests as string[];
-    if (readable(r.text, items)) return undefined;
+    if (readable(r.text, items)) {
+      const repeat = inBooth(c, 'coral');
+      return readable(repeat.text, repeat.vars.requests as string[]) ? undefined : 'Your list only prints when a song was added. Move it after your `if` and `else`, so that it always prints.';
+    }
     if (readable(r.text, items.slice(0, -1))) return 'That list was printed before the new song went on. Print it after your `push`.';
     return listMistake(c, r, items, 'requests') ?? 'Print the whole list with `requests.join(", ")`.';
   },

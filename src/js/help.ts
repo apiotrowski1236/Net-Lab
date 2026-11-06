@@ -179,6 +179,11 @@ export function explainSyntax(e: Omit<JsError, 'help'>, seen: Token[], at: Token
     if (top?.v === '[' && at.t === 'id' && prev.t === 'id') {
       return { code: 'missing-quotes', help: `Text needs quote marks around it: "${prev.v} ${at.v}". Two separate items need a comma between them.` };
     }
+    // `let scores = 40, 55;`: a comma in a declaration wants another name, so this list has lost its brackets.
+    const statement = before.slice(before.map((b) => b.v).lastIndexOf(';') + 1);
+    if (!top && prev.v === ',' && (at.t === 'num' || at.t === 'str') && statement.some((b) => ['let', 'const', 'var'].includes(b.v))) {
+      return { code: 'list-no-brackets', help: 'To keep a list in one variable, put square brackets around the items, like [1, 2, 3].' };
+    }
     const inside = top?.v === '[' ? 'items in an array' : top?.v === '{' && before[before.indexOf(top) - 1]?.v !== ')' ? 'parts of an object' : '';
     if (inside) return { code: 'missing-comma', help: `The ${inside} need a comma between them.` };
     if (at.pos.line === prev.pos.line) return { code: 'side-by-side', help: `Two values sit side by side here with nothing between them. Check for a missing operator, comma, or semicolon before ${at.v || 'this value'}.` };

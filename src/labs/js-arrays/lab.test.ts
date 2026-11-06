@@ -283,14 +283,14 @@ describe('step 6: search', () => {
   const MINUS_ONE = '`indexOf` gave -1 because that song is not on the playlist, and your code treated -1 as a song number. Test for it first: `if (spot === -1)`.';
   notes('search', [
     ['nothing added yet', start, 'When the request is on the playlist, find it with `playlist.indexOf(request)`, then print that number plus 1.'],
-    ['comparing with the whole array', add('if (request === playlist) {\n  console.log("That song is number 1.");\n}'), '`===` compares the request with the whole array, which is never true. `playlist.includes(request)` looks through the items.'],
-    ['quote marks around request', add('if (playlist.includes("request")) {\n  console.log("That song is number 1.");\n}'), 'With quote marks, `"request"` is the word request. Take them away, so that `includes` looks for what the student typed.'],
+    ['comparing with the whole array', add('if (request === playlist) {\n  console.log("That song is number 1.");\n}'), '`===` compares the request with the whole array, which is never true. `playlist.indexOf(request)` looks through the items.'],
+    ['quote marks around request', add('if (playlist.indexOf("request") !== -1) {\n  console.log("That song is number 1.");\n}'), 'With quote marks, `"request"` is the word request. Take them away, so that `indexOf` looks for what the student typed.'],
     ['includes with no parentheses', shape('playlist.includes', NUMBER), '`playlist.includes` with no parentheses names the method without calling it, so the `if` always passes. Write `playlist.includes(request)`.'],
-    ['typed songs', add('if (request === "last bell") {\n  console.log("That song is number 3.");\n}'), 'Your code only knows the songs you typed. Use `playlist.includes(request)`, so that it follows the list when the list changes.'],
+    ['typed songs', add('if (request === "last bell") {\n  console.log("That song is number 3.");\n}'), 'Your code only knows the songs you typed. Use `playlist.indexOf(request)`, so that it follows the list when the list changes.'],
     ['printing the index', shape('spot !== -1', '"That song is number " + spot + "."'), 'People count from 1, so the song at index 3 is number 4. Print the index plus 1.'],
     ['plus glued onto the text', shape('spot !== -1', '"That song is number " + spot + 1 + "."'), 'The checks tried the song at index 3, and your program printed 31. `+` glued the 1 onto the text instead of adding. Put parentheses around the math, like `(spot + 1)`.'],
-    ['spot greater than 0', shape('spot > 0', NUMBER), 'The first song is at index 0, and your code treated it as missing. Compare what `indexOf` gives back with -1.'],
-    ['spot as true or false', shape('spot', NUMBER), 'The first song is at index 0, and your code treated it as missing. Compare what `indexOf` gives back with -1.'],
+    ['spot greater than 0', shape('spot > 0', NUMBER), 'The first song is at index 0, and your code treated it as missing. Test with `spot !== -1`.'],
+    ['spot as true or false', shape('spot', NUMBER), 'The first song is at index 0, and your code treated it as missing. Test with `spot !== -1`.'],
     ['-1 used as a position', add(`${save}console.log(${NUMBER});`), MINUS_ONE],
     ['-1 used as an index', add(`${save}if (spot >= -1) {\n  console.log("That song is number " + (spot + 1) + ": " + playlist[spot]);\n}`), MINUS_ONE],
     ['a crash on a song that is missing', add(`${save}console.log(playlist[spot].toUpperCase() + " is number " + (spot + 1) + ".");`), STOPPED(9)],
@@ -335,7 +335,11 @@ describe('fixes from the second student panel', () => {
   });
 
   test('a count printed only when a song was added says where to move it', () => {
-    expect(note(attempt('program', program('if (requests.includes(song)) {\n  console.log("That song is already on the list.");\n} else {\n  requests.push(song);\n  console.log(requests.join(", "));\n  console.log(requests.length);\n}\n'), ['Thunder Gym']))).toBe('Your count only prints when a song was added. Move it after your `if` and `else`, so that it always prints.');
+    expect(note(attempt('program', program('if (requests.includes(song)) {\n  console.log("That song is already on the list.");\n} else {\n  requests.push(song);\n  console.log(requests.length);\n}\nconsole.log(requests.join(", "));\n'), ['Thunder Gym']))).toBe('Your count only prints when a song was added. Move it after your `if` and `else`, so that it always prints.');
+  });
+
+  test('a list printed only when a song was added says where to move it', () => {
+    expect(note(attempt('program', program('if (requests.includes(song)) {\n  console.log("That song is already on the list.");\n} else {\n  requests.push(song);\n  console.log(requests.join(", "));\n}\nconsole.log(requests.length);\n'), ['Thunder Gym']))).toBe('Your list only prints when a song was added. Move it after your `if` and `else`, so that it always prints.');
   });
 });
 

@@ -15,14 +15,14 @@ Target: 45 minutes.
 | 3 | read | 5 | Predicts `playlist[5]`, then prints the third song, the count, and the last song | `arr[3]` for the third, `arr.length()`, `arr[arr.length]`, fixed index, typed answers, `length - 1` as the count |
 | 4 | change | 4 | Replaces two songs and adds a vote, on `const` arrays | counting from 1, reassigning a `const`, retyping the array, `arr[arr.length] = x`, `votes[2] = 16`, `votes[2] + 1;` |
 | 5 | edges | 6 | Uses `pop`, `push`, `shift`, and `unshift` in order | `arr[3] = x` for push, `arr = arr.push(x)`, `arr.push[x]`, `arr + x`, forgetting what `pop` gives back, popping twice, `shift` and `unshift` swapped, `arr[0] = x` for unshift |
-| 6 | search | 7 | Writes an if and else from a `prompt` with `indexOf`, then predicts what -1 prints | `request === playlist`, quoted `"request"`, `playlist.includes` with no parentheses, typed songs, printing the index, `+` gluing the 1 onto the text, `spot > 0`, treating -1 as a song number |
-| 7 | program | 8 | Writes the song request program with one comment of help, and meets `join` | no prompt, overwriting a spot, adding a duplicate, no message, `alert(arr)`, `join()`, count or list printed too early |
+| 6 | search | 7 | Writes an if and else from a `prompt` with `indexOf` and `!==`, then predicts what -1 prints | `request === playlist`, quoted `"request"`, `playlist.includes` with no parentheses, typed songs, printing the index, `+` gluing the 1 onto the text, `spot > 0`, treating -1 as a song number |
+| 7 | program | 8 | Writes the song request program with one comment of help, and meets `includes` and `join` | no prompt, overwriting a spot, adding a duplicate, no message, `alert(arr)`, `join()`, count or list printed too early |
 | 8 | reflect | 3 | Explains `arr[arr.length]` and -1 to a friend | |
 | 9 | submit | | Hands in | |
 | 10 | remove | extra | Removes a song by name with `splice` | `splice(-1, 1)` removing the last song, `spot > 0`, `pop`, one argument to `splice`, a fixed index, the song's name in `splice` |
 | 11 | pick | extra | Prints a random song | no `floor`, `Math.round`, `+ 1`, `Math.random` with no parentheses, fixed length, printing the index |
 
-The first student panel moved `Math.random` to an optional step and folded `join` into the program, because the lab ran 20 minutes over a class period. Step 6 also gives students `toLowerCase`, so that the step teaches searching and -1. The second panel cut step 6's banned-songs branch, because the lab still ran past 45 minutes and that step was the longest.
+The first student panel moved `Math.random` to an optional step and folded `join` into the program, because the lab ran 20 minutes over a class period. Step 6 also gives students `toLowerCase`, so that the step teaches searching and -1. The second panel cut step 6's banned-songs branch, because the lab still ran past 45 minutes and that step was the longest. The third panel moved `includes` to step 7, the first step that needs it.
 
 ## Scaffolding
 

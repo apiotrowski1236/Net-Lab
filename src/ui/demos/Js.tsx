@@ -337,10 +337,17 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
   const shown = useRef(last);
   useLayoutEffect(() => {
     if (side.current) side.current.scrollTop = side.current.scrollHeight;
-    // On a narrow screen the page scrolls, and the output or the note on what to fix can land under the lesson's bottom bar.
-    if (last !== shown.current && matchMedia('(max-width: 900px)').matches) (root.current?.querySelector('.java-checks li.no') ?? side.current)?.scrollIntoView({ block: 'nearest' });
+    if (last !== shown.current) {
+      // The note on what to fix can land past the edge of the panel. On a narrow screen the page scrolls, and the output can land under the lesson's bottom bar.
+      const fix = s.waiting ? undefined : root.current?.querySelector('.java-checks li.no');
+      (fix ?? (matchMedia('(max-width: 900px)').matches ? side.current : undefined))?.scrollIntoView({ block: 'nearest' });
+    }
     shown.current = last;
   }, [last]);
+  // The boxes are the point of a step-through, and on a narrow screen they start below the editor.
+  useLayoutEffect(() => {
+    if (stepping && matchMedia('(max-width: 900px)').matches) side.current?.scrollIntoView({ block: 'nearest' });
+  }, [stepping]);
 
   const fresh = !s.edited && !stepping;
   // Nothing has run on the first move, so its line is the next one, not the last one.
