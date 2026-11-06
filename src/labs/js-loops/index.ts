@@ -53,7 +53,7 @@ export const jsLoopsLab: LabDef = {
       body: md`
         Our school is holding an Arcade Night fundraiser, and you are writing the code for it. Remember that \`console.log\` prints a line in the output panel without a popup.
 
-        The night starts with a countdown.
+        The night starts with a countdown. One trip through a loop is called a **pass**.
 
         1. Press **Run** to see what this loop prints.
         2. Change the loop so that it counts down from 10 to 0.
@@ -68,11 +68,13 @@ export const jsLoopsLab: LabDef = {
       id: 'prizes',
       title: 'Price the prize wall',
       body: md`
-        The prize wall has one prize every 50 tokens, up to \`top\` tokens. This \`for\` loop counts by 1, so it prints far too many prices.
+        The prize wall has one prize every 50 tokens, up to \`top\` tokens. This \`for\` loop counts by 1, so it prints far too many prices. The first line of a \`for\` loop is its **header**, and the last part of the header says how the variable changes after each pass.
 
-        1. Answer the question below before you change the loop.
+        1. Find the question below **Goals**, at the bottom of this step. Answer it before you change the loop.
         2. Fix the loop so that it prints 50, 100, 150, and so on, up to \`top\`.
-        3. Use a running total to work out what it costs to buy one of each prize. Print that total after the loop.
+        3. Work out what it costs to buy one of each prize, and print that total after the loop. Use a **running total**: a variable that starts at 0 above the loop and adds to itself on each pass.
+
+        To add to a variable, you can write \`score = score + 5\` or the short form \`score += 5\`.
       `,
       demos: [prizeEditor],
       goals: [passed('prizes', code.PRICES, 'Print every price, counting up by 50.'), passed('prizes', code.PRIZE_TOTAL, 'Print what one of each prize costs.')],
@@ -118,7 +120,9 @@ export const jsLoopsLab: LabDef = {
         1. Ask for a guess with \`prompt()\`.
         2. Keep asking until the guess matches \`secret\`.
         3. After each wrong guess, print \`Too high\` or \`Too low\`.
-        4. After the loop, print how many guesses it took.
+        4. After the loop, print how many guesses it took. Use a **counter**, which is a running total that adds 1 each time.
+
+        \`prompt()\` gives back a string, even when the player types a number, and a string is never \`===\` to a number. \`Number(prompt("Your guess"))\` turns the answer into a number.
 
         If a prompt keeps coming back and you want to end the run, press **Stop** on the prompt.
       `,
@@ -141,7 +145,7 @@ export const jsLoopsLab: LabDef = {
         1. Print each player's place in line, like \`1. Maya\`.
         2. It is double-token hour. Double every number inside \`tokens\`, then print \`tokens\` after the loop.
 
-        Use the counting \`for\` when you need the index, and \`for...of\` when you only need each item:
+        Use the counting \`for\` when you need the index, and \`for...of\` when you only need each item. Here \`list\` stands for any array, and \`i++\` is a short form of \`i = i + 1\`:
 
         \`\`\`js
         for (let i = 0; i < list.length; i++) {
@@ -166,7 +170,7 @@ export const jsLoopsLab: LabDef = {
 
         1. The team total.
         2. How many scores are 100 or more.
-        3. The top score.
+        3. The top score. Keep the best score so far in a variable, and compare each score with it.
 
         Your code has to work on any list of scores, including a list where every score is negative.
       `,
@@ -228,7 +232,7 @@ export const jsLoopsLab: LabDef = {
           kind: 'text',
           prompt: 'A friend needs two loops: one prints every item in a list, and one keeps asking for a password until it is right. Tell them whether to use `for` or `while` for each loop, and why. Then describe one loop bug you hit in this lab and how you found it.',
           minWords: 40,
-          lines: 5,
+          lines: 7,
         },
       ],
     },
@@ -259,7 +263,7 @@ export const jsLoopsLab: LabDef = {
         3 6 9
         \`\`\`
 
-        Write a loop inside a loop to print the table for any \`size\`. The outer loop picks the row, and the inner loop goes across that row.
+        Write a loop inside a loop to print the table for any \`size\`. The outer loop picks the row, and the inner loop goes across that row. \`console.log\` always ends the line, so build each row in a string, and print the string after the inner loop.
       `,
       demos: [tableEditor],
       goals: [passed('table', code.TOKEN_TABLE, 'Print the token table.')],

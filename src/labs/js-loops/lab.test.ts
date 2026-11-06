@@ -151,7 +151,7 @@ describe('a loop that never gets an acceptable answer', () => {
   test('Stop ends the run, and the step says what to change', () => {
     const state = attempt(editor('guess'), GUESS_STRINGS, ['5']);
     expect(state.waiting).toBeUndefined();
-    expect(state.checks?.[0].note).toBe('`prompt()` gives back a string, and a string is never `===` to a number, so the right guess never matches `secret`. Write `guess = Number(prompt("Your guess"));`.');
+    expect(state.checks?.[0].note).toBe('`prompt()` gives back a string, and a string is never `===` to a number, so the right guess never matches `secret`. Write `guess = Number(prompt("Your guess"));`');
   });
 });
 
@@ -219,7 +219,7 @@ describe('step 2: the prize wall', () => {
 });
 
 describe('step 3: the door code', () => {
-  const lost = 'The answer from the `prompt()` inside the loop is never saved, so `code` keeps the first wrong answer. Write `code = prompt("Try again");`.';
+  const lost = 'The answer from the `prompt()` inside the loop is never saved, so `code` keeps the first wrong answer. Write `code = prompt("Try again");`';
   wrong('door', [
     ['the starting if', swap(DOOR, ['while (code', 'if (code']), 'The door opened after two wrong answers, because an `if` asks only one more time. Change `if` to `while`.'],
     ['a loop that never asks again', swap(DOOR, ['  code = prompt("That is not the code. Try again.");\n', '  console.log("Try again");\n']), 'The loop never asks again, so `code` stays wrong and the loop cannot end. Put `code = prompt("Try again");` inside the loop.'],
@@ -247,7 +247,7 @@ describe('step 4: the guessing game', () => {
   wrong('guess', [
     ['the starting code', '// nothing yet\nlet secret = Math.floor(Math.random() * 10) + 1;\n', 'Ask for a guess with `prompt()`.'],
     ['a loop that never asks again', swap(GUESS, ['  guess = Number(prompt("Guess again"));\n', '']), never],
-    ['a prompt() string compared with ===', GUESS_STRINGS, '`prompt()` gives back a string, and a string is never `===` to a number, so the right guess never matches `secret`. Write `guess = Number(prompt("Your guess"));`.'],
+    ['a prompt() string compared with ===', GUESS_STRINGS, '`prompt()` gives back a string, and a string is never `===` to a number, so the right guess never matches `secret`. Write `guess = Number(prompt("Your guess"));`'],
     ['a new secret inside the loop', swap(GUESS, ['  guesses = guesses + 1;\n', '  guesses = guesses + 1;\n  secret = Math.floor(Math.random() * 10) + 1;\n']), '`secret` gets a new random number inside the loop, so the target keeps moving. Pick `secret` one time, above the loop.'],
     ['let guess inside the loop', swap(GUESS, ['  guess = Number(prompt("Guess again"));', '  let guess = Number(prompt("Guess again"));']), '`let guess` inside the loop makes a second variable, so the condition never sees the new guess. Leave out the word `let` inside the loop.'],
     ['an if in place of the loop', swap(GUESS, ['while (guess !== secret)', 'if (guess !== secret)']), 'The game ended before the player guessed `secret`. An `if` asks one time, so use a `while` loop that runs until the guess matches.'],
@@ -257,7 +257,7 @@ describe('step 4: the guessing game', () => {
     ['a hint on the right guess', swap(GUESS, ['  if (guess > secret) {\n    console.log("Too high");\n  } else {\n    console.log("Too low");\n  }\n  guess = Number(prompt("Guess again"));\n', '  guess = Number(prompt("Guess again"));\n  if (guess > secret) {\n    console.log("Too high");\n  } else {\n    console.log("Too low");\n  }\n'], ['let guess = Number(prompt("Guess a number from 1 to 10"));', 'let guess = 0;']), 'The right guess printed a message too. Only a wrong guess should print `Too high` or `Too low`, so put them inside the loop, before you ask again.'],
     ['hints that ignore secret', swap(GUESS, ['guess > secret', 'guess > 5']), 'Compare the guess with `secret`, so that the messages work for any secret number.'],
     ['no count', swap(GUESS, ['console.log("You got it in " + guesses + " guesses");\n', '']), 'After the loop, print how many guesses the player made. Use a counter that goes up by 1 for each guess.'],
-    ['a counter that stays at 0', swap(GUESS, ['let guesses = 1;', 'let guesses = 0;'], ['  guesses = guesses + 1;\n', '']), 'Your counter stays at 0. Inside the loop, write `guesses = guesses + 1;`.'],
+    ['a counter that stays at 0', swap(GUESS, ['let guesses = 1;', 'let guesses = 0;'], ['  guesses = guesses + 1;\n', '']), 'Your counter stays at 0. Inside the loop, write `guesses = guesses + 1;`'],
     ['a count one short', swap(GUESS, ['let guesses = 1;', 'let guesses = 0;']), 'Three guesses counted as 2, so the first guess is missing from your count. If you ask once above the loop, start the counter at 1.'],
     ['a count one long', swap(GUESS, ['let guesses = 1;', 'let guesses = 2;']), 'Three guesses counted as 4. If you start the counter at 1, ask for the first guess above the loop, or start the counter at 0.'],
     ['the count inside the loop', swap(GUESS, ['  guesses = guesses + 1;\n}\nconsole.log("You got it in " + guesses + " guesses");', '  guesses = guesses + 1;\n  console.log("You got it in " + guesses + " guesses");\n}']), 'The count prints on every pass, because that `console.log` is inside the loop. Move it below the closing `}`.'],
@@ -281,6 +281,7 @@ describe('step 5: the prize line', () => {
   wrong('line', [
     ['the starting code', 'let players = ["Maya", "Dev"];\nlet tokens = [30, 12];\n', 'Print one line for each player from inside a loop.'],
     ['i <= arr.length', swap(LINE, ['i < players.length', 'i <= players.length']), 'The last line says `undefined`, because the loop reads one past the end of `players`. Use `i < players.length`, not `<=`.'],
+    ['tokens doubled and never printed', swap(LINE, ['console.log(tokens);\n', '']), 'The numbers changed. After the loop, print `tokens` with `console.log(tokens);`'],
     ['a renamed array', LINE.replaceAll('players', 'names'), 'Keep the variable named `players`. Your code has to read it, so that it works on any value.'],
     ['starting at 1', places('for (let i = 1; i < players.length; i++) {\n  console.log(i + ". " + players[i]);\n}\n'), 'Your list starts with Bo and skips Ana. The first item is at index 0, so start `i` at 0.'],
     ['i < arr with no .length', swap(LINE, ['i < players.length', 'i < players']), '`i < players` compares a number with a whole array, so the loop never runs. Use `i < players.length`.'],
@@ -291,10 +292,10 @@ describe('step 5: the prize line', () => {
     ['for...of with no place', places('for (const name of players) {\n  console.log(name);\n}\n'), 'Each line needs a place number, like `1. Maya`. A `for...of` loop hands you each name without its position, so use `for (let i = 0; i < players.length; i++)` and print `i + 1`.'],
     ['the print after the loop', places('for (let i = 0; i < players.length; i++) {\n}\nconsole.log(players[0]);\n'), 'That printed one line. Put the `console.log` inside the loop, so that each player gets a line.'],
     ['a semicolon after the header', swap(LINE, ['i < players.length; i++) {', 'i < players.length; i++); {']), 'There is a semicolon right after a `for`, `while`, or `if` header, so that header has nothing to run. Delete the semicolon.'],
-    ['for...of on tokens', doubling('for (let n of tokens) {\n  n = n * 2;\n}\n'), 'A `for...of` loop hands you a copy of each number, so changing that copy leaves `tokens` the same. Use `for (let i = 0; i < tokens.length; i++)` and write `tokens[i] = tokens[i] * 2;`.'],
-    ['tokens[i] * 2 with no assignment', swap(LINE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] * 2;']), 'Writing `tokens[i] * 2` works out an answer and throws it away. Write `tokens[i] = tokens[i] * 2;`.'],
+    ['for...of on tokens', doubling('for (let n of tokens) {\n  n = n * 2;\n}\n'), 'A `for...of` loop hands you a copy of each number, so changing that copy leaves `tokens` the same. Use `for (let i = 0; i < tokens.length; i++)` and write `tokens[i] = tokens[i] * 2;`'],
+    ['tokens[i] * 2 with no assignment', swap(LINE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] * 2;']), 'Writing `tokens[i] * 2` works out an answer and throws it away. Write `tokens[i] = tokens[i] * 2;`'],
     ['replacing the array', swap(LINE, ['tokens[i] = tokens[i] * 2;', 'tokens = tokens[0] * 2;'], ['i < tokens.length', 'i < 1']), '`tokens = ...` replaced the whole array with one number. Write `tokens[i] = tokens[i] * 2;` to change one item.'],
-    ['doubling i', swap(LINE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] = i * 2;']), 'You doubled the index `i`, not the number at that index. Write `tokens[i] = tokens[i] * 2;`.'],
+    ['doubling i', swap(LINE, ['tokens[i] = tokens[i] * 2;', 'tokens[i] = i * 2;']), 'You doubled the index `i`, not the number at that index. Write `tokens[i] = tokens[i] * 2;`'],
     ['<= on tokens', swap(LINE, ['i < tokens.length', 'i <= tokens.length']), '`i <= tokens.length` reaches one past the end. Writing to that index makes `tokens` longer, so the loop never catches up and never ends. Use `i < tokens.length`.'],
     ['push in place of changing each number', swap(LINE, ['for (let i = 0; i < tokens.length; i++) {\n  tokens[i] = tokens[i] * 2;', 'let size = tokens.length;\nfor (let i = 0; i < size; i++) {\n  tokens.push(tokens[i] * 2);']), '`tokens` grew. Change each number where it sits with `tokens[i] = tokens[i] * 2;`, and add no new items.'],
     ['a fixed count on tokens', swap(LINE, ['i < tokens.length', 'i < 3']), 'Your loop stops at a fixed number, so it fails on a longer list. Use `tokens.length` in the condition.'],
@@ -316,7 +317,7 @@ describe('step 6: the laser tag scores', () => {
   wrong('scores', [
     ['the starting code', 'let scores = [85, -20];\n', 'Use a loop to go through `scores`, so that your code works on any list.'],
     ['a renamed array', SCORES.replaceAll('scores', 'points'), 'Keep the variable named `scores`. Your code has to read it, so that it works on any value.'],
-    ['adding i', body('  total = total + i;\n'), 'You added the index `i`, not the score at that index. Write `total = total + scores[i];`.'],
+    ['adding i', body('  total = total + i;\n'), 'You added the index `i`, not the score at that index. Write `total = total + scores[i];`'],
     ['i < arr with no .length', swap(SCORES, ['i < scores.length', 'i < scores']), '`i < scores` compares a number with a whole array, so the loop never runs. Use `i < scores.length`.'],
     ['i <= arr.length', swap(SCORES, ['i < scores.length', 'i <= scores.length']), 'The total came out as `NaN`, because the loop read past the end and added `undefined`. Use `i < scores.length`, not `<=`.'],
     ['starting at 1', swap(SCORES, ['let i = 0', 'let i = 1']), 'Your total is missing the first score. The first item is at index 0, so start `i` at 0.'],
@@ -325,14 +326,14 @@ describe('step 6: the laser tag scores', () => {
     ['typing the answers', 'let scores = [85, -20, 140, 60, 110, -5];\nconsole.log(370);\nconsole.log(2);\nconsole.log(140);\n', 'Use a loop to go through `scores`, so that your code works on any list.'],
     ['> where >= was needed', swap(SCORES, ['scores[i] >= 100', 'scores[i] > 100']), 'A score of exactly 100 counts too. Use `>=`, not `>`.'],
     ['comparing i', swap(SCORES, ['scores[i] >= 100', 'i >= 100']), 'You compared the index `i`, not the score at that index. Write `if (scores[i] >= 100)`.'],
-    ['count + 1 with no assignment', swap(SCORES, ['count = count + 1;', 'count + 1;']), 'Writing `count + 1` works out an answer and throws it away. Write `count = count + 1;`.'],
+    ['count + 1 with no assignment', swap(SCORES, ['count = count + 1;', 'count + 1;']), 'Writing `count + 1` works out an answer and throws it away. Write `count = count + 1;`'],
     ['counting every score', swap(SCORES, ['scores[i] >= 100', 'scores[i] > -100']), 'Your code counted every score. Put `count = count + 1;` inside an `if` that checks for 100 or more.'],
     ['no count', swap(SCORES, ['console.log(count);\n', ''], ['console.log(best);\n', '']), 'Print how many scores are 100 or more on the second line. Use a counter that starts at 0.'],
     ['best starting at 0', swap(SCORES, ['let best = scores[0];', 'let best = 0;']), 'When every score is negative, your code prints 0, and 0 is not in the list. Start `best` at `scores[0]`, not at 0.'],
     ['best with no if', swap(SCORES, ['  if (scores[i] > best) {\n    best = scores[i];\n  }\n', '  best = scores[i];\n']), 'Your code printed the last score. Change `best` only when a score is bigger than `best`, with an `if`.'],
     ['< where > was needed', swap(SCORES, ['scores[i] > best', 'scores[i] < best']), 'Your code found the lowest score. Use `>` to look for a bigger one.'],
-    ['storing i', swap(SCORES, ['    best = scores[i];\n', '    best = i;\n']), 'You stored the index `i`, not the score at that index. Write `best = scores[i];`.'],
-    ['storing i, with best starting at 0', swap(SCORES, ['    best = scores[i];\n', '    best = i;\n'], ['let best = scores[0];', 'let best = 0;']), 'You stored the index `i`, not the score at that index. Write `best = scores[i];`.'],
+    ['storing i', swap(SCORES, ['    best = scores[i];\n', '    best = i;\n']), 'You stored the index `i`, not the score at that index. Write `best = scores[i];`'],
+    ['storing i, with best starting at 0', swap(SCORES, ['    best = scores[i];\n', '    best = i;\n'], ['let best = scores[0];', 'let best = 0;']), 'You stored the index `i`, not the score at that index. Write `best = scores[i];`'],
     ['best that never changes', swap(SCORES, ['    best = scores[i];\n', ''], ['let best = scores[0];', 'let best = 0;']), 'Your top score stayed at 0. Inside the loop, give `best` a new value when a score is bigger than `best`.'],
     ['no top score', swap(SCORES, ['console.log(best);\n', '']), 'Print the top score on the third line.'],
   ]);
@@ -358,7 +359,7 @@ describe('step 7: the closing report', () => {
     ['a fixed count in both loops', REPORT.replaceAll('i < booths.length', 'i < 4'), 'Loop 1 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.'],
     ['<= in loop 1', swap(REPORT, ['i < booths.length', 'i <= booths.length']), 'The total came out as `NaN`, because the loop read past the end and added `undefined`. Use `i < booths.length`.'],
     ['a fixed count in loop 2', swap(REPORT, ['i < booths.length; i++) {\n  console.log("Booth', 'i < 4; i++) {\n  console.log("Booth']), 'Loop 2 stops at a fixed number, so it fails on a shorter list. Use `booths.length` in the condition.'],
-    ['loop 3 left as it was', swap(REPORT, ['lights = lights - 25;', 'lights - 25;']), '`lights - 25` works out an answer and throws it away, so `lights` stays at 100 forever. Write `lights = lights - 25;`.'],
+    ['loop 3 left as it was', swap(REPORT, ['lights = lights - 25;', 'lights - 25;']), '`lights - 25` works out an answer and throws it away, so `lights` stays at 100 forever. Write `lights = lights - 25;`'],
     ['loop 3 going up', swap(REPORT, ['lights = lights - 25;', 'lights = lights + 25;']), 'The loop still never ends. `lights` has to go down by 25 on every pass until it reaches 0.'],
     ['loop 3 jumping to 0', swap(REPORT, ['lights = lights - 25;', 'lights = 0;']), 'Loop 3 ran 1 time. Dimming by 25 from 100 takes 4 passes, so change `lights` by 25 on each pass.'],
     ['loop 3 with its condition flipped', swap(REPORT, ['lights > 0', 'lights < 0']), 'Loop 3 has to run, so keep the loop and its condition `lights > 0`. The lights should go from 100 to 0.'],
@@ -377,20 +378,20 @@ describe('step 7: the closing report', () => {
 describe('step 8: the finalists', () => {
   const pushing = (line: string) => swap(FINALS, ['finalists.push(players[i]);', line]);
   wrong('finals', [
-    ['the starting code', 'let players = ["Maya", "Dev"];\nlet scores = [140, 85];\n', 'Make an array named `finalists` above the loop: `let finalists = [];`.'],
+    ['the starting code', 'let players = ["Maya", "Dev"];\nlet scores = [140, 85];\n', 'Make an array named `finalists` above the loop: `let finalists = [];`'],
     ['let finalists inside the loop', swap(FINALS, ['let finalists = [];\n', ''], ['  if (scores[i] >= 100) {', '  let finalists = [];\n  if (scores[i] >= 100) {']), '`let finalists = []` is inside the loop, so a new empty array starts on every pass. Move it above the loop.'],
     ['a renamed array', FINALS.replaceAll('scores', 'points'), 'Keep the variable named `scores`. Your code has to read it, so that it works on any value.'],
     ['assigning push', pushing('finalists = finalists.push(players[i]);'), '`push` changes the array and gives back its new length, so `finalists = finalists.push(...)` replaces your array with a number. Write `finalists.push(...);` with no `finalists =` in front.'],
-    ['pushing i', pushing('finalists.push(i);'), 'You pushed the index `i`, not the player at that index. Write `finalists.push(players[i]);`.'],
-    ['pushing the scores', pushing('finalists.push(scores[i]);'), 'You pushed the scores. `finalists` should hold the names, so write `finalists.push(players[i]);`.'],
-    ['pushing the whole array', pushing('finalists.push(players);'), 'You pushed the whole `players` array. Push one name: `finalists.push(players[i]);`.'],
+    ['pushing i', pushing('finalists.push(i);'), 'You pushed the index `i`, not the player at that index. Write `finalists.push(players[i]);`'],
+    ['pushing the scores', pushing('finalists.push(scores[i]);'), 'You pushed the scores. `finalists` should hold the names, so write `finalists.push(players[i]);`'],
+    ['pushing the whole array', pushing('finalists.push(players);'), 'You pushed the whole `players` array. Push one name: `finalists.push(players[i]);`'],
     ['no if', swap(FINALS, ['  if (scores[i] >= 100) {\n    finalists.push(players[i]);\n  }\n', '  finalists.push(players[i]);\n']), 'Everyone made the finals. Put the `push` inside an `if` that checks for a score of 100 or more.'],
     ['> where >= was needed', swap(FINALS, ['scores[i] >= 100', 'scores[i] > 100']), 'A score of exactly 100 makes the finals too. Use `>=`, not `>`.'],
     ['i < arr with no .length', swap(FINALS, ['i < players.length', 'i < players']), '`i < players` compares a number with a whole array, so the loop never runs. Use `i < players.length`.'],
     ['a typed list', 'let players = ["Maya", "Dev"];\nlet scores = [140, 85];\nlet finalists = ["Maya"];\nconsole.log(finalists);\n', 'Use a loop to go through the players, and `push` each finalist.'],
     ['for...of with no index', swap(FINALS, ['for (let i = 0; i < players.length; i++) {\n  if (scores[i] >= 100) {\n    finalists.push(players[i]);\n  }\n}', 'for (const p of players) {\n  if (scores[p] >= 100) {\n    finalists.push(p);\n  }\n}']), 'A `for...of` loop hands you each name without its index, and the score sits at the same index in `scores`. Use `for (let i = 0; i < players.length; i++)`, so that `i` works on both arrays.'],
     ['printing inside the loop', swap(FINALS, ['    finalists.push(players[i]);\n  }\n}\nconsole.log(finalists);', '    finalists.push(players[i]);\n    console.log(finalists);\n  }\n}']), '`finalists` printed on every pass, because that `console.log` is inside the loop. Move it below the closing `}`.'],
-    ['no print', swap(FINALS, ['console.log(finalists);\n', '']), 'After the loop, write `console.log(finalists);`.'],
+    ['no print', swap(FINALS, ['console.log(finalists);\n', '']), 'After the loop, write `console.log(finalists);`'],
     ['a condition on players', swap(FINALS, ['scores[i] >= 100', 'players[i] !== ""']), 'Everyone made the finals. Put the `push` inside an `if` that checks for a score of 100 or more.'],
   ]);
   right('finals', [
