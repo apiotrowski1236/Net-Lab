@@ -4731,7 +4731,8 @@ button.pl-tile:active {
 .java-checks li.ok {
   color: var(--good-ink);
 }
-.java-checks li.no {
+.java-checks li.no,
+.java-checks li.next {
   color: var(--ink);
 }
 .java-mark {
@@ -4746,6 +4747,9 @@ button.pl-tile:active {
   white-space: pre-line;
   color: var(--bad-ink);
   font-size: 13.5px;
+}
+.java-checks li.next .java-note {
+  color: inherit;
 }
 .objects {
   display: flex;

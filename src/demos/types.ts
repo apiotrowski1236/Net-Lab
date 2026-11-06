@@ -184,6 +184,8 @@ export interface JsCheck {
   test: (c: JsCheckCtx) => string | undefined;
   /** Shown one at a time by the Hint button on the first unmet check. The last one sits close to the answer. */
   hints?: string[];
+  /** What's left is the next task, not a mistake, so the row keeps an open circle and a plain note. */
+  next?: boolean;
 }
 
 /**

@@ -272,11 +272,11 @@ const BELONGS: Record<string, string> = {
 };
 
 /** `totl is not defined`. */
-export function notDefinedHelp(name: string, inScope: Iterable<string>, madeInside?: number): string {
+export function notDefinedHelp(name: string, inScope: Iterable<string>, madeInside?: { line: number; inLoop: boolean }): string {
   const lower = lowercaseKeyword(name);
   if (lower) return `JavaScript keywords are all lowercase. Write ${lower}, not ${name}.`;
   if (Object.hasOwn(BELONGS, name)) return `${name} belongs to ${BELONGS[name]}. Put the name of your variable and a dot in front of it.`;
-  if (madeInside) return `There is no variable called ${name} on this line. The ${name} on line ${madeInside} only exists inside its own loop or { }. Move this line inside it.`;
+  if (madeInside) return `There is no variable called ${name} on this line. The ${name} on line ${madeInside.line} only exists inside its ${madeInside.inLoop ? 'loop' : '{ }'}. Move this line inside ${madeInside.inLoop ? 'it' : 'them'}.`;
   const near = closestName(name, inScope);
   if (near) {
     const caps = near.toLowerCase() === name.toLowerCase();

@@ -220,9 +220,9 @@ function CheckRow({ check: c, result: r, note, first, shown, send }: { check: Js
     seen.current = shown;
   }, [shown]);
   return (
-    <li ref={row} class={r?.ok ? 'ok' : note ? 'no' : ''}>
+    <li ref={row} class={r?.ok ? 'ok' : !note ? '' : c.next ? 'next' : 'no'}>
       <span class="java-mark" aria-hidden="true">
-        {r?.ok ? '✓' : note ? '✗' : '○'}
+        {r?.ok ? '✓' : note && !c.next ? '✗' : '○'}
       </span>
       <span class="js-check">
         {c.label}
@@ -339,7 +339,7 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
     if (side.current) side.current.scrollTop = side.current.scrollHeight;
     if (last !== shown.current) {
       // The note on what to fix can land past the edge of the panel. On a narrow screen the page scrolls, and the output can land under the lesson's bottom bar.
-      const fix = s.waiting ? undefined : root.current?.querySelector('.java-checks li.no');
+      const fix = s.waiting ? undefined : root.current?.querySelector('.java-checks li.no, .java-checks li.next');
       (fix ?? (matchMedia('(max-width: 900px)').matches ? side.current : undefined))?.scrollIntoView({ block: 'nearest' });
     }
     shown.current = last;

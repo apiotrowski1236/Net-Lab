@@ -176,10 +176,10 @@ export const jsDomLab: LabDef = {
         cell.style.backgroundColor = color;
         \`\`\`
 
-        **hsl** is a way to write a color. Its first number picks a spot on the color wheel, from 0 to 360. Past 360, the colors start over. The other two numbers set how strong and how light the color is. When \`i\` is 3, \`i * 5\` is 15, so the color is \`hsl(15, 80%, 60%)\`.
-
         5. Change \`count\` to 400, and press **Run**.
         6. Above your page, read how many elements your script added and how many lines of code it took. Blank lines and comments do not count.
+
+        **hsl** is a way to write a color. Its first number picks a spot on the color wheel, from 0 to 360. Past 360, the colors start over. The other two numbers set how strong and how light the color is. When \`i\` is 3, \`i * 5\` is 15, so the color is \`hsl(15, 80%, 60%)\`.
       `,
       demos: [editor('grid', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY])],
       goals: [
@@ -301,7 +301,7 @@ export const jsDomLab: LabDef = {
         A page can run code when someone clicks. \`addEventListener\` takes the kind of event and a function, and the function runs on each click. Your script already has this shape.
 
         1. Inside the function, make one \`div\` with the class \`cell\`, and add it to \`grid\`.
-        2. Give it a color you choose, like \`"gold"\`. This function has no loop, so there is no \`i\` to use.
+        2. To give it a color, pick one like \`"gold"\`. This function has no loop, so there is no \`i\` to use.
         3. Press **Run**, then click **Add a square** on your page a few times.
       `,
       demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS, code.CLICKED])],

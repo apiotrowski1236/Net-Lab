@@ -783,8 +783,11 @@ class Interp implements Runtime {
     }
     const names = new Set<string>();
     for (let c: Scope | null = s; c; c = c.parent) for (const k of c.vars.keys()) names.add(k);
-    const made = new Query(this.programs).declarations().find((d) => d.name === name && d.scope !== 'top' && d.file === pos.file);
-    this.throwError('ReferenceError', `${name} is not defined`, 'not-defined', pos, notDefinedHelp(name, names, made?.line));
+    const query = new Query(this.programs);
+    const made = query.declarations().find((d) => d.name === name && d.scope !== 'top' && d.file === pos.file);
+    // A `for` header's variable counts as outside the body, so find its loop by line.
+    const inLoop = !!made && (made.inLoop || query.loops().some((l) => l.file === made.file && l.line === made.line));
+    this.throwError('ReferenceError', `${name} is not defined`, 'not-defined', pos, notDefinedHelp(name, names, made && { line: made.line, inLoop }));
   }
 
   private write(name: string, v: Value, s: Scope, pos: Pos): void {

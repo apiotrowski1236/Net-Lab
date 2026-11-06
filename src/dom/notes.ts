@@ -275,7 +275,7 @@ export class PageLog {
       // The note goes on the outermost loose element: adding that one adds the rest.
       if (top !== m.el && top.kind === 'element') continue;
       const key = `${m.file}:${m.line}`;
-      if (!out.has(key)) out.set(key, { rule: 'never-added', file: m.file, line: m.line, text: `The <${m.el.tag}> element made on this line never went on the page. Use appendChild to add it to an element that is on the page.` });
+      if (!out.has(key)) out.set(key, { rule: 'never-added', file: m.file, line: m.line, text: `The <${m.el.tag}> element made on this line never went on the page. Use appendChild to add it to the element that should hold it.` });
     }
     return [...out.values()];
   }

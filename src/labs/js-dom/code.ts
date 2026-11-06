@@ -193,8 +193,9 @@ let list = document.getElementById("list");
 export const GRID_SCRIPT = `let count = 144;
 let grid = document.getElementById("grid");
 
-// Write your loop here. Put these two lines inside it,
-// after you make cell, and take off the // in front:
+// Write your loop here.
+// Inside it, after you make cell, add
+// these two lines with no // in front:
 // let color = "hsl(" + i * 5 + ", 80%, 60%)";
 // cell.style.backgroundColor = color;
 `;
@@ -207,7 +208,8 @@ export const CARDS_SCRIPT = `// Make your two arrays here.
 // Find the element with the id cards here.
 
 // Write your loop here. Inside it:
-// make the div with the class card, the h3, and the p
+// make the div with the class card
+// make the h3 and the p
 // set the text of the h3 and the p
 // add the h3 and the p to the div
 // add the div to cards
@@ -316,6 +318,7 @@ export const ITEMS: JsCheck = {
     const got = p.texts('#list li');
     // The array as it ended, since a student may push to it.
     const want = Array.isArray(r.vars.favorites) ? r.vars.favorites.map(String) : FIVE;
+    if (got.length && got.every((t) => !t)) return 'Every item is empty. Use `favorites[i]`, so each item shows one string.';
     if (got.length > 1 && new Set(got).size === 1) return 'Every item shows the same text. Use `favorites[i]` with no quotes, so each item shows one string.';
     if (got.length === want.length && got.every((t, i) => has(t, want[i]))) return undefined;
     if (!got.length) {
@@ -336,6 +339,7 @@ export const ITEMS: JsCheck = {
 export const ONE_MORE: JsCheck = {
   id: 'one-more',
   label: 'Add one more string to the array',
+  next: true,
   test(c) {
     const a = c.vars.favorites;
     return Array.isArray(a) && a.length > 3 ? undefined : 'Add one more string to `favorites`, then press Run. Change only the array.';
@@ -382,6 +386,7 @@ export const COLORS: JsCheck = {
 export const MANY: JsCheck = {
   id: 'many',
   label: 'Change count to 400',
+  next: true,
   test(c) {
     return c.page!.count('#grid .cell') >= 400 ? undefined : 'Change `count` to 400 on the first line, then press Run. The loop stays the same.';
   },
@@ -438,7 +443,7 @@ function rowsIn(vars: Record<string, unknown>): { arrays: Record<string, Plain[]
 function otherData(vars: Record<string, unknown>): { data: Record<string, unknown>; want: string[][] } | undefined {
   const { arrays, objects } = rowsIn(vars);
   const names = Object.keys(arrays);
-  const made = (label: string, row: number, like: Plain): Plain => (typeof like === 'number' ? 7000 + row * 11 : `${label}zq${row}`);
+  const made = (label: string, row: number, like: Plain): Plain => (typeof like === 'number' ? 7000 + row * 11 : `${label}zq${row}q`);
   if (names.length) {
     const size = arrays[names[0]].length + 1;
     const data = Object.fromEntries(names.map((n, k) => [n, Array.from({ length: size }, (_, row) => made(`v${k}`, row, arrays[n][0]))]));
@@ -478,7 +483,7 @@ export const CARDS: JsCheck = {
     const n = p.count('#cards .card');
     if (n === size) return undefined;
     const any = p.count('#cards > *');
-    if (!any) return 'The `cards` element is empty. Write a loop that adds one `div` to it for each index.';
+    if (!any) return 'The `cards` element is empty. Inside a loop, add one `div` to it for each index.';
     if (p.count('#cards > div') === size) return 'The cards are there, but they have no border or size yet. Give each one the class `card`.';
     if (any === 1 && noted(c.notes, 'moved-same-element')) return 'The page has one card, because the loop adds the same element each time. Move `document.createElement("div")` inside the loop.';
     if (!n) return 'The element with the id `cards` has no cards in it yet. Each card is a `div` with the class `card`. Add the `h3` and the `p` to the card, then add the card to `cards`.';
@@ -500,9 +505,13 @@ export const FOLLOWS: JsCheck = {
     if (cards.length !== other.want.length) return 'The cards did not follow your arrays. Use the arrays and `.length` in the loop, so a new item makes a new card.';
     if (r.page!.all('#cards .card').every((n) => !n.text)) return 'Your cards are empty. Add the `h3` and the `p` to each card, not to the element with the id `cards`.';
     const right = (card: string, row: string[]) => row.filter((v) => card.includes(v.toLowerCase())).length;
+    const counts = other.want.map((row, i) => right(cards[i], row));
     const differ = new Set(cards).size > 1;
-    if (differ && other.want.every((row, i) => right(cards[i], row) >= 2)) return undefined;
-    if (differ && other.want.every((row, i) => right(cards[i], row) >= 1)) return noted(c.notes, 'never-added') ? 'One element from each card never went on it. Add both the `h3` and the `p` to the card with `appendChild`.' : 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
+    // A whole array on a card holds that card's value too, so look for the values of the other cards.
+    if (differ && other.want.some((row, i) => cards.some((card, j) => j !== i && right(card, row) > 0))) return 'Some cards show values from other cards. Use `titles[i]` and `details[i]`, not the whole arrays, so each card shows only its own values.';
+    if (differ && counts.every((n) => n >= 2)) return undefined;
+    if (counts[counts.length - 1] > counts[0]) return 'Only the last card has both of its values. Adding an element again moves it, so make the `h3` and the `p` inside the loop.';
+    if (differ && counts.every((n) => n >= 1)) return noted(c.notes, 'never-added') ? 'Each card is missing one element. Add both the `h3` and the `p` to the card with `appendChild`.' : 'Each card needs both of its values. Use `[i]` on both arrays, and put both values on the card.';
     return 'The cards do not change from one to the next. Use `titles[i]` and `details[i]` in the loop, so each card shows its own values.';
   },
   hints: ['Each card needs a title and a detail from the same index.', 'Inside the loop, make an `h3` and a `p`, and add both to the card.', 'Write `heading.textContent = titles[i];` and `text.textContent = details[i];`, then `card.appendChild(heading);` and `card.appendChild(text);`'],
@@ -520,6 +529,8 @@ export const CONTENTS: JsCheck = {
     const got = r.page!.all('#toc > *').map((n) => n.text);
     if (got.length === OTHER_HEADINGS.length && got.every((t, i) => has(t, OTHER_HEADINGS[i]))) return undefined;
     if (!got.length) return 'The table of contents is empty. In a loop, add one `<li>` to the element with the id `toc`.';
+    if (got.every((t) => !t)) return 'Every item is empty. Use `headings[i].textContent`, so each item shows its own heading.';
+    if (noted(c.notes, 'element-as-text')) return 'The items show the name of an element, not its words. Use `headings[i].textContent`, so each item shows its own heading.';
     if (got.length > 1 && new Set(got).size === 1) return 'Every item shows the same text. Use `headings[i].textContent`, so each item shows its own heading.';
     if (got.length === HEADINGS.length && got.every((t, i) => has(t, HEADINGS[i]))) return 'This list has the right words, but it was typed by hand. Read each heading\'s `textContent` in the loop, so the list follows the page.';
     return 'The table of contents does not match the headings. Add one `<li>` for each `h2`, in order, with that heading\'s text.';
@@ -533,6 +544,7 @@ export const ADDS: JsCheck = {
   test(c) {
     const start = c.run().page!.count('#grid .cell');
     const r = c.run({ clicks: ['#more', '#more', '#more'] });
+    if (r.error?.msg === 'i is not defined') return 'This function has no loop, so there is no `i`. Pick one color, like `"gold"`.';
     if (!r.ok) return c.ok ? 'Your code stops when the button is clicked. Click the button on your page to see the error.' : STOPPED;
     const added = r.page!.count('#grid .cell') - start;
     if (added === 3) return undefined;
@@ -548,6 +560,7 @@ export const ADDS: JsCheck = {
 export const CLICKED: JsCheck = {
   id: 'clicked',
   label: 'Click the button on your page',
+  next: true,
   test: (c) => (c.clicks ? undefined : 'Your code is ready. Click the button on your page to try it.'),
   hints: ['Press Run first, so your page has your new code.', 'Click the button on your page, above the output.'],
 };
