@@ -155,7 +155,7 @@ describe('a loop that never gets an acceptable answer', () => {
     expect(state.notes).toBeUndefined();
     state = jsModel.apply(s, state, { answer: '5' });
     expect(state.waiting?.message).toBe('Guess again');
-    expect(state.notes?.[0].text).toBe('prompt() always gives back a string, and a string is never === to a number, so guess !== secret is always true. Turn every answer into a number first: let age = Number(prompt("How old are you?"));');
+    expect(state.notes?.[0].text).toBe('prompt() always gives back a string, and a string is never === to a number, so guess !== secret is always true. Fix it on each line with a prompt(), like this: let age = Number(prompt("How old are you?"));');
   });
 
   test('Stop ends the run, and the step says what to change', () => {
@@ -324,8 +324,8 @@ describe('step 6: the top score', () => {
     ['i < arr with no .length', swap(SCORES, ['i < scores.length', 'i < scores']), '`i < scores` compares a number with a whole array, so the loop never runs. Use `i < scores.length`.'],
     ['typing the answer', 'let scores = [85, -20, 140, 60, 110, -5];\nconsole.log(140);\n', 'Use a loop to go through `scores`, so that your code works on any list.'],
     ['printing inside the loop', swap(SCORES, ['  }\n}\nconsole.log(best);', '  }\n  console.log(best);\n}']), 'Your top score prints on every pass, because that `console.log` is inside the loop. Move it below the closing `}`.'],
-    ['best starting at 0', swap(SCORES, ['let best = scores[0];', 'let best = 0;']), 'When every score is negative, your code prints 0, and 0 is not in the list. Start `best` at `scores[0]`, so that it works on any list.'],
-    ['best typed in from this list', swap(SCORES, ['let best = scores[0];', 'let best = 85;']), 'When every score is negative, your code prints 85, and 85 is not in the list. Start `best` at `scores[0]`, so that it works on any list.'],
+    ['best starting at 0', swap(SCORES, ['let best = scores[0];', 'let best = 0;']), 'On a list where every score is negative, your code prints 0, and 0 is not in that list. Start `best` from the list itself, not from a number you type in.'],
+    ['best typed in from this list', swap(SCORES, ['let best = scores[0];', 'let best = 85;']), 'On a list where every score is negative, your code prints 85, and 85 is not in that list. Start `best` from the list itself, not from a number you type in.'],
     ['best with no if', swap(SCORES, noIf), 'Your code printed the last score. Change `best` only when a score is bigger than `best`, with an `if`.'],
     ['< where > was needed', swap(SCORES, ['scores[i] > best', 'scores[i] < best']), 'Your code found the lowest score. Use `>` to look for a bigger one.'],
     ['storing i', swap(SCORES, ['    best = scores[i];\n', '    best = i;\n']), 'You stored the index `i`, not the score at that index. Write `best = scores[i];`'],
@@ -341,7 +341,7 @@ describe('step 6: the top score', () => {
   ]);
 });
 
-describe('step 7: the closing report', () => {
+describe('step 7: the end-of-night report', () => {
   wrong('report', [
     ['the starting code', jsModel.init(editor('report')).files[0].text, 'The total is only the last booth, so something erases it on every pass. Think about what you saw in Step through.'],
     ['let total inside the loop', swap(REPORT, ['  total = total + booths[i];\n', '  let total = 0;\n  total = total + booths[i];\n']), '`let total` inside the loop makes a second variable, so the total above the loop stays 0. Leave out the word `let`.'],

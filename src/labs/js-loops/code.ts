@@ -88,7 +88,7 @@ export const COUNTS_DOWN = check(
     if (lastOf(n) === 1) return 'Your countdown stops at 1, so 0 never prints. `count > 0` ends the loop one pass too soon.';
     return same(n, TEN_TO_ZERO) ? undefined : 'Print every number from 10 down to 0, one on each line.';
   },
-  ['Three parts of the loop need to change: where `count` starts, the condition, and the line that updates `count`.', 'The loop should keep going while `count` is 0 or more.', 'Use `let count = 10;`, then `while (count >= 0)`, then `count = count - 1;` inside the loop.'],
+  ['Look at all three parts of the loop: where `count` starts, the condition, and the line that updates `count`.', 'The loop should keep going while `count` is 0 or more.', 'Use `let count = 10;`, then `while (count >= 0)`, then `count = count - 1;` inside the loop.'],
 );
 
 export const DOORS_OPEN = check(
@@ -217,7 +217,7 @@ export const GUESS_START = script(`let secret = Math.floor(Math.random() * 10) +
 //   Ask again.
 //   Add 1 to the counter.
 
-// Print how many guesses it took.
+// Print a message with the number of guesses.
 `);
 
 const GAME = { data: { secret: 4 }, prompts: ['9', '2', '4', '4', '4', '4'] };
@@ -379,7 +379,7 @@ export const TOP_SCORE = check(
     const isIndex = (n: number | undefined, list: number[]) => n !== undefined && n > 0 && n < list.length && !list.includes(n);
     if (mixed.includes(120) && bad.includes(-2) && printed({ scores: [3, 9, 4] }).includes(9)) return undefined;
     if (isIndex(mixed[0], MIXED.scores) || isIndex(bad[0], ALL_NEGATIVE.scores)) return 'You stored the index `i`, not the score at that index. Write `best = scores[i];`';
-    if (mixed.includes(120) && bad.length && !ALL_NEGATIVE.scores.includes(bad[0])) return `When every score is negative, your code prints ${bad[0]}, and ${bad[0]} is not in the list. Start \`best\` at \`scores[0]\`, so that it works on any list.`;
+    if (mixed.includes(120) && bad.length && !ALL_NEGATIVE.scores.includes(bad[0])) return `On a list where every score is negative, your code prints ${bad[0]}, and ${bad[0]} is not in that list. Start \`best\` from the list itself, not from a number you type in.`;
     if (mixed.includes(7)) return 'Your code printed the last score. Change `best` only when a score is bigger than `best`, with an `if`.';
     if (mixed.includes(-3)) return 'Your code found the lowest score. Use `>` to look for a bigger one.';
     if (mixed.includes(0)) return 'Your top score stayed at 0. Inside the loop, give `best` a new value when a score is bigger than `best`.';
@@ -388,7 +388,7 @@ export const TOP_SCORE = check(
   ['Keep the best score so far in a variable, and start it at the first score in the list.', 'On each pass, an `if` asks whether this score is bigger than `best`.', 'Write `let best = scores[0];` above the loop. Inside the loop, use an `if` that gives `best` the new score when that score is bigger than `best`.'],
 );
 
-// --- step 7: fix the closing report ------------------------------------------
+// --- step 7: fix the end-of-night report ------------------------------------------
 
 export const REPORT_START = script(`let booths = [40, 15, 25, 20];
 
@@ -510,7 +510,7 @@ export const FINALISTS = check(
     if (!got.length && c.loops().some((l) => l.kind === 'for-of')) return 'A `for...of` loop hands you each name without its index, and the score sits at the same index in `scores`. Use `for (let i = 0; i < players.length; i++)`, so that `i` works on both arrays.';
     return '`finalists` should hold the name of each player whose score is 100 or more.';
   },
-  ['Each score belongs to the player at the same index: `scores[i]` belongs to `players[i]`.', 'Start with `let finalists = [];` above the loop. Inside the loop, use an `if` on `scores[i]`.', 'Write `if (scores[i] >= 100) { finalists.push(players[i]); }` inside the loop.'],
+  ['Each score belongs to the player at the same index: `scores[i]` belongs to `players[i]`.', 'Start with `let finalists = [];` above the loop. Inside the loop, use an `if` on `scores[i]`. A score of exactly 100 counts.', 'Write `if (scores[i] >= 100) { finalists.push(players[i]); }` inside the loop.'],
 );
 
 export const SHOW_FINALISTS = check(

@@ -140,7 +140,7 @@ export const jsLoopsSolution: LabSolution = {
   finals: { moves: on('finals', ...write(FINALS)) },
   reflect: {
     text: {
-      'which-loop': 'They should use while for the die, because nobody knows how many rolls it takes. My bug was a total that stayed at the last number. Step through showed it going back to 0 on every pass.',
+      'which-loop': 'They should use while for the number cube, because nobody knows how many rolls it takes. My bug was a total that stayed at the last number. Step through showed it going back to 0 on every pass.',
     },
   },
   table: { moves: on('table', ...write(TABLE)) },

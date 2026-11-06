@@ -78,7 +78,7 @@ export function ExtraChallengeBanner({ session }: { session: LabSession }) {
     text = "You've worked on the challenge since you last handed in. Hand in your report again so your teacher sees it.";
     label = endpoint ? 'Submit again with my challenge work' : 'Download my updated report';
   } else {
-    text = `${noPoints} Your last report has all your work so far. If you do more here, hand in your report again.`;
+    text = `${noPoints} You already handed in a report. If you change any of your work, here or on an earlier step, hand in your report again.`;
     label = endpoint ? 'Submit again' : 'Download my report again';
   }
   return (

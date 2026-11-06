@@ -386,7 +386,7 @@ function declaredOutside(name: string, loop: Loop, c: Ctx): boolean {
 
 function promptCompare(n: Node, c: Ctx): void {
   if (n.k !== 'binary' || !c.run?.facts.promptCompare.some((f) => f.file === n.pos.file && f.off === n.pos.off)) return;
-  c.add('prompt-compare', n.pos.line, `prompt() always gives back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Turn every answer into a number first: let age = Number(prompt("How old are you?"));`);
+  c.add('prompt-compare', n.pos.line, `prompt() always gives back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Fix it on each line with a prompt(), like this: let age = Number(prompt("How old are you?"));`);
 }
 
 function alertExtraArgs(n: Node, c: Ctx, alertIsMine: boolean): void {

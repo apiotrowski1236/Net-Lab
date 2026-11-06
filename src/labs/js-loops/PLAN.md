@@ -2,7 +2,7 @@
 
 Status: built. Code: `index.ts`, `code.ts`, `solution.ts`, `lab.test.ts`.
 
-A guided practice lab for Intro CS, after the lecture on loops and after the arrays lab. Students write loops for one evening at a school arcade night: the countdown to opening, the prize wall, the door code, a guessing game, the prize line, laser tag scores, a broken closing report, and the finals. There is no HTML or DOM here, and no one writes a function.
+A guided practice lab for Intro CS, after the lecture on loops and after the arrays lab. Students write loops for one evening at a school arcade night: the countdown to opening, the prize wall, the door code, a guessing game, the prize line, laser tag scores, a broken end-of-night report, and the finals. There is no HTML or DOM here, and no one writes a function.
 
 Each step is a short task. The editor carries the step: `JsCheck`s in `code.ts` name the mistake, and each one has a hint ladder that ends close to the answer. A check decides by running the code with other data. It reads the source only after a failure, to pick the note that names the mistake.
 
@@ -18,7 +18,7 @@ Each step is a short task. The editor carries the step: `JsCheck`s in `code.ts` 
 | 6 | scores | Print the top score | finding the largest | One array and one comment |
 | 7 | report | Watch one loop in Step through, then Run and fix all three | debugging, the loop stop, reading output | Three bugs, and a required Step through |
 | 8 | finals | Build `finalists` from two arrays | `push` inside a loop, matching arrays by index | Two arrays and one comment |
-| 9 | reflect | Pick a loop for rolling a die, and describe one bug | choosing a loop | Text question, 30 words |
+| 9 | reflect | Pick a loop for rolling a number cube, and describe one bug | choosing a loop | Text question, 30 words |
 | 10 | submit | Submit | | |
 | 11 | table | Optional extra challenge: the token table | nested loops | No points |
 
