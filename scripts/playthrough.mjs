@@ -133,6 +133,8 @@ try {
     const profile = { id: STUDENT, name: 'Pat Playthrough', period: 'Period 1', createdAt: 0 };
     await ctx.addInitScript(
       ({ p, profile, theme }) => {
+        // This runs in every frame, and a page preview's sandboxed frame has no storage.
+        if (window !== window.top) return;
         if (sessionStorage.getItem('seeded')) return;
         sessionStorage.setItem('seeded', '1');
         localStorage.setItem('netlab:v1:profile', JSON.stringify(profile));
