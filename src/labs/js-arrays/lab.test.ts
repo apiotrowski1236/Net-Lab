@@ -5,7 +5,7 @@ import { LabSession } from '../../runtime/session';
 import { buildReport } from '../../store/report';
 import { playStep } from '../solution';
 import { jsArraysLab as lab } from './index';
-import { CHANGE_DONE, EDGES_DONE, jsArraysSolution, MAKE_DONE, PROGRAM_DONE, READ_DONE, REMOVE_DONE, SEARCH_DONE, SHOW_DONE, WARMUP_DONE } from './solution';
+import { CHANGE_DONE, EDGES_DONE, jsArraysSolution, MAKE_DONE, PROGRAM_DONE, READ_DONE, PICK_DONE, REMOVE_DONE, SEARCH_DONE, WARMUP_DONE } from './solution';
 
 const spec = (step: string, demo = step): JsSpec => lab.steps.find((s) => s.id === step)!.demos!.find((d) => d.id === demo) as JsSpec;
 
@@ -53,11 +53,11 @@ describe('starting code', () => {
   });
 
   test('scaffolding fades: the last required step gives one comment', () => {
-    expect(spec('program').files[0].text.trim().split('\n')).toEqual(['// The request line for the dance.']);
+    expect(spec('program').files[0].text.trim().split('\n')).toEqual(['// Song requests for the dance.']);
   });
 
   test('no required step uses a loop, in its code or its answer key', () => {
-    for (const code of [WARMUP_DONE, MAKE_DONE, READ_DONE, CHANGE_DONE, EDGES_DONE, SEARCH_DONE, SHOW_DONE, PROGRAM_DONE]) expect(code).not.toMatch(/\b(for|while)\s*\(/);
+    for (const code of [WARMUP_DONE, MAKE_DONE, READ_DONE, CHANGE_DONE, EDGES_DONE, SEARCH_DONE, PROGRAM_DONE]) expect(code).not.toMatch(/\b(for|while)\s*\(/);
     for (const step of lab.steps.filter((s) => !s.extra)) expect(`${step.body}`).not.toMatch(/\bfor \(|\bwhile \(/);
   });
 });
@@ -138,7 +138,7 @@ describe('step 2: make', () => {
   });
 
   test('a song with no quote marks gets help that says so', () => {
-    expect(help(attempt('make', swap('"Bus Stop Rain"]', '"Bus Stop Rain", Midnight]')))).toBe('There is no variable called Midnight. Declare it first with let, and check the spelling. Text in quotes is a string, and a word with no quotes has to be a variable.');
+    expect(help(attempt('make', swap('"Bus Stop Rain"]', '"Bus Stop Rain", Midnight]')))).toBe('There is no variable called Midnight. Make it first with let, or use a variable you already have. Check the spelling too. Text in quotes is a string, and a word with no quotes has to be a variable.');
   });
 
   correct('make', [
@@ -209,7 +209,7 @@ describe('step 4: change', () => {
     ['not done yet', add(one), 'Give the last spot a new value. Use `playlist.length - 1` for the index.'],
     ['the fourth number', add(one, two, 'votes[3] += 1;'), 'Indexes count from 0, so `votes[3]` is the fourth number. The third number is at index 2.'],
     ['a typed total', add(one, two, 'votes[2] = 16;'), 'You typed the new total. Add 1 to the number that is already there, so that it works for any number of votes.'],
-    ['=+ for +=', add(one, two, 'votes[2] =+ 1;'), 'That line set the number to 1. To add 1, write `votes[2] += 1;`.'],
+    ['=+ for +=', add(one, two, 'votes[2] =+ 1;'), 'That line set the number to 1. To add 1, write `votes[2] = votes[2] + 1;`'],
     ['an answer that is not saved', add(one, two, 'votes[2] + 1;'), 'That line works out the new number and then drops it. Save it back into the array with `=`.'],
     ['reassigning votes', add(one, two, 'votes = votes[2] + 1;'), '`const` stops you from giving the variable a whole new value, but the items inside the array can still change. Use an index to change one spot, or `push` to add an item.'],
   ]);
@@ -237,19 +237,19 @@ describe('step 5: edges', () => {
     ['pop with no parentheses', add('playlist.pop;'), 'The last song is still on the playlist. Remove it with `playlist.pop()`, and remember the parentheses.'],
     ['forgetting what pop gives back', add('playlist.pop();', 'console.log(playlist[playlist.length - 1]);'), 'That prints the song that is last now. `pop` gives back the song it removed, so save it: `let removed = playlist.pop();`. Then print `removed`.'],
     ['never printing the song', add('playlist.pop();'), 'The song came off the playlist, and now it needs printing. `pop` gives back the song it removed, so save it: `let removed = playlist.pop();`. Then print `removed`.'],
-    ['popping twice', add('playlist.pop();', 'console.log(playlist.pop());'), 'Two songs came off the end, because every `pop()` removes one more song. Call it once, and save what it gives back: `let removed = playlist.pop();`.'],
+    ['popping twice', add('playlist.pop();', 'console.log(playlist.pop());'), 'Two songs came off the end, because every `pop()` removes one more song. Call it once, and save what it gives back: `let removed = playlist.pop();`'],
     ['push not done', add(...pop), 'Add `"Thunder Gym"` to the end with `push`.'],
     ['a fixed index for push', add(...pop, 'playlist[4] = "Thunder Gym";'), 'You set a spot by number, and on a longer playlist that replaces a song. `push` adds to the end, however long the array is.'],
     ['writing over the last spot', add(...pop, 'playlist[playlist.length - 1] = "Thunder Gym";'), 'That wrote over the last song. `push` adds a new spot at the end, however long the array is.'],
     ['assigning push to a const', add(...pop, 'playlist = playlist.push("Thunder Gym");'), PUSH_ASSIGN],
     ['assigning push to a let', add(...pop, 'playlist = playlist.push("Thunder Gym");').replace('const playlist', 'let playlist'), PUSH_ASSIGN],
-    ['square brackets on push', add(...pop, 'playlist.push["Thunder Gym"];'), '`push` is a method, so it takes parentheses, not square brackets: `playlist.push("Thunder Gym");`.'],
-    ['plus on its own', add(...pop, 'playlist + "Thunder Gym";'), '`+` cannot add an item to an array. Use `playlist.push("Thunder Gym");`.'],
+    ['square brackets on push', add(...pop, 'playlist.push["Thunder Gym"];'), '`push` is a method, so it takes parentheses, not square brackets: `playlist.push("Thunder Gym");`'],
+    ['plus on its own', add(...pop, 'playlist + "Thunder Gym";'), '`+` cannot add an item to an array. Use `playlist.push("Thunder Gym");`'],
     ['plus assigned back', add(...pop, 'playlist = playlist + "Thunder Gym";').replace('const playlist', 'let playlist'), '`+` turned your array into one long string, because it cannot add an item to an array. Use `push` instead.'],
     ['unshift for push', add(...pop, 'playlist.unshift("Thunder Gym");'), '`unshift` adds to the front. `push` adds to the end.'],
     ['shift not done', add(...pop, push), 'The first song is still on the playlist. Remove it with `playlist.shift()`.'],
     ['shift used to add', add(...pop, push, 'playlist.shift();', 'playlist.shift("Senior Sunset");'), '`shift` removes the first song and ignores what you pass it. `unshift` is the method that adds to the front.'],
-    ['shifting twice', add(...pop, push, 'playlist.shift();', 'console.log(playlist.shift());'), 'Two songs came off the front, because every `shift()` removes one more song. Call it once, and save what it gives back: `let nowPlaying = playlist.shift();`.'],
+    ['shifting twice', add(...pop, push, 'playlist.shift();', 'console.log(playlist.shift());'), 'Two songs came off the front, because every `shift()` removes one more song. Call it once, and save what it gives back: `let nowPlaying = playlist.shift();`'],
     ['forgetting what shift gives back', add(...pop, push, 'playlist.shift();', 'console.log(playlist[0]);'), 'Print the song you removed. `shift` gives it back, so save it: `let nowPlaying = playlist.shift();`. Then print `nowPlaying`.'],
     ['unshift not done', add(...pop, push, ...shift), 'Add `"Senior Sunset"` to the front with `unshift`.'],
     ['writing over the first spot', add(...pop, push, ...shift, 'playlist[0] = "Senior Sunset";'), 'That wrote over the first song. `unshift` adds a new song in front, and it moves every other song back one spot.'],
@@ -277,35 +277,34 @@ describe('step 5: edges', () => {
 describe('step 6: search', () => {
   const start = spec('search').files[0].text;
   const add = (body: string) => start.replace('// Decide what to print.\n', `${body}\n`);
-  const BANNED = 'if (banned.includes(request)) {\n  console.log("Sorry, that song is banned.");\n}';
-  const lower = 'request = request.toLowerCase();\n';
-  const shape = (test: string, found: string) => add(`${lower}let spot = playlist.indexOf(request);\nif (banned.includes(request)) {\n  console.log("Sorry, that song is banned.");\n} else if (${test}) {\n  console.log(${found});\n} else {\n  console.log("Not on the playlist yet.");\n}`);
+  const save = 'let spot = playlist.indexOf(request);\n';
+  const NUMBER = '"That song is number " + (spot + 1) + "."';
+  const shape = (test: string, found: string) => add(`${save}if (${test}) {\n  console.log(${found});\n} else {\n  console.log("Not on the playlist yet.");\n}`);
+  const MINUS_ONE = '`indexOf` gave -1 because that song is not on the playlist, and your code treated -1 as a song number. Test for it first: `if (spot === -1)`.';
   notes('search', [
-    ['nothing added yet', start, 'If `banned` includes the request, print `Sorry, that song is banned.`'],
-    ['comparing with the whole array', add('if (request === banned) {\n  console.log("Sorry, that song is banned.");\n}'), '`===` compares the request with the whole array, which is never true. `banned.includes(request)` looks through the items.'],
-    ['quote marks around request', add('if (banned.includes("request")) {\n  console.log("Sorry, that song is banned.");\n}'), 'With quote marks, `"request"` is the word request. Take them away, so that `includes` looks for what the student typed.'],
-    ['includes with no parentheses', add('if (banned.includes) {\n  console.log("Sorry, that song is banned.");\n}'), '`banned.includes` with no parentheses names the method without calling it, so the `if` always passes. Write `banned.includes(request)`.'],
-    ['indexOf as a true or false', add('if (banned.indexOf(request)) {\n  console.log("Sorry, that song is banned.");\n}'), '`indexOf` gives -1 for a song it cannot find, and -1 counts as true in an `if`. Use `banned.includes(request)`, which gives true or false.'],
-    ['typed songs', add('if (request === "food fight" || request === "skip class" || request === "detention anthem") {\n  console.log("Sorry, that song is banned.");\n}'), 'Your code only knows the songs you typed. Use `banned.includes(request)`, so that it follows the list when the list changes.'],
-    ['case sensitive includes', add(BANNED), '`includes` is case sensitive, so "YAK" does not match "yak". Search for `request.toLowerCase()` instead of `request`.'],
+    ['nothing added yet', start, 'When the request is on the playlist, find it with `playlist.indexOf(request)`, then print that number plus 1.'],
+    ['comparing with the whole array', add('if (request === playlist) {\n  console.log("That song is number 1.");\n}'), '`===` compares the request with the whole array, which is never true. `playlist.indexOf(request)` looks through the items.'],
+    ['quote marks around request', add('if (playlist.indexOf("request") !== -1) {\n  console.log("That song is number 1.");\n}'), 'With quote marks, `"request"` is the word request. Take them away, so that `indexOf` looks for what the student typed.'],
+    ['includes with no parentheses', shape('playlist.includes', NUMBER), '`playlist.includes` with no parentheses names the method without calling it, so the `if` always passes. Write `playlist.includes(request)`.'],
+    ['typed songs', add('if (request === "last bell") {\n  console.log("That song is number 3.");\n}'), 'Your code only knows the songs you typed. Use `playlist.indexOf(request)`, so that it follows the list when the list changes.'],
     ['printing the index', shape('spot !== -1', '"That song is number " + spot + "."'), 'People count from 1, so the song at index 3 is number 4. Print the index plus 1.'],
-    ['no position yet', add(lower + BANNED), 'When the request is on the playlist, find it with `playlist.indexOf(request)`, then print that number plus 1.'],
-    ['spot greater than 0', shape('spot > 0', '"That song is number " + (spot + 1) + "."'), 'The first song is at index 0, and your code treated it as missing. Compare what `indexOf` gives back with -1.'],
-    ['spot as true or false', shape('spot', '"That song is number " + (spot + 1) + "."'), 'The first song is at index 0, and your code treated it as missing. Compare what `indexOf` gives back with -1.'],
-    ['indexOf not lowercased', add('let spot = playlist.indexOf(request);\nif (banned.includes(request.toLowerCase())) {\n  console.log("Sorry, that song is banned.");\n} else if (spot === -1) {\n  console.log("Not on the playlist yet.");\n} else {\n  console.log("That song is number " + (spot + 1) + ".");\n}'), '`indexOf` is case sensitive too, so search for `request.toLowerCase()` here as well.'],
-    ['-1 used as a position', add(`${lower}let spot = playlist.indexOf(request);\nif (banned.includes(request)) {\n  console.log("Sorry, that song is banned.");\n} else {\n  console.log("That song is number " + (spot + 1) + ".");\n}`), '`indexOf` gave -1 because that song is not on the playlist, and your code treated -1 as a place in line. Test for it first: `if (spot === -1)`.'],
-    ['-1 used as an index', add(`${lower}let spot = playlist.indexOf(request);\nif (banned.includes(request)) {\n  console.log("Sorry, that song is banned.");\n} else if (spot >= -1) {\n  console.log("That song is number " + (spot + 1) + ": " + playlist[spot]);\n}`), '`indexOf` gave -1 because that song is not on the playlist, and your code treated -1 as a place in line. Test for it first: `if (spot === -1)`.'],
-    ['a crash on a song that is missing', add(`${lower}let spot = playlist.indexOf(request);\nif (banned.includes(request)) {\n  console.log("Sorry, that song is banned.");\n} else {\n  console.log(playlist[spot].toUpperCase() + " is number " + (spot + 1) + ".");\n}`), STOPPED(11)],
-    ['nothing printed when missing', add(`${lower}let spot = playlist.indexOf(request);\nif (banned.includes(request)) {\n  console.log("Sorry, that song is banned.");\n} else if (spot !== -1) {\n  console.log("That song is number " + (spot + 1) + ".");\n}`), 'When the song is not on the playlist, print `Not on the playlist yet.`'],
+    ['plus glued onto the text', shape('spot !== -1', '"That song is number " + spot + 1 + "."'), 'The checks tried the song at index 3, and your program printed 31. `+` glued the 1 onto the text instead of adding. Put parentheses around the math, like `(spot + 1)`.'],
+    ['spot greater than 0', shape('spot > 0', NUMBER), 'The first song is at index 0, and your code treated it as missing. Test with `spot !== -1`.'],
+    ['spot as true or false', shape('spot', NUMBER), 'The first song is at index 0, and your code treated it as missing. Test with `spot !== -1`.'],
+    ['-1 used as a position', add(`${save}console.log(${NUMBER});`), MINUS_ONE],
+    ['-1 used as an index', add(`${save}if (spot >= -1) {\n  console.log("That song is number " + (spot + 1) + ": " + playlist[spot]);\n}`), MINUS_ONE],
+    ['a crash on a song that is missing', add(`${save}console.log(playlist[spot].toUpperCase() + " is number " + (spot + 1) + ".");`), STOPPED(9)],
+    ['nothing printed when missing', add(`${save}if (spot !== -1) {\n  console.log(${NUMBER});\n}`), 'When the song is not on the playlist, print `Not on the playlist yet.`'],
   ], ['Thunder Gym']);
 
   test('removing the prompt gets a clear note', () => {
-    expect(note(attempt('search', start.replace('prompt("What song do you want to hear?")', '"food fight"') + BANNED))).toBe('Keep the `prompt` line, so that your program asks for a request every time it runs.');
+    expect(note(attempt('search', start.replace('prompt("What song do you want to hear?")', '"last bell"') + save))).toBe('Keep the `prompt` line, so that your program asks for a request every time it runs.');
   });
 
   test('a crash from Cancel does not hide the checks, since they answer their own prompts', () => {
     const s = attempt('search', SEARCH_DONE, [null]);
     expect(s.last?.error?.type).toBe('TypeError');
+    expect(help(s)).toContain('prompt gives back null when you press Cancel.');
     expect(s.checks?.every((c) => c.ok)).toBe(true);
   });
 
@@ -313,55 +312,38 @@ describe('step 6: search', () => {
   correct('search', [
     ['the answer key', SEARCH_DONE],
     ['spot >= 0 and a template literal', shape('spot >= 0', '`That song is number ${spot + 1}.`')],
-    ['spot != -1 and alert', shape('spot != -1', '"That song is number " + (spot + 1) + "."').replaceAll('console.log', 'alert')],
-    ['includes, then indexOf, in nested ifs', add(`let lower = request.toLowerCase();\nif (banned.includes(lower)) {\n  console.log("Sorry, that song is banned.");\n} else {\n  if (playlist.includes(lower)) {\n    console.log("That song is number " + (playlist.indexOf(lower) + 1) + ".");\n  } else {\n    console.log("Not on the playlist yet.");\n  }\n}`)],
-    ['lowercase at the prompt, with other wording', LOWER_PROMPT.replace('// Decide what to print.\n', 'let spot = playlist.indexOf(request);\nif (banned.includes(request)) {\n  console.log("That one is banned!");\n} else if (spot < 0) {\n  console.log("We do not have that one.");\n} else {\n  console.log(`Number ${spot + 1} in line`);\n}\n')],
-    ['a loop that searches', add(`${lower}let spot = -1;\nfor (let i = 0; i < playlist.length; i++) {\n  if (playlist[i] === request) {\n    spot = i;\n  }\n}\nif (banned.includes(request)) {\n  console.log("Sorry, that song is banned.");\n} else if (spot === -1) {\n  console.log("Not on the playlist yet.");\n} else {\n  console.log("That song is number " + (spot + 1) + ".");\n}`)],
+    ['spot != -1 and alert', shape('spot != -1', NUMBER).replaceAll('console.log', 'alert')],
+    ['includes, then indexOf', add('if (playlist.includes(request)) {\n  console.log("That song is number " + (playlist.indexOf(request) + 1) + ".");\n} else {\n  console.log("Not on the playlist yet.");\n}')],
+    ['lowercase at the prompt, with other wording', LOWER_PROMPT.replace('// Decide what to print.\n', 'let spot = playlist.indexOf(request);\nif (spot < 0) {\n  console.log("We do not have that one.");\n} else {\n  console.log(`Number ${spot + 1} in line`);\n}\n')],
+    ['a test print of -1 beside the right answer', SEARCH_DONE.replace('let spot = playlist.indexOf(request);', 'let spot = playlist.indexOf(request);\nconsole.log(spot);')],
+    ['a loop that searches', add('let spot = -1;\nfor (let i = 0; i < playlist.length; i++) {\n  if (playlist[i] === request) {\n    spot = i;\n  }\n}\nif (spot === -1) {\n  console.log("Not on the playlist yet.");\n} else {\n  console.log("That song is number " + (spot + 1) + ".");\n}')],
   ], ['Thunder Gym']);
 });
 
-describe('step 7: show', () => {
-  const start = spec('show').files[0].text;
-  const withJoin = start.replace('alert(playlist);', 'alert(playlist.join(", "));');
-  const pick = (line: string, print = 'console.log(playlist[spot]);') => withJoin.replace('// Pick a random song here.\n', `${line}\n${print}\n`);
-  notes('show', [
-    ['alert on the array', start, '`alert` shows an array with bare commas and no spaces. `join` lets you choose what goes between the songs: `playlist.join(", ")`.'],
-    ['console.log on the array', start.replace('alert(playlist)', 'console.log(playlist)'), '`console.log` prints the array with its brackets and quote marks. `playlist.join(", ")` gives you a plain line of text to print.'],
-    ['join with nothing inside', start.replace('alert(playlist)', 'alert(playlist.join())'), 'With nothing between its parentheses, `join` puts a bare comma between the items. Put `", "` between the parentheses.'],
-    ['join that is not used', start.replace('alert(playlist);', 'playlist.join(", ");'), '`join` gives back a new string and leaves the array alone. Print what it gives back: `console.log(playlist.join(", "));`.'],
-    ['a list typed by hand', start.replace('alert(playlist)', 'alert(playlist[0] + ", " + playlist[1] + ", " + playlist[2] + ", " + playlist[3] + ", " + playlist[4])'), 'That works for these five songs only. Use `join`, so that the line follows the list when it grows.'],
-    ['a space with no comma', start.replace('alert(playlist)', 'alert(playlist.join(" "))'), 'Show the whole playlist with `playlist.join(", ")`.'],
-    ['nothing picked yet', withJoin, 'Print one song picked at random.'],
-    ['no Math.floor', pick('let spot = Math.random() * playlist.length;'), '`Math.random() * playlist.length` gives a decimal like 2.7, and no item has a decimal index. Put `Math.floor(...)` around it to round down.'],
-    ['Math.round', pick('let spot = Math.round(Math.random() * playlist.length);'), '`Math.round` can round up to `playlist.length`, which is one past the last index, and then you get undefined. Use `Math.floor`, which always rounds down.'],
-    ['adding 1', pick('let spot = Math.floor(Math.random() * playlist.length) + 1;'), '`Math.floor(Math.random() * playlist.length)` is already a good index. Adding 1 skips the first song and can land past the end.'],
-    ['no parentheses on Math.random', pick('let spot = Math.floor(Math.random * playlist.length);'), '`Math.random` needs its parentheses: `Math.random()`.'],
-    ['a fixed multiplier', pick('let spot = Math.floor(Math.random() * 5);'), 'Your pick never reaches the end of a longer list. Multiply by `playlist.length` instead of a fixed number.'],
-    ['printing the index', pick('let spot = Math.floor(Math.random() * playlist.length);', 'console.log(spot);'), 'That prints the index. Print the song at that index with square brackets, like `playlist[spot]`.'],
-    ['the same song every time', pick('let spot = 2;'), 'Your program picks the same song on every run. Use `Math.random()` to work out the index.'],
-    ['printing every song in a loop', pick('for (let i = 0; i < playlist.length; i++) {', 'console.log(playlist[i]);\n}'), 'Your program prints more than one song. Print only the one song at the random index.'],
-    ['floor too soon', pick('let spot = Math.floor(Math.random()) * playlist.length;'), '`Math.floor(Math.random())` is always 0, because it rounds down before you multiply. Put the whole multiplication inside `Math.floor(...)`.'],
-    ['lowercase math', pick('let spot = math.floor(math.random() * playlist.length);'), STOPPED(5)],
-  ]);
+describe('fixes from the second student panel', () => {
+  const start = spec('read').files[0].text;
+  const third = 'console.log(playlist[2]);\nconsole.log(playlist.length);\n';
 
-  test('the editor names the lowercase math', () => {
-    expect(help(attempt('show', pick('let spot = math.floor(math.random() * playlist.length);')))).toBe('There is no variable called math. Did you mean Math? JavaScript treats capital and lowercase letters as different.');
+  test('printing the last index says so, and shows where the index goes', () => {
+    expect(note(attempt('read', `${start}${third}console.log(playlist.length - 1);\n`))).toBe('That printed the index of the last song, not the song. Put the index inside the square brackets: `playlist[...]`.');
   });
 
-  correct('show', [
-    ['the answer key', SHOW_DONE],
-    ['console.log and a saved string', 'const playlist = ["a", "b", "c", "d", "e"];\nlet line = playlist.join(", ");\nconsole.log(line);\nlet pick = playlist[Math.floor(Math.random() * playlist.length)];\nconsole.log("First dance: " + pick);\n'],
-    ['let, single quotes, and a template literal', "let playlist = ['a', 'b', 'c', 'd', 'e'];\nalert(playlist.join(', '));\nconst spot = Math.floor(Math.random() * playlist.length);\nalert(`First dance: ${playlist[spot]}`);\n"],
-    ['another separator', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist.join(" | "));\nconsole.log(playlist[Math.floor(Math.random() * playlist.length)]);\n'],
-    ['a word between the songs', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist.join(" and "));\nconsole.log(playlist[Math.floor(Math.random() * playlist.length)]);\n'],
-    ['one song on each line', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist.join("\\n"));\nconsole.log(playlist[Math.floor(Math.random() * playlist.length)]);\n'],
-    ['a loop that builds the line', 'let playlist = ["a", "b", "c", "d", "e"];\nlet line = "";\nfor (let i = 0; i < playlist.length; i++) {\n  line += playlist[i] + ", ";\n}\nconsole.log(line);\nconsole.log(playlist[Math.floor(Math.random() * playlist.length)]);\n'],
-    ['Math.trunc', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist.join(", "));\nconsole.log(playlist[Math.trunc(Math.random() * playlist.length)]);\n'],
-    ['the raw alert left in', withJoin.replace('alert(playlist.join(", "));', 'alert(playlist);\nalert(playlist.join(", "));').replace('// Pick a random song here.\n', 'console.log(playlist[Math.floor(Math.random() * playlist.length)]);\n')],
-  ]);
+  const program = (body: string) => `let requests = ["Neon Lockers", "Bus Stop Rain", "Last Bell"];\nlet song = prompt("What song do you want to hear?");\n${body}`;
+
+  test('a push with no else is named, when the student already tests for the song', () => {
+    expect(note(attempt('program', program('if (requests.includes(song)) {\n  console.log("That song is already on the list.");\n}\nrequests.push(song);\nconsole.log(requests.join(", "));\nconsole.log(requests.length);\n'), ['Thunder Gym']))).toBe('The `push` ran even when the song was on the list. Put it in the `else` part of your `if`.');
+  });
+
+  test('a count printed only when a song was added says where to move it', () => {
+    expect(note(attempt('program', program('if (requests.includes(song)) {\n  console.log("That song is already on the list.");\n} else {\n  requests.push(song);\n  console.log(requests.length);\n}\nconsole.log(requests.join(", "));\n'), ['Thunder Gym']))).toBe('Your count only prints when a song was added. Move it after your `if` and `else`, so that it always prints.');
+  });
+
+  test('a list printed only when a song was added says where to move it', () => {
+    expect(note(attempt('program', program('if (requests.includes(song)) {\n  console.log("That song is already on the list.");\n} else {\n  requests.push(song);\n  console.log(requests.join(", "));\n}\nconsole.log(requests.length);\n'), ['Thunder Gym']))).toBe('Your list only prints when a song was added. Move it after your `if` and `else`, so that it always prints.');
+  });
 });
 
-describe('step 8: program', () => {
+describe('step 7: program', () => {
   const start = 'let requests = ["Neon Lockers", "Bus Stop Rain", "Last Bell"];\n';
   const ask = 'let song = prompt("What song do you want to hear?");\n';
   const addIt = 'if (requests.includes(song)) {\n  console.log("That song is already on the list.");\n} else {\n  requests.push(song);\n}\n';
@@ -369,7 +351,7 @@ describe('step 8: program', () => {
   const countIt = 'console.log(requests.length + " songs");\n';
   const answers = ['Thunder Gym'];
   notes('program', [
-    ['nothing written', '// The request line for the dance.\n', 'Name your array `requests`, so that this lab can try your code on a different list.'],
+    ['nothing written', '// Song requests for the dance.\n', 'Name your array `requests`, so that this lab can try your code on a different list.'],
     ['a renamed array', 'let songs = ["a", "b", "c"];\n', 'Name your array `requests`, so that this lab can try your code on a different list.'],
     ['two songs', 'let requests = ["a", "b"];\n', 'Start `requests` with at least three songs.'],
     ['round parentheses', 'let requests = ("a", "b", "c");\n', 'Round parentheses do not make an array, so `requests` holds only the last value inside them. Use square brackets.'],
@@ -388,14 +370,12 @@ describe('step 8: program', () => {
     ['alert on the array', `${start}${ask}${addIt}alert(requests);\n`, '`alert` shows an array with bare commas and no spaces. `join` lets you choose what goes between the songs: `requests.join(", ")`.'],
     ['console.log on the array', `${start}${ask}${addIt}console.log(requests);\n`, '`console.log` prints the array with its brackets and quote marks. `requests.join(", ")` gives you a plain line of text to print.'],
     ['the list printed too early', `${start}${ask}${showIt}${addIt}`, 'That list was printed before the new song went on. Print it after your `push`.'],
+    ['join with nothing inside', `${start}${ask}${addIt}console.log(requests.join());\n`, 'With nothing between its parentheses, `join` puts a bare comma between the items. Put `", "` between the parentheses.'],
+    ['join that is not used', `${start}${ask}${addIt}requests.join(", ");\n`, '`join` gives back a new string and leaves the array alone. Print what it gives back: `console.log(requests.join(", "));`'],
     ['no list', `${start}${ask}${addIt}`, 'Print the whole list with `requests.join(", ")`.'],
     ['no count', `${start}${ask}${addIt}${showIt}`, 'Print how many songs are on the list with `requests.length`.'],
     ['the count printed too early', `${start}${ask}${countIt}${addIt}${showIt}`, 'That count was printed before the new song went on. Print `requests.length` after your `push`.'],
     ['a typed count', `${start}${ask}${addIt}${showIt}console.log(4);\n`, 'Print how many songs are on the list with `requests.length`.'],
-    ['no pick', `${start}${ask}${addIt}${showIt}${countIt}`, 'Print one song picked at random.'],
-    ['a fixed pick', `${start}${ask}${addIt}${showIt}${countIt}console.log(requests[0]);\n`, 'Your program picks the same song on every run. Use `Math.random()` to work out the index.'],
-    ['a fixed multiplier', `${start}${ask}${addIt}${showIt}${countIt}console.log(requests[Math.floor(Math.random() * 3)]);\n`, 'Your pick never reaches the end of a longer list. Multiply by `requests.length` instead of a fixed number.'],
-    ['no floor', `${start}${ask}${addIt}${showIt}${countIt}console.log(requests[Math.random() * requests.length]);\n`, '`Math.random() * requests.length` gives a decimal like 2.7, and no item has a decimal index. Put `Math.floor(...)` around it to round down.'],
   ], answers);
 
   const pick = 'let spot = Math.floor(Math.random() * requests.length);\nconsole.log("Next up: " + requests[spot]);\n';
@@ -414,7 +394,7 @@ describe('step 8: program', () => {
   ], ['Thunder Gym', null, null]);
 });
 
-describe('step 9: reflection', () => {
+describe('step 8: reflection', () => {
   const step = lab.steps.find((s) => s.id === 'reflect')!;
   test('asks for at least 40 words, and the answer key has them', () => {
     const q = step.questions![0];
@@ -446,6 +426,60 @@ describe('optional extra challenge: remove', () => {
   ], ['Last Bell']);
 });
 
+describe('optional extra challenge: pick', () => {
+  const start = spec('pick').files[0].text;
+  const pick = (line: string, print = 'console.log(playlist[spot]);') => start.replace('// Pick a random song here.\n', `${line}\n${print}\n`);
+  notes('pick', [
+    ['nothing picked yet', start, 'Print one song picked at random.'],
+    ['no Math.floor', pick('let spot = Math.random() * playlist.length;'), '`Math.random() * playlist.length` gives a decimal like 2.7, and no item has a decimal index. Put `Math.floor(...)` around it to round down.'],
+    ['Math.round', pick('let spot = Math.round(Math.random() * playlist.length);'), '`Math.round` can round up to `playlist.length`, which is one past the last index, and then you get undefined. Use `Math.floor`, which always rounds down.'],
+    ['adding 1', pick('let spot = Math.floor(Math.random() * playlist.length) + 1;'), '`Math.floor(Math.random() * playlist.length)` is already a good index. Adding 1 skips the first song and can land past the end.'],
+    ['no parentheses on Math.random', pick('let spot = Math.floor(Math.random * playlist.length);'), '`Math.random` needs its parentheses: `Math.random()`.'],
+    ['a fixed multiplier', pick('let spot = Math.floor(Math.random() * 5);'), 'Your pick never reaches the end of a longer list. Multiply by `playlist.length` instead of a fixed number.'],
+    ['printing the index', pick('let spot = Math.floor(Math.random() * playlist.length);', 'console.log(spot);'), 'That prints the index. Print the song at that index: put the number in square brackets after `playlist`.'],
+    ['the same song every time', pick('let spot = 2;'), 'Your program picks the same song on every run. Use `Math.random()` to work out the index.'],
+    ['printing every song in a loop', pick('for (let i = 0; i < playlist.length; i++) {', 'console.log(playlist[i]);\n}'), 'Your program prints more than one song. Print only the one song at the random index.'],
+    ['floor too soon', pick('let spot = Math.floor(Math.random()) * playlist.length;'), '`Math.floor(Math.random())` is always 0, because it rounds down before you multiply. Put the whole multiplication inside `Math.floor(...)`.'],
+    ['lowercase math', pick('let spot = math.floor(math.random() * playlist.length);'), STOPPED(3)],
+  ]);
+
+  test('the editor names the lowercase math', () => {
+    expect(help(attempt('pick', pick('let spot = math.floor(math.random() * playlist.length);')))).toBe('There is no variable called math. Did you mean Math? JavaScript treats capital and lowercase letters as different.');
+  });
+
+  correct('pick', [
+    ['the answer key', PICK_DONE],
+    ['let, single quotes, and a template literal', "let playlist = ['a', 'b', 'c', 'd', 'e'];\nconst spot = Math.floor(Math.random() * playlist.length);\nalert(`First dance: ${playlist[spot]}`);\n"],
+    ['Math.trunc', 'let playlist = ["a", "b", "c", "d", "e"];\nconsole.log(playlist[Math.trunc(Math.random() * playlist.length)]);\n'],
+  ]);
+});
+
+describe('mistakes from the student panel', () => {
+  test('quote marks around an empty array', () => {
+    expect(note(attempt('make', MAKE_DONE.replace('let requests = [];', 'let requests = "[]";')))).toBe('Those quote marks make it a string that only looks like an array. Take the quote marks off.');
+  });
+
+  test('a crash on a later line keeps the prints that worked', () => {
+    const s = attempt('read', READ_DONE.replace('playlist[playlist.length - 1]', 'playlist[length - 1]'));
+    expect(s.checks?.filter((c) => c.ok).map((c) => c.id)).toEqual(['third', 'count']);
+    expect(help(s)).toBe('length belongs to an array, like names.length. Put the name of your variable and a dot in front of it.');
+  });
+
+  test('a method with no array in front of it', () => {
+    expect(help(attempt('edges', EDGES_DONE.replace('playlist.pop()', 'pop()')))).toBe('pop belongs to an array, like names.pop(). Put the name of your variable and a dot in front of it.');
+  });
+
+  test('shift after unshift removes the new song', () => {
+    const code = EDGES_DONE.replace('let nowPlaying = playlist.shift();\nconsole.log(nowPlaying);\nplaylist.unshift("Senior Sunset");', 'playlist.unshift("Senior Sunset");\nlet nowPlaying = playlist.shift();\nconsole.log(nowPlaying);');
+    expect(note(attempt('edges', code))).toBe('Your `shift` ran after your `unshift`, so it removed Senior Sunset. Make the changes in the order listed.');
+  });
+
+  test('the name of a song passed to splice', () => {
+    const code = REMOVE_DONE.replace('requests.splice(spot, 1);', 'requests.splice(song, 1);');
+    expect(note(attempt('remove', code, ['Last Bell']))).toBe('`splice` needs an index, not the name of the song. Find the index with `requests.indexOf(song)` first.');
+  });
+});
+
 describe('the lab as a whole', () => {
   test('has 7 to 10 steps through the submit step, and the extra step after it', () => {
     const submit = lab.steps.findIndex((s) => s.kind === 'submit');
@@ -458,7 +492,7 @@ describe('the lab as a whole', () => {
   test('asks at most one question in a step, and few in the lab', () => {
     const coding = lab.steps.filter((s) => s.id !== 'reflect');
     expect(Math.max(...coding.map((s) => s.questions?.length ?? 0))).toBeLessThanOrEqual(1);
-    expect(coding.flatMap((s) => s.questions ?? [])).toHaveLength(1);
+    expect(coding.flatMap((s) => s.questions ?? [])).toHaveLength(2);
   });
 
   test('a stuck student on the first check has a hint before the first Run', () => {
@@ -474,7 +508,7 @@ describe('the lab as a whole', () => {
       if (i < lab.steps.length - 1) session.goTo(i + 1);
     }
     const report = buildReport(lab, session.progress, { id: 'test', name: 'Test Student', period: 'Period 1', createdAt: 0 }, 'submitted');
-    expect(report.code?.map((c) => c.step)).toEqual(['make', 'read', 'change', 'edges', 'search', 'show', 'program', 'remove']);
+    expect(report.code?.map((c) => c.step)).toEqual(['make', 'read', 'change', 'edges', 'search', 'program', 'remove', 'pick']);
     expect(report.goals.every((g) => g.done)).toBe(true);
     expect(report.goals.filter((g) => g.extra).every((g) => g.points === 0)).toBe(true);
   });

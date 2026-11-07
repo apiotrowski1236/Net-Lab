@@ -259,7 +259,7 @@ function need(page: Page, args: Value[], n: number, method: string, on: string):
 function nodeArg(page: Page, v: Value, method: string, position = 1): DomNode | DomFragment {
   if (v instanceof NodeHost && v.node.kind !== 'document') return v.node as DomNode | DomFragment;
   let help = `${method} takes an element. Make one with document.createElement, or find one with document.getElementById.`;
-  if (typeof v === 'string') help = `${method} takes an element, and this is a string. Make an element with document.createElement and set its textContent first. To add a string as it is, use append.`;
+  if (typeof v === 'string') help = `${method} takes an element, and this is a string. Make an element with document.createElement and set its textContent first.`;
   else if (v === null) help = `${method} was given null, which usually means a search found nothing. Check the id or selector that gave you this value.`;
   else if (v === undefined) help = `${method} was given undefined. Check that the variable in the parentheses holds an element.`;
   page.rt.fail('TypeError', `Failed to execute '${method}' on 'Node': parameter ${position} is not of type 'Node'.`, 'not-a-node', help);
@@ -530,7 +530,8 @@ class ElementHost extends NodeHost {
       case 'innerText':
       case 'nodeValue': {
         if (name === 'nodeValue') return;
-        const text = value === null || value === undefined ? '' : rt.str(value);
+        // A browser blanks textContent for undefined, but innerText shows the word.
+        const text = value === null || (value === undefined && name !== 'innerText') ? '' : rt.str(value);
         page.watchText(text, name);
         page.clear(el);
         if (text) page.put(el, new DomText(text), null, name);
@@ -587,6 +588,10 @@ class ElementHost extends NodeHost {
 
   read(name: string): { value: Value } | undefined {
     if (this.loose.has(name)) return { value: this.loose.get(name) };
+    if (name === 'length') {
+      this.page.log.elementLength();
+      return { value: undefined };
+    }
     const meant = meantProperty(name, ELEMENT_NAMES);
     if (meant === undefined) return undefined;
     this.page.log.miss('element', name);
@@ -997,7 +1002,7 @@ class ClassListHost extends HostObject {
   private token(v: Value, method: string, rt: Runtime): string {
     const t = rt.str(v);
     if (!t) rt.fail('DOMException', `Failed to execute '${method}' on 'DOMTokenList': The token provided must not be empty.`, 'bad-token', 'A class name can\'t be empty.');
-    if (/[ \t\n\f\r]/.test(t)) rt.fail('DOMException', `Failed to execute '${method}' on 'DOMTokenList': The token provided ('${t}') contains HTML space characters, which are not valid in tokens.`, 'bad-token', `A class name is one word. To add two classes, give ${method} two strings, with a comma between them.`);
+    if (/[ \t\n\f\r]/.test(t)) rt.fail('DOMException', `Failed to execute '${method}' on 'DOMTokenList': The token provided ('${t}') contains HTML space characters, which are not valid in tokens.`, 'bad-token', v instanceof ElementHost ? 'A class name goes in quotes, like classList.add("big"). This line gave it an element.' : `A class name is one word. To add two classes, give ${method} two strings, with a comma between them.`);
     if (method === 'add' || method === 'toggle') {
       if (t.startsWith('.')) this.page.log.classWithDot(`classList.${method}`, t);
       this.page.log.classGiven(t);
@@ -1225,10 +1230,13 @@ export function pageHosts(rt: Runtime, files: readonly SourceText[]): Record<str
   const hooks: PageHooks<PageState, PageView> = {
     finish(clicks) {
       page.fire(page.doc, 'DOMContentLoaded');
+      page.log.awaitingClick = !clicks.length && page.listening() > 0;
+      page.log.clicking = true;
       for (const c of clicks) {
         const target = page.find(c);
         if (target) page.fire(target, 'click');
       }
+      page.log.clicking = false;
     },
     state: (whole) => pageState(page.doc, files, page.listening(), whole),
     view: () => new PageView(page.doc, page.log.firstOfMany),

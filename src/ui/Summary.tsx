@@ -117,7 +117,7 @@ export function Summary({ session }: { session: LabSession }) {
         </div>
         <div class="sstat">
           <div class="sstat-num">{report.activeMinutes}</div>
-          <div class="sstat-label">minutes on this page</div>
+          <div class="sstat-label">minutes on this lab</div>
         </div>
       </div>
 
@@ -134,7 +134,13 @@ export function Summary({ session }: { session: LabSession }) {
             <Icon name="trophy" /> Optional extra challenge
           </h3>
           <p class="muted small">
-            {extraSteps.length} optional step{extraSteps.length > 1 ? 's' : ''} after this one. {extraSteps.length > 1 ? 'They earn' : 'It earns'} no points. Hand in your work first, then try {extraSteps.length > 1 ? 'them' : 'it'}. When you finish, hand in again so your teacher sees your work.
+            {extraSteps.every((x) => x.missing.length === 0) ? (
+              "You finished the extra challenge. If you haven't handed in since then, hand in again so your teacher sees your work."
+            ) : (
+              <>
+                {extraSteps.length} optional step{extraSteps.length > 1 ? 's' : ''} after this one. {extraSteps.length > 1 ? 'They earn' : 'It earns'} no points. Hand in your work first, then try {extraSteps.length > 1 ? 'them' : 'it'}. When you finish, hand in again so your teacher sees your work.
+              </>
+            )}
           </p>
           <button class="btn small" onClick={() => session.goTo(extraSteps[0].i)}>
             Go to the extra challenge <Icon name="chevronRight" size={14} />
@@ -186,7 +192,7 @@ export function Summary({ session }: { session: LabSession }) {
           <h3>
             <Icon name="hint" /> Your answers
           </h3>
-          <p class="muted small">Want to change one? Choose Change, fix it, then come back here and submit again.</p>
+          <p class="muted small">Want to change one? Choose Change, fix it, then come back here and hand it in again.</p>
           {all.map(({ s, i }) => {
             const qs = report.questions.filter((q) => q.step === s.id);
             if (!qs.length) return null;

@@ -431,6 +431,8 @@ describe('help on runtime errors', () => {
   const help = (code: string) => run(code).error?.help;
   test('a misspelled variable', () => {
     expect(help('let total = 0;\nconsole.log(totl);')).toBe('There is no variable called totl. Did you mean total?');
+    expect(help('for (let i = 0; i < 3; i++) {\n}\nconsole.log(i);')).toBe('There is no variable called i on this line. The i on line 1 only exists inside its loop. Move this line inside it.');
+    expect(help('if (true) {\n  let total = 1;\n}\nconsole.log(total);')).toBe('There is no variable called total on this line. The total on line 2 only exists inside its { }. Move this line inside them.');
     expect(help('let arr = [];\nconsole.log(Arr);')).toBe('There is no variable called Arr. Did you mean arr? JavaScript treats capital and lowercase letters as different.');
     expect(help('Console.log("x");')).toBe('There is no variable called Console. Did you mean console? JavaScript treats capital and lowercase letters as different.');
   });
@@ -453,7 +455,7 @@ describe('help on runtime errors', () => {
     expect(help('const a = [1];\na = [2];')).toBe("a was declared with const, so it can't be given a whole new array. You can still change it one item at a time, with an index or a method like push. If you do want a new array, change const to let where a is declared.");
   });
   test('used before its line', () => {
-    expect(help('console.log(x);\nlet x = 1;')).toBe('x is used before the line that declares it. Move the let or const line above this line.');
+    expect(help('console.log(x);\nlet x = 1;')).toBe('x is used before the line that declares it. Move that line above this one.');
   });
   test('every error has help', () => {
     for (const code of ['nope;', 'let a = 1; a();', 'let u; u.x;', 'let u; u.x = 1;', 'for (const a of 5) { }', '"x" in 5;', '[].reduce((a, b) => a);', '[1].map(5);', '"a".repeat(-1);', '(1).toFixed(101);', '(1).toString(1);', 'let a = []; a.length = -1;', '[1].sort(5);', 'let o = {toString: 1, valueOf: 1}; o + 1;']) {
@@ -522,5 +524,12 @@ do {
     expect(c).not.toContain('push');
     expect(c).toContain('http://x');
     expect(c.split('\n')).toHaveLength(3);
+  });
+});
+
+describe('code that stops in the middle of an escape', () => {
+  test('a backslash at the very end of a template is an ordinary syntax error', () => {
+    const { error } = parseFiles([{ name: 'script.js', text: 'let s = `abc\\' }]);
+    expect(error?.msg).toBe('Unexpected end of input');
   });
 });

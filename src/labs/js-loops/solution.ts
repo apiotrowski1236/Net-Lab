@@ -16,10 +16,10 @@ while (count >= 0) {
 console.log("Doors open!");
 `;
 
-export const PRIZES = `let top = 300;
+export const PRIZES = `let maxPrice = 300;
 let total = 0;
 
-for (let price = 50; price <= top; price = price + 50) {
+for (let price = 50; price <= maxPrice; price = price + 50) {
   console.log(price);
   total = total + price;
 }
@@ -61,12 +61,7 @@ while (guess !== secret) {
 console.log("You got it in " + guesses + " guesses");
 `;
 
-export const LINE = `let players = ["Maya", "Dev", "Priya", "Sam", "Zoe"];
-let tokens = [30, 12, 45, 8, 25];
-
-for (let i = 0; i < players.length; i++) {
-  console.log((i + 1) + ". " + players[i]);
-}
+export const DOUBLE = `let tokens = [30, 12, 45, 8, 25];
 
 for (let i = 0; i < tokens.length; i++) {
   tokens[i] = tokens[i] * 2;
@@ -76,20 +71,12 @@ console.log(tokens);
 
 export const SCORES = `let scores = [85, -20, 140, 60, 110, -5];
 
-let total = 0;
-let count = 0;
 let best = scores[0];
 for (let i = 0; i < scores.length; i++) {
-  total = total + scores[i];
-  if (scores[i] >= 100) {
-    count = count + 1;
-  }
   if (scores[i] > best) {
     best = scores[i];
   }
 }
-console.log(total);
-console.log(count);
 console.log(best);
 `;
 
@@ -107,7 +94,7 @@ for (let i = 0; i < booths.length; i++) {
   console.log("Booth " + (i + 1) + ": " + booths[i]);
 }
 
-// Loop 3: dim the lights by 25 until they are off.
+// Loop 3: lower the lights by 25 until they are off.
 let lights = 100;
 while (lights > 0) {
   lights = lights - 25;
@@ -130,11 +117,11 @@ console.log(finalists);
 export const TABLE = `let size = 4;
 
 for (let r = 1; r <= size; r++) {
-  let row = "";
-  for (let k = 1; k <= size; k++) {
-    row = row + r * k + " ";
+  let line = "";
+  for (let c = 1; c <= size; c++) {
+    line = line + r * c + " ";
   }
-  console.log(row);
+  console.log(line);
 }
 `;
 
@@ -147,13 +134,13 @@ export const jsLoopsSolution: LabSolution = {
   door: { moves: on('door', ...write(DOOR), { answer: 'open' }, { answer: 'pixel' }) },
   // The second Run's secret is 8.
   guess: { moves: on('guess', ...write(GUESS_STRINGS), { answer: '5' }, { stop: true }, ...write(GUESS), { answer: '5' }, { answer: '9' }, { answer: '8' }) },
-  line: { moves: on('line', ...write(LINE)) },
+  double: { moves: on('double', ...write(DOUBLE)) },
   scores: { moves: on('scores', ...write(SCORES)) },
-  report: { moves: on('report', { run: true }, { stepping: true }, ...WATCH, { stepping: false }, ...write(REPORT)) },
+  report: { moves: on('report', { stepping: true }, ...WATCH, { stepping: false }, { run: true }, ...write(REPORT)) },
   finals: { moves: on('finals', ...write(FINALS)) },
   reflect: {
     text: {
-      'which-loop': 'I would use for to print every item in a list because the list has a known length, and while for the password because nobody knows how many tries it takes. My bug was a total that stayed at the last number. Step through showed it going back to 0 on every pass.',
+      'which-loop': 'They should use while for the number cube, because nobody knows how many rolls it takes. My bug was a total that stayed at the last number. Step through showed it going back to 0 on every pass.',
     },
   },
   table: { moves: on('table', ...write(TABLE)) },

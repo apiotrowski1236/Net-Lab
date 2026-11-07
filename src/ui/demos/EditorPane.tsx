@@ -95,7 +95,7 @@ export function EditorPane({ file, readOnly, runLine, nextLine, errorLines, jump
 
   useLayoutEffect(() => {
     ed.current?.marks({ run: runLine, next: nextLine, errors: errorLines });
-    if (runLine) ed.current?.reveal(runLine);
+    if (runLine ?? nextLine) ed.current?.reveal((runLine ?? nextLine)!);
   }, [ready, file.name, runLine, nextLine, errorLines.join()]);
 
   useEffect(() => {

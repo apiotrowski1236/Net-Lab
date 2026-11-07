@@ -19,7 +19,7 @@ const passed = (demo: string, check: JsCheck, label: string, hint?: string): Goa
   check: demoFact(demo, (f) => f[`check:${check.id}`] === true),
 });
 
-const editor = (id: string, html: string, script: string, checks: JsCheck[], after?: [string, string]): JsSpec => ({
+const editor = (id: string, html: string, script: string, checks: JsCheck[]): JsSpec => ({
   kind: 'js',
   id,
   title: 'Your code',
@@ -29,13 +29,11 @@ const editor = (id: string, html: string, script: string, checks: JsCheck[], aft
   report: true,
   hosts: pageHosts,
   startPage: pageOfFiles,
-  // The student's CSS follows them through the lab. Each step gets a new script, so a prompt() from an earlier step doesn't fire on every Run.
-  ...(after ? { from: { step: after[0], demo: after[1], files: ['style.css'] } } : {}),
 });
 
 export const jsDomLab: LabDef = {
   id: 'js-dom',
-  version: 1,
+  version: 2,
   title: 'Build a Page with JavaScript',
   tagline: 'Find elements, change them, and let a loop build what would take hours to write by hand.',
   unit: 0,
@@ -54,25 +52,32 @@ export const jsDomLab: LabDef = {
       id: 'hello',
       title: 'Change the page from a script',
       body: md`
-        This editor has three tabs: **index.html** is the page, **style.css** is its look, and **script.js** changes it. The HTML is read only in this lab, so every change has to come from your script. After each **Run**, your page shows above the output.
+        This editor has three tabs. **index.html** is the page, **style.css** is its look, and **script.js** is your code. You can only read the HTML and the CSS here, so your changes to the page come from your script. After each **Run**, your page shows above the output.
 
         1. Open **index.html**, and read the ids on the heading and the paragraph under it.
         2. In **script.js**, put your name in the heading.
         3. Change the paragraph under the heading to a sentence about you.
+        4. Change how the heading looks. Set a style on it, or add the class \`highlight\` from **style.css**.
+        5. Scroll down to the question at the bottom of this step, and answer it.
 
         A reminder from the lecture:
 
         \`\`\`js
         let box = document.getElementById("box");
         box.textContent = "New words";
+        box.style.color = "gold";
+        box.classList.add("big");
         \`\`\`
+
+        An id goes in the quotes with no \`#\`.
       `,
       demos: [
-        editor('hello', code.HELLO_PAGE, code.HELLO_SCRIPT, [code.TITLE, code.TAGLINE]),
+        editor('hello', code.HELLO_PAGE, code.HELLO_SCRIPT, [code.TITLE, code.TAGLINE, code.LOOK]),
       ],
       goals: [
         passed('hello', code.TITLE, 'Put your name in the big heading.', 'Set `title.textContent` to your name, in quotes.'),
-        passed('hello', code.TAGLINE, 'Change the sentence under the heading.', 'Its id is `tagline`. Find it the same way, then set its `textContent`.'),
+        passed('hello', code.TAGLINE, 'Change the paragraph under the heading.', 'Its id is `tagline`. Find it the same way, then set its `textContent`.'),
+        passed('hello', code.LOOK, 'Change how the heading looks.', 'Try `title.classList.add("highlight");`'),
       ],
       questions: [
         {
@@ -91,34 +96,11 @@ export const jsDomLab: LabDef = {
 
     // -----------------------------------------------------------------------
     {
-      id: 'look',
-      title: 'Change the look, and greet a visitor',
-      body: md`
-        1. Change how the heading looks. Set a style on it, or add the class \`highlight\` from **style.css**.
-        2. Use \`prompt()\` to ask the visitor's name.
-        3. Put a welcome message with that name in the element with the id \`greeting\`.
-
-        A reminder of the two ways to change a look:
-
-        \`\`\`js
-        box.style.color = "gold";
-        box.classList.add("big");
-        \`\`\`
-      `,
-      demos: [
-        editor('look', code.LOOK_PAGE, code.LOOK_SCRIPT, [code.LOOK, code.GREET], ['hello', 'hello']),
-      ],
-      goals: [
-        passed('look', code.LOOK, 'Change how the heading looks.', 'Try `title.classList.add("highlight");`.'),
-        passed('look', code.GREET, 'Greet the visitor by name.', 'Store the answer from `prompt()` in a variable, then join it into a message.'),
-      ],
-    },
-
-    // -----------------------------------------------------------------------
-    {
       id: 'one',
       title: 'Add one new element',
       body: md`
+        Each step starts with a new script and a new page. Your work from earlier steps stays saved.
+
         A script can add elements that were never in the HTML.
 
         1. Make a new \`<p>\`.
@@ -132,9 +114,11 @@ export const jsDomLab: LabDef = {
         item.textContent = "New item";
         list.appendChild(item);
         \`\`\`
+
+        Here, \`list\` is the element that holds the new item. In your code, that is \`about\`.
       `,
       demos: [
-        editor('one', code.ONE_PAGE, code.ONE_SCRIPT, [code.NEW_ELEMENT, code.NEW_TEXT], ['look', 'look']),
+        editor('one', code.ONE_PAGE, code.ONE_SCRIPT, [code.NEW_ELEMENT, code.NEW_TEXT]),
       ],
       goals: [
         passed('one', code.NEW_ELEMENT, 'Add a new element to the About me section.', 'Make it with `document.createElement`, then add it with `about.appendChild`.'),
@@ -147,13 +131,14 @@ export const jsDomLab: LabDef = {
       id: 'list',
       title: 'Turn an array into a list',
       body: md`
-        This page has an empty list with the id \`favorites\`, and your script has an array.
+        Your script has an array named \`favorites\`, and \`list\` holds the empty list on the page.
 
         1. Change the strings in \`favorites\` to your own favorites.
-        2. Write a loop that adds one \`<li>\` to the list for each string.
+        2. Write a loop over \`favorites\`. One time through the loop is a **pass**. Each pass makes an \`<li>\`, sets its text to \`favorites[i]\`, and adds it to \`list\`.
         3. Add one more string to the array, and press **Run**. The page gets a new item, and the HTML stays the same.
+        4. Scroll down to the question at the bottom of this step, and answer it.
       `,
-      demos: [editor('list', code.LIST_PAGE, code.LIST_SCRIPT, [code.ITEMS, code.ONE_MORE], ['one', 'one'])],
+      demos: [editor('list', code.LIST_PAGE, code.LIST_SCRIPT, [code.ITEMS, code.ONE_MORE])],
       goals: [
         passed('list', code.ITEMS, 'Add one list item for each string in the array.', 'Put `createElement`, `textContent`, and `appendChild` inside a `for` loop.'),
         passed('list', code.ONE_MORE, 'Add one more string to the array.', 'Change only the line that makes `favorites`.'),
@@ -162,14 +147,14 @@ export const jsDomLab: LabDef = {
         {
           id: 'once',
           kind: 'choice',
-          prompt: 'A friend moves the line with createElement above the loop, so one element is made before the loop starts. The array has 3 strings. What shows on the page?',
+          prompt: 'An element that is already on the page moves when you add it again. It does not make a copy.\n\nA friend wrote this, and `favorites` has 3 strings. What shows on the page?\n\n```\nlet item = document.createElement("li");\nfor (let i = 0; i < favorites.length; i++) {\n  item.textContent = favorites[i];\n  list.appendChild(item);\n}\n```',
           options: [
-            { id: 'three', text: 'Three items', feedback: 'The loop runs three times, but there is only one element. Adding an element that is already on the page moves it.' },
+            { id: 'three', text: 'Three items', feedback: 'The loop runs three times, but there is only one element. Each pass moves it and changes its text.' },
             { id: 'one', text: 'One item, with the last string', correct: true },
             { id: 'first', text: 'One item, with the first string', feedback: 'Each pass sets the text again, so the first string gets replaced.' },
             { id: 'error', text: 'An error', feedback: 'No error appears. A browser moves the element, and that is why this mistake is hard to find.' },
           ],
-          explain: 'createElement makes one element each time it runs. To get three items, it has to run three times, so it goes inside the loop.',
+          explain: 'Each pass changes the text of that one element, so the last string is left. createElement makes one element each time it runs. To get three items, it has to run three times, so it goes inside the loop.',
         },
       ],
     },
@@ -181,20 +166,24 @@ export const jsDomLab: LabDef = {
       body: md`
         By hand, a grid of 144 squares would take 144 lines of HTML.
 
-        1. Write a loop that runs \`count\` times. Each pass makes a \`div\`, gives it the class \`cell\`, and adds it to \`grid\`.
-        2. Give each square its own color with the two lines below, inside your loop. **hsl** is a way to write a color, and its first number picks the shade.
-        3. Change \`count\` to 400, and press **Run**.
+        1. Write a loop that runs \`count\` times, with \`i\` as its counter.
+        2. Inside the loop, make a new \`div\` and store it in a variable named \`cell\`.
+        3. Give it the class \`"cell"\` with \`classList.add\`, and add it to \`grid\`.
+        4. Give the squares different colors. Put these two lines inside your loop, after you make \`cell\`:
 
         \`\`\`js
         let color = "hsl(" + i * 5 + ", 80%, 60%)";
         cell.style.backgroundColor = color;
         \`\`\`
 
-        Read the count above your page, then count the lines in your script.
+        5. Change \`count\` to 400, and press **Run**.
+        6. Above your page, read how many elements your script added and how many lines of code it took. Blank lines and comments do not count.
+
+        **hsl** is a way to write a color. Its first number picks a spot on the color wheel, from 0 to 360. Past 360, the colors start over. The other two numbers set how strong and how light the color is. When \`i\` is 3, \`i * 5\` is 15, so the color is \`hsl(15, 80%, 60%)\`.
       `,
-      demos: [editor('grid', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY], ['list', 'list'])],
+      demos: [editor('grid', code.GRID_PAGE, code.GRID_SCRIPT, [code.CELLS, code.COLORS, code.MANY])],
       goals: [
-        passed('grid', code.CELLS, 'Make as many squares as count says.', 'Use `i < count` in the loop, and set `className` to `"cell"`.'),
+        passed('grid', code.CELLS, 'Make as many squares as count says.', 'Use `i < count` in the loop, and add the class `cell` to each `div`.'),
         passed('grid', code.COLORS, 'Give the squares different colors.', 'Use the two lines in the instructions, inside the loop.'),
         passed('grid', code.MANY, 'Change count to 400.', 'The loop stays the same. Only the first line changes.'),
       ],
@@ -205,17 +194,23 @@ export const jsDomLab: LabDef = {
       id: 'every',
       title: 'Change every match',
       body: md`
-        \`document.querySelectorAll\` finds every match and gives you a list. This step starts with an empty script.
+        \`document.querySelector\` finds only the first match. \`document.querySelectorAll\` finds every match, and you can loop over the matches like an array. Both take a CSS selector, the part of a CSS rule that picks elements, like \`"h2"\` or \`".note"\`.
 
-        1. Find every \`h2\` on the page. In a loop, add the class \`accent\` to each one.
-        2. In the same loop, add an \`<li>\` to the list with the id \`toc\`, with that heading's text.
+        1. Find every \`h2\` on the page.
+        2. In a loop, add the class \`accent\` to each one.
 
-        Your table of contents now comes from the page, so a new heading would appear in it on the next **Run**.
+        A reminder of how to loop over the matches:
+
+        \`\`\`js
+        let items = document.querySelectorAll("p");
+        for (let i = 0; i < items.length; i++) {
+          items[i].classList.add("big");
+        }
+        \`\`\`
       `,
-      demos: [editor('every', code.EVERY_PAGE, code.EVERY_SCRIPT, [code.EVERY, code.CONTENTS], ['grid', 'grid'])],
+      demos: [editor('every', code.EVERY_PAGE, code.EVERY_SCRIPT, [code.EVERY])],
       goals: [
         passed('every', code.EVERY, 'Change every h2 on the page.', 'Use `document.querySelectorAll("h2")` and a loop.'),
-        passed('every', code.CONTENTS, 'Build the table of contents from the headings.', 'In the loop, make an `<li>`, copy the heading\'s `textContent`, and add it to `toc`.'),
       ],
     },
 
@@ -224,17 +219,27 @@ export const jsDomLab: LabDef = {
       id: 'cards',
       title: 'Build your own cards',
       body: md`
-        Write this one on your own. Choose a section for your own site: projects, books, places, or teams. Two arrays that line up by index are called **parallel arrays**, so \`titles[0]\` goes with \`details[0]\`.
+        Write this one from the comments in your script. Choose what your cards show, such as projects, books, places, or teams. Two arrays that match by index are called **parallel arrays**, so \`titles[0]\` goes with \`details[0]\`.
 
         1. Make two parallel arrays with at least 3 items each.
-        2. Loop through them. For each index, make a \`div\` with the class \`card\`, with an \`h3\` for the title and a \`p\` for the detail.
-        3. Add each card to the element with the id \`cards\`.
+        2. Loop through them. For each index, make a \`div\` with the class \`card\`, an \`h3\` for the title, and a \`p\` for the detail.
+        3. Use \`appendChild\` to add the \`h3\` and the \`p\` to the card. A new element can hold other new elements.
+        4. Add the card to the element with the id \`cards\`.
+
+        Each card should end up like this:
+
+        \`\`\`html
+        <div class="card">
+          <h3>Chess club</h3>
+          <p>Meets on Tuesdays</p>
+        </div>
+        \`\`\`
       `,
-      demos: [editor('cards', code.CARDS_PAGE, code.CARDS_SCRIPT, [code.ARRAYS, code.CARDS, code.FOLLOWS], ['every', 'every'])],
+      demos: [editor('cards', code.CARDS_PAGE, code.CARDS_SCRIPT, [code.ARRAYS, code.CARDS, code.FOLLOWS])],
       goals: [
         passed('cards', code.ARRAYS, 'Make two arrays of the same length, with at least 3 items each.', 'One array of titles, and one of details.'),
-        passed('cards', code.CARDS, 'Make one card for each item.', 'Use `.length` in the loop, and the class `card`.'),
-        passed('cards', code.FOLLOWS, 'Show both values on each card.', 'Use `[i]` on both arrays inside the loop.'),
+        passed('cards', code.CARDS, 'Make one card for each item, in the cards element.', 'Use `.length` in the loop, and the class `card`.'),
+        passed('cards', code.FOLLOWS, 'Show both values on each card, from the arrays.', 'Use `[i]` on both arrays inside the loop.'),
       ],
     },
 
@@ -243,15 +248,15 @@ export const jsDomLab: LabDef = {
       id: 'reflect',
       title: 'Reflection',
       body: md`
-        Think about the personal website you built in HTML. Your answer below goes to your teacher.
+        Think about the personal website you built in HTML. Your answer below goes in the report for your teacher.
       `,
       questions: [
         {
           id: 'own-site',
           kind: 'text',
-          prompt: 'Name one section of your own website that you could build with an array and a loop. Explain what the array would hold, what the loop would make, and why that is better than typing the HTML by hand.',
+          prompt: 'Name one section of your own website that you could build with an array and a loop.\n\n1. What would the array hold?\n2. What would the loop make?\n3. Why is that better than typing the HTML by hand?',
           minWords: 40,
-          lines: 5,
+          lines: 7,
         },
       ],
     },
@@ -264,8 +269,27 @@ export const jsDomLab: LabDef = {
       body: md`
         Look over your summary. You can go back to any step and change an answer, then hand in your work again.
 
-        Finished early? After you hand in, press **Optional extra challenge** for one more step: a button that adds to the page each time someone clicks it.
+        Finished early? After you hand in, press **Optional extra challenge** for two more steps: a table of contents built from the page, and a button that adds to the page each time someone clicks it.
       `,
+    },
+
+    // -----------------------------------------------------------------------
+    {
+      id: 'contents',
+      title: 'Optional extra challenge: a table of contents',
+      extra: true,
+      body: md`
+        A **table of contents** is a list of the sections on a page. This page has an empty one under **On this page**, and your script already finds it and the headings.
+
+        1. Write a loop over \`headings\`.
+        2. In each pass, add an \`<li>\` to \`toc\` with that heading's text.
+
+        \`textContent\` reads text as well as sets it, so \`headings[i].textContent\` gives you that heading's text.
+      `,
+      demos: [editor('contents', code.CONTENTS_PAGE, code.CONTENTS_SCRIPT, [code.CONTENTS])],
+      goals: [
+        passed('contents', code.CONTENTS, 'Build the table of contents from the headings.', 'In the loop, make an `<li>`, copy the heading\'s `textContent`, and add it to `toc`.'),
+      ],
     },
 
     // -----------------------------------------------------------------------
@@ -274,15 +298,16 @@ export const jsDomLab: LabDef = {
       title: 'Optional extra challenge: a button that adds squares',
       extra: true,
       body: md`
-        A page can run code when someone clicks. \`addEventListener\` takes the kind of event and a function, and the function runs on each click. Your script already has this shape.
+        A page can run code when someone clicks. \`addEventListener\` takes the kind of event and a function, and the function runs on each click. Your script already has this code.
 
-        1. Inside the function, make one \`div\` with the class \`cell\` and a color, and add it to \`grid\`.
-        2. Press **Run**, then click **Add a square** on your page a few times.
+        1. Inside the function, make one \`div\` with the class \`cell\`, and add it to \`grid\`.
+        2. You can also give it a color. Set its \`style.backgroundColor\` to one color, like \`"gold"\`. This function has no loop, so there is no \`i\` to use.
+        3. Press **Run**, then click **Add a square** on your page a few times.
       `,
-      demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS], ['cards', 'cards'])],
+      demos: [editor('more', code.MORE_PAGE, code.MORE_SCRIPT, [code.ADDS, code.CLICKED])],
       goals: [
-        passed('more', code.ADDS, 'Add one square for each click.', 'Put `createElement` and `appendChild` inside the function.'),
-        { id: 'clicked', label: 'Click the button on your page.', hint: 'Press **Run**, then click **Add a square** on your page.', check: demoFact('more', (f) => (f.clicks as number) > 0) },
+        passed('more', code.ADDS, 'Write the code that adds one square for each click.', 'Put `createElement` and `appendChild` inside the function.'),
+        passed('more', code.CLICKED, 'Click the button on your page.', 'Press **Run**, then click **Add a square** on your page.'),
       ],
     },
   ],

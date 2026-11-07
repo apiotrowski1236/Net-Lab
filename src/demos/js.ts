@@ -153,6 +153,8 @@ export class JsCheckCtx extends Query {
     notes: LintNote[],
     private readonly hosts?: (files?: Record<string, string>) => Hosts,
     ownPage?: Page,
+    /** How many times the student clicked the page since their last Run. */
+    readonly clicks = 0,
   ) {
     super(programs);
     const r = checkRun(own, ownPage);
@@ -239,7 +241,7 @@ function execute(spec: JsSpec, s: JsState, seed: number, answers: JsState['answe
   }
   const notes = [...lint(programs, r, spec.lintOff), ...(page?.notes() ?? []).filter((n) => !spec.lintOff?.includes(n.rule))];
   const hidden = (files?: Record<string, string>) => hostsFor(spec, s.files.map((f) => (files?.[f.name] !== undefined ? { ...f, text: files[f.name] } : f)));
-  return { ...base, notes: notes.length ? notes : undefined, checks: runChecks(spec, () => new JsCheckCtx(programs, r, notes, hidden, page)) };
+  return { ...base, notes: notes.length ? notes : undefined, checks: runChecks(spec, () => new JsCheckCtx(programs, r, notes, hidden, page, clicks.length)) };
 }
 
 let rebuilt: { spec: JsSpec; key: string; page?: PageState } | undefined;

@@ -118,6 +118,20 @@ document.getElementById("more").addEventListener("click", function () { console.
 });
 
 describe('what a check sees', () => {
+  test('innerText shows undefined where textContent goes blank, like a browser', () => {
+    const shown: string[] = [];
+    const check: JsCheck = {
+      id: 'text',
+      label: 'text',
+      test(c) {
+        shown.push(c.page!.all('#title')[0].text);
+        return undefined;
+      },
+    };
+    for (const prop of ['innerText', 'textContent']) play(make(`document.getElementById("title").${prop} = ["a"][5];`, [check]), { run: true });
+    expect(shown).toEqual(['undefined', '']);
+  });
+
   test('the hidden run has its own page, clicks, data, and files', () => {
     const seen: unknown[] = [];
     const spec = make(`let words = ["x"];

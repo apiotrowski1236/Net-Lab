@@ -355,14 +355,11 @@ function resetInLoop(n: Node, c: Ctx): void {
   for (let i = 0; i < list.length; i++) {
     const s = list[i];
     let name: string | undefined;
-    let shown = '';
     if (s.k === 'expr' && s.e.k === 'assign' && s.e.op === '=' && s.e.target.k === 'id' && isLiteral(s.e.value)) {
       name = s.e.target.name;
-      shown = c.text(s.e);
     } else if (s.k === 'var' && s.decls.length === 1 && s.decls[0].init && isLiteral(s.decls[0].init) && s.kind !== 'const') {
       if (!declaredOutside(s.decls[0].name, n, c)) continue;
       name = s.decls[0].name;
-      shown = `${name} = ${c.text(s.decls[0].init)}`;
     }
     if (!name) continue;
     const add = list.findIndex((x, j) => j > i && accumulates(x) === name);
@@ -370,7 +367,7 @@ function resetInLoop(n: Node, c: Ctx): void {
     const readLater = list.slice(add + 1).some((x) => accumulates(x) !== name && namesIn(x).has(name!));
     const between = list.slice(i + 1, add).some((x) => namesIn(x).has(name!) && accumulates(x) !== name);
     if (readLater || between) continue;
-    c.add('reset-in-loop', s.pos.line, `This line sets ${name} back every time the loop runs, so ${name} never builds up. Move ${shown} above the loop.`);
+    c.add('reset-in-loop', s.pos.line, `This line sets ${name} back every time the loop runs, so ${name} never builds up. Start ${name} above the loop, not inside it.`);
   }
 }
 
@@ -388,8 +385,10 @@ function declaredOutside(name: string, loop: Loop, c: Ctx): boolean {
 }
 
 function promptCompare(n: Node, c: Ctx): void {
-  if (n.k !== 'binary' || !c.run?.facts.promptCompare.some((f) => f.file === n.pos.file && f.off === n.pos.off)) return;
-  c.add('prompt-compare', n.pos.line, `prompt() always gives back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Turn the answer into a number first: let age = Number(prompt("How old are you?"));`);
+  if (n.k !== 'binary') return;
+  const hit = c.run?.facts.promptCompare.find((f) => f.file === n.pos.file && f.off === n.pos.off);
+  if (!hit) return;
+  c.add('prompt-compare', hit.prompt.file === n.pos.file ? hit.prompt.line : n.pos.line, `This prompt() gave back a string, and a string is never === to a number, so ${c.text(n)} is ${n.op === '===' ? 'never' : 'always'} true. Put Number() around the prompt(), like this: Number(prompt("..."))`);
 }
 
 function alertExtraArgs(n: Node, c: Ctx, alertIsMine: boolean): void {

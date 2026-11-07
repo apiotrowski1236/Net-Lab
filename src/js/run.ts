@@ -1,7 +1,8 @@
-import { textOf, walk, type Assign, type Block, type Call, type DoWhile, type Expr, type Fn, type For, type ForEach, type Index, type Loop, type Member, type Node, type Program, type Stmt, type Switch, type VarDecl, type While } from './ast';
+import { textOf, walk, type Assign, type Block, type Call, type DoWhile, type Expr, type Fn, type For, type ForEach, type Index, type Loop, type Member, type Node, type Program, type Stmt, type Switch, type Update, type VarDecl, type While } from './ast';
 import type { JsError, Pos } from './errors';
 import { logLine, shownText } from './format';
 import { closestName, notDefinedHelp, notFunctionHelp, type Receiver } from './help';
+import { Query } from './query';
 import { ARRAY_METHODS, BOOLEAN_METHODS, NOT_ARRAY, NOT_FUNCTION, NOT_GLOBAL, NOT_NUMBER, NOT_OBJECT, NOT_STRING, NUMBER_METHODS, OBJECT_METHODS, STATIC_DENY, STRING_METHODS, joinArray, makeGlobals, type LibIo } from './lib';
 import { HostObject, JsArray, JsFunction, JsNamespace, JsNative, JsObject, Scope, arrayIndex, isCallable, ownKeys, type Binding, type Primitive, type Runtime, type Value } from './values';
 
@@ -59,8 +60,8 @@ export interface RunFacts {
   indexAtLength: { file: string; line: number; off: number; target: string; index: number; length: number }[];
   /** `+` that joined a number-like prompt() answer to a number or to another answer. */
   promptPlus: { file: string; line: number }[];
-  /** `===` or `!==` that compared a prompt() answer with a number, which a string never matches. `off` is where the comparison starts. */
-  promptCompare: { file: string; line: number; off: number }[];
+  /** `===` or `!==` that compared a prompt() answer with a number, which a string never matches. `off` is where the comparison starts, and `prompt` is where the answer came from. */
+  promptCompare: { file: string; line: number; off: number; prompt: Pos }[];
   /** Property reads that came back undefined and were close to a real name. */
   misspelled: { file: string; line: number; object: string; name: string; suggestion: string }[];
   /** How many times each loop's body ran. */
@@ -421,7 +422,7 @@ class Interp implements Runtime {
   private readonly seenIndex = new Set<number>();
   private readonly seenPlus = new Set<string>();
   private readonly seenMisspelled = new Set<string>();
-  private readonly promptAnswers = new Set<string>();
+  private readonly promptAnswers = new Map<string, Pos>();
   /** Names still waiting for their `data` value. */
   private readonly pending = new Map<string, unknown>();
   /** Names that have had their `data` value. */
@@ -722,7 +723,7 @@ class Interp implements Runtime {
     const answer = this.answers[this.asked++];
     this.facts.prompts++;
     this.print({ kind, text: message, answer });
-    if (kind === 'prompt' && answer !== null) this.promptAnswers.add(answer);
+    if (kind === 'prompt' && answer !== null) this.promptAnswers.set(answer, this.here);
     return answer;
   }
 
@@ -771,7 +772,7 @@ class Interp implements Runtime {
   private read(name: string, s: Scope, pos: Pos): Value {
     const b = s.find(name);
     if (!b) this.notDefined(name, s, pos);
-    if (b.tdz) this.throwError('ReferenceError', `Cannot access '${name}' before initialization`, 'tdz', pos, `${name} is used before the line that declares it. Move the let or const line above this line.`);
+    if (b.tdz) this.throwError('ReferenceError', `Cannot access '${name}' before initialization`, 'tdz', pos, `${name} is used before the line that declares it. Move that line above this one.`);
     return b.v;
   }
 
@@ -782,7 +783,11 @@ class Interp implements Runtime {
     }
     const names = new Set<string>();
     for (let c: Scope | null = s; c; c = c.parent) for (const k of c.vars.keys()) names.add(k);
-    this.throwError('ReferenceError', `${name} is not defined`, 'not-defined', pos, notDefinedHelp(name, names));
+    const query = new Query(this.programs);
+    const made = query.declarations().find((d) => d.name === name && d.scope !== 'top' && d.file === pos.file);
+    // A `for` header's variable counts as outside the body, so find its loop by line.
+    const inLoop = !!made && (made.inLoop || query.loops().some((l) => l.file === made.file && l.line === made.line));
+    this.throwError('ReferenceError', `${name} is not defined`, 'not-defined', pos, notDefinedHelp(name, names, made && { line: made.line, inLoop }));
   }
 
   private write(name: string, v: Value, s: Scope, pos: Pos): void {
@@ -796,7 +801,7 @@ class Interp implements Runtime {
   }
 
   private store(b: Binding, name: string, v: Value, pos: Pos): void {
-    if (b.tdz) this.throwError('ReferenceError', `Cannot access '${name}' before initialization`, 'tdz', pos, `${name} is used before the line that declares it. Move the let or const line above this line.`);
+    if (b.tdz) this.throwError('ReferenceError', `Cannot access '${name}' before initialization`, 'tdz', pos, `${name} is used before the line that declares it. Move that line above this one.`);
     if (b.kind === 'const') this.throwError('TypeError', 'Assignment to constant variable.', 'const-assign', pos, b.v instanceof JsArray ? `${name} was declared with const, so it can't be given a whole new array. You can still change it one item at a time, with an index or a method like push. If you do want a new array, change const to let where ${name} is declared.` : `${name} was declared with const, so it can't be given a new value. Change const to let where ${name} is declared.`);
     if (b.kind === 'self' || b.kind === 'fixed') return;
     if (this.pinned.size && this.pinned.has(name) && this.frames.length === 1) {
@@ -1183,12 +1188,8 @@ class Interp implements Runtime {
         return this.closure(e, s, e.name ?? '');
       case 'unary':
         return this.evUnary(e, s);
-      case 'update': {
-        const old = this.num(this.ev(e.target, s));
-        const now = e.op === '++' ? old + 1 : old - 1;
-        this.assignTo(e.target, now, s);
-        return e.prefix ? now : old;
-      }
+      case 'update':
+        return this.evUpdate(e, s);
       case 'binary':
         if (e.op === 'in') return this.evIn(e.l, e.r, s);
         return this.binary(e.op, this.ev(e.l, s), this.ev(e.r, s), e);
@@ -1347,10 +1348,10 @@ class Interp implements Runtime {
   }
 
   private notePromptCompare(a: Value, b: Value, pos: Pos): void {
-    const answer = (v: Value) => typeof v === 'string' && this.promptAnswers.has(v);
-    const hit = (answer(a) && typeof b === 'number') || (answer(b) && typeof a === 'number');
-    if (!hit || this.facts.promptCompare.some((f) => f.file === pos.file && f.off === pos.off)) return;
-    this.facts.promptCompare.push({ file: pos.file, line: pos.line, off: pos.off });
+    const from = (v: Value, other: Value) => (typeof v === 'string' && typeof other === 'number' ? this.promptAnswers.get(v) : undefined);
+    const prompt = from(a, b) ?? from(b, a);
+    if (!prompt || this.facts.promptCompare.some((f) => f.file === pos.file && f.off === pos.off)) return;
+    this.facts.promptCompare.push({ file: pos.file, line: pos.line, off: pos.off, prompt });
   }
 
   private looseEq(l: Value, r: Value): boolean {
@@ -1377,7 +1378,7 @@ class Interp implements Runtime {
       this.write(t.name, v, s, t.pos);
       return v;
     }
-    if (t.k !== 'member' && t.k !== 'index') return undefined;
+    if (t.k !== 'member' && t.k !== 'index') this.notAssignable(t, s, 'Invalid left-hand side in assignment', e.op);
     const o = this.ev(t.obj, s);
     const k = t.k === 'member' ? t.name : this.ev(t.key, s);
     if (e.op === '=') {
@@ -1390,6 +1391,31 @@ class Interp implements Runtime {
     const v = this.compound(e, old, s);
     this.setProp(o, this.key(k), v, t);
     return v;
+  }
+
+  private evUpdate(e: Update, s: Scope): Value {
+    const t = e.target;
+    const step = (old: number) => (e.op === '++' ? old + 1 : old - 1);
+    if (t.k === 'member' || t.k === 'index') {
+      // The target is worked out once, so a[i++]++ moves i by one.
+      const o = this.ev(t.obj, s);
+      const k = this.key(t.k === 'member' ? t.name : this.ev(t.key, s));
+      const v = this.getProp(o, k, t);
+      if (v === undefined && t.k === 'member') this.noteMissing(o, t);
+      const old = this.num(v);
+      this.setProp(o, k, step(old), t);
+      return e.prefix ? step(old) : old;
+    }
+    if (t.k === 'call') this.notAssignable(t, s, `Invalid left-hand side expression in ${e.prefix ? 'prefix' : 'postfix'} operation`, e.op);
+    const old = this.num(this.ev(t, s));
+    this.assignTo(t, step(old), s);
+    return e.prefix ? step(old) : old;
+  }
+
+  /** Like a browser, `f() = 1` runs f and stops there. */
+  private notAssignable(t: Expr, s: Scope, msg: string, op: string): never {
+    this.ev(t, s);
+    this.throwError('ReferenceError', msg, 'assign-to-call', t.pos, `${this.src(t)} is a call, and ${op} only works on a variable or a property. If the call gives you an element, set one of its properties, like textContent.`);
   }
 
   private shortCircuit(op: string, old: Value): boolean {
@@ -1447,6 +1473,7 @@ class Interp implements Runtime {
   private readOfNothing(o: undefined | null, key: string, e: Member | Index): never {
     const from = e.obj;
     let help = `${this.src(from)} is ${String(o)}, so it has no properties to read. Check where ${this.src(from)} gets its value.`;
+    if (o === null && this.facts.prompts) help += ' prompt gives back null when you press Cancel.';
     if (from.k === 'index') {
       help = `${this.src(from)} is ${String(o)}. That usually means the index is past the end of the array, and an array of n items has indexes 0 to n - 1. Check the index, or the loop that sets it.`;
     }

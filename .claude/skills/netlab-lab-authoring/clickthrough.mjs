@@ -261,7 +261,7 @@ async function doMove(i, step, m) {
 async function answer(i, step) {
   const key = sol[step.id] ?? {};
   for (const q of step.questions ?? []) {
-    const card = page.locator('.qcard').filter({ hasText: q.prompt.replace(/\*\*|`/g, '').slice(0, 40) }).first();
+    const card = page.locator('.qcard').filter({ hasText: q.prompt.replace(/\*\*|`/g, '').split('\n')[0].slice(0, 40) }).first();
     if ((await card.count()) === 0) await fail(i, `question "${q.id}" isn't on screen (still locked?)`);
     if (q.kind === 'choice') {
       // Exact, so an answer of "0" doesn't pick the option "100".

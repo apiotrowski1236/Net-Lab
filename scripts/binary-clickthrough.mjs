@@ -351,8 +351,8 @@ try {
     log(`step ${i + 1} ${step.id} (optional extra challenge)`);
     await pause(1200);
     const banner = await page.locator('.lesson .callout.extra-challenge').first().innerText();
-    if (i === submitAt + 1) await check(/These steps earn no points/.test(banner) && /hand in your report again/.test(banner), `first extra challenge banner: "${banner}"`);
-    else await check(/since you last handed in/.test(banner), `after extra work, the banner should ask to hand in again: "${banner}"`);
+    if (i === submitAt + 1) await check(/These steps earn no points/.test(banner) && /download it again and hand in the new file/.test(banner), `first extra challenge banner: "${banner}"`);
+    else await check(/since your last report/.test(banner), `after extra work, the banner should ask to hand in again: "${banner}"`);
     await shoot(i, step, 'start');
     for (const m of sol[step.id]?.moves ?? []) await doInput(step, m);
     await goalsDone(step);

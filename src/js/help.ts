@@ -134,7 +134,9 @@ export function explainSyntax(e: Omit<JsError, 'help'>, seen: Token[], at: Token
     if (top) {
       const close = OPENS[top.v];
       const what = top.v === '${' ? 'The ${ ' : `The ${top.v} `;
-      return { code: top.v === '{' ? 'missing-brace' : top.v === '[' ? 'missing-bracket' : 'missing-paren', help: `${what}on line ${top.pos.line} never closes. Add a ${close} for it. Each opening mark needs a matching closing mark.` };
+      // The last } closes the nearest {, so a missing inner } shows up as the outer { staying open.
+      const inner = top.v === '{' && before.slice(before.indexOf(top) + 1).some((t) => t.t === 'op' && t.v === '{');
+      return { code: top.v === '{' ? 'missing-brace' : top.v === '[' ? 'missing-bracket' : 'missing-paren', help: `${what}on line ${top.pos.line}${inner ? ', or one inside it,' : ''} never closes. Add a ${close} for it. Each opening mark needs a matching closing mark.` };
     }
     if (prev) return { code: 'unexpected-end', help: `The code stops in the middle of something on line ${prev.pos.line}. Finish that line.` };
     return { code: 'unexpected-end', help: 'The code stops before it is finished.' };
@@ -178,6 +180,11 @@ export function explainSyntax(e: Omit<JsError, 'help'>, seen: Token[], at: Token
     }
     if (top?.v === '[' && at.t === 'id' && prev.t === 'id') {
       return { code: 'missing-quotes', help: `Text needs quote marks around it: "${prev.v} ${at.v}". Two separate items need a comma between them.` };
+    }
+    // `let scores = 40, 55;`: a comma in a declaration wants another name, so this list has lost its brackets.
+    const statement = before.slice(before.map((b) => b.v).lastIndexOf(';') + 1);
+    if (!top && prev.v === ',' && (at.t === 'num' || at.t === 'str') && statement.some((b) => ['let', 'const', 'var'].includes(b.v))) {
+      return { code: 'list-no-brackets', help: 'To keep a list in one variable, put square brackets around the items, like [1, 2, 3].' };
     }
     const inside = top?.v === '[' ? 'items in an array' : top?.v === '{' && before[before.indexOf(top) - 1]?.v !== ')' ? 'parts of an object' : '';
     if (inside) return { code: 'missing-comma', help: `The ${inside} need a comma between them.` };
@@ -257,16 +264,25 @@ export type Receiver = 'array' | 'string' | 'number' | 'boolean' | 'object' | 'f
 
 const KIND_WORD: Record<Receiver, string> = { array: 'An array', string: 'A string', number: 'A number', boolean: 'A boolean', object: 'This object', function: 'A function', undefined: 'undefined', null: 'null' };
 
+/** Names that only work after a value and a dot, so a new variable is the wrong fix. */
+const BELONGS: Record<string, string> = {
+  length: 'an array, like names.length',
+  ...Object.fromEntries(['push', 'pop', 'shift', 'unshift', 'includes', 'indexOf', 'join', 'slice', 'splice'].map((m) => [m, `an array, like names.${m}()`])),
+  ...Object.fromEntries(['toLowerCase', 'toUpperCase'].map((m) => [m, `a string, like name.${m}()`])),
+};
+
 /** `totl is not defined`. */
-export function notDefinedHelp(name: string, inScope: Iterable<string>): string {
+export function notDefinedHelp(name: string, inScope: Iterable<string>, madeInside?: { line: number; inLoop: boolean }): string {
   const lower = lowercaseKeyword(name);
   if (lower) return `JavaScript keywords are all lowercase. Write ${lower}, not ${name}.`;
+  if (Object.hasOwn(BELONGS, name)) return `${name} belongs to ${BELONGS[name]}. Put the name of your variable and a dot in front of it.`;
+  if (madeInside) return `There is no variable called ${name} on this line. The ${name} on line ${madeInside.line} only exists inside its ${madeInside.inLoop ? 'loop' : '{ }'}. Move this line inside ${madeInside.inLoop ? 'it' : 'them'}.`;
   const near = closestName(name, inScope);
   if (near) {
     const caps = near.toLowerCase() === name.toLowerCase();
     return `There is no variable called ${name}. Did you mean ${near}?${caps ? ' JavaScript treats capital and lowercase letters as different.' : ''}`;
   }
-  return `There is no variable called ${name}. Declare it first with let, and check the spelling. Text in quotes is a string, and a word with no quotes has to be a variable.`;
+  return `There is no variable called ${name}. Make it first with let, or use a variable you already have. Check the spelling too. Text in quotes is a string, and a word with no quotes has to be a variable.`;
 }
 
 /** `x is not a function`, when there is a value on the left. */
