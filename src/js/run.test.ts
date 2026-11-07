@@ -526,3 +526,10 @@ do {
     expect(c.split('\n')).toHaveLength(3);
   });
 });
+
+describe('code that stops in the middle of an escape', () => {
+  test('a backslash at the very end of a template is an ordinary syntax error', () => {
+    const { error } = parseFiles([{ name: 'script.js', text: 'let s = `abc\\' }]);
+    expect(error?.msg).toBe('Unexpected end of input');
+  });
+});

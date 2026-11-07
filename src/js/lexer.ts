@@ -255,7 +255,9 @@ export class Lexer {
       for (let n = 0; n < 2 && src[this.i] >= '0' && src[this.i] <= '7' && v * 8 + (src.charCodeAt(this.i) - 48) <= 255; n++) v = v * 8 + (src.charCodeAt(this.i++) - 48);
       return { text: String.fromCharCode(v) };
     }
-    return { text: String.fromCodePoint(src.codePointAt(this.i - 1)!) };
+    const point = src.codePointAt(this.i - 1)!;
+    if (point > 0xffff) this.i++;
+    return { text: String.fromCodePoint(point) };
   }
 
   private string(pos: Pos, nl: boolean, quote: string): Token {
@@ -300,6 +302,7 @@ export class Lexer {
       }
       if (c === '\\') {
         this.i++;
+        if (this.i >= src.length) return { text, done: true, bad: { t: 'eof', v: '', pos: this.here(), end: this.i, nl: false } };
         const e = this.escape();
         if ('msg' in e) return { text, done: true, bad: this.illegal(pos, e.msg, 'bad-escape', false) };
         text += e.text;

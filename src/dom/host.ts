@@ -530,7 +530,8 @@ class ElementHost extends NodeHost {
       case 'innerText':
       case 'nodeValue': {
         if (name === 'nodeValue') return;
-        const text = value === null || value === undefined ? '' : rt.str(value);
+        // A browser blanks textContent for undefined, but innerText shows the word.
+        const text = value === null || (value === undefined && name !== 'innerText') ? '' : rt.str(value);
         page.watchText(text, name);
         page.clear(el);
         if (text) page.put(el, new DomText(text), null, name);

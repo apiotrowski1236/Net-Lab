@@ -1,4 +1,4 @@
-import { textOf, walk, type Assign, type Block, type Call, type DoWhile, type Expr, type Fn, type For, type ForEach, type Index, type Loop, type Member, type Node, type Program, type Stmt, type Switch, type VarDecl, type While } from './ast';
+import { textOf, walk, type Assign, type Block, type Call, type DoWhile, type Expr, type Fn, type For, type ForEach, type Index, type Loop, type Member, type Node, type Program, type Stmt, type Switch, type Update, type VarDecl, type While } from './ast';
 import type { JsError, Pos } from './errors';
 import { logLine, shownText } from './format';
 import { closestName, notDefinedHelp, notFunctionHelp, type Receiver } from './help';
@@ -1188,12 +1188,8 @@ class Interp implements Runtime {
         return this.closure(e, s, e.name ?? '');
       case 'unary':
         return this.evUnary(e, s);
-      case 'update': {
-        const old = this.num(this.ev(e.target, s));
-        const now = e.op === '++' ? old + 1 : old - 1;
-        this.assignTo(e.target, now, s);
-        return e.prefix ? now : old;
-      }
+      case 'update':
+        return this.evUpdate(e, s);
       case 'binary':
         if (e.op === 'in') return this.evIn(e.l, e.r, s);
         return this.binary(e.op, this.ev(e.l, s), this.ev(e.r, s), e);
@@ -1382,7 +1378,7 @@ class Interp implements Runtime {
       this.write(t.name, v, s, t.pos);
       return v;
     }
-    if (t.k !== 'member' && t.k !== 'index') return undefined;
+    if (t.k !== 'member' && t.k !== 'index') this.notAssignable(t, s, 'Invalid left-hand side in assignment', e.op);
     const o = this.ev(t.obj, s);
     const k = t.k === 'member' ? t.name : this.ev(t.key, s);
     if (e.op === '=') {
@@ -1395,6 +1391,31 @@ class Interp implements Runtime {
     const v = this.compound(e, old, s);
     this.setProp(o, this.key(k), v, t);
     return v;
+  }
+
+  private evUpdate(e: Update, s: Scope): Value {
+    const t = e.target;
+    const step = (old: number) => (e.op === '++' ? old + 1 : old - 1);
+    if (t.k === 'member' || t.k === 'index') {
+      // The target is worked out once, so a[i++]++ moves i by one.
+      const o = this.ev(t.obj, s);
+      const k = this.key(t.k === 'member' ? t.name : this.ev(t.key, s));
+      const v = this.getProp(o, k, t);
+      if (v === undefined && t.k === 'member') this.noteMissing(o, t);
+      const old = this.num(v);
+      this.setProp(o, k, step(old), t);
+      return e.prefix ? step(old) : old;
+    }
+    if (t.k === 'call') this.notAssignable(t, s, `Invalid left-hand side expression in ${e.prefix ? 'prefix' : 'postfix'} operation`, e.op);
+    const old = this.num(this.ev(t, s));
+    this.assignTo(t, step(old), s);
+    return e.prefix ? step(old) : old;
+  }
+
+  /** Like a browser, `f() = 1` runs f and stops there. */
+  private notAssignable(t: Expr, s: Scope, msg: string, op: string): never {
+    this.ev(t, s);
+    this.throwError('ReferenceError', msg, 'assign-to-call', t.pos, `${this.src(t)} is a call, and ${op} only works on a variable or a property. If the call gives you an element, set one of its properties, like textContent.`);
   }
 
   private shortCircuit(op: string, old: Value): boolean {

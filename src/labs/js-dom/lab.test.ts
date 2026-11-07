@@ -94,6 +94,7 @@ describe('starting code', () => {
 // --- step 1 ---
 
 wrongAttempts('hello', [
+  ['assigning to the call', 'document.getElementById("title") = "Sam";', 'document.getElementById("title") is a call, and = only works on a variable or a property. If the call gives you an element, set one of its properties, like textContent.'],
   ['a # in the id', 'let title = document.getElementById("#title");\ntitle.textContent = "Sam";', 'getElementById("#title") found no element. getElementById takes the id alone, and the # belongs only in a CSS selector. Write getElementById("title").'],
   ['getElementByID', 'let title = document.getElementByID("title");\ntitle.textContent = "Sam";', 'document has no method called getElementByID. Did you mean getElementById? Capital and lowercase letters count in JavaScript.'],
   ['getElementsById', 'let title = document.getElementsById("title");\ntitle.textContent = "Sam";', 'document has no method called getElementsById. An id belongs to one element, so the name has no s: getElementById.'],
@@ -221,6 +222,7 @@ test('grid: 400 squares from a script under 10 lines', () => {
 // --- step 5 ---
 
 wrongAttempts('every', [
+  ['the headings removed', `${H}for (let i = 0; i < headings.length; i++) {\n  headings[i].remove();\n}`, 'Your code took the headings off the page. Keep them, and add the class `accent` to each one in a loop.'],
   ['a property set on the list', `${H}headings.textContent = "x";`, 'querySelectorAll gives a list of elements, not one element, so setting textContent on the list changes nothing. A browser gives no error for this. Use a loop and set textContent on each element.'],
   ['style on the list', `${H}headings.style.color = "red";`, 'querySelectorAll gives a list of elements, not one element, so the list has no style. In a loop, use style on each element, with [i] after the name of the list.'],
   ['querySelector', 'let first = document.querySelector("h2");\nfirst.classList.add("accent");', '`querySelector("h2")` finds only the first match, and this page has 4. Use `querySelectorAll` and a loop to reach all of them.'],
@@ -268,6 +270,7 @@ wrongAttempts('cards', [
 ]);
 
 rightAttempts('cards', [
+  ['arrays that grow with push', CARDS_DONE.replace('let cards =', 'titles.push("Art show");\ndetails.push("We paint a wall.");\nlet cards =')],
   ['createElement, h3, p, and append', CARDS_DONE],
   ['innerHTML +=', `${P}for (let i = 0; i < titles.length; i++) {\n  box.innerHTML += '<div class="card"><h3>' + titles[i] + "</h3><p>" + details[i] + "</p></div>";\n}`],
   ['other names, numbers, and const', `const teams = ["Hawks", "Bears", "Owls", "Foxes"];\nconst wins = [12, 9, 7, 3];\nconst holder = document.querySelector("#cards");\nfor (let n = 0; n < teams.length; n++) {\n  const c = document.createElement("div");\n  c.classList.add("card");\n  c.innerHTML = "<h3>" + teams[n] + "</h3><p>Won " + wins[n] + " games</p>";\n  holder.appendChild(c);\n}`],
@@ -305,6 +308,7 @@ const CLICKS: DemoInput[] = [{ click: '#more' }];
 const HANDLER = (body: string) => `${M}button.addEventListener("click", function () {\n${body}\n});\n`;
 
 wrongAttempts('more', [
+  ['a click somewhere other than the button', MORE_DONE, 'Your code is ready. Click the button on your page to try it.', [{ click: '#grid' }]],
   ['the handler called', `${M}function addSquare() {\n${ADD}}\nbutton.addEventListener("click", addSquare());`, 'The click has no function to call. Keep the `function () { }` from the starting code.'],
   ['code outside the function', `${M}${ADD}button.addEventListener("click", function () {\n});`, 'The square appeared right away, and clicks add nothing. Move your code inside the function.'],
   ['one element, outside the function', `${M}let cell = document.createElement("div");\ncell.className = "cell";\nbutton.addEventListener("click", function () {\n  grid.appendChild(cell);\n});`, 'Only the first click added a square. Make the new element inside the function, so each click makes a new one.'],

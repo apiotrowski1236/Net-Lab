@@ -407,7 +407,8 @@ export const EVERY: JsCheck = {
     const p = r.page!;
     const heads = p.all('h2');
     const done = heads.filter(changed).length;
-    if (done === heads.length && !noted(c.notes, 'class-no-rule')) return undefined;
+    if (heads.length && done === heads.length && !noted(c.notes, 'class-no-rule')) return undefined;
+    if (!heads.length) return 'Your code took the headings off the page. Keep them, and add the class `accent` to each one in a loop.';
     const first = c.page!.firstOnly();
     if (first) return first;
     if (heads.some(dotted)) return 'The class went on with a dot in its name, so no CSS rule matches it. Take the dot out of the string.';
@@ -440,20 +441,24 @@ function rowsIn(vars: Record<string, unknown>): { arrays: Record<string, Plain[]
 }
 
 /** New values for the rows: one more row, and every value changed, so a card typed by hand can't pass. */
-function otherData(vars: Record<string, unknown>): { data: Record<string, unknown>; want: string[][] } | undefined {
+function otherData(vars: Record<string, unknown>): { data: Record<string, unknown>; want: (after: Record<string, unknown>) => string[][] } | undefined {
   const { arrays, objects } = rowsIn(vars);
   const names = Object.keys(arrays);
   const made = (label: string, row: number, like: Plain): Plain => (typeof like === 'number' ? 7000 + row * 11 : `${label}zq${row}q`);
   if (names.length) {
     const size = arrays[names[0]].length + 1;
     const data = Object.fromEntries(names.map((n, k) => [n, Array.from({ length: size }, (_, row) => made(`v${k}`, row, arrays[n][0]))]));
-    const want = Array.from({ length: size }, (_, row) => names.map((n) => String((data[n] as Plain[])[row])));
+    // Read the rows after the run, because the script can push to its arrays.
+    const want = (after: Record<string, unknown>) => {
+      const columns = names.map((n) => after[n] as Plain[]);
+      return Array.from({ length: Math.max(...columns.map((col) => col.length)) }, (_, row) => columns.map((col) => String(col[row])));
+    };
     return { data, want };
   }
   if (objects) {
     const keys = Object.keys(objects.rows[0]);
     const rows = Array.from({ length: objects.rows.length + 1 }, (_, row) => Object.fromEntries(keys.map((k, n) => [k, made(`v${n}`, row, objects.rows[0][k])])));
-    return { data: { [objects.name]: rows }, want: rows.map((r) => keys.map((k) => String(r[k]))) };
+    return { data: { [objects.name]: rows }, want: (after) => (after[objects.name] as Record<string, Plain>[]).map((r) => keys.map((k) => String(r[k]))) };
   }
   return undefined;
 }
@@ -502,13 +507,14 @@ export const FOLLOWS: JsCheck = {
     if (r.dataMissing.length) return 'Keep your arrays at the top of your script, outside any loop, so the checks can try other values.';
     if (!r.ok) return STOPPED;
     const cards = r.page!.all('#cards .card').map((n) => n.outer.toLowerCase());
-    if (cards.length !== other.want.length) return 'The cards did not follow your arrays. Use the arrays and `.length` in the loop, so a new item makes a new card.';
+    const want = other.want(r.vars);
+    if (cards.length !== want.length) return 'The cards did not follow your arrays. Use the arrays and `.length` in the loop, so a new item makes a new card.';
     if (r.page!.all('#cards .card').every((n) => !n.text)) return 'Your cards are empty. Add the `h3` and the `p` to each card, not to the element with the id `cards`.';
     const right = (card: string, row: string[]) => row.filter((v) => card.includes(v.toLowerCase())).length;
-    const counts = other.want.map((row, i) => right(cards[i], row));
+    const counts = want.map((row, i) => right(cards[i], row));
     const differ = new Set(cards).size > 1;
     // A whole array on a card holds that card's value too, so look for the values of the other cards.
-    if (differ && other.want.some((row, i) => cards.some((card, j) => j !== i && right(card, row) > 0))) return 'Some cards show values from other cards. Use `titles[i]` and `details[i]`, so each card shows only its own values.';
+    if (differ && want.some((row, i) => cards.some((card, j) => j !== i && right(card, row) > 0))) return 'Some cards show values from other cards. Use `titles[i]` and `details[i]`, so each card shows only its own values.';
     if (differ && counts.every((n) => n >= 2)) return r.page!.all('#cards .card').every((n) => n.all('h3').some((h) => h.text) && n.all('p').some((p) => p.text)) ? undefined : 'Put the title in an `h3` and the detail in a `p`, so your cards look like the example.';
     if (counts[counts.length - 1] > counts[0]) return 'Only the last card has both of its values. Adding an element again moves it, so make the `h3` and the `p` inside the loop.';
     if (differ && r.page!.count('#cards > *') > cards.length) return 'Some of your elements are next to the cards, not inside them. Add the `h3` and the `p` to the card, not to the element with the id `cards`.';
@@ -565,6 +571,6 @@ export const CLICKED: JsCheck = {
   id: 'clicked',
   label: 'Click the button on your page',
   next: true,
-  test: (c) => (c.clicks ? undefined : 'Your code is ready. Click the button on your page to try it.'),
+  test: (c) => (c.clicks && c.page!.count('#grid .cell') > c.run().page!.count('#grid .cell') ? undefined : 'Your code is ready. Click the button on your page to try it.'),
   hints: ['Press Run first, so your page has your new code.', 'Click the button on your page, above the output.'],
 };
