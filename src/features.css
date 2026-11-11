@@ -5487,3 +5487,34 @@ button.pl-tile:active {
     height: min(80vw, 420px);
   }
 }
+
+/* A step with a code editor: the card fills the stage, and the editor takes the room that's left.
+   Below its minimum height the stage scrolls, as before. A phone keeps the fixed heights above. */
+@media (min-width: 901px) {
+  .demo-stage.fill {
+    display: flex;
+    flex-direction: column;
+  }
+  .demo-stage.fill .demo-list {
+    flex: 1 0 auto;
+    width: 100%;
+    max-width: none;
+  }
+  .demo-stage.fill .demo-card.demo-java,
+  .demo-stage.fill .demo-card.demo-js {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .demo-stage.fill .java {
+    flex: 1 0 auto;
+  }
+  .demo-stage.fill .java-main {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 330px;
+  }
+  .demo-stage.fill .js.has-page .java-main {
+    min-height: 420px;
+  }
+}
