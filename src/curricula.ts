@@ -43,7 +43,7 @@ export const CURRICULA: Curriculum[] = [
     heading: 'Hands-on lessons',
     intro: LESSON_INTRO,
     noun: 'lesson',
-    labs: ['js-arrays', 'js-loops', 'js-dom'],
+    labs: ['p5-draw', 'p5-move', 'p5-game', 'js-arrays', 'js-loops', 'js-dom'],
     stubs: [],
   },
   {

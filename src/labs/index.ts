@@ -18,10 +18,13 @@ import { javaClassesLab } from './java-classes';
 import { jsArraysLab } from './js-arrays';
 import { jsLoopsLab } from './js-loops';
 import { jsDomLab } from './js-dom';
+import { p5DrawLab } from './p5-draw';
+import { p5MoveLab } from './p5-move';
+import { p5GameLab } from './p5-game';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [homeNetworkLab, packetCaptureLab, wiresharkLab, buildNetworkLab, netToolsLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab, binaryNumbersLab, javaClassesLab, jsArraysLab, jsLoopsLab, jsDomLab];
+export const LABS: LabDef[] = [homeNetworkLab, packetCaptureLab, wiresharkLab, buildNetworkLab, netToolsLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab, binaryNumbersLab, javaClassesLab, jsArraysLab, jsLoopsLab, jsDomLab, p5DrawLab, p5MoveLab, p5GameLab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the

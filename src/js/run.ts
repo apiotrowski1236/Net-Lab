@@ -409,7 +409,10 @@ class Interp implements Runtime {
   private readonly sources = new Map<string, string>();
   private readonly builtins = new Scope(null);
   private readonly top = new Scope(this.builtins, 'Global');
-  private readonly maxSteps: number;
+  private maxSteps: number;
+  /** The budget of one resume, for the message when it runs out. */
+  private resumeSteps?: { n: number; text: string };
+  private askHold?: string;
   private readonly maxLines: number;
   private readonly maxTrace: number;
   private readonly answers: readonly (string | null)[];
@@ -602,6 +605,40 @@ class Interp implements Runtime {
     return this.here;
   }
 
+  global(name: string, v: Value): void {
+    const b = this.builtins.vars.get(name);
+    if (b) b.v = v;
+    else this.builtins.vars.set(name, { v, kind: 'var' });
+  }
+
+  lookup(name: string): Value {
+    const b = this.top.find(name);
+    return b && !b.tdz ? b.v : undefined;
+  }
+
+  holdAsks(help: string | undefined): void {
+    this.askHold = help;
+  }
+
+  /** Runs a host's work after the program has finished, with a budget of its own. Lines printed since the last call come back and leave the buffer, so a sketch can print forever. */
+  resume(work: (rt: Runtime) => void, maxSteps: number, stepsText: string): Resumed {
+    const before = this.steps;
+    this.maxSteps = this.steps + maxSteps;
+    this.resumeSteps = { n: maxSteps, text: stepsText };
+    this.textOut = 0;
+    let out: Pick<Resumed, 'status' | 'error' | 'limit' | 'waiting'> = { status: 'ok' };
+    this.ended = false;
+    try {
+      work(this);
+    } catch (e) {
+      const how = this.stopped(e);
+      out = how.status === 'cut' ? { status: 'ok' } : (how as typeof out);
+    } finally {
+      this.ended = true;
+    }
+    return { ...out, lines: this.lines.splice(0), steps: this.steps - before };
+  }
+
   notAvailable(msg: string): never {
     this.throwError('NotAvailable', msg, 'not-available', this.here, 'The labs in this editor use a smaller part of JavaScript, so this line has to change before the code can run.');
   }
@@ -632,7 +669,8 @@ class Interp implements Runtime {
       if (w.scope) this.sample(w, w.scope, true);
       throw new Stop({ limit: { why: 'loop', text: this.loopText(w), file: w.node.pos.file, line: w.node.pos.line } });
     }
-    throw new Stop({ limit: { why: 'steps', text: `This program took more than ${commas(this.maxSteps)} steps, so it was stopped. Look for a function that runs more times than you meant.`, file: this.here.file, line: this.here.line } });
+    const text = this.resumeSteps ? this.resumeSteps.text.replace('{n}', commas(this.resumeSteps.n)) : `This program took more than ${commas(this.maxSteps)} steps, so it was stopped. Look for a function that runs more times than you meant.`;
+    throw new Stop({ limit: { why: 'steps', text, file: this.here.file, line: this.here.line } });
   }
 
   private loopText(w: Watch): string {
@@ -719,6 +757,7 @@ class Interp implements Runtime {
   }
 
   private ask(kind: 'prompt' | 'confirm', message: string, fallback: string): string | null {
+    if (this.askHold) this.throwError('NotAvailable', `${kind}() can't be used here.`, 'ask-held', this.here, this.askHold);
     if (this.asked >= this.answers.length) throw new Stop({ waiting: { kind, message, default: fallback } });
     const answer = this.answers[this.asked++];
     this.facts.prompts++;
@@ -1802,4 +1841,35 @@ function helpFor(code: string): string | undefined {
 /** Runs parsed files, in order, sharing one set of globals. */
 export function runProgram(programs: Program[], options: RunOptions = {}): RunResult {
   return new Interp(programs, options).run();
+}
+
+/** How one resume of a finished program went. */
+export interface Resumed {
+  status: 'ok' | 'error' | 'limit' | 'waiting';
+  error?: JsError;
+  limit?: Limit;
+  waiting?: Waiting;
+  /** Lines printed during this resume. */
+  lines: OutputLine[];
+  steps: number;
+}
+
+/** A program that has run, and can run more: a p5.js sketch calls draw() once a frame. */
+export interface LiveProgram {
+  result: RunResult;
+  /**
+   * Runs a host's work, such as one frame, with its own step budget. `stepsText`
+   * is the message when the budget runs out, with `{n}` for the budget. Stop
+   * calling after anything but 'ok': the program has stopped for good.
+   */
+  resume(work: (rt: Runtime) => void, maxSteps: number, stepsText: string): Resumed;
+}
+
+/** Runs like runProgram, and keeps the program so a host can run more of it later. */
+export function startProgram(programs: Program[], options: RunOptions = {}): LiveProgram {
+  const interp = new Interp(programs, options);
+  const r = interp.run();
+  const result = { ...r, lines: [...r.lines] };
+  r.lines.length = 0;
+  return { result, resume: (work, maxSteps, stepsText) => interp.resume(work, maxSteps, stepsText) };
 }

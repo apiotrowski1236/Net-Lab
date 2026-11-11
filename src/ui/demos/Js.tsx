@@ -6,6 +6,7 @@ import { errorText, type LintNote, type OutputLine, type TraceFrame, type TraceS
 import { Icon } from '../icons';
 import { EditorPane, useSavedEdits } from './EditorPane';
 import type { DemoViewProps } from './parts';
+import { SketchPane } from './Sketch';
 
 type GoTo = (file: string, line: number) => void;
 
@@ -109,7 +110,7 @@ function Output({ last, stale, ask, onLine }: { last?: JsLast; stale: boolean; a
         {stale && <p class="java-stale">You changed the code since this ran. Press Run to check it.</p>}
         {!stale && last.status === 'waiting' && !ask && <p class="java-stale">This run stopped at a prompt. Press Run to start it again.</p>}
         {lines.length > 0 && <Lines lines={lines} />}
-        {last.status === 'ok' && !lines.length && <p class="java-empty">{last.page ? 'It ran. See your page above.' : 'It ran, and printed nothing.'}</p>}
+        {last.status === 'ok' && !lines.length && <p class="java-empty">{last.page ? 'It ran. See your page above.' : last.sketch ? 'Nothing printed yet. What console.log() prints shows up here.' : 'It ran, and printed nothing.'}</p>}
         {error && (
           <>
             <p class="java-head bad">{syntax ? 'This code has a syntax error, so none of it ran.' : 'The program stopped here.'}</p>
@@ -331,19 +332,25 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
   // The step-through has its own Stop.
   const ask = waiting && <PromptBox key={s.answers.length} ask={waiting} send={answer} stop={stepping ? undefined : () => leavePrompt({ stop: true })} />;
 
-  const last = s.last;
+  // While the sketch runs, the output is the live sketch's: what it prints and how it stops.
+  const [live, setLive] = useState<JsLast>();
+  const last = (spec.sketch && live) || s.last;
   // Like a console, show the end. A loop that printed 2,000 lines has its stop message down there.
   const side = useRef<HTMLDivElement>(null);
-  const shown = useRef(last);
+  const shown = useRef(s.last);
   useLayoutEffect(() => {
     if (side.current) side.current.scrollTop = side.current.scrollHeight;
-    if (last !== shown.current) {
+    if (s.last !== shown.current) {
       // The note on what to fix can land past the edge of the panel. On a narrow screen the page scrolls, and the output can land under the lesson's bottom bar.
       const fix = s.waiting ? undefined : root.current?.querySelector('.java-checks li.no, .java-checks li.next');
       (fix ?? (matchMedia('(max-width: 900px)').matches ? side.current : undefined))?.scrollIntoView({ block: 'nearest' });
     }
-    shown.current = last;
-  }, [last]);
+    shown.current = s.last;
+  }, [s.last]);
+  // A running sketch prints a line at a time. Keep the newest in view without moving the page.
+  useLayoutEffect(() => {
+    if (live && side.current) side.current.scrollTop = side.current.scrollHeight;
+  }, [live]);
   // The boxes are the point of a step-through, and on a narrow screen they start below the editor.
   useLayoutEffect(() => {
     if (stepping && matchMedia('(max-width: 900px)').matches) side.current?.scrollIntoView({ block: 'nearest' });
@@ -363,10 +370,11 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
     send({ click: path });
   };
   // Nothing much to read under the page, so the page takes the room.
-  const quiet = !!page && !s.last?.error && !s.last?.limit && !s.waiting && !s.notes?.length && (s.last?.lines.length ?? 0) <= 2;
+  const wide = !!page || !!spec.sketch;
+  const quiet = wide && !last?.error && !last?.limit && !s.waiting && !s.notes?.length && (last?.lines.length ?? 0) <= 2;
 
   return (
-    <div class={`java js ${page ? 'has-page' : ''}`} ref={root}>
+    <div class={`java js ${wide ? 'has-page' : ''} ${spec.sketch ? 'has-sketch' : ''}`} ref={root}>
       <div class="java-bar">
         <div class="java-tabs" role="tablist" aria-label="Files">
           {s.files.map((f) => (
@@ -428,10 +436,11 @@ export function JsView({ spec, state: s, send }: DemoViewProps<JsSpec, JsState>)
         )}
       </div>
       <div class={`java-main ${stepping ? 'stepping' : ''}`}>
-        <EditorPane language={languageOf} label={page ? 'Code' : 'JavaScript code'} file={file} readOnly={stepping || !!file.locked} runLine={starting ? undefined : step?.line} nextLine={starting ? step?.line : step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
+        <EditorPane language={languageOf} label={wide ? 'Code' : 'JavaScript code'} file={file} readOnly={stepping || !!file.locked} runLine={starting ? undefined : step?.line} nextLine={starting ? step?.line : step && next?.file === step.file && next.line !== step.line ? next.line : undefined} errorLines={errorLines} jump={jump} onChange={onChange} />
         {/* A column of panes, so a page preview can sit above the output. */}
         <div class={`js-panes ${quiet ? 'quiet' : ''}`}>
           {page && <Preview page={page} onClick={click} />}
+          {spec.sketch && <SketchPane spec={spec} state={s} onLive={setLive} />}
           <div class="java-side" ref={side}>
             {step ? (
               <Stepper step={step} lines={trace!.lines} ask={ask} />
