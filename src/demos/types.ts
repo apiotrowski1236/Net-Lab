@@ -209,6 +209,8 @@ export interface JsSpec extends DemoBase {
   hosts?: (rt: import('../js').Runtime, files: JsFile[]) => Record<string, import('../js').HostObject>;
   /** The page before the first Run. Having one is what turns on the preview. */
   startPage?: (files: JsFile[]) => import('../dom').PageState;
+  /** The code is a p5.js sketch: p5.js's names, setup() and draw(), and a live canvas beside the output (src/sketch). */
+  sketch?: true;
 }
 
 /** One class stamping out objects: press to make one, and hit one to see that only it changes. */

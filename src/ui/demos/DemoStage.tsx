@@ -41,9 +41,12 @@ export function DemoStage({ session, inline = false }: { session: LabSession; in
     scroller.current?.scrollTo({ top: 0 });
   }, [step.id]);
   const demos = step.demos ?? [];
+  const code = demos.some((d) => d.kind === 'java' || d.kind === 'js');
+  // A code editor grows to fill the stage, so a big screen shows more code instead of an empty band.
+  const fill = code && !inline;
   return (
-    <div class={`demo-stage ${inline ? 'inline' : ''}`} ref={scroller}>
-      <div class={`demo-list ${demos.some((d) => d.kind === 'java' || d.kind === 'js') ? 'wide' : ''}`}>
+    <div class={`demo-stage ${inline ? 'inline' : ''} ${fill ? 'fill' : ''}`} ref={scroller}>
+      <div class={`demo-list ${code ? 'wide' : ''}`}>
         {demos.map((spec) => (
           <DemoCard key={`${step.id}/${spec.id}`} session={session} spec={spec} />
         ))}

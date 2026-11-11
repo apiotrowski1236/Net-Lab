@@ -90,7 +90,7 @@ function strings(x: unknown, out: string[] = []): string[] {
 
 describe('binary-numbers: lesson shape', () => {
   it('is a lesson with no network, and only it, wireshark, java-classes, and the Intro CS labs are', () => {
-    const lessons = ['wireshark', 'java-classes', 'js-arrays', 'js-loops', 'js-dom'];
+    const lessons = ['wireshark', 'java-classes', 'js-arrays', 'js-loops', 'js-dom', 'p5-draw', 'p5-move', 'p5-game'];
     expect(isLesson(lab)).toBe(true);
     for (const l of LABS) if (l.id !== lab.id) expect(isLesson(l), l.id).toBe(lessons.includes(l.id));
   });

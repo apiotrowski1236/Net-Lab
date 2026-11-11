@@ -106,6 +106,12 @@ export interface Runtime {
   array(items: Value[]): JsArray;
   /** The line running now, so a host object can say where something happened. */
   at(): Pos;
+  /** Sets a global that a host owns, such as p5.js's `width`. A top-level name the student declares hides it, as in a browser. */
+  global(name: string, v: Value): void;
+  /** What a name means at the top level right now, or undefined. Reading it is not a step. */
+  lookup(name: string): Value;
+  /** While set, prompt() and confirm() stop the program with this help instead of asking. */
+  holdAsks(help: string | undefined): void;
 }
 
 /**

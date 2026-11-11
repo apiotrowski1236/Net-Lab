@@ -1,5 +1,6 @@
 import type { PageState, PageView } from '../dom';
-import { lint, parseFiles, Query, runProgram, WAITING_RULES, type JsError, type Limit, type LintNote, type OutputLine, type PageHooks, type Program, type RunFacts, type RunOptions, type RunResult, type TraceStep, type Waiting } from '../js';
+import { Sketch, type InputEvent, type SketchInput, type SketchState, type SketchView } from '../sketch';
+import { lint, parseFiles, Query, runProgram, startProgram, WAITING_RULES, type JsError, type Limit, type LintNote, type OutputLine, type PageHooks, type Program, type Resumed, type RunFacts, type RunOptions, type RunResult, type TraceStep, type Waiting } from '../js';
 import type { DemoFacts, DemoInput, DemoModel, JsCheck, JsFile, JsSpec } from './types';
 
 /** What the last Run did, as saved and shown. */
@@ -11,6 +12,8 @@ export interface JsLast {
   limit?: Limit;
   /** The page as the run left it, if the spec has one. */
   page?: PageState;
+  /** The canvas as the run left it, if the spec is a p5.js sketch. */
+  sketch?: SketchState;
 }
 
 export interface JsCheckResult {
@@ -71,6 +74,8 @@ export interface JsCheckRunOptions {
   clicks?: readonly string[];
   /** Replaces the text of files that aren't run, by name, so a check can try the code on another `index.html`. */
   files?: Record<string, string>;
+  /** For a p5.js sketch: how many frames to run, and the mouse and keys during them. */
+  sketch?: SketchInput;
 }
 
 /** How one run of the student's code went. */
@@ -92,6 +97,8 @@ export interface JsCheckRun {
   dataMissing: string[];
   /** The page at the end of the run, if the spec has one. */
   page?: PageView;
+  /** Every frame of the run, if the spec is a p5.js sketch. */
+  sketch?: SketchView;
 }
 
 /** Steps one hidden run may take. A loop of 100,000 passes fits. */
@@ -102,16 +109,32 @@ const NO_FACTS: RunFacts = { indexAtLength: [], promptPlus: [], promptCompare: [
 
 const printed = (lines: readonly OutputLine[]): JsCheckLine[] => lines.flatMap((l) => (l.kind === 'log' || l.kind === 'alert' ? [{ kind: l.kind, text: l.text, line: l.line, ...(l.error ? { error: l.error } : {}) }] : []));
 
-function checkRun(r: RunResult, page?: Page): JsCheckRun {
+function checkRun(r: RunResult, page?: Page, sketch?: Sketch): JsCheckRun {
   const output = printed(r.lines);
-  return { status: r.status, ok: r.status === 'ok', output, text: output.map((l) => l.text).join('\n'), vars: r.vars, error: r.error, limit: r.limit, waiting: r.waiting, facts: r.facts, dataMissing: r.dataMissing, ...(page ? { page: page.view() } : {}) };
+  return { status: r.status, ok: r.status === 'ok', output, text: output.map((l) => l.text).join('\n'), vars: r.vars, error: r.error, limit: r.limit, waiting: r.waiting, facts: r.facts, dataMissing: r.dataMissing, ...(page ? { page: page.view() } : {}), ...(sketch ? { sketch: sketch.view() } : {}) };
 }
+
+/** How many frames the student's own Run plays, with no mouse or keys: two seconds of the sketch. */
+export const OWN_FRAMES = 120;
+/** Steps one frame of the live canvas may take. */
+export const FRAME_STEPS = 400_000;
+const FRAME_TEXT = 'One run of draw() took more than {n} steps, so the sketch was stopped. Look for a loop that runs more times than you meant.';
 
 type Page = PageHooks<PageState, PageView>;
 type Hosts = RunOptions['hosts'];
 
-/** One run, and the page it left if the spec has one. The page gets its events after the last line, and a say on any error. */
-function runPaged(programs: Program[], options: RunOptions, hosts: Hosts, clicks: readonly string[] = []): { r: RunResult; page?: Page } {
+/**
+ * One run, and the page or sketch it left if the spec has one. The page gets its
+ * events after the last line, and a sketch runs its frames there. Either one
+ * gets a say on any error.
+ */
+function runPaged(programs: Program[], options: RunOptions, hosts: Hosts, clicks: readonly string[] = [], frames?: SketchInput): { r: RunResult; page?: Page; sketch?: Sketch } {
+  if (frames) {
+    const sketch = new Sketch(programs);
+    const r = runProgram(programs, { ...options, hosts, after: (rt) => sketch.play(rt, frames) });
+    const help = r.error && sketch.explain(r.error);
+    return { r: help ? { ...r, error: { ...r.error!, help } } : r, sketch };
+  }
   let page: Page | undefined;
   const make: Hosts =
     hosts &&
@@ -144,6 +167,9 @@ export class JsCheckCtx extends Query {
   readonly notes: LintNote[];
   /** The page after the student's own Run, if the spec has one. */
   readonly page?: PageView;
+  /** The frames of the student's own Run, if the spec is a p5.js sketch: setup() and OWN_FRAMES frames with no mouse or keys. */
+  readonly sketch?: SketchView;
+  private readonly sketchy: boolean;
   private readonly seen = new Map<string, JsCheckRun>();
   private spent = 0;
 
@@ -155,9 +181,11 @@ export class JsCheckCtx extends Query {
     ownPage?: Page,
     /** How many times the student clicked the page since their last Run. */
     readonly clicks = 0,
+    ownSketch?: Sketch,
   ) {
     super(programs);
-    const r = checkRun(own, ownPage);
+    this.sketchy = !!ownSketch;
+    const r = checkRun(own, ownPage, ownSketch);
     this.status = r.status;
     this.ok = r.ok;
     this.output = r.output;
@@ -168,12 +196,13 @@ export class JsCheckCtx extends Query {
     this.facts = r.facts;
     this.notes = notes;
     this.page = r.page;
+    this.sketch = r.sketch;
   }
 
   /** Runs a hidden copy of the code. The same options give the same result without running again. It can't hang. */
   run(options: JsCheckRunOptions = {}): JsCheckRun {
-    const { prompts = [], seed = 1, data, clicks = [], files } = options;
-    const key = JSON.stringify([prompts, seed, data, clicks, files]);
+    const { prompts = [], seed = 1, data, clicks = [], files, sketch } = options;
+    const key = JSON.stringify([prompts, seed, data, clicks, files, sketch]);
     const done = this.seen.get(key);
     if (done) return done;
     const left = CHECK_TOTAL - this.spent;
@@ -181,9 +210,9 @@ export class JsCheckCtx extends Query {
     if (left <= 0) {
       r = { status: 'limit', ok: false, output: [], text: '', vars: {}, limit: { why: 'steps', text: 'The checks ran out of time on this code.' }, facts: NO_FACTS, dataMissing: [] };
     } else {
-      const { r: run, page } = runPaged(this.programs, { seed, answers: prompts, data, maxSteps: Math.min(CHECK_STEPS, left) }, this.hosts?.(files), clicks);
+      const { r: run, page, sketch: sk } = runPaged(this.programs, { seed, answers: prompts, data, maxSteps: Math.min(CHECK_STEPS, left) }, this.hosts?.(files), clicks, this.sketchy ? (sketch ?? {}) : undefined);
       this.spent += run.steps;
-      r = checkRun(run, page);
+      r = checkRun(run, page, sk);
     }
     this.seen.set(key, r);
     return r;
@@ -220,7 +249,7 @@ const hostsFor = (spec: JsSpec, files: JsFile[]): RunOptions['hosts'] => {
   return make && ((rt) => make(rt, files));
 };
 
-const lastOf = (r: RunResult, page?: Page): JsLast => ({ status: r.status, lines: r.lines, error: r.error, limit: r.limit, ...(page ? { page: page.state() } : {}) });
+const lastOf = (r: RunResult, page?: Page, sketch?: Sketch): JsLast => ({ status: r.status, lines: r.lines, error: r.error, limit: r.limit, ...(page ? { page: page.state() } : {}), ...(sketch ? { sketch: sketch.state() } : {}) });
 
 /** How many clicks one run keeps. Each one replays the whole program. */
 const MAX_CLICKS = 300;
@@ -232,16 +261,43 @@ const stoppedBy = (spec: JsSpec, error: JsError): Pick<JsState, 'last' | 'notes'
 function execute(spec: JsSpec, s: JsState, seed: number, answers: JsState['answers'], clicks: readonly string[] = [], stop = false): JsState {
   const { programs, error } = parseFiles(s.files);
   if (error) return { ...s, runs: seed, at: undefined, ...stoppedBy(spec, error) };
-  const { r, page } = runPaged(programs, { seed, answers }, hostsFor(spec, s.files), clicks);
-  const base: JsState = { ...s, runs: seed, answers, clicks: clicks.length ? [...clicks] : undefined, last: lastOf(r, page), waiting: undefined, notes: undefined, held: false, edited: false, at: undefined };
+  const { r, page, sketch } = runPaged(programs, { seed, answers }, hostsFor(spec, s.files), clicks, spec.sketch ? { frames: OWN_FRAMES } : undefined);
+  const base: JsState = { ...s, runs: seed, answers, clicks: clicks.length ? [...clicks] : undefined, last: lastOf(r, page, sketch), waiting: undefined, notes: undefined, held: false, edited: false, at: undefined };
   // Notes and checks judge a whole run, so they wait for the last answer. A loop that can't end has no last answer, so the notes that explain one show as soon as it asks again.
   if (r.status === 'waiting' && !stop) {
     const live = answers.length ? lint(programs, r, spec.lintOff).filter((n) => WAITING_RULES.includes(n.rule)) : [];
     return { ...base, waiting: r.waiting, notes: live.length ? live : undefined };
   }
-  const notes = [...lint(programs, r, spec.lintOff), ...(page?.notes() ?? []).filter((n) => !spec.lintOff?.includes(n.rule))];
+  const notes = [...lint(programs, r, spec.lintOff), ...[...(page?.notes() ?? []), ...(sketch?.notes() ?? [])].filter((n) => !spec.lintOff?.includes(n.rule))];
   const hidden = (files?: Record<string, string>) => hostsFor(spec, s.files.map((f) => (files?.[f.name] !== undefined ? { ...f, text: files[f.name] } : f)));
-  return { ...base, notes: notes.length ? notes : undefined, checks: runChecks(spec, () => new JsCheckCtx(programs, r, notes, hidden, page, clicks.length)) };
+  return { ...base, notes: notes.length ? notes : undefined, checks: runChecks(spec, () => new JsCheckCtx(programs, r, notes, hidden, page, clicks.length, sketch)) };
+}
+
+/** A sketch running on the live canvas. Nothing here is saved: the checks judge hidden runs. */
+export interface LiveSketch {
+  sketch: Sketch;
+  /** The top of the code and setup(). */
+  first: Resumed;
+  /** One frame, with what the person did since the last one. */
+  step(events: readonly InputEvent[]): Resumed;
+}
+
+/** Starts the sketch from the last Run for the live canvas, with the same seed and answers. */
+export function startLive(spec: JsSpec, s: Pick<JsState, 'files' | 'runs' | 'answers'>): LiveSketch | undefined {
+  const { programs, error } = parseFiles(s.files);
+  if (error) return undefined;
+  const sketch = new Sketch(programs, false);
+  const live = startProgram(programs, { seed: s.runs, answers: s.answers, hosts: hostsFor(spec, s.files), after: (rt) => sketch.begin(rt) });
+  const explain = (r: Resumed): Resumed => {
+    const help = r.error && sketch.explain(r.error);
+    return help ? { ...r, error: { ...r.error!, help } } : r;
+  };
+  const { status, error: e, limit, waiting, lines, steps } = live.result;
+  return {
+    sketch,
+    first: explain({ status: status === 'cut' ? 'ok' : status, error: e, limit, waiting, lines, steps }),
+    step: (events) => explain(live.resume((rt) => sketch.step(rt, events), FRAME_STEPS, FRAME_TEXT)),
+  };
 }
 
 let rebuilt: { spec: JsSpec; key: string; page?: PageState } | undefined;
@@ -359,6 +415,7 @@ export const jsModel: DemoModel<JsSpec, JsState> = {
       hints: Object.values(s.hints ?? {}).reduce((a, b) => a + b, 0),
       clicks: s.clicks?.length ?? 0,
       made: s.last?.page?.made ?? 0,
+      drawn: s.last?.sketch?.drawn ?? 0,
     };
     for (const c of s.checks ?? []) f[`check:${c.id}`] = c.ok;
     for (const [id, n] of Object.entries(s.hints ?? {})) f[`hints:${id}`] = n;
