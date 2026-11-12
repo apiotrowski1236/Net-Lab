@@ -6066,3 +6066,444 @@ button.pl-tile:active {
     max-width: none;
   }
 }
+
+/* ---------- compression: pixel grids, walk-throughs, compare methods, paint ----------
+   src/ui/demos/pictureParts.tsx and the compression lesson's demo views. */
+
+/* A grid of big pixels. Cells are placed by pictureParts.tsx with --cell, --gap,
+   and --sgap (the wider gap between averaging squares). */
+.pxg {
+  --cell: 30px;
+  --gap: 2px;
+  --sgap: 0px;
+  --pxg-mark: #d6006e;
+  position: relative;
+  flex: none;
+}
+.pxg.squares {
+  --sgap: 5px;
+}
+.pxg.big {
+  --cell: 40px;
+}
+.pxg.small {
+  --cell: 22px;
+}
+.pxg-cell {
+  position: absolute;
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  /* A faint edge, so a white pixel shows on a white card. */
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
+}
+.pxg-cell.empty {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.pxg-cell.tap {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.pxg-cell.tap:hover {
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.7), inset 0 0 0 4px rgb(0 0 0 / 0.35);
+}
+.pxg-cell.tap:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+  z-index: 2;
+}
+.pxg-cell.dim {
+  opacity: 0.35;
+}
+/* Changed from the original: a ring that shows on every color in the pictures. */
+.pxg-cell.mark {
+  box-shadow: inset 0 0 0 3px var(--pxg-mark), inset 0 0 0 5px #fff;
+}
+.pxg-cell.pop {
+  animation: pxg-pop 260ms ease-out both;
+}
+@keyframes pxg-pop {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1);
+  }
+}
+/* Where the walk-through is: the pixel read, the square averaged, or the run painted. */
+.pxg-ring {
+  position: absolute;
+  border-radius: 5px;
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 5px var(--ink);
+  pointer-events: none;
+  z-index: 1;
+  transition:
+    left 0.18s ease,
+    top 0.18s ease;
+}
+
+.pxfig {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.pxfig figcaption {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.pxfig-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+.swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+  vertical-align: -1px;
+}
+.swatch.big {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  vertical-align: -4px;
+}
+
+/* Pixels: the smiley to tap, and the bytes of the pixel tapped. */
+.pxv {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 22px;
+}
+.pxv-info {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.pxv-info > p:first-child {
+  margin-top: 0;
+}
+.pxv-where {
+  font-size: 15px;
+}
+.pxv-bytes {
+  margin-top: 6px;
+}
+.pxv-bytes code {
+  letter-spacing: 0.06em;
+}
+.pxv-found {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pxv-found .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Walk-throughs: the pictures and runs side by side, then the note, the bars, and the buttons. */
+.walk-figs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 22px;
+}
+.walk-side {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+.walk-h {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.run-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.run-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.run-row {
+  flex: none;
+  width: 3.6rem;
+  padding-top: 3px;
+  color: var(--muted);
+  font-weight: 650;
+}
+.run-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.run-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.run-chip b {
+  font-variant-numeric: tabular-nums;
+}
+/* The run being counted or painted right now. */
+.run-chip.open {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+.run-chip.dim {
+  opacity: 0.45;
+}
+.walk-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+
+/* Sizes as bars, so "smaller" and "bigger" can be seen. */
+.size-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.size-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.size-bar-label {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.size-bar-track {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.size-bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 5px;
+  background: var(--muted);
+  transition: width 0.25s ease;
+}
+.size-bar.base {
+  background: var(--line-strong);
+}
+.size-bar.good {
+  background: var(--good);
+}
+.size-bar.bad {
+  background: var(--bad);
+}
+
+/* Averaging: the math for one square. */
+.sq-math {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.sq-math-table {
+  margin-top: 0;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.sq-math-table th,
+.sq-math-table td {
+  padding: 4px 9px;
+}
+.sq-math-table td {
+  text-align: right;
+}
+.sq-math-table tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sq-math-table tr.sum td,
+.sq-math-table tr.sum th {
+  border-top: 2px solid var(--line-strong);
+}
+.sq-math-table tr.avg td,
+.sq-math-table tr.avg th {
+  background: var(--brand-soft);
+}
+.sq-math p {
+  margin: 6px 0 0;
+  max-width: 17rem;
+}
+
+/* Compare methods */
+.demo-card .seg.wrap {
+  flex-wrap: wrap;
+}
+.squeeze-pics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.squeeze-pics .pxfig {
+  align-items: stretch;
+  min-width: 0;
+}
+/* Pixel art the size of the smiley reads fine smaller, and the table stays in view. */
+.squeeze-pics.tiny {
+  max-width: 470px;
+}
+.pxcanvas {
+  display: block;
+  width: 100%;
+  max-height: 46vh;
+  object-fit: contain;
+  image-rendering: pixelated;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+.pxcanvas.pointable {
+  cursor: zoom-in;
+}
+.squeeze-pics.zoomed .pxcanvas.pointable {
+  cursor: crosshair;
+}
+.squeeze-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+.squeeze-tools .btn.on {
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+  color: var(--brand-ink);
+}
+.squeeze-legend {
+  margin: 8px 0 0;
+  color: var(--ink-2);
+}
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+.legend-swatch.same {
+  background: rgb(16 16 20);
+}
+.legend-swatch.moved {
+  background: rgb(255 190 40);
+}
+.squeeze-table {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.squeeze-table caption {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.squeeze-table tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.squeeze-table tr.on th,
+.squeeze-table tr.on td {
+  background: var(--brand-soft);
+}
+.squeeze-size {
+  min-width: 11rem;
+}
+.squeeze-size > span:first-child {
+  display: block;
+  white-space: nowrap;
+}
+.squeeze-size .size-bar-track {
+  margin-top: 4px;
+  height: 8px;
+}
+.demo-card .callout.bad {
+  background: var(--bad-soft);
+  border-color: var(--bad-line);
+  color: var(--bad-ink);
+}
+
+/* Paint: drag across pixels to paint, so the grid can't scroll the page under a finger. */
+.paint-canvas {
+  touch-action: none;
+  user-select: none;
+}
+
+@media (max-width: 560px) {
+  .pxg {
+    --cell: 26px;
+  }
+  .pxg.big {
+    --cell: 34px;
+  }
+  .pxg.squares {
+    --sgap: 4px;
+  }
+  .squeeze-pics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .squeeze-size {
+    min-width: 0;
+  }
+  .squeeze-table th,
+  .squeeze-table td {
+    padding: 6px 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pxg-cell.pop {
+    animation: none;
+  }
+  .pxg-ring,
+  .size-bar {
+    transition: none;
+  }
+}

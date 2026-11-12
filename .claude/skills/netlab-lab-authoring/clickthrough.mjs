@@ -188,6 +188,32 @@ async function doDemo(id, input) {
     await page.waitForFunction(({ id, old }) => document.querySelector(`[data-demo="${id}"] [data-preview] iframe`)?.srcdoc !== old, { id, old: before });
     await page.waitForTimeout(150);
     log(`  click ${input.click} in the preview`);
+  } else if ('peek' in input || 'paint' in input) {
+    // compression: a pixel in the Pixels or Paint grid.
+    const i = 'peek' in input ? input.peek : input.paint;
+    await stage.locator(`[data-px="${i}"]`).click();
+    log(`  tap pixel ${i}`);
+  } else if ('advance' in input) {
+    await stage.locator('.walk-step').click();
+    log('  press Step');
+  } else if ('finish' in input) {
+    await stage.locator('.walk-skip').click();
+    log('  press Skip to the end');
+  } else if ('changes' in input) {
+    await stage.locator('.sq-changes, .squeeze-changes').click();
+    log(`  press ${input.changes ? 'Show' : 'Hide'} what changed`);
+  } else if ('picture' in input) {
+    await stage.locator(`[data-picture="${input.picture}"]`).click();
+    log(`  pick picture ${input.picture}`);
+  } else if ('method' in input) {
+    await stage.locator(`[data-method="${input.method}"]`).click();
+    log(`  pick method ${input.method}`);
+  } else if ('brush' in input) {
+    await stage.locator(`[data-brush="${input.brush}"]`).click();
+    log(`  pick color ${input.brush}`);
+  } else if ('clear' in input) {
+    await stage.getByRole('button', { name: 'Clear', exact: true }).click();
+    log('  press Clear');
   } else throw new Error(`clickthrough has no UI driver for demo input ${JSON.stringify(input)}. Add one in doDemo.`);
 }
 

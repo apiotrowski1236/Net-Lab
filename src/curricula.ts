@@ -53,7 +53,7 @@ export const CURRICULA: Curriculum[] = [
     heading: 'Hands-on lessons',
     intro: LESSON_INTRO,
     noun: 'lesson',
-    labs: ['binary-numbers'],
+    labs: ['binary-numbers', 'compression'],
     stubs: [],
   },
   {
