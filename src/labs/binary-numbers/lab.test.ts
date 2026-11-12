@@ -90,7 +90,7 @@ function strings(x: unknown, out: string[] = []): string[] {
 
 describe('binary-numbers: lesson shape', () => {
   it('is a lesson with no network, and only it, wireshark, java-classes, and the Intro CS labs are', () => {
-    const lessons = ['wireshark', 'java-classes', 'js-arrays', 'js-loops', 'js-dom', 'p5-draw', 'p5-move', 'p5-game'];
+    const lessons = ['wireshark', 'compression', 'java-classes', 'js-arrays', 'js-loops', 'js-dom', 'p5-draw', 'p5-move', 'p5-game'];
     expect(isLesson(lab)).toBe(true);
     // Answer sheets (LabDef.worksheet) have no network either, but they aren't lessons: they have no stage at all.
     for (const l of LABS) if (l.id !== lab.id && !isWorksheet(l)) expect(isLesson(l), l.id).toBe(lessons.includes(l.id));

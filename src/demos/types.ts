@@ -223,7 +223,67 @@ export interface ObjectsSpec extends DemoBase {
   hit: number;
 }
 
-export type DemoSpec = SwitchesSpec | BitsSpec | PlacesSpec | ReadWalkSpec | FitWalkSpec | CompareSpec | CounterSpec | RoundingSpec | AsciiSpec | NoteSpec | JavaSpec | JsSpec | ObjectsSpec;
+// compression (src/demos/pictures.ts holds the pictures and both methods)
+
+/** A picture to look at up close: tap a pixel to see the three bytes of its color. */
+export interface PixelsSpec extends DemoBase {
+  kind: 'pixels';
+  picture: import('./pictures').PictureId;
+}
+
+/**
+ * Run-length encoding, one step at a time. 'encode' reads the pixels left to
+ * right, one per step, counting each run. 'decode' paints the runs back, one
+ * run per step, and compares the result with the original.
+ */
+export interface RunWalkSpec extends DemoBase {
+  kind: 'run-walk';
+  picture: import('./pictures').PictureId;
+  mode: 'encode' | 'decode';
+}
+
+/**
+ * Averaging squares, one step at a time. 'encode' averages each 2×2 square
+ * into one stored pixel. 'decode' stretches each stored pixel back into a
+ * square and compares the result with the original.
+ */
+export interface SquareWalkSpec extends DemoBase {
+  kind: 'square-walk';
+  picture: import('./pictures').PictureId;
+  mode: 'encode' | 'decode';
+}
+
+/** Pick a picture and a method: see it rebuilt beside the original, with its size and the pixels that changed. */
+export interface SqueezeSpec extends DemoBase {
+  kind: 'squeeze';
+  pictures: import('./pictures').PictureId[];
+  methods: import('./pictures').Method[];
+}
+
+/** An 8×8 picture to paint, with what each method does to it, live. */
+export interface PaintSpec extends DemoBase {
+  kind: 'paint';
+}
+
+export type DemoSpec =
+  | SwitchesSpec
+  | BitsSpec
+  | PlacesSpec
+  | ReadWalkSpec
+  | FitWalkSpec
+  | CompareSpec
+  | CounterSpec
+  | RoundingSpec
+  | AsciiSpec
+  | NoteSpec
+  | JavaSpec
+  | JsSpec
+  | ObjectsSpec
+  | PixelsSpec
+  | RunWalkSpec
+  | SquareWalkSpec
+  | SqueezeSpec
+  | PaintSpec;
 
 export type DemoKind = DemoSpec['kind'];
 
@@ -267,7 +327,20 @@ export type DemoInput =
   | { click: string }
   // objects
   | { make: true }
-  | { hit: number };
+  | { hit: number }
+  // pixels: tap one pixel, by its index row by row
+  | { peek: number }
+  // run-walk, square-walk: Step (and each tick of Play) moves one step; Skip to the end finishes
+  | { advance: 1 }
+  | { finish: true }
+  // square-walk, squeeze: Show what changed
+  | { changes: boolean }
+  // squeeze
+  | { picture: import('./pictures').PictureId }
+  | { method: import('./pictures').Method }
+  // paint (Clear is `clear`)
+  | { brush: number }
+  | { paint: number };
 
 export type WireView = 'voltage' | 'light' | 'bits';
 
