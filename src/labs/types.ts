@@ -54,6 +54,13 @@ export interface ChoiceQuestion {
   id: string;
   kind: 'choice';
   prompt: string;
+  /**
+   * The number printed beside the question on a paper handout ("A5"). The
+   * question card shows it, and the report uses it in place of the running
+   * Q number, so a teacher grades against the handout. Every question in a
+   * worksheet (LabDef.worksheet) has one.
+   */
+  label?: string;
   options: ChoiceOption[];
   /** Select-all-that-apply. */
   multi?: boolean;
@@ -66,8 +73,17 @@ export interface TextQuestion {
   id: string;
   kind: 'text';
   prompt: string;
+  /** The handout's number for the question ("A5"). See ChoiceQuestion.label. */
+  label?: string;
   placeholder?: string;
+  /** How tall the answer box starts, in lines. On an answer sheet it grows as the student types. */
   lines?: number;
+  /**
+   * A one-line answer: a name, an address, a password. An answer sheet draws a
+   * single-line box for it, narrower than a written answer's box. Without it,
+   * an answer sheet question is a written answer with a box `lines` tall.
+   */
+  short?: boolean;
   /** Auto-checked short answer. Without it, the answer is teacher-graded. */
   expect?: RegExp;
   /** Shown after a wrong auto-checked answer. */
@@ -357,6 +373,26 @@ export interface LabDef {
   clock?: string;
   /** Show computers' routing tables (their own network and the default gateway) in the inspector. */
   hostRoutes?: boolean;
+  /**
+   * An answer sheet for a lab students do somewhere else, from a paper or PDF
+   * handout (a CYBER.ORG Range lab). There is no map, no demos, and no
+   * instructions: the whole page is the handout's questions, so students type
+   * answers as they work and hand them in with the usual report. `title` is
+   * the handout's name. Each step before the submit step is one of the
+   * handout's sections (title "A. Examine the Recon File", body usually '')
+   * and holds only questions, each with a `label` from the handout ("A5").
+   * The last step is the usual `kind: 'submit'`. No `build`, goals, tools,
+   * actions, demos, or setups. src/labs/hijacked-ssh-1 is the example.
+   */
+  worksheet?: WorksheetInfo;
+}
+
+/** Where the students do a worksheet's lab (LabDef.worksheet). */
+export interface WorksheetInfo {
+  /** Where they do it, as it reads in a sentence: "the CYBER.ORG Range". */
+  where: string;
+  /** A link to it, opened in a new tab: "Open CYBER.ORG Range". The label also tags the home page card. */
+  link?: { label: string; url: string };
 }
 
 /**
@@ -387,6 +423,9 @@ export interface LabStub {
 
 /** A lesson with no network: its stage shows demos. */
 export const isLesson = (lab: LabDef): boolean => !lab.build;
+
+/** An answer sheet for a lab done somewhere else (LabDef.worksheet): one page of questions, no lesson. */
+export const isWorksheet = (lab: LabDef): boolean => !!lab.worksheet;
 
 /** Reads one of the student's other text answers ('' if there is none). */
 export type AnswerLookup = (step: string, question: string) => string;

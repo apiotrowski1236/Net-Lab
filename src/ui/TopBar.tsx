@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { classOf, CURRICULA, curriculumOfLab } from '../curricula';
+import { isWorksheet } from '../labs/types';
 import { homeHref } from '../routes';
 import type { LabSession } from '../runtime/session';
 import { hasEndpoint, outbox, synced } from '../store/outbox';
 import { config, online, profile, updateProfile } from '../store/profile';
+import { questionsAnswered } from '../store/progress';
 import { saveState } from '../store/storage';
 import { Icon } from './icons';
 import { openProfile, switchStudent } from './ProfileDialog';
@@ -190,8 +192,13 @@ export function ThemeToggle() {
 export function TopBar({ session }: { session: LabSession }) {
   void session.rev.value;
   const p = session.progress;
-  const total = session.lab.steps.length;
-  const done = Array.from({ length: total }, (_, i) => i).filter((i) => i < p.maxStep || (i === p.maxStep && session.stepComplete(i))).length;
+  // An answer sheet has no steps to work through: its bar fills as questions get answers.
+  const { done, total } = isWorksheet(session.lab)
+    ? questionsAnswered(session.lab, p)
+    : {
+        done: session.lab.steps.filter((_, i) => i < p.maxStep || (i === p.maxStep && session.stepComplete(i))).length,
+        total: session.lab.steps.length,
+      };
   const cur = curriculumOfLab(session.lab.id);
   return (
     <header class="topbar">
@@ -201,8 +208,8 @@ export function TopBar({ session }: { session: LabSession }) {
       </a>
       <div class="topbar-title">
         <div class="tb-lab">{session.lab.title}</div>
-        <div class="tb-progress" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}>
-          <div class="tb-fill" style={{ width: `${(done / total) * 100}%` }} />
+        <div class="tb-progress" role="progressbar" aria-label={isWorksheet(session.lab) ? 'Questions answered' : 'Steps done'} aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}>
+          <div class="tb-fill" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
         </div>
       </div>
       <SaveStatus syncKey={`${profile.value.id}:${session.lab.id}`} />

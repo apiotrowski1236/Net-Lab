@@ -1,4 +1,4 @@
-import { answerKey, goalKey, type QuestionDef, type StepDef } from '../labs/types';
+import { answerKey, goalKey, type LabDef, type QuestionDef, type StepDef } from '../labs/types';
 import type { SimAction } from '../runtime/actions';
 import type { RestoreRecord } from './backup';
 import { load, saveSoon } from './storage';
@@ -113,4 +113,18 @@ export function replaceProgress(p: LabProgress): void {
 /** Every goal and question in the step is done. */
 export function stepFinished(step: StepDef, p: LabProgress): boolean {
   return (step.goals ?? []).every((g) => p.goals[goalKey(step.id, g.id)]) && (step.questions ?? []).every((q) => questionDone(q, p.answers[answerKey(step.id, q.id)]));
+}
+
+/** How many of the lab's questions are done, not counting optional extra challenge steps. For a worksheet's progress. */
+export function questionsAnswered(lab: LabDef, p: LabProgress | undefined): { done: number; total: number } {
+  let done = 0;
+  let total = 0;
+  for (const step of lab.steps) {
+    if (step.extra) continue;
+    for (const q of step.questions ?? []) {
+      total++;
+      if (p && questionDone(q, p.answers[answerKey(step.id, q.id)])) done++;
+    }
+  }
+  return { done, total };
 }

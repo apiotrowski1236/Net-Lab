@@ -1,4 +1,4 @@
-import type { LabDef } from '../labs/types';
+import { isWorksheet, type LabDef } from '../labs/types';
 import type { LabSession } from '../runtime/session';
 import { backupScript, makeBackup, type BackupBlock } from '../store/backup';
 import { enqueue, hasEndpoint, outbox, synced } from '../store/outbox';
@@ -26,6 +26,8 @@ export function gradeText(q: Report['questions'][number]): string {
  * With a backup block, the file can also be opened on NetLab's home page to restore the work.
  */
 export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string {
+  // An answer sheet (LabDef.worksheet) has sections, not steps, and numbers its questions like the handout.
+  const sheet = isWorksheet(lab);
   let qn = 0;
   const steps = lab.steps
     .map((s, i) => {
@@ -45,7 +47,7 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
         .map((q) => {
           qn++;
           const cls = q.autoGraded ? (q.correct ? 'ok' : 'no') : 'tg';
-          return `<div class="q"><div class="p"><b>Q${qn}.</b> ${esc(q.prompt)}</div>
+          return `<div class="q"><div class="p"><b>${esc(q.label ?? `Q${qn}`)}.</b> ${esc(q.prompt)}</div>
 <div class="a">${q.answer ? esc(q.answer).replace(/\n/g, '<br>') : '<i>(no answer)</i>'}</div>
 <div class="m ${cls}">${esc(gradeText(q))}</div></div>`;
         })
@@ -54,7 +56,7 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
         ? `<div class="ovr">Did not complete: the student used the override to skip this step on ${esc(when(o.at))}${o.note ? `. Reason: ${esc(o.note)}` : ''}. Unchecked goals earned no points. The teacher decides if this skip was approved.</div>`
         : '';
       const tags = `${s.extra ? ' <span class="tag extra">optional, no points</span>' : ''}${o ? ' <span class="tag">did not complete (override)</span>' : ''}`;
-      return `<section class="${o ? 'overridden' : ''}"><h2>Step ${i + 1}. ${esc(s.title)}${tags}</h2>${flag}${goalHtml}${qHtml}${code}</section>`;
+      return `<section class="${o ? 'overridden' : ''}"><h2>${sheet ? '' : `Step ${i + 1}. `}${esc(s.title)}${tags}</h2>${flag}${goalHtml}${qHtml}${code}</section>`;
     })
     .join('');
   const overrideSummary = r.overrides.length
@@ -73,16 +75,24 @@ export function reportHtml(lab: LabDef, r: Report, backup?: BackupBlock): string
   const core = r.goals.filter((g) => !g.extra);
   const goalsDone = core.filter((g) => g.done).length;
   const written = r.questions.filter((q) => !q.autoGraded && !q.extra);
+  const writtenStat = `<div class="stat"><b>${written.filter((q) => q.answer.trim()).length} / ${written.length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>`;
+  const minutesStat = `<div class="stat"><b>${r.activeMinutes}</b>active minutes</div>`;
+  const autoStat = `<div class="stat score"><b>${r.score.auto} / ${r.score.autoMax}</b>auto-checked points</div>`;
+  // A worksheet has no goals or steps to reach, and auto-checked points only if it has choice questions.
+  const stats = sheet
+    ? `${writtenStat}
+${r.score.autoMax ? `${autoStat}\n` : ''}${minutesStat}`
+    : `${autoStat}
+<div class="stat"><b>${goalsDone} / ${core.length}</b>goals</div>
+<div class="stat"><b>${r.stepReached} / ${r.lab.steps}</b>steps reached</div>
+${minutesStat}
+${writtenStat}`;
   // Everything a grade rests on goes in <main>; its text makes the check code (store/reportCheck.ts).
   const results = `<h1>${esc(r.lab.title)}</h1>
 <div class="meta"><span class="who">${esc(r.student.name || '(no name)')}</span>${r.student.period ? ` &middot; ${esc(r.student.period)}` : ''}${r.course ? ` &middot; ${esc(r.course.title)}` : ''}<br>
 Started ${esc(when(r.startedAt))} &middot; ${r.submittedAt ? `Submitted ${esc(when(r.submittedAt))}` : `Last saved ${esc(when(r.updatedAt))} (not submitted)`} &middot; Work ID ${esc(r.workId)}</div>
 <div class="stats">
-<div class="stat score"><b>${r.score.auto} / ${r.score.autoMax}</b>auto-checked points</div>
-<div class="stat"><b>${goalsDone} / ${core.length}</b>goals</div>
-<div class="stat"><b>${r.stepReached} / ${r.lab.steps}</b>steps reached</div>
-<div class="stat"><b>${r.activeMinutes}</b>active minutes</div>
-<div class="stat"><b>${written.filter((q) => q.answer.trim()).length} / ${written.length}</b>written answers for your teacher (${r.score.teacherMax} points)</div>
+${stats}
 </div>
 ${overrideSummary}${restores}
 ${steps}`;

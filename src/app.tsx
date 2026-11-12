@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { isWorksheet } from './labs/types';
 import { isLabRoute, pageHref, parseRoute } from './routes';
 import { profile } from './store/profile';
 import { Guide } from './ui/Guide';
@@ -6,6 +7,7 @@ import { Home } from './ui/Home';
 import { LabPlayer } from './ui/LabPlayer';
 import { ProfileDialog } from './ui/ProfileDialog';
 import { TeacherPage } from './ui/TeacherPage';
+import { WorksheetPlayer } from './ui/Worksheet';
 
 const route = signal(location.hash || '#/');
 
@@ -34,7 +36,15 @@ export function App() {
   if (page.kind === 'guide') return <Guide lab={page.lab} />;
   return (
     <>
-      {page.kind === 'lab' ? <LabPlayer key={page.lab.id} lab={page.lab} /> : <Home cur={page.cur} />}
+      {page.kind === 'lab' ? (
+        isWorksheet(page.lab) ? (
+          <WorksheetPlayer key={page.lab.id} lab={page.lab} />
+        ) : (
+          <LabPlayer key={page.lab.id} lab={page.lab} />
+        )
+      ) : (
+        <Home cur={page.cur} />
+      )}
       <ProfileDialog suggest={page.cur?.id} onHome={page.kind === 'home'} />
     </>
   );

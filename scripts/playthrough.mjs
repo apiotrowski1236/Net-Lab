@@ -108,7 +108,8 @@ for (const lab of LABS) {
   // Start the browser at step 1 with every step unlocked.
   const saved = JSON.parse(JSON.stringify(s.progress));
   saved.step = 0;
-  finished.push({ href: labHref(lab.id), lab: { id: lab.id, title: lab.title, steps: lab.steps.map((st) => ({ id: st.id, title: st.title, kind: st.kind })) }, progress: saved });
+  const answers = lab.worksheet ? lab.steps.flatMap((st) => (st.questions ?? []).map((q) => ({ label: q.label, text: saved.answers[`${st.id}/${q.id}`]?.value ?? '' }))) : undefined;
+  finished.push({ href: labHref(lab.id), lab: { id: lab.id, title: lab.title, worksheet: !!lab.worksheet, answers, steps: lab.steps.map((st) => ({ id: st.id, title: st.title, kind: st.kind })) }, progress: saved });
 }
 await vite.close();
 if (!finished.length) throw new Error(ONLY ? `No lab "${ONLY}"` : 'No labs found');
@@ -151,6 +152,21 @@ try {
 
     process.stdout.write(`${lab.id}: `);
     await page.goto(`${url}${href}`);
+    if (lab.worksheet) {
+      // An answer sheet is one page: every answer shows in its box, and Hand it in has nothing left blank.
+      await page.waitForSelector('.worksheet');
+      await page.waitForTimeout(150);
+      const boxes = await page.locator('.worksheet .ws-input').evaluateAll((els) => els.map((e) => e.value));
+      if (JSON.stringify(boxes) !== JSON.stringify(lab.answers.map((a) => a.text))) failures.push(`${lab.id}: the answer boxes don't show the saved answers`);
+      if (await page.locator('.ws-blank').count()) failures.push(`${lab.id}: Hand it in lists blank questions`);
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+      if (wide) failures.push(`${lab.id}: the page scrolls sideways`);
+      await page.screenshot({ path: join(OUT, `${lab.id}-sheet.png`), fullPage: true });
+      if (errors.length) failures.push(`${lab.id}: browser errors:\n  ${errors.join('\n  ')}`);
+      console.log(`answer sheet, ${lab.answers.length} answers`);
+      await ctx.close();
+      continue;
+    }
     await page.waitForSelector('.lesson');
     const warning = await page.locator('text=the network was reset').count();
     if (warning) fail(0, 'the app says the network was reset (replay failed in the browser)');

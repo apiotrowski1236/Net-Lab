@@ -2,16 +2,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import { CAPTURE_TOOLS, isLesson, TAB_TOOLS, toolKey, type LabDef } from '../labs/types';
 import { LabSession } from '../runtime/session';
 import { checkCable } from '../runtime/toolInput';
-import { beacon, enqueue, hasEndpoint } from '../store/outbox';
-import { config, profile } from '../store/profile';
+import { profile } from '../store/profile';
 import { getProgress } from '../store/progress';
-import { buildReport } from '../store/report';
-import { flushSaves } from '../store/storage';
 import { CaptureView, Inspector, Toolkit } from './Dock';
 import { DemoStage } from './demos/DemoStage';
 import { extraProtos, FORGED_COLOR, PROTO_BLURB, PROTO_COLOR, type Proto } from './describe';
 import { Icon } from './icons';
 import { jumpFor, type Jump } from './jump';
+import { useActiveTime, useTeacherSync } from './labTracking';
 import { LessonPanel } from './Lesson';
 import { logDevices, LogsView } from './LogsView';
 import { type Cabling, NetworkCanvas } from './NetworkCanvas';
@@ -415,50 +413,8 @@ export function LabPlayer({ lab }: { lab: LabDef }) {
     }
   }, [stepId]);
 
-  // Active-time tracking: counts 15s slices when the tab is visible and the student did something recently.
-  useEffect(() => {
-    let lastInput = Date.now();
-    const mark = () => (lastInput = Date.now());
-    const evs = ['pointerdown', 'keydown', 'wheel'];
-    evs.forEach((e) => window.addEventListener(e, mark, { passive: true }));
-    const id = setInterval(() => {
-      if (document.visibilityState === 'visible' && Date.now() - lastInput < 120_000) {
-        session.progress.activeMs += 15_000;
-      }
-    }, 15_000);
-    return () => {
-      clearInterval(id);
-      evs.forEach((e) => window.removeEventListener(e, mark));
-    };
-  }, [session]);
-
-  // Automatic in-progress copies to the teacher (if a submit endpoint is configured).
-  useEffect(() => {
-    const current = () => buildReport(lab, session.progress, profile.value, session.progress.submittedAt ? 'submitted' : 'in-progress');
-    let lastSent = 0;
-    const minutes = config.value.autoSyncMinutes;
-    const id =
-      minutes > 0
-        ? setInterval(() => {
-            if (!hasEndpoint() || !profile.value.name.trim()) return;
-            if (session.progress.updatedAt <= lastSent) return;
-            lastSent = Date.now();
-            enqueue(current());
-          }, minutes * 60_000)
-        : undefined;
-    const onHide = () => {
-      flushSaves();
-      if (hasEndpoint() && profile.value.name.trim() && session.progress.updatedAt > lastSent) {
-        lastSent = Date.now();
-        beacon(current());
-      }
-    };
-    window.addEventListener('pagehide', onHide);
-    return () => {
-      if (id) clearInterval(id);
-      window.removeEventListener('pagehide', onHide);
-    };
-  }, [session]);
+  useActiveTime(session);
+  useTeacherSync(session);
 
   const select = (id: string) => {
     setSelected(id);

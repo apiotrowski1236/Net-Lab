@@ -214,7 +214,7 @@ export function Summary({ session }: { session: LabSession }) {
                   return (
                     <div key={q.id} class={`sanswer ${tone}`}>
                       <div class="sanswer-q">
-                        <b>Q{qn}.</b> {q.prompt}
+                        <b>{q.label ?? `Q${qn}`}.</b> {q.prompt}
                       </div>
                       <div class="sanswer-a">{q.answer.trim() ? q.answer : <i class="muted">No answer yet</i>}</div>
                       <div class="sanswer-m">{gradeText(q)}</div>

@@ -15,7 +15,7 @@ import type { LabProgress } from '../../store/progress';
 import { buildReport } from '../../store/report';
 import { LABS } from '..';
 import { playStep } from '../solution';
-import { isLesson, wrongFeedback, type ChoiceQuestion, type QuestionDef, type TextQuestion } from '../types';
+import { isLesson, isWorksheet, wrongFeedback, type ChoiceQuestion, type QuestionDef, type TextQuestion } from '../types';
 import { count, num, rangeRe } from './answers';
 import { binaryNumbersLab as lab } from '.';
 import { binaryNumbersSolution as key } from './solution';
@@ -92,7 +92,8 @@ describe('binary-numbers: lesson shape', () => {
   it('is a lesson with no network, and only it, wireshark, java-classes, and the Intro CS labs are', () => {
     const lessons = ['wireshark', 'java-classes', 'js-arrays', 'js-loops', 'js-dom', 'p5-draw', 'p5-move', 'p5-game'];
     expect(isLesson(lab)).toBe(true);
-    for (const l of LABS) if (l.id !== lab.id) expect(isLesson(l), l.id).toBe(lessons.includes(l.id));
+    // Answer sheets (LabDef.worksheet) have no network either, but they aren't lessons: they have no stage at all.
+    for (const l of LABS) if (l.id !== lab.id && !isWorksheet(l)) expect(isLesson(l), l.id).toBe(lessons.includes(l.id));
   });
 
   it('gives every step except submit something to finish', () => {
