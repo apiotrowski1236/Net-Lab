@@ -261,8 +261,8 @@ async function doMove(i, step, m) {
 async function answer(i, step) {
   const key = sol[step.id] ?? {};
   for (const q of step.questions ?? []) {
-    // On an answer sheet a question is a row (.ws-q) with a one-line box or a text box.
-    const card = page.locator(lab.worksheet ? '.ws-q' : '.qcard').filter({ hasText: q.prompt.replace(/\*\*|`/g, '').split('\n')[0].slice(0, 40) }).first();
+    // On an answer sheet a question is a row (.sheet-q) with a one-line box or a text box.
+    const card = page.locator(lab.worksheet ? '.sheet-q' : '.qcard').filter({ hasText: q.prompt.replace(/\*\*|`/g, '').split('\n')[0].slice(0, 40) }).first();
     if ((await card.count()) === 0) await fail(i, `question "${q.id}" isn't on screen (still locked?)`);
     if (q.kind === 'choice') {
       // Exact, so an answer of "0" doesn't pick the option "100".
@@ -271,7 +271,7 @@ async function answer(i, step) {
     } else {
       const text = key.text?.[q.id];
       if (text === undefined) throw new Error(`No answer-key text for ${step.id}/${q.id}`);
-      await card.locator('textarea, input.ws-input').first().fill(text);
+      await card.locator('textarea, input.sheet-input').first().fill(text);
       if (q.expect) await card.getByRole('button', { name: 'Check', exact: true }).click();
     }
     await page.waitForTimeout(150);
@@ -293,12 +293,12 @@ async function worksheet() {
     log(`section ${step.title}`);
     await answer(i, step).catch((e) => fail(i, String(e.message ?? e).split('\n')[0]));
   }
-  const left = (await page.locator('.ws-blank').count()) ? await page.locator('.ws-blank').innerText() : '';
+  const left = (await page.locator('.sheet-blank').count()) ? await page.locator('.sheet-blank').innerText() : '';
   if (left) await fail(lab.steps.length - 1, `Hand it in still lists blank questions: ${left.replace(/\s+/g, ' ')}`);
-  const total = await page.locator('.ws-side-total, .ws-nav-total').filter({ visible: true }).first().innerText();
+  const total = await page.locator('.sheet-side-total, .sheet-nav-total').filter({ visible: true }).first().innerText();
   log(`  ${total}`);
   const downloading = page.waitForEvent('download', { timeout: 10000 });
-  await page.locator('.ws-hand-in .submit-box .btn.primary').click();
+  await page.locator('.sheet-hand-in .submit-box .btn.primary').click();
   const file = await (await downloading).path();
   const { readFileSync } = await import('node:fs');
   const html = readFileSync(file, 'utf8');

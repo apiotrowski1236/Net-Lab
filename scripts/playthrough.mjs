@@ -156,9 +156,9 @@ try {
       // An answer sheet is one page: every answer shows in its box, and Hand it in has nothing left blank.
       await page.waitForSelector('.worksheet');
       await page.waitForTimeout(150);
-      const boxes = await page.locator('.worksheet .ws-input').evaluateAll((els) => els.map((e) => e.value));
+      const boxes = await page.locator('.worksheet .sheet-input').evaluateAll((els) => els.map((e) => e.value));
       if (JSON.stringify(boxes) !== JSON.stringify(lab.answers.map((a) => a.text))) failures.push(`${lab.id}: the answer boxes don't show the saved answers`);
-      if (await page.locator('.ws-blank').count()) failures.push(`${lab.id}: Hand it in lists blank questions`);
+      if (await page.locator('.sheet-blank').count()) failures.push(`${lab.id}: Hand it in lists blank questions`);
       const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
       if (wide) failures.push(`${lab.id}: the page scrolls sideways`);
       await page.screenshot({ path: join(OUT, `${lab.id}-sheet.png`), fullPage: true });

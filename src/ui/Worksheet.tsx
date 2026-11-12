@@ -14,10 +14,10 @@ import { TopBar } from './TopBar';
 const NO_DEVICES: Record<string, string> = {};
 const noDevice = () => {};
 
-const sectionId = (s: StepDef) => `ws-${s.id}`;
-const rowId = (s: StepDef, q: QuestionDef) => `ws-q-${s.id}-${q.id}`;
-const inputId = (s: StepDef, q: QuestionDef) => `ws-in-${s.id}-${q.id}`;
-const HAND_IN = 'ws-hand-in';
+const sectionId = (s: StepDef) => `sheet-${s.id}`;
+const rowId = (s: StepDef, q: QuestionDef) => `sheet-q-${s.id}-${q.id}`;
+const inputId = (s: StepDef, q: QuestionDef) => `sheet-in-${s.id}-${q.id}`;
+const HAND_IN = 'sheet-hand-in';
 
 const smooth = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 
@@ -27,7 +27,7 @@ function go(id: string, focus = false): void {
   if (!el) return;
   el.scrollIntoView({ block: 'start', behavior: smooth() });
   if (!focus) return;
-  el.querySelector<HTMLElement>('.ws-input, textarea, .option')?.focus({ preventScroll: true });
+  el.querySelector<HTMLElement>('.sheet-input, textarea, .option')?.focus({ preventScroll: true });
   el.classList.remove('nudge');
   void el.offsetWidth; // restart the animation on a second click
   el.classList.add('nudge');
@@ -37,7 +37,7 @@ function go(id: string, focus = false): void {
 function nextOnEnter(e: KeyboardEvent): void {
   if (e.key !== 'Enter' || e.isComposing) return;
   e.preventDefault();
-  const all = [...document.querySelectorAll<HTMLElement>('.worksheet .ws-input')];
+  const all = [...document.querySelectorAll<HTMLElement>('.worksheet .sheet-input')];
   all[all.indexOf(e.currentTarget as HTMLElement) + 1]?.focus();
 }
 
@@ -53,15 +53,15 @@ function SheetAnswer({ session, step, q }: { session: LabSession; step: StepDef;
   };
   const common = { id: inputId(step, q), value, onInput, 'aria-labelledby': `${rowId(step, q)}-num ${rowId(step, q)}-prompt` };
   if (q.short) {
-    return <input {...common} type="text" class="ws-input short" placeholder={q.placeholder ?? 'Your answer'} autocomplete="off" spellcheck={false} onKeyDown={nextOnEnter} />;
+    return <input {...common} type="text" class="sheet-input short" placeholder={q.placeholder ?? 'Your answer'} autocomplete="off" spellcheck={false} onKeyDown={nextOnEnter} />;
   }
   const rows = q.lines ?? 3;
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
   return (
     <>
-      <textarea {...common} class="ws-input long" rows={rows} style={`--rows: ${rows}`} placeholder={q.placeholder ?? 'Write in complete sentences.'} spellcheck />
+      <textarea {...common} class="sheet-input long" rows={rows} style={`--rows: ${rows}`} placeholder={q.placeholder ?? 'Write in complete sentences.'} spellcheck />
       {q.minWords ? (
-        <div class={`ws-words ${words >= q.minWords ? 'ok' : ''}`}>
+        <div class={`sheet-words ${words >= q.minWords ? 'ok' : ''}`}>
           {words} word{words === 1 ? '' : 's'} · aim for {q.minWords}+
         </div>
       ) : null}
@@ -132,13 +132,13 @@ export function WorksheetPlayer({ lab }: { lab: LabDef }) {
     );
 
   return (
-    <div class="ws-page">
+    <div class="sheet-page">
       <TopBar session={session} />
       <main class="worksheet" ref={scroller}>
-        <div class="ws-layout">
-          <aside class="ws-side" aria-label="Sections">
-            <div class="ws-side-label">Sections</div>
-            <ol class="ws-toc">
+        <div class="sheet-layout">
+          <aside class="sheet-side" aria-label="Sections">
+            <div class="sheet-side-label">Sections</div>
+            <ol class="sheet-toc">
               {sections.map((s) => {
                 const n = countIn(s);
                 const of = s.questions?.length ?? 0;
@@ -147,15 +147,15 @@ export function WorksheetPlayer({ lab }: { lab: LabDef }) {
                   <li key={s.id}>
                     <button
                       type="button"
-                      class={`ws-toc-item ${n === of ? 'done' : ''} ${here ? 'active' : ''}`}
+                      class={`sheet-toc-item ${n === of ? 'done' : ''} ${here ? 'active' : ''}`}
                       aria-current={here ? 'location' : undefined}
                       onClick={() => go(sectionId(s))}
                     >
-                      <span class="ws-toc-mark" aria-hidden="true">
+                      <span class="sheet-toc-mark" aria-hidden="true">
                         {n === of && <Icon name="check" size={12} />}
                       </span>
-                      <span class="ws-toc-title">{s.title}</span>
-                      <span class="ws-toc-count">
+                      <span class="sheet-toc-title">{s.title}</span>
+                      <span class="sheet-toc-count">
                         {n}/{of}
                       </span>
                     </button>
@@ -163,10 +163,10 @@ export function WorksheetPlayer({ lab }: { lab: LabDef }) {
                 );
               })}
             </ol>
-            <div class={`ws-side-total ${allDone ? 'done' : ''}`} aria-live="polite">
+            <div class={`sheet-side-total ${allDone ? 'done' : ''}`} aria-live="polite">
               {done} of {total} answered
             </div>
-            <div class="ws-side-actions">
+            <div class="sheet-side-actions">
               <button type="button" class={`btn ${allDone ? 'primary' : ''}`} onClick={() => go(HAND_IN)}>
                 <Icon name="send" size={16} /> {handIn}
               </button>
@@ -174,8 +174,8 @@ export function WorksheetPlayer({ lab }: { lab: LabDef }) {
             </div>
           </aside>
 
-          <div class="ws-main">
-            <header class="ws-head">
+          <div class="sheet-main">
+            <header class="sheet-head">
               <div class="eyebrow">
                 <Icon name="list" size={14} /> Answer sheet
               </div>
@@ -184,30 +184,30 @@ export function WorksheetPlayer({ lab }: { lab: LabDef }) {
                 Do this lab on {sheet.where} with your handout. Type each answer here as you go. The question numbers match the handout, and your answers save as
                 you type.
               </p>
-              {rangeLink('small ws-head-link')}
+              {rangeLink('small sheet-head-link')}
             </header>
-            {session.replayWarning && <div class="callout warn small ws-warning">{session.replayWarning}</div>}
+            {session.replayWarning && <div class="callout warn small sheet-warning">{session.replayWarning}</div>}
 
-            <nav class="ws-nav" aria-label="Sections">
-              <div class="ws-nav-items">
+            <nav class="sheet-nav" aria-label="Sections">
+              <div class="sheet-nav-items">
                 {sections.map((s) => {
                   const n = countIn(s);
                   const of = s.questions?.length ?? 0;
                   return (
-                    <button key={s.id} type="button" class={`ws-nav-item ${n === of ? 'done' : ''}`} title={s.title} onClick={() => go(sectionId(s))}>
+                    <button key={s.id} type="button" class={`sheet-nav-item ${n === of ? 'done' : ''}`} title={s.title} onClick={() => go(sectionId(s))}>
                       {n === of && <Icon name="check" size={13} />}
-                      <span class="ws-nav-title">{s.title}</span>
-                      <span class="ws-nav-count">
+                      <span class="sheet-nav-title">{s.title}</span>
+                      <span class="sheet-nav-count">
                         {n}/{of}
                       </span>
                     </button>
                   );
                 })}
-                <button type="button" class="ws-nav-item hand-in" onClick={() => go(HAND_IN)}>
+                <button type="button" class="sheet-nav-item hand-in" onClick={() => go(HAND_IN)}>
                   <Icon name="send" size={13} /> {handIn}
                 </button>
               </div>
-              <span class={`ws-nav-total ${allDone ? 'done' : ''}`}>
+              <span class={`sheet-nav-total ${allDone ? 'done' : ''}`}>
                 {done} of {total} answered
               </span>
             </nav>
@@ -216,25 +216,25 @@ export function WorksheetPlayer({ lab }: { lab: LabDef }) {
               const n = countIn(s);
               const of = s.questions?.length ?? 0;
               return (
-                <section key={s.id} id={sectionId(s)} class="ws-section" aria-labelledby={`${sectionId(s)}-title`}>
-                  <div class="ws-section-head">
+                <section key={s.id} id={sectionId(s)} class="sheet-section" aria-labelledby={`${sectionId(s)}-title`}>
+                  <div class="sheet-section-head">
                     <h2 id={`${sectionId(s)}-title`}>{s.title}</h2>
-                    <span class={`ws-section-count ${n === of ? 'done' : ''}`}>
+                    <span class={`sheet-section-count ${n === of ? 'done' : ''}`}>
                       {n === of && <Icon name="check" size={14} />}
                       {n} of {of} answered
                     </span>
                   </div>
-                  {s.body.trim() && <div class="prose ws-note" dangerouslySetInnerHTML={{ __html: renderMarkdown(s.body, NO_DEVICES) }} />}
-                  <ol class="ws-qs">
+                  {s.body.trim() && <div class="prose sheet-note" dangerouslySetInnerHTML={{ __html: renderMarkdown(s.body, NO_DEVICES) }} />}
+                  <ol class="sheet-qs">
                     {(s.questions ?? []).map((q) => (
-                      <li key={q.id} id={rowId(s, q)} class={`ws-q ${session.questionDone(s.id, q) ? 'done' : ''} ${q.kind === 'choice' ? 'choice' : ''}`}>
+                      <li key={q.id} id={rowId(s, q)} class={`sheet-q ${session.questionDone(s.id, q) ? 'done' : ''} ${q.kind === 'choice' ? 'choice' : ''}`}>
                         {q.kind === 'text' ? (
                           <>
-                            <span class="ws-qnum" id={`${rowId(s, q)}-num`}>
+                            <span class="sheet-qnum" id={`${rowId(s, q)}-num`}>
                               {q.label ?? q.id}
                             </span>
-                            <label class="ws-qprompt" id={`${rowId(s, q)}-prompt`} for={inputId(s, q)} dangerouslySetInnerHTML={{ __html: inlineMarkdown(q.prompt) }} />
-                            <div class="ws-answer">
+                            <label class="sheet-qprompt" id={`${rowId(s, q)}-prompt`} for={inputId(s, q)} dangerouslySetInnerHTML={{ __html: inlineMarkdown(q.prompt) }} />
+                            <div class="sheet-answer">
                               <SheetAnswer session={session} step={s} q={q} />
                             </div>
                           </>
@@ -248,18 +248,18 @@ export function WorksheetPlayer({ lab }: { lab: LabDef }) {
               );
             })}
 
-            <section id={HAND_IN} class="ws-section ws-hand-in" aria-labelledby={`${HAND_IN}-title`}>
-              <div class="ws-section-head">
+            <section id={HAND_IN} class="sheet-section sheet-hand-in" aria-labelledby={`${HAND_IN}-title`}>
+              <div class="sheet-section-head">
                 <h2 id={`${HAND_IN}-title`}>
                   <Icon name="send" size={18} /> {handIn}
                 </h2>
               </div>
               {blank.length > 0 ? (
-                <div class="callout warn small ws-blank">
+                <div class="callout warn small sheet-blank">
                   <span>
                     <strong>Still blank:</strong> {blank.length === 1 ? '1 question' : `${blank.length} questions`}. Click one to go to it.
                   </span>
-                  <span class="ws-blank-list">
+                  <span class="sheet-blank-list">
                     {blank.map(({ s, q }) => (
                       <button key={`${s.id}/${q.id}`} type="button" class="btn tiny" onClick={() => go(rowId(s, q), true)}>
                         {q.label ?? q.id}
@@ -268,7 +268,7 @@ export function WorksheetPlayer({ lab }: { lab: LabDef }) {
                   </span>
                 </div>
               ) : (
-                <div class="callout good small ws-all-in">
+                <div class="callout good small sheet-all-in">
                   <Icon name="check" size={14} /> Every question has an answer.
                 </div>
               )}
