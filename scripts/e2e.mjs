@@ -460,7 +460,8 @@ try {
       await page.goto(`${url}#/cyber/guide/${id}`);
       await page.waitForSelector('.guide-head');
       await page.goto(`${url}#/cyber/lab/${id}`);
-      await page.waitForSelector('.lesson');
+      // An answer sheet (LabDef.worksheet) has no lesson panel: the questions fill the page.
+      await page.waitForSelector('.lesson, .worksheet');
       for (const tab of await page.getByRole('tab').all()) {
         await tab.click();
         await page.waitForTimeout(100);

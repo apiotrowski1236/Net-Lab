@@ -261,7 +261,8 @@ async function doMove(i, step, m) {
 async function answer(i, step) {
   const key = sol[step.id] ?? {};
   for (const q of step.questions ?? []) {
-    const card = page.locator('.qcard').filter({ hasText: q.prompt.replace(/\*\*|`/g, '').split('\n')[0].slice(0, 40) }).first();
+    // On an answer sheet a question is a row (.sheet-q) with a one-line box or a text box.
+    const card = page.locator(lab.worksheet ? '.sheet-q' : '.qcard').filter({ hasText: q.prompt.replace(/\*\*|`/g, '').split('\n')[0].slice(0, 40) }).first();
     if ((await card.count()) === 0) await fail(i, `question "${q.id}" isn't on screen (still locked?)`);
     if (q.kind === 'choice') {
       // Exact, so an answer of "0" doesn't pick the option "100".
@@ -270,7 +271,7 @@ async function answer(i, step) {
     } else {
       const text = key.text?.[q.id];
       if (text === undefined) throw new Error(`No answer-key text for ${step.id}/${q.id}`);
-      await card.locator('textarea').fill(text);
+      await card.locator('textarea, input.sheet-input').first().fill(text);
       if (q.expect) await card.getByRole('button', { name: 'Check', exact: true }).click();
     }
     await page.waitForTimeout(150);
@@ -278,8 +279,42 @@ async function answer(i, step) {
   }
 }
 
-try {
-  await page.goto(`${url}#/lab/${lab.id}`);
+/**
+ * An answer sheet (LabDef.worksheet) is one page: type every answer, hand it
+ * in with the real button, and read the report file that downloads.
+ */
+async function worksheet() {
+  await page.waitForSelector('.worksheet');
+  log(`${lab.title}: answer sheet, ${lab.steps.length - 1} sections`);
+  await page.waitForTimeout(300);
+  for (let i = 0; i < lab.steps.length; i++) {
+    const step = lab.steps[i];
+    if (step.kind === 'submit') continue;
+    log(`section ${step.title}`);
+    await answer(i, step).catch((e) => fail(i, String(e.message ?? e).split('\n')[0]));
+  }
+  const left = (await page.locator('.sheet-blank').count()) ? await page.locator('.sheet-blank').innerText() : '';
+  if (left) await fail(lab.steps.length - 1, `Hand it in still lists blank questions: ${left.replace(/\s+/g, ' ')}`);
+  const total = await page.locator('.sheet-side-total, .sheet-nav-total').filter({ visible: true }).first().innerText();
+  log(`  ${total}`);
+  const downloading = page.waitForEvent('download', { timeout: 10000 });
+  await page.locator('.sheet-hand-in .submit-box .btn.primary').click();
+  const file = await (await downloading).path();
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(file, 'utf8');
+  for (const step of lab.steps)
+    for (const q of step.questions ?? []) {
+      const want = sol[step.id]?.text?.[q.id] ?? '';
+      const esc = want.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      if (!html.includes(`<b>${q.label}.</b>`) || !html.includes(esc)) await fail(lab.steps.length - 1, `the downloaded report is missing ${q.label ?? q.id} or its answer`);
+    }
+  log(`  handed in: the report has every question and answer (${(await downloading).suggestedFilename()})`);
+  await page.screenshot({ path: join(OUT, 'handed-in.png') });
+  log('done: every answer can be typed and handed in');
+}
+
+/** A guided lab or lesson: every step's moves, goals, and questions, then Continue. */
+async function guided() {
   await page.waitForSelector('.lesson');
   if (lab.build) await page.getByRole('button', { name: `${SPEED}×`, exact: true }).click();
   log(`${lab.title}: ${lab.steps.length} steps${lab.build ? ` at ${SPEED}×` : ''}`);
@@ -330,6 +365,12 @@ try {
     model.goTo(i + 1);
   }
   log(`done: every step${only ? ' through ' + lab.steps[lastIndex].id : ''} can be completed in the app`);
+}
+
+try {
+  await page.goto(`${url}#/lab/${lab.id}`);
+  if (lab.worksheet) await worksheet();
+  else await guided();
   for (const p of problems) console.log(`  note: ${p}`);
 } finally {
   await browser.close();

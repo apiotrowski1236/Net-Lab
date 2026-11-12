@@ -1,7 +1,7 @@
 import { guideHref, labHref } from '../routes';
 import { useMemo } from 'preact/hooks';
 import { shuffledOptions } from '../labs/shuffle';
-import { isLesson, type LabDef, type StepDef, type ToolSpec } from '../labs/types';
+import { isLesson, isWorksheet, type LabDef, type StepDef, type ToolSpec } from '../labs/types';
 import { Icon } from './icons';
 import { renderMarkdown, type MdActions } from './markdown';
 import { DEMO_NAME } from './demos/registry';
@@ -68,12 +68,14 @@ export function Guide({ lab }: { lab: LabDef }) {
     return out;
   }, [lab]);
   const steps = lab.steps.filter((s) => s.kind !== 'submit');
+  // An answer sheet's sections are lettered in their titles ("A. Examine the Recon File"), and its questions numbered like the handout.
+  const sheet = isWorksheet(lab);
 
   return (
     <div class="guide">
       <div class="guide-bar no-print">
         <a class="btn ghost small" href={labHref(lab.id)}>
-          <Icon name="chevronLeft" size={14} /> {isLesson(lab) ? 'Open the lesson' : 'Open the lab'}
+          <Icon name="chevronLeft" size={14} /> {sheet ? 'Open the answer sheet' : isLesson(lab) ? 'Open the lesson' : 'Open the lab'}
         </a>
         <button class="btn small" onClick={() => window.print()}>
           <Icon name="print" size={14} /> Print
@@ -82,13 +84,15 @@ export function Guide({ lab }: { lab: LabDef }) {
 
       <header class="guide-head">
         <div class="eyebrow">
-          {isLesson(lab) ? 'Lesson guide' : 'Lab guide'}
+          {sheet ? 'Answer sheet' : isLesson(lab) ? 'Lesson guide' : 'Lab guide'}
           {lab.unit !== 0 && ` · Unit ${lab.unit}`}
         </div>
         <h1>{lab.title}</h1>
         <p class="guide-tagline">{lab.tagline}</p>
         <div class="guide-meta">
-          About {lab.minutes} minutes · {steps.length} steps{lab.codehs.length > 0 && ` · CodeHS ${lab.codehs.join(', ')}`}
+          About {lab.minutes} minutes · {steps.length} {sheet ? 'sections' : 'steps'}
+          {lab.worksheet && ` · Done on ${lab.worksheet.where}`}
+          {lab.codehs.length > 0 && ` · CodeHS ${lab.codehs.join(', ')}`}
         </div>
         {lab.objectives.length > 0 && (
           <>
@@ -116,7 +120,7 @@ export function Guide({ lab }: { lab: LabDef }) {
       {steps.map((s, i) => (
         <section key={s.id} id={`g-${s.id}`} class="guide-step">
           <h2>
-            <span class="guide-num">{i + 1}</span> {s.title}
+            {!sheet && <span class="guide-num">{i + 1}</span>} {s.title}
           </h2>
           <Md src={s.body} labels={labels} actions={{ labels: Object.fromEntries((s.actions ?? []).map((a) => [a.id, a.label])), live: false }} />
 
@@ -162,7 +166,8 @@ export function Guide({ lab }: { lab: LabDef }) {
           )}
 
           {s.questions?.map((q) => (
-            <div key={q.id} class="guide-q">
+            <div key={q.id} class={`guide-q ${q.label ? 'numbered' : ''}`}>
+              {q.label && <b class="guide-qnum">{q.label}.</b>}
               <Md src={q.prompt} labels={labels} />
               {q.kind === 'choice' ? (
                 <>
@@ -176,14 +181,16 @@ export function Guide({ lab }: { lab: LabDef }) {
                   </ul>
                 </>
               ) : (
-                <div class="guide-lines" style={{ height: `${(q.lines ?? (q.expect ? 1 : 4)) * 1.9}em` }} aria-hidden="true" />
+                <div class="guide-lines" style={{ height: `${(q.short ? 1 : (q.lines ?? (q.expect ? 1 : 4))) * 1.9}em` }} aria-hidden="true" />
               )}
             </div>
           ))}
         </section>
       ))}
 
-      <footer class="guide-foot">NetLab · {lab.title} · Answers are entered and checked in the lab itself.</footer>
+      <footer class="guide-foot">
+        NetLab · {lab.title} · {sheet ? 'Students type their answers into the answer sheet on NetLab.' : 'Answers are entered and checked in the lab itself.'}
+      </footer>
     </div>
   );
 }

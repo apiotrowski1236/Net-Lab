@@ -114,7 +114,7 @@ function upsert(r) {
     if (q.autoGraded) mark = q.correct ? '[correct] ' : '[not yet] ';
     if (q.overridden) mark = '[step overridden] ' + mark;
     var prompt = String(q.prompt).replace(/\[\[|\]\]|\*\*|`/g, '');
-    cells['Q' + (i + 1) + ': ' + prompt.slice(0, 60)] = q.answer ? mark + q.answer : '';
+    cells[(q.label || 'Q' + (i + 1)) + ': ' + prompt.slice(0, 60)] = q.answer ? mark + q.answer : '';
   });
   cells['Report JSON'] = JSON.stringify(r).slice(0, 49000);
 

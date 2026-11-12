@@ -195,6 +195,8 @@ export function Icon({ name, size = 16 }: { name: string; size?: number }) {
     save: <path d="M5 4 H16 L20 8 V20 H4 V4 Z M8 4 V9 H15 V4 M8 20 V14 H16 V20" {...p} />,
     download: <path d="M12 4 V16 M7 11 L12 16 L17 11 M5 20 H19" {...p} />,
     upload: <path d="M12 16 V4 M7 9 L12 4 L17 9 M5 20 H19" {...p} />,
+    /** A link that opens another site in a new tab. */
+    external: <path d="M14 4 H20 V10 M20 4 L11 13 M18 14 V19 A1 1 0 0 1 17 20 H5 A1 1 0 0 1 4 19 V7 A1 1 0 0 1 5 6 H10" {...p} />,
     print: (
       <g {...p}>
         <path d="M7 9 V3 H17 V9" />

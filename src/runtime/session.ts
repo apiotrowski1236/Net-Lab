@@ -8,6 +8,7 @@ import {
   answerKey,
   goalKey,
   isLesson,
+  isWorksheet,
   TAB_TOOLS,
   toolKey,
   type AnyEvent,
@@ -67,7 +68,9 @@ export class LabSession {
       // goals, but rebuild the network from step setups only.
       progress.actions = progress.actions.filter((x) => x.a.type === 'setup');
       progress.labVersion = lab.version;
-      this.replayWarning = isLesson(lab)
+      this.replayWarning = isWorksheet(lab)
+        ? 'This answer sheet was updated. Your answers are safe.'
+        : isLesson(lab)
         ? 'This lesson was updated, so its activities start fresh. Your answers and goals are safe.'
         : 'This lab was updated, so the network was reset. Your answers are safe.';
       if (progress.demos) progress.demos = {};

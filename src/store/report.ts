@@ -29,6 +29,8 @@ export interface Report {
   questions: {
     step: string;
     id: string;
+    /** The handout's number for the question ("A5"), when it has one (QuestionDef.label). */
+    label?: string;
     prompt: string;
     kind: 'choice' | 'text';
     answer: string;
@@ -119,6 +121,7 @@ export function buildReport(lab: LabDef, p: LabProgress, who: Profile, status: R
       questions.push({
         step: step.id,
         id: q.id,
+        label: q.label,
         prompt: plain(q.prompt, labels),
         kind: q.kind,
         answer,

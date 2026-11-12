@@ -306,6 +306,20 @@ const page: JsSpec = {
 - **Notes** are in `SKETCH_RULES` (`src/sketch/notes.ts`) and take `lintOff`: `no-sketch`, `event-name`, `p5-name`, `reset-in-draw`, `callback-as-test`, `key-word`, `shape-args`, `color-args`, `color-unknown`, `unused-style`, `background-covers`, `off-canvas`, `no-canvas`, `canvas-in-draw`, `canvas-size`, `key-code`. Runtime help for a p5.js name comes from `Sketch.explain` in `host.ts`.
 - **Answer keys** use the same `{ demo, input: { edit: 'sketch.js', code } }` and `{ run: true }` moves. The click-through doesn't drive the live canvas, so every check has to pass from hidden runs.
 
+## Answer sheets (worksheet mode)
+
+An answer sheet collects answers for a lab students do somewhere else, like the CYBER.ORG Range. NetLab shows no lesson or stage, only the handout's questions in a full-width grid, and the hand-in report is the same one a guided lab makes. Copy `src/labs/hijacked-ssh-1/`.
+
+- Set `worksheet: { where: 'the CYBER.ORG Range', link?: { label, url } }` on the `LabDef`. `where` reads in a sentence. `isWorksheet(lab)` switches the route to `WorksheetPlayer` (`src/ui/Worksheet.tsx`).
+- `title` is the handout's name, so students and the teacher match them up. No `build`, goals, tools, actions, demos, setups, `focus`, `open`, or `extra` steps. `src/labs/worksheet.test.ts` checks this for every worksheet.
+- One step per handout section, titled the way the handout titles it ("A. Examine the Recon File"), with `body: ''`. The last step is `kind: 'submit'`.
+- Only steps that ask something. Each question needs `label`, the handout's number ("A5"). Labels are unique, and they replace "Q3" on the card, in the report, and in the teacher's sheet column.
+- Text questions, teacher-graded (2 points each by default). Keep the handout's wording after a short sentence of context, since students read the handout for the rest.
+- `short: true` (with a `placeholder`) for an answer that's one thing: an address, a file name, a password. It gets a one-line box, and Enter moves to the next answer. Everything else is a written answer whose box starts `lines` tall (3 by default) and grows as they type. Copy the `short()` and `long()` helpers.
+- Layout: one column of questions, with the handout's number in a gutter beside each. From 960px wide a sticky sidebar lists the sections, the count answered, **Hand it in**, and the range link; narrower, the sections become a bar across the top. Check it at 1280x650 and 1366x660 (13-inch laptops after the browser's own bars).
+- The solution gives a sample `text` answer for every question. It's for tests, not an answer key, and says so at the top.
+- The click-through (`clickthrough.mjs`) knows worksheets: it fills every answer, checks nothing is left blank, hands it in, and reads the labels and answers back from the downloaded report.
+
 ## Tools per step and the answer key
 
 - A step's `tools` is the whole list for that step. Nothing carries over except the Logs tab once opened.

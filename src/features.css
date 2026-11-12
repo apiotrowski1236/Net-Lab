@@ -5518,3 +5518,551 @@ button.pl-tile:active {
     min-height: 420px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Answer sheets (LabDef.worksheet, src/ui/Worksheet.tsx): the questions for a
+   lab done somewhere else, like the CYBER.ORG Range. No lesson panel or map.
+   The questions run down one column. On a laptop a sticky sidebar lists the
+   sections; in a narrow window that list is a bar across the top instead.
+   --------------------------------------------------------------------------- */
+
+.sheet-page {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.worksheet {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 24px 64px;
+}
+.sheet-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 880px;
+  margin: 0 auto;
+}
+.sheet-main {
+  min-width: 0;
+}
+
+/* Title and how it works */
+.sheet-head {
+  padding: 24px 0 0;
+}
+.sheet-head h1 {
+  margin: 6px 0;
+  font-size: 24px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.sheet-head p {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.sheet-head-link {
+  margin-top: 12px;
+}
+.sheet-warning {
+  margin: 14px 0 0;
+}
+
+/* Sidebar: the sections, what's answered, and the way out */
+.sheet-side {
+  display: none;
+}
+.sheet-side-label {
+  margin: 0 10px 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sheet-toc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sheet-toc-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: start;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+.sheet-toc-item:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.sheet-toc-item.active {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+}
+.sheet-toc-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--brand);
+}
+/* The circle sits on the first line of the title: 18px tall, centered in the 20px line. */
+.sheet-toc-mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+}
+.sheet-toc-item.done .sheet-toc-mark {
+  border-color: var(--good-solid);
+  background: var(--good-solid);
+  color: #fff;
+}
+.sheet-toc-count {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.sheet-toc-item.done .sheet-toc-count {
+  color: var(--good-ink);
+}
+.sheet-side-total {
+  margin: 14px 10px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.sheet-side-total.done {
+  color: var(--good-ink);
+}
+.sheet-side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.sheet-side-actions .btn {
+  justify-content: center;
+}
+
+/* Narrow windows: the sections as a bar that stays at the top. */
+.sheet-nav {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px -24px 0;
+  padding: 8px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.sheet-nav-items {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Fade the edge where a chip runs off, so the bar reads as one that scrolls. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.sheet-nav-item {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sheet-nav-item:hover {
+  border-color: var(--brand-line);
+  color: var(--ink);
+}
+.sheet-nav-item.done {
+  border-color: var(--good-line);
+  color: var(--good-ink);
+}
+.sheet-nav-item.hand-in {
+  border-color: var(--brand-line);
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+.sheet-nav-item svg {
+  flex: none;
+}
+.sheet-nav-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-nav-count {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.sheet-nav-item.done .sheet-nav-count {
+  color: inherit;
+}
+.sheet-nav-total {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sheet-nav-total.done {
+  color: var(--good-ink);
+}
+
+/* A section: its title and count, then its questions in one panel. */
+.sheet-section {
+  padding-top: 28px;
+  scroll-margin-top: 56px;
+}
+/* Baseline, so the count sits on the same line as the title's text. */
+.sheet-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  flex-wrap: wrap;
+  margin: 0 4px 10px;
+}
+.sheet-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 18px;
+  line-height: 26px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.sheet-section h2 svg {
+  flex: none;
+}
+.sheet-section-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sheet-section-count svg {
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+.sheet-section-count.done {
+  color: var(--good-ink);
+  font-weight: 600;
+}
+.sheet-note {
+  margin: 0 4px 10px;
+  font-size: 14.5px;
+}
+.sheet-qs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+/* A question: the handout's number in a gutter, the question beside it, and the answer under the question. */
+.sheet-q {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 10px;
+  padding: 16px 22px 18px;
+  scroll-margin-top: 64px;
+}
+.sheet-q + .sheet-q {
+  border-top: 1px solid var(--line);
+}
+.sheet-q:first-child {
+  border-radius: 13px 13px 0 0;
+}
+.sheet-q:last-child {
+  border-radius: 0 0 13px 13px;
+}
+.sheet-q.choice > * {
+  grid-column: 1 / -1;
+}
+.sheet-q.choice .qcard {
+  margin: 0;
+}
+.sheet-q.nudge {
+  animation: sheet-nudge 1.4s ease-out;
+}
+@keyframes sheet-nudge {
+  0%,
+  35% {
+    background: var(--brand-soft);
+  }
+  100% {
+    background: transparent;
+  }
+}
+/* The badge is as tall as one line of the question (24px), so it sits on the first line. */
+.sheet-qnum {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.sheet-q.done .sheet-qnum {
+  background: var(--good-soft);
+  color: var(--good-ink);
+}
+.sheet-qprompt {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 24px;
+  color: var(--ink);
+}
+/* Code in a question keeps the line height, so every line of the question is the same height. */
+.sheet-qprompt code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--line-2);
+  font-family: var(--mono);
+  font-size: 0.86em;
+  font-weight: 500;
+  line-height: 1;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.sheet-answer {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+.sheet-input {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.sheet-input::placeholder {
+  color: var(--faint);
+}
+.sheet-input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--brand-soft-2);
+}
+/* A short answer is one line, and narrower, so it reads as a blank to fill in. */
+.sheet-input.short {
+  max-width: 440px;
+  height: 42px;
+}
+/* A written answer starts `lines` tall and grows as the student writes (where the browser can). */
+.sheet-input.long {
+  min-height: calc(var(--rows, 3) * 1.5em + 21px);
+  resize: vertical;
+  field-sizing: content;
+}
+.sheet-words {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: right;
+}
+.sheet-words.ok {
+  color: var(--good-ink);
+}
+
+/* Hand it in */
+.sheet-hand-in .callout {
+  margin: 0 0 12px;
+}
+.sheet-blank {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.sheet-blank-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sheet-all-in {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sheet-all-in svg {
+  vertical-align: 0;
+}
+
+/* Laptops and up: the sidebar beside the column, and no bar across the top. */
+@media (min-width: 960px) {
+  .sheet-layout {
+    grid-template-columns: 256px minmax(0, 860px);
+    column-gap: 40px;
+    justify-content: center;
+    max-width: none;
+  }
+  .sheet-side {
+    display: block;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    padding: 24px 0;
+  }
+  .sheet-nav,
+  .sheet-head-link {
+    display: none;
+  }
+  .sheet-section {
+    scroll-margin-top: 0;
+  }
+  .sheet-q {
+    scroll-margin-top: 16px;
+  }
+}
+
+/* The handout's number beside a question card in a guided lab ("A5"). */
+.qprompt.numbered {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+}
+.qprompt.numbered > :not(.qnum) {
+  grid-column: 2;
+}
+.qnum {
+  min-width: 34px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-size: 13.5px;
+  font-weight: 750;
+  line-height: 1.5;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.guide-q.numbered {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+}
+.guide-q.numbered > :not(.guide-qnum) {
+  grid-column: 2;
+}
+.guide-qnum {
+  color: var(--ink);
+}
+
+/* Home page: answer sheets in their own group, under the labs. */
+.home-sheets {
+  margin-top: 40px;
+}
+.home-sheets h2 {
+  margin: 0 0 6px;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+}
+.home-sheets > p {
+  margin: 0;
+  max-width: 700px;
+  color: var(--ink-2);
+}
+.home-sheets .lab-grid {
+  margin-top: 16px;
+}
+
+@media (max-width: 600px) {
+  .worksheet {
+    padding: 0 14px 40px;
+  }
+  .sheet-nav {
+    margin: 14px -14px 0;
+    padding: 8px 14px;
+  }
+  .sheet-nav-total {
+    display: none;
+  }
+  .sheet-head h1 {
+    font-size: 21px;
+  }
+  .sheet-q {
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 10px;
+    padding: 14px 14px 16px;
+  }
+  .sheet-qprompt {
+    font-size: 15px;
+  }
+  .sheet-input.short {
+    max-width: none;
+  }
+}

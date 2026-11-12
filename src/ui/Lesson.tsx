@@ -71,6 +71,14 @@ function Inline({ text }: { text?: string }) {
 // Questions
 // ---------------------------------------------------------------------------
 
+/** The id of a question's prompt, so its answer box or options are labeled by it. */
+const promptId = (step: StepDef, q: QuestionDef) => `q-${step.id}-${q.id}`;
+
+/** The handout's number for a question ("A5"), when it has one. */
+function QNum({ q }: { q: QuestionDef }) {
+  return q.label ? <span class="qnum">{q.label}</span> : null;
+}
+
 function ChoiceCard({ session, step, q, labels, onDevice }: { session: LabSession; step: StepDef; q: ChoiceQuestion; labels: Record<string, string>; onDevice: (id: string) => void }) {
   const a = session.answer(step.id, q.id);
   const picked = new Set((a?.value ?? '').split(',').filter(Boolean));
@@ -100,11 +108,12 @@ function ChoiceCard({ session, step, q, labels, onDevice }: { session: LabSessio
   const fb = useVerdictInView(a?.attempts);
   return (
     <div class={`qcard ${done ? 'correct' : wrong ? 'wrong' : ''}`}>
-      <div class="qprompt">
+      <div class={`qprompt ${q.label ? 'numbered' : ''}`} id={promptId(step, q)}>
+        <QNum q={q} />
         <Prose src={q.prompt} labels={labels} onDevice={onDevice} />
         {q.multi && <div class="muted small">Choose all that apply.</div>}
       </div>
-      <div class="options" role={q.multi ? 'group' : 'radiogroup'}>
+      <div class="options" role={q.multi ? 'group' : 'radiogroup'} aria-labelledby={promptId(step, q)}>
         {options.map((o) => {
           const isPicked = picked.has(o.id);
           // After a wrong check, mark only the picks that are wrong.
@@ -179,12 +188,14 @@ function TextCard({ session, step, q, labels, onDevice }: { session: LabSession;
   const fb = useVerdictInView(a?.attempts);
   return (
     <div class={`qcard ${auto && done ? 'correct' : wrong ? 'wrong' : ''}`}>
-      <div class="qprompt">
+      <div class={`qprompt ${q.label ? 'numbered' : ''}`} id={promptId(step, q)}>
+        <QNum q={q} />
         <Prose src={q.prompt} labels={labels} onDevice={onDevice} />
       </div>
       <textarea
+        aria-labelledby={promptId(step, q)}
         class={auto && done ? 'mono' : ''}
-        rows={q.lines ?? (auto ? 1 : 4)}
+        rows={q.lines ?? (auto || q.short ? 1 : 4)}
         placeholder={q.placeholder ?? (auto ? 'Type your answer' : 'Write in complete sentences. Your work saves as you type.')}
         value={value}
         onInput={(e) => {
@@ -353,7 +364,7 @@ function lockNotice(locked: QuestionDef[], step: StepDef, labels: Record<string,
   return `${what} when you finish ${names.join(' and ')}.`;
 }
 
-function QuestionCard(props: { session: LabSession; step: StepDef; q: QuestionDef; labels: Record<string, string>; onDevice: (id: string) => void }) {
+export function QuestionCard(props: { session: LabSession; step: StepDef; q: QuestionDef; labels: Record<string, string>; onDevice: (id: string) => void }) {
   return props.q.kind === 'choice' ? <ChoiceCard {...props} q={props.q} /> : <TextCard {...props} q={props.q} />;
 }
 

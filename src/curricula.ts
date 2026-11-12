@@ -90,6 +90,8 @@ export const CURRICULA: Curriculum[] = [
       'segmentation',
       'firewall',
       'logs',
+      // Answer sheets for CYBER.ORG Range labs (LabDef.worksheet). The home page lists them in their own group.
+      'hijacked-ssh-1',
     ],
     stubs: STUBS,
     footnote: "Simulated networks only, except the Wireshark lab's capture of your own computer. The attacks you practice here are illegal against real networks you don't own or have written permission to test.",
