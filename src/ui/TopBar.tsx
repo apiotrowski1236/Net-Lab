@@ -10,6 +10,7 @@ import { saveState } from '../store/storage';
 import { Icon } from './icons';
 import { openProfile, switchStudent } from './ProfileDialog';
 import { theme, toggleTheme } from './theme';
+import { debug, debugAvailable, toggleDebug } from './debug';
 
 function ago(ms: number): string {
   const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
@@ -189,6 +190,17 @@ export function ThemeToggle() {
   );
 }
 
+/** Turns debug mode on and off. Only the dev server shows it. */
+export function DebugToggle() {
+  if (!debugAvailable) return null;
+  const on = debug.value;
+  return (
+    <button class={`btn small debug-toggle ${on ? 'on' : ''}`} onClick={toggleDebug} aria-pressed={on} title={on ? 'Debug mode is on: every step is unlocked. Click to turn it off.' : 'Debug mode: unlock every step and skip steps'}>
+      <Icon name="unlock" size={14} /> Debug{on ? ' on' : ''}
+    </button>
+  );
+}
+
 export function TopBar({ session }: { session: LabSession }) {
   void session.rev.value;
   const p = session.progress;
@@ -213,6 +225,7 @@ export function TopBar({ session }: { session: LabSession }) {
         </div>
       </div>
       <SaveStatus syncKey={`${profile.value.id}:${session.lab.id}`} />
+      <DebugToggle />
       <ThemeToggle />
       <StudentChip />
     </header>

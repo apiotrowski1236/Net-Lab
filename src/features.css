@@ -6507,3 +6507,11 @@ button.pl-tile:active {
     transition: none;
   }
 }
+
+/* Debug mode (src/ui/debug.ts): dev server only. Amber, so it's plain when steps are unlocked. */
+.debug-toggle.on,
+.debug-skip {
+  color: var(--warn-ink);
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+}
