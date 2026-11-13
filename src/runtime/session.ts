@@ -179,10 +179,19 @@ export class LabSession {
   // Steps
   // ---------------------------------------------------------------------------
 
-  goTo(index: number): void {
+  /**
+   * Open a step. A student can only open a step they've reached, or the next one once the
+   * current one is done. `force` (debug mode, src/ui/debug.ts) opens any step: it enters
+   * every step on the way first, so each one's setup still runs in order.
+   */
+  goTo(index: number, force = false): void {
     if (index < 0 || index >= this.lab.steps.length) return;
-    if (index > this.progress.maxStep + 1) return;
-    if (index === this.progress.maxStep + 1 && !this.stepComplete(this.progress.maxStep)) return;
+    if (force) {
+      for (let i = this.progress.maxStep + 1; i < index; i++) this.enterStep(i);
+    } else {
+      if (index > this.progress.maxStep + 1) return;
+      if (index === this.progress.maxStep + 1 && !this.stepComplete(this.progress.maxStep)) return;
+    }
     this.enterStep(index);
   }
 

@@ -526,6 +526,24 @@ describe('step override', () => {
     expect(html).toContain('Reason: Map would not load');
   });
 
+  it('debug mode jumps to any step, running every setup on the way, with no override on the report', () => {
+    const s = new LabSession(lab, freshProgress(lab));
+    const last = lab.steps.length - 1;
+    s.goTo(last);
+    expect(s.progress.step).toBe(0); // locked without force
+    s.goTo(last, true);
+    expect(s.progress.step).toBe(last);
+    expect(s.progress.maxStep).toBe(last);
+    for (const step of lab.steps) {
+      expect(s.progress.stepStart[step.id]).toBeDefined();
+      if (step.setup) expect(s.progress.actions.filter((x) => x.a.type === 'setup' && x.a.step === step.id)).toHaveLength(1);
+    }
+    expect(s.progress.overrides).toBeUndefined();
+    s.goTo(2, true);
+    expect(s.progress.step).toBe(2);
+    expect(s.progress.maxStep).toBe(last);
+  });
+
   it('stops flagging a step the student goes back and finishes', () => {
     const s = new LabSession(lab, freshProgress(lab));
     s.skipStep('Stuck');

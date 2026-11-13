@@ -14,6 +14,7 @@ import { shuffledOptions } from '../labs/shuffle';
 import { hoverDevice } from './NetworkCanvas';
 import { hasEndpoint } from '../store/outbox';
 import { OverrideDialog } from './Override';
+import { debug } from './debug';
 import { guideHref } from '../routes';
 
 // ---------------------------------------------------------------------------
@@ -385,7 +386,7 @@ function Outline({ session, onClose }: { session: LabSession; onClose: () => voi
     <div class="outline" role="dialog" aria-label="All steps">
       <ol>
         {session.lab.steps.map((s, i) => {
-          const reachable = i <= p.maxStep;
+          const reachable = i <= p.maxStep || debug.value;
           const overridden = session.overridden(i);
           const complete = session.missing(i).length === 0 && i < p.maxStep;
           return (
@@ -394,7 +395,7 @@ function Outline({ session, onClose }: { session: LabSession; onClose: () => voi
                 class={`outline-item ${i === p.step ? 'current' : ''}`}
                 disabled={!reachable}
                 onClick={() => {
-                  session.goTo(i);
+                  session.goTo(i, debug.value);
                   onClose();
                 }}
               >
@@ -670,6 +671,11 @@ export function LessonPanel({
         <button class="btn ghost" disabled={p.step === 0} onClick={() => session.goTo(p.step - 1)}>
           <Icon name="chevronLeft" /> Back
         </button>
+        {debug.value && !isLast && (
+          <button class="btn ghost debug-skip" onClick={() => session.goTo(p.step + 1, true)} title="Debug mode: go to the next step without finishing this one">
+            <Icon name="unlock" size={14} /> Skip step
+          </button>
+        )}
         {!isLast && step.kind === 'submit' ? (
           // The optional extra challenge comes after handing in. Handing in stays the main button, on the right.
           <button class="btn big" onClick={() => session.goTo(p.step + 1)}>
