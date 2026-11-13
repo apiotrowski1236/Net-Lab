@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { paintModel, type PaintState } from '../../demos/paint';
 import {
-  BEACH_H,
-  BEACH_W,
+  LAKE_H,
+  LAKE_W,
   BLACK,
   changedPixels,
   compress,
@@ -202,17 +202,17 @@ describe('compression: the pictures', () => {
     expect(avg.changed).toBe(40);
   });
 
-  it('makes the beach photo big enough that 2×2 looks close, and runs make it bigger', () => {
-    const p = picture('beach');
-    expect([p.w, p.h]).toEqual([BEACH_W, BEACH_H]);
+  it('makes the lake photo big enough that 2×2 looks close, and runs make it bigger', () => {
+    const p = picture('lake');
+    expect([p.w, p.h]).toEqual([LAKE_W, LAKE_H]);
     expect(rawBytes(p)).toBe(115200);
-    const runs = resultOf('beach', 'runs');
+    const runs = resultOf('lake', 'runs');
     expect(runs.bytes).toBeGreaterThan(rawBytes(p));
     expect(percentOf(runs.bytes, rawBytes(p))).toBe('133%');
-    expect([resultOf('beach', 'avg2').bytes, resultOf('beach', 'avg4').bytes, resultOf('beach', 'avg8').bytes]).toEqual([28800, 7200, 1800]);
+    expect([resultOf('lake', 'avg2').bytes, resultOf('lake', 'avg4').bytes, resultOf('lake', 'avg8').bytes]).toEqual([28800, 7200, 1800]);
     // Bigger squares change more of the photo.
     const moved = (m: Method) => {
-      const r = resultOf('beach', m).rebuilt;
+      const r = resultOf('lake', m).rebuilt;
       return p.px.reduce((t, c, i) => t + Math.abs(c[0] - r.px[i][0]) + Math.abs(c[1] - r.px[i][1]) + Math.abs(c[2] - r.px[i][2]), 0);
     };
     expect(moved('avg2')).toBeLessThan(moved('avg4'));
@@ -236,8 +236,8 @@ describe('compression: the pictures', () => {
     expect(option('side-by-side', 'trade', 'free').feedback).toContain(`${smiley('avg2').changed} of the 64`);
     expect(choice('side-by-side', 'trade').explain).toContain(`changed ${smiley('avg2').changed} pixels`);
     expect(text('side-by-side', 'saved').expect!.test(String(192 - smiley('runs').bytes))).toBe(true);
-    const beach = (m: Method) => n(resultOf('beach', m).bytes);
-    expect(option('bigger-squares', 'trend', 'bigger-file').feedback).toBe(`Look at the Size column: ${beach('avg2')} bytes for 2×2, ${beach('avg4')} for 4×4, and ${beach('avg8')} for 8×8.`);
+    const lake = (m: Method) => n(resultOf('lake', m).bytes);
+    expect(option('bigger-squares', 'trend', 'bigger-file').feedback).toBe(`Look at the Size column: ${lake('avg2')} bytes for 2×2, ${lake('avg4')} for 4×4, and ${lake('avg8')} for 8×8.`);
     expect(choice('no-runs', 'receipt-why').prompt).toContain(percentOf(resultOf('receipt', 'runs').bytes, rawBytes(picture('receipt'))));
     expect(option('details', 'receipt-method', 'avg2').feedback).toContain(`${n(resultOf('receipt', 'runs').bytes)} bytes`);
     expect(option('details', 'receipt-method', 'none').feedback).toContain(`all ${n(64 * 96)} pixels`);
@@ -285,9 +285,9 @@ describe('compression: demo models', () => {
   it('squeeze: remembers each picture and method tried, and ignores ones not offered', () => {
     const spec: SqueezeSpec = demoSpec('no-runs', 'squeeze');
     let s: SqueezeState = squeezeModel.init(spec);
-    expect(s).toEqual({ picture: 'beach', method: 'none', changes: false, tried: ['beach:none'] });
+    expect(s).toEqual({ picture: 'lake', method: 'none', changes: false, tried: ['lake:none'] });
     s = run(squeezeModel, spec, [{ method: 'runs' }, { picture: 'receipt' }, { method: 'avg2' }, { picture: 'receipt' }]);
-    expect(s.tried).toEqual(['beach:none', 'beach:runs', 'receipt:runs']);
+    expect(s.tried).toEqual(['lake:none', 'lake:runs', 'receipt:runs']);
     expect(squeezeModel.facts(spec, s)).toMatchObject({ 'tried:receipt:runs': true, bytes: resultOf('receipt', 'runs').bytes, changed: 0 });
   });
 
@@ -376,7 +376,7 @@ describe('compression: saving and resuming', () => {
       s.goTo(s.progress.step + 1);
     }
     expect(s.step.id).toBe('bigger-squares');
-    expect(s.demoState<SqueezeState>(s.demoSpec('squeeze')!).picture).toBe('beach');
+    expect(s.demoState<SqueezeState>(s.demoSpec('squeeze')!).picture).toBe('lake');
     expect(s.demoState<SqueezeState>(s.demoSpec('squeeze', 'side-by-side')!, 'side-by-side').tried).toContain('smiley:avg2');
     expect(Object.keys(p.demos ?? {})).toContain('side-by-side/squeeze');
   });

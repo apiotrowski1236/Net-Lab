@@ -9,7 +9,7 @@ CED: DAT-1.D (EK DAT-1.D.1 to DAT-1.D.8: redundancy, lossless vs lossy, how much
 ## Pictures
 
 - **Smiley**, 8×8 pixel art in 3 colors: 192 bytes. Runs: 26 runs, 104 bytes (54%), 0 changed. Average 2×2: 48 bytes, 40 of 64 changed (each eye blurs into a 2×2 smudge of dark yellow).
-- **Beach photo**, 240×160, drawn from a deterministic hash with ±5 camera noise: 115,200 bytes. Runs: 133% (bigger, because neighbors almost never match). Average 2×2 / 4×4 / 8×8: 28,800 / 7,200 / 1,800 bytes. At 2×2 it looks like the original at normal size; at 8×8 the sailboat and birds are gone.
+- **Lake photo** (a mountain lake near sunset), 240×160, drawn from a deterministic hash with ±5 camera noise: 115,200 bytes. Runs: 133% (bigger, because neighbors almost never match). Average 2×2 / 4×4 / 8×8: 28,800 / 7,200 / 1,800 bytes. At 2×2 it looks like the original at normal size; at 8×8 the birds and flowers are gone and the sailboat is a smudge.
 - **Receipt**, 96×64 screenshot in a 3×5 font, TOTAL 14.05: runs 3,144 bytes (17%), smaller than Average 2×2 (4,608 bytes, 25%), which makes the digits unreadable.
 
 A run takes 4 bytes (a 1-byte count and a 3-byte color), runs never cross a row end, and a run tops out at 255.
@@ -22,9 +22,9 @@ A run takes 4 bytes (a 1-byte count and a 3-byte color), runs never cross a row 
 4. **average**: Average 2×2 squares with the math shown per square. Average red of 200, 200, 100, 100 (150); bytes stored (48).
 5. **stretch**: Stretch each stored pixel back to a square; lossy. Show what changed. Why the 4 pixels can't be recovered from one gray.
 6. **side-by-side**: Compare methods on the smiley: runs vs 2×2. The trade (smaller vs exact); bytes runs saved (88).
-7. **bigger-squares**: The beach photo at 2×2, 4×4, 8×8, with Zoom in. JPEG makes the same trade. Bigger squares, smaller files, more loss; a 36 MB phone photo at 4×4 (2.25 MB).
+7. **bigger-squares**: The lake photo at 2×2, 4×4, 8×8, with Zoom in. JPEG makes the same trade. Bigger squares, smaller files, more loss; a 36 MB phone photo at 4×4 (2.25 MB).
 8. **no-runs**: Runs on the photo (bigger) and the receipt (17%). Redundancy; PNG and ZIP. Why the photo grew; what decides how much RLE saves.
-9. **details**: The receipt with runs vs 2×2, and the beach at 2×2. Read the total (14.05). Which method to send the receipt with (runs).
+9. **details**: The receipt with runs vs 2×2, and the lake at 2×2. Read the total (14.05). Which method to send the receipt with (runs).
 10. **choose**: Lossless vs lossy table with formats. An X-ray (lossless) and a video call on slow Wi-Fi (lossy).
 11. **review**: AP-style quiz: what lossless means, a photo app (lossy), an emailed essay (lossless), and a teacher-graded explanation with an example.
 12. **submit**
@@ -35,7 +35,7 @@ A run takes 4 bytes (a 1-byte count and a 3-byte color), runs never cross a row 
 - Counting all the pixels of a color as one run (row 3 as "6 yellow, 2 black").
 - RLE keeps a copy of the original, or only works because the smiley has few colors.
 - An average can be worked backward to the original pixels; rounding is the only loss.
-- Lossy always loses so much the picture looks ruined (the beach at 2×2 says otherwise).
+- Lossy always loses so much the picture looks ruined (the lake at 2×2 says otherwise).
 - Compression always makes a file smaller (runs on the photo make it 133%).
 - Lossless always saves more, or lossy can rebuild exactly.
 - Zooming in on a lossy picture brings back the detail.

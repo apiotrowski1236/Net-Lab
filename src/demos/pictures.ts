@@ -17,7 +17,7 @@ export interface Picture {
   px: RGB[];
 }
 
-export type PictureId = 'smiley' | 'beach' | 'receipt';
+export type PictureId = 'smiley' | 'lake' | 'receipt';
 
 export interface PictureInfo {
   /** What the picker calls it. */
@@ -237,43 +237,55 @@ function toSegment(px: number, py: number, ax: number, ay: number, bx: number, b
 const cover = (d: number, r: number, soft: number) => 1 - smooth((d - r + soft / 2) / soft);
 
 /**
- * A vacation photo: a beach at sunset with a palm tree, a sailboat, and two
- * birds. It is drawn in a 96×64 "scene" scaled up to BEACH_W × BEACH_H pixels,
- * with smooth gradients and soft edges, plus a little camera noise in every
- * pixel, the way a real photo has, so almost no two pixels side by side match.
- * It has enough pixels that a 2×2 square is a tiny part of the scene.
+ * A vacation photo: a mountain lake near sunset, with snowy peaks, a line of
+ * pine trees, a cabin on the far shore, a sailboat, and two birds. It is drawn
+ * in a 96×64 "scene" scaled up to LAKE_W × LAKE_H pixels, with smooth
+ * gradients and soft edges, plus a little camera noise in every pixel, the way
+ * a real photo has, so almost no two pixels side by side match. It has enough
+ * pixels that a 2×2 square is a tiny part of the scene.
  */
-export const BEACH_W = 240;
-export const BEACH_H = 160;
+export const LAKE_W = 240;
+export const LAKE_H = 160;
 
-function beach(): Picture {
-  const w = BEACH_W;
-  const h = BEACH_H;
+function lake(): Picture {
+  const w = LAKE_W;
+  const h = LAKE_H;
   const S = w / 96;
   const soft = 1.2 / S;
-  const horizon = 30;
-  const sun = { x: 66, y: 22, r: 6 };
-  // The palm trunk bends from the sand up to the leaves.
-  const trunk = Array.from({ length: 9 }, (_, i) => {
-    const t = i / 8;
-    return { x: 16 + 8 * t + 3 * Math.sin(t * Math.PI), y: 66 - 44 * t, r: 1.6 - 0.7 * t };
-  });
-  const top = trunk[trunk.length - 1];
-  // Each leaf is a drooping arc of short segments from the top of the trunk.
-  const leaves = [-2.75, -2.25, -1.6, -1.0, -0.45, 0.15].map((a) => {
-    const pts: { x: number; y: number }[] = [];
-    for (let i = 0; i <= 8; i++) {
-      const s = i / 8;
-      const len = 15 * s;
-      pts.push({ x: top.x + Math.cos(a) * len, y: top.y + Math.sin(a) * len + 7 * s * s });
+  // Where the far shore meets the water.
+  const water = 38;
+  const sun = { x: 72, y: 13, r: 5 };
+  // The far mountains: each peak is a triangle, and the ridge is the tallest one at each spot.
+  const peaks = [
+    { x: 2, h: 12, w: 14 },
+    { x: 20, h: 23, w: 22 },
+    { x: 43, h: 15, w: 17 },
+    { x: 62, h: 8, w: 14 },
+    { x: 91, h: 14, w: 18 },
+  ];
+  const mountain = (sx: number) => {
+    let top = 0;
+    let lit = false;
+    for (const p of peaks) {
+      const t = p.h * (1 - Math.abs(sx - p.x) / p.w);
+      if (t > top) {
+        top = t;
+        // The sun is on the right, so a peak's right side is in the light.
+        lit = sx > p.x;
+      }
     }
-    return pts;
-  });
+    return { top: top + 0.5 * Math.sin(sx * 0.9) + 0.3 * Math.sin(sx * 2.3 + 1), lit };
+  };
+  // The near hills are lower and covered in pine trees, which give them a jagged top.
+  const tooth = (v: number) => Math.abs((((v % 1) + 1) % 1) - 0.5) * 2;
+  const hill = (sx: number) => 2.2 + 2 * Math.sin(sx * 0.08 + 2) ** 2 + 1.5 * Math.sin(sx * 0.21) ** 2 + 1.5 * tooth(sx * 0.8);
   // Two birds, each a small V.
   const birds = [
-    { x: 40, y: 7 },
-    { x: 45.5, y: 5 },
+    { x: 52, y: 8 },
+    { x: 57.5, y: 6 },
   ];
+  const boat = { x: 30, y: 46 };
+  const cabin = { x: 78, y: water };
   const px: RGB[] = [];
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -281,54 +293,72 @@ function beach(): Picture {
       const sx = (x + 0.5) / S;
       const sy = (y + 0.5) / S;
       let c: RGB;
-      const shore = 47 + 2 * Math.sin(sx * 0.13 + 1) + 0.6 * Math.sin(sx * 0.5);
-      if (sy < horizon) {
-        // Sky: deep blue at the top to orange at the horizon, with soft clouds and the sun.
-        const t = sy / horizon;
-        c = mix([45, 85, 165], [250, 160, 100], smooth(t * 1.05));
-        const cloud = Math.exp(-(((sx - 26) / 14) ** 2) - ((sy - 12) / 3.2) ** 2) + 0.7 * Math.exp(-(((sx - 40) / 9) ** 2) - ((sy - 15) / 2.4) ** 2);
-        c = mix(c, [255, 200, 190], Math.min(0.75, cloud * 0.8));
+      const shore = 54 + 1.5 * Math.sin(sx * 0.11 + 1) + 0.5 * Math.sin(sx * 0.45);
+      const trees = hill(sx);
+      if (sy < water) {
+        // Sky: blue at the top to warm orange low down, with soft clouds and the sun.
+        const t = sy / water;
+        c = mix([60, 110, 190], [250, 190, 130], smooth(t * 1.15));
+        const cloud = Math.exp(-(((sx - 40) / 13) ** 2) - ((sy - 6) / 2.6) ** 2) + 0.7 * Math.exp(-(((sx - 84) / 9) ** 2) - ((sy - 5) / 2) ** 2);
+        c = mix(c, [255, 225, 215], Math.min(0.75, cloud * 0.8));
         const d = Math.hypot(sx - sun.x, sy - sun.y);
-        c = mix(c, [255, 210, 140], 0.6 * Math.exp(-(((d - sun.r) / 9) ** 2)) * (d > sun.r ? 1 : 0));
-        c = mix(c, mix([255, 240, 190], [255, 205, 125], Math.min(1, d / sun.r)), cover(d, sun.r, soft));
+        c = mix(c, [255, 220, 150], 0.6 * Math.exp(-(((d - sun.r) / 9) ** 2)) * (d > sun.r ? 1 : 0));
+        c = mix(c, mix([255, 245, 200], [255, 215, 135], Math.min(1, d / sun.r)), cover(d, sun.r, soft));
         for (const b of birds) {
           const wing = Math.min(toSegment(sx, sy, b.x - 1.6, b.y - 0.9, b.x, b.y), toSegment(sx, sy, b.x, b.y, b.x + 1.6, b.y - 0.9));
           c = mix(c, [45, 40, 60], cover(wing, 0.3, soft) * 0.85);
         }
+        // Mountains: rock that fades into haze lower down, with snow on the tall peaks.
+        const m = mountain(sx);
+        const ridge = water - 2 - m.top;
+        const depth = sy - ridge;
+        let rock = mix(m.lit ? [150, 135, 160] : [95, 95, 135], [190, 160, 165], Math.min(1, Math.max(0, depth) / 26));
+        const snow = (m.top - 9) * 0.5 + 0.9 * Math.sin(sx * 1.9) + 0.5 * Math.sin(sx * 4.3);
+        if (m.top > 9) rock = mix(rock, m.lit ? [255, 246, 235] : [205, 212, 235], cover(depth, snow, soft));
+        c = mix(c, rock, cover(-depth, 0, soft));
+        // Pine trees on the near hills, a little lighter where the hash says so.
+        const pine = mix([30, 62, 50], [52, 88, 62], hash(Math.floor(sx * 1.6), Math.floor(sy * 1.6), 5));
+        c = mix(c, pine, cover(water - trees - sy, 0, soft));
       } else if (sy < shore) {
-        // Sea: darker as it comes closer, with ripples and the sun's reflection.
-        const t = (sy - horizon) / (shore - horizon);
-        c = mix([60, 110, 160], [25, 85, 135], t);
+        // Lake: darker as it comes closer, with the trees' reflection, ripples, and the sun's reflection.
+        const t = (sy - water) / (shore - water);
+        c = mix([110, 150, 185], [30, 80, 125], smooth(t));
+        c = mix(c, [35, 68, 60], 0.6 * cover(sy - water, trees * 1.3, 1.5));
         const ripple = Math.sin(sx * 0.7 + sy * 2.1) * Math.sin(sx * 0.23 - sy * 0.9);
-        c = mix(c, [120, 170, 210], Math.max(0, ripple) * 0.35);
+        c = mix(c, [150, 190, 220], Math.max(0, ripple) * 0.3);
         const glow = Math.exp(-(((sx - sun.x) / (3 + t * 6)) ** 2));
-        if (glow > 0.1) c = mix(c, [255, 190, 120], glow * (0.35 + 0.55 * Math.max(0, Math.sin(sx * 1.3 + sy * 3.7))));
-        // Foam where the waves reach the sand.
-        c = mix(c, [235, 240, 245], cover(shore - sy, 0.5, soft) * 0.75);
+        if (glow > 0.1) c = mix(c, [255, 205, 130], glow * (0.35 + 0.55 * Math.max(0, Math.sin(sx * 1.3 + sy * 3.7))));
+        // A pale line where the water meets the grass.
+        c = mix(c, [225, 235, 235], cover(shore - sy, 0.4, soft) * 0.6);
       } else {
-        // Sand: wet and dark at the water, dry and light up the beach.
+        // Grass on the near shore, with small wildflowers.
         const t = (sy - shore) / (64 - shore);
-        c = mix([175, 145, 110], [235, 205, 160], smooth(t * 2.2));
-        c = mix(c, [150, 120, 90], hash(x, y, 7) * 0.25);
-      }
-      // A sailboat far out on the horizon: a hull and a white sail.
-      const hull = sx > 80 && sx < 85 && sy > horizon - 0.6 && sy < horizon + 0.4 ? 1 : 0;
-      const sail = sy > horizon - 5.2 && sy < horizon - 0.6 && sx > 82 && sx < 82 + 2.6 * ((sy - (horizon - 5.2)) / 4.6) ? 1 : 0;
-      if (hull) c = mix(c, [60, 45, 50], 0.9);
-      if (sail) c = mix(c, [250, 240, 225], 0.9);
-      // The palm tree is a dark shape against the sunset.
-      let shade = 0;
-      for (let i = 0; i < trunk.length - 1; i++) {
-        const a = trunk[i];
-        const b = trunk[i + 1];
-        shade = Math.max(shade, cover(toSegment(sx, sy, a.x, a.y, b.x, b.y), a.r, soft));
-      }
-      for (const leaf of leaves)
-        for (let i = 0; i < leaf.length - 1; i++) {
-          const r = 1.25 - i * 0.12;
-          shade = Math.max(shade, cover(toSegment(sx, sy, leaf[i].x, leaf[i].y, leaf[i + 1].x, leaf[i + 1].y), r, soft));
+        c = mix([58, 100, 55], [110, 155, 72], smooth(t * 1.6));
+        c = mix(c, [38, 78, 42], hash(x, y, 7) * 0.3);
+        const cx = Math.floor(sx / 3);
+        const cy = Math.floor(sy / 3);
+        if (sy > shore + 1.5 && hash(cx, cy, 11) < 0.4) {
+          const fx = (cx + 0.25 + 0.5 * hash(cx, cy, 12)) * 3;
+          const fy = (cy + 0.25 + 0.5 * hash(cx, cy, 13)) * 3;
+          const pick = hash(cx, cy, 14);
+          const petal: RGB = pick < 0.4 ? [250, 215, 70] : pick < 0.75 ? [245, 245, 240] : [235, 130, 170];
+          c = mix(c, petal, cover(Math.hypot(sx - fx, sy - fy), 0.55, soft));
         }
-      if (shade > 0) c = mix(c, sy < horizon + 2 ? [40, 35, 45] : [55, 40, 30], shade * 0.92);
+      }
+      // A red cabin on the far shore: walls, a dark roof, and a lit window.
+      const wall = sx > cabin.x - 2.2 && sx < cabin.x + 2.2 && sy > cabin.y - 2.6 && sy < cabin.y;
+      const roof = sy > cabin.y - 4.4 && sy <= cabin.y - 2.6 && Math.abs(sx - cabin.x) < 2.8 * ((sy - (cabin.y - 4.4)) / 1.8);
+      const pane = sx > cabin.x - 0.6 && sx < cabin.x + 0.6 && sy > cabin.y - 1.9 && sy < cabin.y - 0.8;
+      if (wall) c = [175, 60, 50];
+      if (roof) c = [60, 45, 50];
+      if (pane) c = [255, 225, 130];
+      // A sailboat on the lake: a hull, a mast, and a white sail.
+      const hull = sx > boat.x - 2.8 && sx < boat.x + 2.8 - (sy - boat.y) * 0.6 && sx > boat.x - 2.8 + (sy - boat.y) * 0.6 && sy > boat.y && sy < boat.y + 1.3;
+      const sail = sy > boat.y - 5.6 && sy < boat.y - 0.4 && sx > boat.x && sx < boat.x + 3 * ((sy - (boat.y - 5.6)) / 5.2);
+      const mast = Math.abs(sx - boat.x + 0.2) < 0.22 && sy > boat.y - 6 && sy <= boat.y;
+      if (hull) c = [70, 45, 45];
+      if (mast) c = [60, 45, 50];
+      if (sail) c = [250, 244, 232];
       // Camera noise: every pixel is a little off, as in a real photo.
       const n = (k: number) => (hash(x, y, k) - 0.5) * 10;
       px.push([clamp(c[0] + n(1)), clamp(c[1] + n(2)), clamp(c[2] + n(3))]);
@@ -406,7 +436,7 @@ function receipt(): Picture {
 
 export const PICTURES: Record<PictureId, PictureInfo> = {
   smiley: { name: 'Smiley', about: 'Pixel art with three colors.', make: smiley },
-  beach: { name: 'Beach photo', about: 'A vacation photo from a phone camera.', make: beach },
+  lake: { name: 'Lake photo', about: 'A vacation photo from a phone camera.', make: lake },
   receipt: { name: 'Receipt', about: 'A screenshot of a food order.', make: receipt },
 };
 

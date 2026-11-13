@@ -37,17 +37,17 @@ export const compressionSolution: LabSolution = {
     moves: on('squeeze', { method: 'avg2' }, { method: 'avg4' }, { method: 'avg8' }),
   },
   'no-runs': {
-    // The beach is first. Picking the receipt keeps Runs picked.
+    // The lake is first. Picking the receipt keeps Runs picked.
     moves: on('squeeze', { method: 'runs' }, { picture: 'receipt' }),
   },
   details: {
-    // The receipt is first. Picking the beach keeps Average 2×2 picked.
-    moves: on('squeeze', { method: 'runs' }, { method: 'avg2' }, { picture: 'beach' }),
+    // The receipt is first. Picking the lake keeps Average 2×2 picked.
+    moves: on('squeeze', { method: 'runs' }, { method: 'avg2' }, { picture: 'lake' }),
     text: { total: '$14.05' },
   },
   review: {
     text: {
-      q4: 'Lossless compression rebuilds the original exactly, like runs did for the smiley with 0 pixels changed. Lossy compression throws away some detail to make a smaller file, like averaging the beach photo, which looked about the same but changed pixels that can never come back.',
+      q4: 'Lossless compression rebuilds the original exactly, like runs did for the smiley with 0 pixels changed. Lossy compression throws away some detail to make a smaller file, like averaging the lake photo, which looked about the same but changed pixels that can never come back.',
     },
   },
   // Optional extra challenge, after the submit step.

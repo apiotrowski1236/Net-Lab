@@ -18,7 +18,7 @@ const compare = (spec: Omit<SqueezeSpec, 'kind' | 'id' | 'title'>): SqueezeSpec 
 
 export const compressionLab: LabDef = {
   id: 'compression',
-  version: 1,
+  version: 2,
   title: 'Data Compression',
   tagline: 'Shrink a picture two ways, rebuild it, and find out which way loses data.',
   // AP CSP Big Idea 2 (Data), topic 2.2 Data Compression.
@@ -42,7 +42,7 @@ export const compressionLab: LabDef = {
 
         A digital picture is a grid of tiny squares called **pixels**. Each pixel is one color.
 
-        A computer stores a pixel's color as three numbers: how much **red**, **green**, and **blue** light to mix. Each number is one byte, from 0 to 255. So every pixel takes 3 bytes.
+        A computer stores a pixel's color as three numbers: how much **red**, **green**, and **blue** light to mix. Each number takes one **byte**. A byte is a group of 8 bits. 8 bits can make 256 different patterns, so one byte can store any whole number from 0 to 255. Every pixel takes 3 bytes.
 
         Use the **Pixels** card. Tap pixels in the smiley until you've found every color in it, and look at the bytes that store each one.
 
@@ -183,7 +183,9 @@ export const compressionLab: LabDef = {
       body: md`
         Here's a different way to shrink the smiley. Split it into squares of 2 × 2 pixels. For each square, keep one color: the **average** of its 4 pixels.
 
-        To average the square, add up its 4 red numbers and divide by 4. Do the same for green and for blue.
+        Remember that every color is stored as three numbers: red, green, and blue. That's true even for a color that isn't red, green, or blue. The smiley's yellow is red 255, green 220, blue 0. Its black is 0, 0, 0.
+
+        To average a square, add up the red numbers of its 4 pixels and divide by 4. Then do the same with the 4 green numbers, and with the 4 blue numbers. The three averages are the stored color.
 
         The stored picture has one pixel for each square. That's 4 × 4 = 16 pixels instead of 64.
 
@@ -337,17 +339,17 @@ export const compressionLab: LabDef = {
       body: md`
         Averaging doesn't have to use 2 × 2 squares. A 4 × 4 square turns 16 pixels into 1, and an 8 × 8 square turns 64 pixels into 1. Bigger squares store fewer pixels, so the file is smaller.
 
-        The **Beach photo** has 240 × 160 = 38,400 pixels, about the size of a small photo on a web page. Try each square size on it in **Compare methods**. Look at the whole photo first. Then press **Zoom in** to look closely at the palm tree, the sailboat, and the birds.
+        The **Lake photo** has 240 × 160 = 38,400 pixels, about the size of a small photo on a web page. Try each square size on it in **Compare methods**. Look at the whole photo first. Then press **Zoom in** to look closely at the cabin, the sailboat, and the birds.
 
         The Pixels changed column counts every pixel that isn't exactly its old color, even if it's off by 1. In a photo, almost every pixel changes a little at every square size. Press **Show what changed** to see how much: the brighter the orange, the bigger the change.
 
         Real photo formats such as JPEG use smarter math than plain averages, but they make the same trade: a smaller file for less detail. Many apps let you pick the quality when you save a JPEG.
       `,
-      demos: [compare({ pictures: ['beach'], methods: ['none', 'avg2', 'avg4', 'avg8'], intro: 'Pick a square size. Tap a picture to zoom in on that spot.' })],
+      demos: [compare({ pictures: ['lake'], methods: ['none', 'avg2', 'avg4', 'avg8'], intro: 'Pick a square size. Tap a picture to zoom in on that spot.' })],
       goals: [
-        { id: 'avg2', label: 'Try **Average 2×2 (lossy)** on the photo.', check: tried('beach', 'avg2') },
-        { id: 'avg4', label: 'Try **Average 4×4 (lossy)**.', check: tried('beach', 'avg4') },
-        { id: 'avg8', label: 'Try **Average 8×8 (lossy)**.', check: tried('beach', 'avg8') },
+        { id: 'avg2', label: 'Try **Average 2×2 (lossy)** on the photo.', check: tried('lake', 'avg2') },
+        { id: 'avg4', label: 'Try **Average 4×4 (lossy)**.', check: tried('lake', 'avg4') },
+        { id: 'avg8', label: 'Try **Average 8×8 (lossy)**.', check: tried('lake', 'avg8') },
       ],
       questions: [
         {
@@ -358,10 +360,10 @@ export const compressionLab: LabDef = {
           options: [
             { id: 'trend', text: 'Bigger squares made smaller files and lost more detail', correct: true },
             { id: 'bigger-file', text: 'Bigger squares made bigger files', feedback: 'Look at the Size column: 28,800 bytes for 2×2, 7,200 for 4×4, and 1,800 for 8×8.' },
-            { id: 'same-detail', text: 'Every square size lost about the same detail', feedback: 'Pixels changed is close for every size, because almost every pixel changes a little. Compare the pictures instead: at 8×8 the sailboat and the birds are gone.' },
+            { id: 'same-detail', text: 'Every square size lost about the same detail', feedback: 'Pixels changed is close for every size, because almost every pixel changes a little. Compare the pictures instead: at 8×8 the birds and the flowers are gone.' },
             { id: 'ruined', text: '2×2 lost so much that the photo looks ruined', feedback: 'Look again at 2×2 without zooming in. Most people can barely tell it from the original.' },
           ],
-          explain: 'A bigger square throws away more pixels, so the file is smaller and more detail is lost. At 2×2 the photo still looks like the original at normal size. At 8×8 the sailboat and birds are gone.',
+          explain: 'A bigger square throws away more pixels, so the file is smaller and more detail is lost. At 2×2 the photo still looks like the original at normal size. At 8×8 the birds and the flowers are gone, and the sailboat is a pale smudge.',
         },
         {
           id: 'phone',
@@ -386,23 +388,23 @@ export const compressionLab: LabDef = {
       body: md`
         RLE shrank the smiley because it has long runs of one color. Does it work on every picture?
 
-        Use **Compare methods** to try **Runs (lossless)** on the **Beach photo**, then on the **Receipt**, a screenshot of a food order. Check the Size column each time.
+        Use **Compare methods** to try **Runs (lossless)** on the **Lake photo**, then on the **Receipt**, a screenshot of a food order. Check the Size column each time.
 
         How much a method can shrink data depends on how much of it repeats. Repeated data, like 8 yellow pixels in a row, is called **redundancy**.
 
         PNG pictures and ZIP files use lossless compression too. They find repeats in more ways than runs do, but they have the same limit: data with few repeats doesn't shrink much.
       `,
-      demos: [compare({ pictures: ['beach', 'receipt', 'smiley'], methods: ['none', 'runs'], intro: 'Pick a picture, then a method.' })],
+      demos: [compare({ pictures: ['lake', 'receipt', 'smiley'], methods: ['none', 'runs'], intro: 'Pick a picture, then a method.' })],
       goals: [
-        { id: 'beach', label: 'Try **Runs (lossless)** on the **Beach photo**.', check: tried('beach', 'runs') },
+        { id: 'lake', label: 'Try **Runs (lossless)** on the **Lake photo**.', check: tried('lake', 'runs') },
         { id: 'receipt', label: 'Try **Runs (lossless)** on the **Receipt**.', check: tried('receipt', 'runs') },
       ],
       questions: [
         {
           id: 'photo-bigger',
           kind: 'choice',
-          afterGoals: ['beach'],
-          prompt: 'Why did RLE make the beach photo **bigger**?',
+          afterGoals: ['lake'],
+          prompt: 'Why did RLE make the lake photo **bigger**?',
           options: [
             { id: 'too-many', text: 'The photo has too many pixels for RLE to count', feedback: 'RLE works on any number of pixels. What matters is whether pixels side by side repeat.' },
             { id: 'loses', text: 'RLE throws away detail in photos', feedback: 'RLE is lossless on every picture. Look at Pixels changed: 0.' },
@@ -418,7 +420,7 @@ export const compressionLab: LabDef = {
           prompt: 'RLE shrank the receipt to 17% of its size. What decides how much RLE can shrink a picture?',
           options: [
             { id: 'repeats', text: 'How many pixels side by side are the same color', correct: true },
-            { id: 'size', text: 'How many pixels the picture has', feedback: 'The beach photo has more pixels than the receipt, and it got bigger, not smaller. Size alone does not decide it.' },
+            { id: 'size', text: 'How many pixels the picture has', feedback: 'The lake photo has more pixels than the receipt, and it got bigger, not smaller. Size alone does not decide it.' },
             { id: 'text', text: 'Whether the picture has letters and numbers in it', feedback: 'The letters are not the reason. The receipt shrinks because most of it is long runs of white and green.' },
             { id: 'bright', text: 'How bright the colors are', feedback: 'RLE does not care what the colors are. It only checks whether each pixel matches the one before it.' },
           ],
@@ -432,15 +434,15 @@ export const compressionLab: LabDef = {
       id: 'details',
       title: 'When losing detail matters',
       body: md`
-        Averaging made the beach photo much smaller, and at normal size it still looked like the same beach. A little lost detail doesn't hurt a vacation photo.
+        Averaging made the lake photo much smaller, and at normal size it still looked like the same lake. A little lost detail doesn't hurt a vacation photo.
 
-        Some pictures can't afford to lose any detail. In **Compare methods**, pick the **Receipt** and **Runs (lossless)**, and read the total. Then pick **Average 2×2 (lossy)** and try to read it again. Compare that with **Average 2×2 (lossy)** on the **Beach photo**.
+        Some pictures can't afford to lose any detail. In **Compare methods**, pick the **Receipt** and **Runs (lossless)**, and read the total. Then pick **Average 2×2 (lossy)** and try to read it again. Compare that with **Average 2×2 (lossy)** on the **Lake photo**.
       `,
-      demos: [compare({ pictures: ['receipt', 'beach'], methods: ['none', 'runs', 'avg2'], intro: 'Pick a picture, then a method.' })],
+      demos: [compare({ pictures: ['receipt', 'lake'], methods: ['none', 'runs', 'avg2'], intro: 'Pick a picture, then a method.' })],
       goals: [
         { id: 'runs', label: 'Read the receipt with **Runs (lossless)**.', check: tried('receipt', 'runs') },
         { id: 'avg2', label: 'Try **Average 2×2 (lossy)** on the receipt.', check: tried('receipt', 'avg2') },
-        { id: 'beach', label: 'Try **Average 2×2 (lossy)** on the **Beach photo**.', check: tried('beach', 'avg2') },
+        { id: 'lake', label: 'Try **Average 2×2 (lossy)** on the **Lake photo**.', check: tried('lake', 'avg2') },
       ],
       questions: [
         {
@@ -531,7 +533,7 @@ export const compressionLab: LabDef = {
             { id: 'smaller', text: 'It always makes data smaller than lossy compression does', feedback: 'Lossy usually saves more. On the smiley, averaging made 48 bytes and runs made 104.' },
             { id: 'exact', text: 'It can rebuild the original data exactly', correct: true },
             { id: 'unnoticed', text: "It removes details that people won't notice", feedback: 'That describes lossy compression. Lossless keeps every detail.' },
-            { id: 'always', text: 'It always makes a file smaller', feedback: "Not always. Runs made the beach photo about a third bigger, because its pixels hardly ever repeat." },
+            { id: 'always', text: 'It always makes a file smaller', feedback: "Not always. Runs made the lake photo about a third bigger, because its pixels hardly ever repeat." },
           ],
           explain: 'Lossless compression rebuilds the original exactly. It usually saves less space than lossy, and data with few repeats may not shrink at all.',
         },
@@ -562,7 +564,7 @@ export const compressionLab: LabDef = {
         {
           id: 'q4',
           kind: 'text',
-          prompt: 'In 2 or 3 sentences, explain the difference between lossless and lossy compression. Use the smiley, the beach photo, or the receipt as an example.',
+          prompt: 'In 2 or 3 sentences, explain the difference between lossless and lossy compression. Use the smiley, the lake photo, or the receipt as an example.',
           minWords: 30,
           lines: 4,
         },
