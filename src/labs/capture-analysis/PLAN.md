@@ -4,6 +4,8 @@
 
 What changed from the outline below: step 3 cites one RST and asks attack-or-outage as a choice; step 5 asks the false-alarm question as a choice (true/false positive/negative); step 10 uses choice questions for the findings and IoCs plus mitigation choices for the smurf and ARP findings; step 11 replays the flood and the check-in with lesson buttons instead of re-running whole capture windows.
 
+After the student panel (three rounds, Maya and Ethan): step 2 asks only for the top talker (its "why a baseline" question went, since the text says it); the IoC idea moved into step 9's text and step 10 dropped its IoC question, so step 10 asks for the attacks, CIA, and the two mitigations; spoofing, true/false positives and false negatives, MAC addresses, the MAC address table, `&&`, why port 4444 stands out, directed broadcast, static ARP entries, and the CIA triad are each taught before a question uses them; step 10 has the capture files again; step 11 is numbered sub-steps and its blocked-check-in goal needs a SYN the firewall denied. In the shared capture-file view, the file and the Statistics buttons share one row, and a click on an I/O Graph bar opens the Packet list at that second.
+
 Replaces Wireshark for Real in the suite (see `docs/unit3/SUITE-PLAN.md`). Slot 15 of 17, after `detect-methods` and before `watch-the-air`.
 
 - **Title:** The Story in the Capture
