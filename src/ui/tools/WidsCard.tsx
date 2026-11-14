@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'preact/hooks';
 import { RULE_TEXT, settingsKey, WIDS_RULES } from '../../sim/wids';
 import { Icon } from '../icons';
 import { Toggle } from './parts';
@@ -17,6 +18,14 @@ export function WidsCard({ session, spec }: ToolCardProps<'wids'>) {
   const sim = session.sim;
   const d = sim.devices[spec.device];
   const w = d?.wids;
+  // After a replay, bring the score into view: on a short screen it lands below the fold.
+  const score = useRef<HTMLDivElement>(null);
+  const runs = useRef(w?.replays.length ?? 0);
+  const count = w?.replays.length ?? 0;
+  useEffect(() => {
+    if (count > runs.current) score.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    runs.current = count;
+  }, [count]);
   if (!w) return null;
   const last = w.replays[w.replays.length - 1];
   const stale = last && last.settings !== settingsKey(w);
@@ -36,7 +45,7 @@ export function WidsCard({ session, spec }: ToolCardProps<'wids'>) {
       </div>
       <div class="wids-threshold">
         <span class="small" id="wids-level">
-          Noise alarm level (quiet is about 5)
+          Noise alarm level, 0 to 100 (quiet is about 5)
         </span>
         <div class="seg" role="group" aria-labelledby="wids-level">
           {NOISE_LEVELS.map((n) => (
@@ -50,7 +59,7 @@ export function WidsCard({ session, spec }: ToolCardProps<'wids'>) {
         <Icon name="replay" /> Replay the last {days} days
       </button>
       {last && (
-        <div class="wids-score" role="status">
+        <div class="wids-score" role="status" ref={score}>
           {stale && <p class="small muted">You changed the alarms since this replay. Replay again to test the new settings.</p>}
           <table class="table kv">
             <tbody>
