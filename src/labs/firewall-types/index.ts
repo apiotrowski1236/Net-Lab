@@ -677,7 +677,7 @@ export const firewallTypesLab: LabDef = {
             { id: 'allowed', text: 'Allowed: port 80 is ordinary web traffic.', feedback: 'Your rule doesn’t look at the port. It matches the remote-control program on any port.' },
             { id: 'new-rule', text: 'Blocked, but only after you add a rule for port 80.', feedback: 'You wrote the rule once, for the program. It covers every port.' },
           ],
-          explain: 'Filtering by application is what sets a next-generation firewall apart. An attacker can change the port in seconds. Making the program look like a different one takes more work.',
+          explain: 'Of the three types, only a next-generation firewall can block a program by name. An attacker can change the port in seconds. Making the program look like a different one takes more work.',
         },
         {
           id: 'mismatch',
