@@ -101,12 +101,16 @@ function parseRule(action: FwAction, words: string[]): { ok: true; rule: FwRuleI
   if (words[i] === 'in' || words[i] === 'out') dir = words[i++] as FwDir;
   // "on eth0": this server has one interface, so it changes nothing.
   if (words[i] === 'on') i += 2;
-  const rest = words.slice(i);
+  let rest = words.slice(i);
+  // A comment can end any rule, the short form too: ufw allow 22/tcp comment Office.
+  const c = rest.indexOf('comment');
+  const note = c < 0 ? undefined : rest.slice(c + 1).join(' ').replace(/^['"]|['"]$/g, '') || undefined;
+  if (c >= 0) rest = rest.slice(0, c);
   if (!rest.length) return { ok: false, msg: `ERROR: Wrong number of arguments. Say what to ${action}. ${SHAPES}` };
   // The short form: ufw allow 22/tcp, ufw deny ssh.
   if (rest.length === 1 && !['from', 'to', 'proto'].includes(rest[0])) {
     const p = port(rest[0]);
-    if (p) return { ok: true, rule: { dir, proto: p.proto ?? 'any', src: 'any', dst: 'any', dport: p.port, action } };
+    if (p) return { ok: true, rule: { dir, proto: p.proto ?? 'any', src: 'any', dst: 'any', dport: p.port, action, ...(note ? { note } : {}) } };
     const a = addr(rest[0]);
     if (a) return { ok: false, msg: `ERROR: Invalid syntax. To ${action} a computer, write from before its address: ufw ${action} from ${rest[0]}` };
     return { ok: false, msg: `ERROR: Bad port. “${rest[0]}” isn't a port. Write a number like 22, or 22/tcp.` };
@@ -116,11 +120,13 @@ function parseRule(action: FwAction, words: string[]): { ok: true; rule: FwRuleI
   let sport: number | undefined;
   let dport: number | undefined;
   let proto: FwProto = 'any';
-  let note: string | undefined;
   let saw = false;
+  const said = new Set<string>();
   for (let k = 0; k < rest.length; k++) {
     const w = rest[k];
     if (w === 'from' || w === 'to') {
+      if (said.has(w)) return { ok: false, msg: `ERROR: Invalid syntax. A rule has one ${w}. ${SHAPES}` };
+      said.add(w);
       saw = true;
       const raw = rest[k + 1];
       const a = addr(raw);
@@ -142,12 +148,6 @@ function parseRule(action: FwAction, words: string[]): { ok: true; rule: FwRuleI
       if (p !== 'tcp' && p !== 'udp' && p !== 'icmp') return { ok: false, msg: `ERROR: Unsupported protocol '${p ?? ''}'. Write proto tcp or proto udp.` };
       proto = p;
       k++;
-    } else if (w === 'comment') {
-      note = rest
-        .slice(k + 1)
-        .join(' ')
-        .replace(/^['"]|['"]$/g, '');
-      break;
     } else if (w === 'port') {
       return { ok: false, msg: `ERROR: Invalid syntax. A port goes after an address: to any port ${rest[k + 1] ?? '22'}.` };
     } else {
@@ -326,7 +326,8 @@ export function ufwStatus(fw: FirewallState, policy: UfwPolicy, how: { numbered?
   const lead = how.numbered ? '     ' : '';
   out.push(`${lead}${'To'.padEnd(27)}${'Action'.padEnd(12)}From`, `${lead}${'--'.padEnd(27)}${'------'.padEnd(12)}----`);
   fw.rules.forEach((r, i) => {
-    const c = ufwColumns(r, !!how.numbered);
+    // ufw shows the direction (DENY IN) except in plain ufw status.
+    const c = ufwColumns(r, !!how.numbered || !!how.verbose);
     const num = how.numbered ? `[${String(i + 1).padStart(2)}] ` : '';
     const line = `${num}${c.to.padEnd(27)}${c.action.padEnd(12)}${c.tail ? c.from.padEnd(27) : c.from}${c.tail}`;
     out.push(line.trimEnd());

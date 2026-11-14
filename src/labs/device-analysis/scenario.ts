@@ -494,6 +494,40 @@ export function ensureSprayBlocked(sim: Sim): void {
   sim.fwAddRule(WEB, { dir: 'in', proto: 'any', src: IP.sprayer, dst: 'any', dport: 'any', action: 'deny' }, 0);
 }
 
+/**
+ * From the fail2ban step on: the bot's addresses (`ips`) can reach SSH, or
+ * the step can't happen. The bot shares 203.0.113.0/24 with the sprayer, so a
+ * student's step 6 rule for the whole network becomes a rule for 203.0.113.77
+ * alone. Any other rule that stops one of `ips` goes, and if no rule allows
+ * SSH from the internet any more, ALLOW 22/tcp from Anywhere comes back at
+ * the bottom. fail2ban's own bans stay.
+ */
+export function ensureBotReachesSsh(sim: Sim, ips: Ip[]): void {
+  for (let tries = 0; tries < 20; tries++) {
+    const ip = ips.find((x) => !allows(sim, x, 22));
+    if (!ip) return;
+    const v = verdictFor(sim, ip, 22);
+    const i = v.by === 'rule' ? v.ruleNo! - 1 : -1;
+    const r = i >= 0 ? fw(sim).rules[i] : undefined;
+    if (!r) {
+      sim.fwAddRule(WEB, tcp(22), fw(sim).rules.length);
+      continue;
+    }
+    if (r.note === 'fail2ban') return;
+    sim.fwDeleteRule(WEB, r.id);
+    if (sprayRule(r)) {
+      const { id: _id, ...narrow } = r;
+      sim.fwAddRule(WEB, { ...narrow, src: IP.sprayer }, i);
+    }
+  }
+}
+
+/** The next addresses the botnet button will use. */
+export function nextBotnetIps(sim: Sim, n = 6): Ip[] {
+  const at = Number(botIp(sim).split('.')[3]);
+  return Array.from({ length: n }, (_, k) => `203.0.113.${at + 1 + k}`);
+}
+
 /** From the keys-only step on: fail2ban is running. */
 export function ensureFail2ban(sim: Sim): void {
   if (!lx(sim).f2b.on) sim.linuxSet(WEB, 'fail2ban', true);

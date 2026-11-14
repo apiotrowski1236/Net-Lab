@@ -13,6 +13,7 @@ import {
   buildCoop,
   customerVisit,
   describeRow,
+  ensureBotReachesSsh,
   ensureFail2ban,
   ensureSprayBlocked,
   ftpClosed,
@@ -25,6 +26,7 @@ import {
   lastConn,
   lx,
   NET,
+  nextBotnetIps,
   rdpClosed,
   replayScan,
   replaySpray,
@@ -165,7 +167,11 @@ const bot: ActionDef = {
         return [{ tone: 'bad', text: `All 8 guesses from ${ip} reached sshd before any ban. fail2ban banned ${ip} later, from the lines it read back when it started. Next time, turn fail2ban on first and watch it ban during the attack.` }];
       return [{ tone: 'bad', text: `All 8 guesses from ${ip} reached sshd. Nothing stopped them: fail2ban is off.` }];
     }
-    if (!g.reached) return [{ tone: 'good', text: `${ip} is already banned. ufw blocked all 8 guesses before sshd saw them.` }];
+    if (!g.reached) {
+      if (lx(sim).f2b.banned.includes(ip)) return [{ tone: 'good', text: `${ip} is already banned. ufw blocked all 8 guesses before sshd saw them.` }];
+      const v = g.cs[0] ? verdictWords(sim, g.cs[0]) : undefined;
+      return [{ tone: 'bad', text: `${v ?? 'Blocked'}. ufw blocked all 8 guesses before sshd saw them, so fail2ban had nothing to count.` }];
+    }
     return [{ tone: 'good', text: `${g.reached} guesses reached sshd. Then fail2ban banned ${ip}, and ufw blocked the last ${g.blocked}.` }];
   },
 };
@@ -259,10 +265,10 @@ export const deviceAnalysisLab: LabDef = {
   unit: 3,
   codehs: ['3.18 The Story in the Logs', '3.19 Securing Networks Quiz', '3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
   ced: ['3.4.B', '3.4.D', '3.5.A', '3.5.E', '3.1.C', '3.2.A'],
-  minutes: 60,
+  minutes: 55,
   objectives: [
     "Trace a connection through a host-based firewall's numbered rules, and explain why the first rule that matches decides.",
-    'Find a password spray in auth.log, a port scan in ufw.log, and directory traversal in an access log, citing the rows and the attacker’s address.',
+    'Find a password spray in auth.log and a port scan in ufw.log, citing the rows and the attacker’s address.',
     'Write ufw commands that block an address, and explain why a new rule has to go above the rule it overrides.',
     'Describe how an automated system (fail2ban) halts an attack while it happens, name another countermeasure, and predict the impact of a rule change.',
   ],
@@ -488,51 +494,6 @@ export const deviceAnalysisLab: LabDef = {
     },
 
     {
-      id: 'web-log',
-      title: 'The web log',
-      body: md`
-        **/var/log/nginx/access.log** has a line for every request the website answered. Each line shows the client's address, the time, the request (like \`GET /menu\`), the **status code**, the size, the page the visitor came from, and the **user agent**: the program that asked.
-
-        | Status | Meaning |
-        |---|---|
-        | 200 | OK, here's the page |
-        | 302 | go to another page (after an order is placed) |
-        | 404 | not found: no such page |
-        | 400 | bad request, refused |
-
-        Open **access.log**. Most lines are customers using web browsers. Then find the lines from 203.0.113.140, the address from ufw.log. Its user agent is curl, a command-line tool, not a browser.
-
-        First, it asked for files that websites sometimes leave out by mistake: /.env (passwords and settings), /.git/config (the site's code history), /wp-login.php and /phpmyadmin/ (admin pages). Every answer was 404. Probing for weak spots like this is **reconnaissance**.
-
-        Then it tried something else. Look at the requests with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them climb out of the web folder to the top of the disk. There, /etc/passwd lists the server's accounts, and /etc/shadow holds their passwords as **hashes**, a one-way scrambled form. Only the administrator account can read /etc/shadow. Using \`..\` to read files outside the web folder is **directory traversal**.
-      `,
-      tools: [logs(['auth', 'ufw', 'access']), term(['grep', 'tail'])],
-      questions: [
-        {
-          id: 'status',
-          kind: 'choice',
-          prompt: 'The site answered each `..` request with status 400. What does that tell you?',
-          options: [
-            { id: 'refused', text: 'The site refused them, so the attacker didn’t get the files', correct: true },
-            { id: 'got', text: 'The attacker got the files', feedback: 'A request that worked would get 200, OK. 400 means bad request, refused.' },
-            { id: 'missing', text: 'The files don’t exist on this server', feedback: 'That would be 404, not found. /etc/passwd is on every Linux server. The site refused to hand it over.' },
-            { id: 'blocked', text: 'ufw blocked the requests', feedback: 'ufw let them through: they went to port 80 or 443, which the rules allow. The website itself answered, with 400.' },
-          ],
-          explain:
-            'The site refused all three, so the attack failed this time. A site with a bug in its download page might answer 200 and send /etc/passwd. **Input validation** closes that hole: the site works out the full location of every file a request names, and refuses any that land outside the web folder.',
-        },
-        cite(
-          'traversal-rows',
-          'Which rows of access.log show the directory traversal? Cite every row.',
-          'access',
-          ROWS.traversal,
-          'directory traversal',
-          `Rows ${rowsText(ROWS.traversal)}: each asks for a path with .. in it, and the site refused each one with 400.`,
-        ),
-      ],
-    },
-
-    {
       id: 'command',
       title: 'Write the command',
       body: md`
@@ -596,11 +557,16 @@ export const deviceAnalysisLab: LabDef = {
         2. Press [[button:bot]]. A new computer, [[bot]], starts guessing passwords.
         3. Read **fail2ban.log**, then **ufw.log**. Open the **Inspect** tab and scroll to web01's firewall rules to see the new rule at the top.
 
-        fail2ban.log calls each service it watches a **jail**. Here the jail is sshd. \`maxRetry: 5\` and \`findtime: 600\` mean 5 failures within 600 seconds, which is 10 minutes. \`banTime: 600\` means a ban lasts 10 minutes. When fail2ban starts, it also reads back through auth.log for failures from the last 10 minutes, so your own replays from step 6 can show up as Found lines.
+        (If your rule from step 5 blocked the whole 203.0.113.0/24 network, it now blocks only 203.0.113.77. [[bot]] is in that network too, and it has to reach SSH for this step to work.)
 
-        fail2ban can watch other logs too. It could watch access.log and ban any address that sends \`..\` requests, like 203.0.113.140 did.
+        fail2ban.log calls each service it watches a **jail**. Here the jail is sshd. \`maxRetry: 5\` and \`findtime: 600\` mean 5 failures within 600 seconds, which is 10 minutes. \`banTime: 600\` means a ban lasts 10 minutes. When fail2ban starts, it also reads back through auth.log for failures from the last 10 minutes, so your own replays from step 5 can show up as Found lines.
+
+        fail2ban can watch other logs too, like the website's access.log.
       `,
-      setup: ensureSprayBlocked,
+      setup: (sim) => {
+        ensureSprayBlocked(sim);
+        ensureBotReachesSsh(sim, [botIp(sim)]);
+      },
       tools: [guard(['fail2ban']), logs(ALL_LOGS)],
       actions: [bot],
       goals: [
@@ -609,7 +575,7 @@ export const deviceAnalysisLab: LabDef = {
           id: 'banned',
           label: 'fail2ban bans the bot',
           hint: 'With fail2ban on, press the button and wait for all 8 guesses.',
-          check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'config' && e.device === WEB && e.what === 'fail2ban-ban'),
+          check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'config' && e.device === WEB && e.what === 'fail2ban-ban' && e.detail === botIp(sim)),
         },
         {
           id: 'after',
@@ -659,6 +625,7 @@ export const deviceAnalysisLab: LabDef = {
       `,
       setup: (sim) => {
         ensureSprayBlocked(sim);
+        ensureBotReachesSsh(sim, nextBotnetIps(sim));
         ensureFail2ban(sim);
       },
       tools: [guard(['fail2ban', 'passwords']), logs(ALL_LOGS)],
@@ -822,7 +789,7 @@ export const deviceAnalysisLab: LabDef = {
           kind: 'text',
           label: 'B',
           prompt:
-            'Describe one attack in the logs: the password spray in auth.log or the directory traversal in access.log. Cite the rows and the attacker’s IP address. Then explain how an automated system could stop an attack like it while it happens, and name a different countermeasure.',
+            'Describe the password spray in auth.log. Cite the rows and the attacker’s IP address. Then explain how an automated system could stop an attack like it while it happens, and name a different countermeasure.',
           minWords: 25,
           lines: 5,
         },
@@ -859,6 +826,53 @@ export const deviceAnalysisLab: LabDef = {
             return rdpClosed(sim) && !!c && c.status === 'no-answer';
           },
         },
+      ],
+    },
+    {
+      id: 'web-log',
+      title: 'Optional extra challenge: The web log',
+      extra: true,
+      body: md`
+        **/var/log/nginx/access.log** has a line for every request the website answered. Each line shows the client's address, the time, the request (like \`GET /menu\`), the **status code**, the size, the page the visitor came from, and the **user agent**: the program that asked.
+
+        | Status | Meaning |
+        |---|---|
+        | 200 | OK, here's the page |
+        | 302 | go to another page (after an order is placed) |
+        | 404 | not found: no such page |
+        | 400 | bad request, refused |
+
+        Open **access.log**. Most lines are customers using web browsers. Then find the lines from 203.0.113.140, the address from ufw.log. Its user agent is curl, a command-line tool, not a browser.
+
+        First, it asked for files that websites sometimes leave out by mistake: /.env (passwords and settings), /.git/config (the site's code history), /wp-login.php and /phpmyadmin/ (admin pages). Every answer was 404. Probing for weak spots like this is **reconnaissance**.
+
+        Then it tried something else. Look at the requests with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them climb out of the web folder to the top of the disk. There, /etc/passwd lists the server's accounts, and /etc/shadow holds their passwords as **hashes**, a one-way scrambled form. Only the administrator account can read /etc/shadow. Using \`..\` to read files outside the web folder is **directory traversal**.
+
+        This challenge earns no points. Hand in your work again when you're done so your teacher sees it.
+      `,
+      tools: [logs(['auth', 'ufw', 'access']), term(['grep', 'tail'])],
+      questions: [
+        {
+          id: 'status',
+          kind: 'choice',
+          prompt: 'The site answered each `..` request with status 400. What does that tell you?',
+          options: [
+            { id: 'refused', text: 'The site refused them, so the attacker didn’t get the files', correct: true },
+            { id: 'got', text: 'The attacker got the files', feedback: 'A request that worked would get 200, OK. 400 means bad request, refused.' },
+            { id: 'missing', text: 'The files don’t exist on this server', feedback: 'That would be 404, not found. /etc/passwd is on every Linux server. The site refused to hand it over.' },
+            { id: 'blocked', text: 'ufw blocked the requests', feedback: 'ufw let them through: they went to port 80 or 443, which the rules allow. The website itself answered, with 400.' },
+          ],
+          explain:
+            'The site refused all three, so the attack failed this time. A site with a bug in its download page might answer 200 and send /etc/passwd. **Input validation** closes that hole: the site works out the full location of every file a request names, and refuses any that land outside the web folder.',
+        },
+        cite(
+          'traversal-rows',
+          'Which rows of access.log show the directory traversal? Cite every row.',
+          'access',
+          ROWS.traversal,
+          'directory traversal',
+          `Rows ${rowsText(ROWS.traversal)}: each asks for a path with .. in it, and the site refused each one with 400.`,
+        ),
       ],
     },
   ],

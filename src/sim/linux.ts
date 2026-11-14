@@ -295,7 +295,7 @@ function sshdLogin(sim: Sim, dev: Device, lx: LinuxState, ip: Ip, port: number, 
   }
   // No password allowed (or a key the account doesn't have): sshd closes the connection before any password.
   log(`Connection closed by ${user ? 'authenticating user' : 'invalid user'} ${req.user} ${ip} port ${port} [preauth]`, { result: 'preauth', method: req.auth });
-  f2bFailure(sim, dev, lx, ip);
+  // fail2ban's sshd filter in its default (normal) mode doesn't count a [preauth] close as a failure.
   return 'Permission denied (publickey).';
 }
 
@@ -340,7 +340,7 @@ export function setFail2ban(sim: Sim, dev: Device, on: boolean): void {
     for (const e of [...dev.logs]) {
       const ip = e.fields?.src;
       if (e.fields?.file !== 'auth' || typeof ip !== 'string' || sim.t - e.t >= f.findtime) continue;
-      if (['invalid', 'failed', 'preauth'].includes(String(e.fields.result))) f2bFailure(sim, dev, dev.linux!, ip, e.t);
+      if (['invalid', 'failed'].includes(String(e.fields.result))) f2bFailure(sim, dev, dev.linux!, ip, e.t);
     }
   } else {
     sim.log(dev.id, f2bEntry('fail2ban.jail', f.pid, 'INFO', "Jail 'sshd' stopped"));
@@ -426,8 +426,11 @@ export function parseHost(cmd: HostCommand, words: string[]): HostParse {
     case 'grep': {
       const o = { ignoreCase: false, count: false, number: false, invert: false };
       const rest: string[] = [];
+      // GNU grep reads options anywhere before a --, even after the pattern.
+      let opts = true;
       for (const w of words) {
-        if (/^-[a-z]+$/i.test(w) && !rest.length) {
+        if (opts && w === '--') opts = false;
+        else if (opts && /^-[a-z]+$/i.test(w)) {
           for (const ch of w.slice(1)) {
             if (ch === 'i') o.ignoreCase = true;
             else if (ch === 'c') o.count = true;

@@ -14,11 +14,17 @@ const MAX_ROWS = 500;
 /**
  * Row numbers in an answer, sorted, without repeats. Reads ranges written
  * with a hyphen, an en dash, "to", or "through", and lists with commas, "and",
- * or spaces. Words like "rows" and "lines" are skipped. Returns a message
+ * or spaces. Words like "rows" and "lines" are skipped, and so are addresses,
+ * times, and ports. Returns a message
  * instead when there are no numbers or a range runs backward.
  */
 export function parseRows(text: string): number[] | { msg: string } {
+  // An address (203.0.113.77, 203.0.113.0/24), a time (03:20:14), or a port
+  // ("port 35506") next to the rows isn't a row number.
+  const NOT_ROWS = /\b\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?\b|\b\d{1,2}:\d{2}(?::\d{2})?\b|\bports?\s+\d+/gi;
+  const skipped = text.match(NOT_ROWS);
   const s = text
+    .replace(NOT_ROWS, ' ')
     .toLowerCase()
     .replace(/[–—]/g, '-')
     .replace(/\b(through|thru|to|until)\b/g, '-')
@@ -31,7 +37,10 @@ export function parseRows(text: string): number[] | { msg: string } {
     if (b - a > MAX_ROWS) return { msg: `“${m[0]}” covers more rows than the file has.` };
     for (let n = a; n <= b; n++) out.add(n);
   }
-  if (!out.size) return { msg: 'Write the row numbers, like 4-9 or 4, 5, 6.' };
+  if (!out.size) {
+    if (skipped) return { msg: `“${skipped[0]}” isn't a row number. Write the numbers of the rows, like 4-9 or 4, 5, 6.` };
+    return { msg: 'Write the row numbers, like 4-9 or 4, 5, 6.' };
+  }
   return [...out].sort((x, y) => x - y);
 }
 

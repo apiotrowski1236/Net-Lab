@@ -95,6 +95,9 @@ describe('device-analysis: citing rows', () => {
     expect(parseRows('4, 5 and 9')).toEqual([4, 5, 9]);
     expect(parseRows('24-11')).toEqual({ msg: '“24-11” runs backward. Write the smaller row first, like 11-24.' });
     expect(parseRows('the spray')).toEqual({ msg: 'Write the row numbers, like 4-9 or 4, 5, 6.' });
+    expect(parseRows('rows 11-24 from 203.0.113.77')).toEqual(Array.from({ length: 14 }, (_, i) => i + 11));
+    expect(parseRows('11-24, 03:20:14 to 03:27:40, port 35506')).toEqual(Array.from({ length: 14 }, (_, i) => i + 11));
+    expect(parseRows('203.0.113.0/24')).toEqual({ msg: '“203.0.113.0/24” isn\'t a row number. Write the numbers of the rows, like 4-9 or 4, 5, 6.' });
   });
 
   it('checks a citation against the rows that show it', () => {
@@ -208,6 +211,74 @@ describe('device-analysis: fail2ban and keys', () => {
     const j = test(sim, 'jo', 'jo', joSignIn);
     expect(j.status).toBe('open');
     expect(lines(sim, 'auth').at(-2)).toMatch(/Accepted publickey for jo/);
+  });
+});
+
+describe('device-analysis: a step 6 rule for the whole network', () => {
+  /** Run a step's setup the way the player does, quietly, and return its start time. */
+  const enter = (sim: Sim, id: string) => {
+    const since = sim.t;
+    sim.quiet = true;
+    step(id).setup?.(sim);
+    sim.quiet = false;
+    sim.runUntilIdle();
+    return since;
+  };
+  const goals = (sim: Sim, id: string, since: number) => Object.fromEntries(step(id).goals!.map((g) => [g.id, g.check({ sim, since })]));
+  const press = (sim: Sim, id: string, action: string) => {
+    step(id).actions!.find((a) => a.id === action)!.run(sim);
+    sim.runUntilIdle();
+  };
+
+  it('denying 203.0.113.0/24 in step 6 still lets fail2ban ban the bot, and the botnet reach sshd', () => {
+    const sim = buildCoop();
+    const s6 = enter(sim, 'command');
+    sh(sim, 'ufw insert 1 deny from 203.0.113.0/24');
+    press(sim, 'command', 'spray');
+    expect(goals(sim, 'command', s6)).toEqual({ deny: true, blocked: true });
+
+    const s7 = enter(sim, 'fail2ban');
+    expect(allows(sim, IP.sprayer, 22)).toBe(false);
+    expect(allows(sim, botIp(sim), 22)).toBe(true);
+    expect(fw(sim).rules[0]).toMatchObject({ src: IP.sprayer, action: 'deny' });
+    sim.linuxSet(WEB, 'fail2ban', true);
+    press(sim, 'fail2ban', 'bot');
+    expect(lx(sim).f2b.banned).toEqual([IP.bot]);
+    expect(goals(sim, 'fail2ban', s7)).toEqual({ on: true, banned: true, after: true });
+
+    const s8 = enter(sim, 'keys');
+    sim.linuxSet(WEB, 'passwords', false);
+    press(sim, 'keys', 'botnet');
+    press(sim, 'keys', 'jo');
+    expect(goals(sim, 'keys', s8)).toEqual({ off: true, preauth: true, jo: true });
+  });
+
+  it('puts SSH from the internet back if a student deleted it, and keeps fail2ban’s bans', () => {
+    const sim = buildCoop();
+    sh(sim, 'ufw delete 5');
+    expect(allows(sim, IP.bot, 22)).toBe(false);
+    enter(sim, 'fail2ban');
+    expect(allows(sim, IP.bot, 22)).toBe(true);
+    sim.linuxSet(WEB, 'fail2ban', true);
+    botAttack(sim);
+    sim.runUntilIdle();
+    enter(sim, 'keys');
+    expect(allows(sim, IP.bot, 22)).toBe(false);
+    expect(allows(sim, '203.0.113.202', 22)).toBe(true);
+  });
+
+  it('the ban goal needs the bot, not the sprayer', () => {
+    const sim = buildCoop();
+    enter(sim, 'command');
+    replaySpray(sim);
+    sim.runUntilIdle();
+    replaySpray(sim);
+    sim.runUntilIdle();
+    const s7 = enter(sim, 'fail2ban');
+    sim.linuxSet(WEB, 'fail2ban', true);
+    sim.runUntilIdle();
+    expect(lx(sim).f2b.banned).toContain(IP.sprayer);
+    expect(goals(sim, 'fail2ban', s7).banned).toBe(false);
   });
 });
 

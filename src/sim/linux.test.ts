@@ -149,6 +149,17 @@ describe('sshd and fail2ban', () => {
     expect(sim.dev('bad').conns![0].banner).toBe('Permission denied, please try again.');
   });
 
+  it('fail2ban doesn’t count a [preauth] close, as in its default mode', () => {
+    const sim = net();
+    sim.linuxSet('srv', 'fail2ban', true);
+    sim.linuxSet('srv', 'passwords', false);
+    for (let i = 0; i < 6; i++) sim.connectService('bad', SERVER, 22, { sport: 40100 + i, data: sshRequest({ user: 'admin', auth: 'password' }) });
+    sim.runUntilIdle();
+    expect(lines(sim, 'auth').filter((l) => l.endsWith('[preauth]'))).toHaveLength(6);
+    expect(lines(sim, 'fail2ban').some((l) => l.includes('Found'))).toBe(false);
+    expect(sim.dev('srv').linux!.f2b.banned).toEqual([]);
+  });
+
   it('accepts the right key and logs the session', () => {
     const sim = net();
     sim.linuxSet('srv', 'passwords', false);
@@ -208,6 +219,9 @@ describe('ufw', () => {
     expect(rule('allow ssh').rule).toMatchObject({ dport: 22, proto: 'tcp' });
     expect(rule('allow from 192.0.2.7/24 to any port ssh').rule).toMatchObject({ src: '192.0.2.0/24', dport: 22, proto: 'tcp' });
     expect(rule('deny out to 203.0.113.0/24').rule).toMatchObject({ dir: 'out', dst: '203.0.113.0/24' });
+    expect(rule('allow 22/tcp comment Office').rule).toMatchObject({ src: 'any', dport: 22, proto: 'tcp', note: 'Office' });
+    expect(rule('deny from 203.0.113.77 comment spray').rule).toMatchObject({ src: '203.0.113.77', note: 'spray' });
+    expect(msg('ufw deny from 203.0.113.77 from 203.0.113.78')).toMatch(/^ERROR: Invalid syntax\. A rule has one from\./);
   });
 
   it('explains mistakes with ufw’s error and what to type', () => {
@@ -237,7 +251,21 @@ describe('ufw', () => {
       '[ 4] Anywhere                   DENY IN     Anywhere',
       '',
     ]);
-    expect(out(run(sim, 'ufw status verbose')).slice(0, 5)).toEqual(['Status: active', 'Logging: on (low)', 'Default: deny (incoming), allow (outgoing), disabled (routed)', 'New profiles: skip', '']);
+    expect(out(run(sim, 'ufw status verbose'))).toEqual([
+      'Status: active',
+      'Logging: on (low)',
+      'Default: deny (incoming), allow (outgoing), disabled (routed)',
+      'New profiles: skip',
+      '',
+      'To                         Action      From',
+      '--                         ------      ----',
+      '22/tcp                     DENY IN     203.0.113.140',
+      '443/tcp                    ALLOW IN    Anywhere',
+      '22/tcp                     ALLOW IN    Anywhere',
+      'Anywhere                   DENY IN     Anywhere',
+      '',
+    ]);
+    expect(out(run(sim, 'ufw status'))[4]).toBe('22/tcp                     DENY        203.0.113.140');
     expect(out(run(sim, 'ufw status'))[5]).toBe('443/tcp                    ALLOW       Anywhere');
   });
 
@@ -301,6 +329,8 @@ describe('ss, grep, tail', () => {
     expect(out(run(sim, 'grep -ic failed /var/log/auth.log'))).toEqual(['3']);
     r = run(sim, 'grep Failed auth.log');
     expect(out(r)).toEqual(['grep: auth.log: No such file or directory', 'The file is /var/log/auth.log. Type the whole path, starting with /.']);
+    expect(out(run(sim, 'grep "Failed password" -n /var/log/auth.log'))[0]).toMatch(/^1:Nov 16/);
+    expect(out(run(sim, 'grep -- -n /var/log/auth.log'))).toEqual([]);
     expect(msg('grep Failed')).toBe('grep needs a file after the text. Type it like this: grep Failed /var/log/auth.log');
     expect(msg('grep "Failed password /var/log/auth.log')).toBe('A quote is missing its partner. Close the text with the same kind of quote: grep "Failed password" /var/log/auth.log');
   });

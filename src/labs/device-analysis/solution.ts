@@ -17,8 +17,6 @@ export const deviceAnalysisSolution: LabSolution = {
 
   'ufw-log': { moves: [{ press: 'rescan' }], text: { 'scan-rows': '4-13' } },
 
-  'web-log': { text: { 'traversal-rows': '21–23' } },
-
   // The new rule lands at the bottom (rule 11), under the SSH rule: the spray gets through. Delete it and insert it at the top.
   command: {
     moves: [sh('sudo ufw deny from 203.0.113.77'), { press: 'spray' }, sh('ufw status numbered'), sh('ufw delete 11'), sh('ufw insert 1 deny from 203.0.113.77'), { press: 'spray' }],
@@ -47,11 +45,13 @@ export const deviceAnalysisSolution: LabSolution = {
       'part-a':
         'Row 11 of ufw.log shows a SYN from 203.0.113.140 to port 22. Rule 1 denies 22/tcp from 203.0.113.140, and it is the first rule that matches, so ufw dropped the packet and logged it. Deleting rule 1 would allow it, because rule 5 allows SSH from anywhere. The impact is that the scanner could then try to sign in with SSH.',
       'part-b':
-        'Rows 21 to 23 of access.log show 203.0.113.140 asking for paths with ../ in them, like /download?file=../../../../etc/passwd. That is directory traversal. An intrusion prevention system such as a fail2ban jail on access.log could see the ../ requests and add a firewall rule that bans the address within seconds. A different countermeasure is input validation: the site works out the full location of each file it is asked for and refuses any outside the web folder.',
+        'Rows 11 to 24 of auth.log show 203.0.113.77 trying many usernames, like admin, oracle, and root, with only a few passwords. That is a password spray. An intrusion prevention system such as fail2ban counts the failed sign-ins and adds a firewall rule that bans the address within seconds. A different countermeasure is turning off password sign-in so only SSH keys work.',
     },
   },
 
   submit: {},
 
   rdp: { moves: [sh('ufw delete allow 3389/tcp'), { press: 'scan-rdp' }] },
+
+  'web-log': { text: { 'traversal-rows': '21–23' } },
 };

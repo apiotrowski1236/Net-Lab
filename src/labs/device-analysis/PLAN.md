@@ -68,7 +68,10 @@ All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrou
 
 ## As built
 
-12 steps: case, trace, auth, ufw-log, web-log, command, fail2ban, keys, policy, write-up, submit, and an optional extra challenge (close remote desktop) after submit. 60 minutes: the panel estimated 52 to 66 for the required steps.
+12 steps: case, trace, auth, ufw-log, command, fail2ban, keys, policy, write-up, submit, and two optional extra challenges after submit (close remote desktop; the web log). 55 minutes, so it runs past one 45-minute period: the panel's required times were 44 to 66 with the web log in, and that step comes out of the required time.
+
+- **The web log is an optional extra challenge.** Directory traversal isn't a Unit 3 CED EK, and reconnaissance from a known address (3.5.E.7) is covered by the port scan in ufw.log. Moving it after submit took about 5 minutes out of a lab that ran long. Write-up part B now asks about the spray only.
+- **The bot can always reach SSH in steps 6 and 7.** The bot and botnet share 203.0.113.0/24 with the sprayer. If a student's step 5 rule denies the whole network, or anything else keeps the bot from port 22, the fail2ban and keys setups narrow the deny to 203.0.113.77 and put back SSH from Anywhere (`ensureBotReachesSsh`).
 
 - **Step order changed.** The spec puts the policy change (step 7) before fail2ban and keys. Built order: command, fail2ban, keys, policy. Once SSH is office-only, the bot and botnet can't reach sshd, so the fail2ban and keys demos would show nothing. The policy fix comes last, and the rule numbers in its text account for the rules added earlier (fail2ban's ban at the top, the student's deny for .77).
 - **Five evidence sources became four.** The firewall rules, auth.log, ufw.log, and access.log (plus fail2ban.log once fail2ban is on). The tagline says "four kinds of evidence".
