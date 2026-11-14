@@ -125,7 +125,7 @@ function parseRule(action: FwAction, words: string[]): { ok: true; rule: FwRuleI
   for (let k = 0; k < rest.length; k++) {
     const w = rest[k];
     if (w === 'from' || w === 'to') {
-      if (said.has(w)) return { ok: false, msg: `ERROR: Invalid syntax. A rule has one ${w}. ${SHAPES}` };
+      if (said.has(w)) return { ok: false, msg: `ERROR: Invalid syntax. Use “${w}” only once in a rule. ${SHAPES}` };
       said.add(w);
       saw = true;
       const raw = rest[k + 1];

@@ -221,7 +221,8 @@ describe('ufw', () => {
     expect(rule('deny out to 203.0.113.0/24').rule).toMatchObject({ dir: 'out', dst: '203.0.113.0/24' });
     expect(rule('allow 22/tcp comment Office').rule).toMatchObject({ src: 'any', dport: 22, proto: 'tcp', note: 'Office' });
     expect(rule('deny from 203.0.113.77 comment spray').rule).toMatchObject({ src: '203.0.113.77', note: 'spray' });
-    expect(msg('ufw deny from 203.0.113.77 from 203.0.113.78')).toMatch(/^ERROR: Invalid syntax\. A rule has one from\./);
+    expect(msg('ufw deny from 203.0.113.77 from 203.0.113.78')).toMatch(/^ERROR: Invalid syntax\. Use “from” only once in a rule\. /);
+    expect(msg('ufw allow from 192.0.2.0/24 to any port 22 to any port 23')).toMatch(/^ERROR: Invalid syntax\. Use “to” only once in a rule\. /);
   });
 
   it('explains mistakes with ufw’s error and what to type', () => {
