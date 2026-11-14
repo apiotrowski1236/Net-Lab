@@ -48,7 +48,7 @@ export interface HostOpts extends Placed {
   /** Gets its address automatically (a DHCP client; see dhcp.ts). Leave out `ip` and `gateway`. */
   dhcp?: boolean;
   /** A host firewall on the computer itself (device-analysis): checks what arrives for it and what it sends. See firewall.ts and ufw.ts. */
-  firewall?: { mode?: FwMode; rules?: FwRuleInput[] };
+  firewall?: { mode?: Exclude<FwMode, 'ngfw'>; rules?: FwRuleInput[] };
   /** Makes this computer a Linux server with log files, sshd, nginx, and fail2ban (device-analysis; see linux.ts). */
   linux?: LinuxOpts;
 }

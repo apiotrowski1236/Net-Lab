@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { NetBuilder } from './build';
 import { fileLine, fileRows, httpRequest, isoStamp, nginxStamp, shellWords, sshRequest, syslogStamp } from './linux';
 import { parseCommand } from './terminal';
-import { parseUfw, ufwColumns, ufwRuleText, ufwStatus, UFW_DEFAULT } from './ufw';
+import { hostVerdict, parseUfw, ufwColumns, ufwRuleText, ufwStatus, UFW_DEFAULT } from './ufw';
 import { checkCommand } from '../runtime/termInput';
-import type { FwRuleInput } from './firewall';
+import { newFirewall, type FwRuleInput } from './firewall';
+import type { IpPacket } from './types';
 import type { HostRun } from './terminal';
 
 const EPOCH = Date.UTC(2026, 10, 16, 9, 0, 0);
@@ -115,6 +116,17 @@ describe('host firewall', () => {
     sim.runUntilIdle();
     expect(sim.dev('srv').conns![1]).toMatchObject({ status: 'no-answer', reason: 'firewall' });
     expect(lines(sim, 'ufw').at(-1)).toContain('[UFW BLOCK] IN= OUT=eth0 SRC=198.51.100.10 DST=203.0.113.77');
+  });
+
+  it('decides by port even if the firewall is set to next-gen mode, has intrusion prevention, or a rule names a program', () => {
+    const fw = newFirewall('eth0', 'ngfw', [
+      { dir: 'in', proto: 'tcp', src: 'any', dst: 'any', dport: 443, action: 'deny', app: 'remote-control' },
+      { dir: 'in', proto: 'tcp', src: 'any', dst: 'any', dport: 443, action: 'allow' },
+    ]);
+    fw.ips = true;
+    const pkt: IpPacket = { src: '203.0.113.77', dst: SERVER, ttl: 64, proto: 'tcp', srcPort: 50000, dstPort: 443, app: { kind: 'svc', conn: 1, app: 'HTTPS', reply: false, text: "GET /?q=' OR 1=1 HTTP/1.1" } };
+    expect(hostVerdict(fw, pkt, 'in', UFW_DEFAULT)).toMatchObject({ action: 'allow', by: 'rule', ruleNo: 2 });
+    expect(hostVerdict(fw, { ...pkt, dstPort: 25 }, 'in', UFW_DEFAULT)).toMatchObject({ action: 'deny', by: 'implicit' });
   });
 
   it('marks a port scan probe with nmap’s packet size and window', () => {

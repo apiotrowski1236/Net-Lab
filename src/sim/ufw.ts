@@ -339,7 +339,10 @@ export function ufwStatus(fw: FirewallState, policy: UfwPolicy, how: { numbered?
 export function hostVerdict(fw: FirewallState, pkt: IpPacket, dir: FwDir, policy: UfwPolicy): FwVerdict {
   // Ubuntu's ufw accepts incoming ping in before.rules, ahead of the user's rules.
   if (dir === 'in' && pkt.proto === 'icmp') return { action: 'allow', by: 'implicit' };
-  const i = firstMatch(fw.rules, pkt, dir);
+  // ufw matches by address and port only. It ignores fw.mode and intrusion
+  // prevention (next-gen features of a router firewall, firewall-types), and
+  // like any firewall that can't see programs it skips a rule that names one (FwRule.app).
+  const i = firstMatch(fw.rules, pkt, dir, false);
   if (i < 0) return { action: policy[dir], by: 'implicit' };
   const r = fw.rules[i];
   return { action: r.action, by: 'rule', ruleNo: i + 1, ruleId: r.id };
