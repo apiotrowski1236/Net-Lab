@@ -40,9 +40,15 @@ export const RENAMED = 'nov12-renamed';
 export const SEP = 'sep';
 export const OCT = 'oct';
 
-/** The ransomware file's hash, and the new hash after the attacker repacks it to dodge the signature. */
-export const LOCKDOWN_FILE = 'hash 7f3ca91e';
-export const RENAMED_FILE = 'hash 2b80d4c7';
+/**
+ * The ransomware file's SHA-256 hash, and the new hash after the attacker
+ * repacks it to dodge the signature. Full length, as a real signature stores it;
+ * the lesson text quotes the first 8 characters (`shortHash`).
+ */
+export const LOCKDOWN_FILE = 'hash 313e2d61d5058af22b00c06477ddd0cb3975c20e791242b14b35d889cddb3d82';
+export const RENAMED_FILE = 'hash 8e93e3244d39c08f689c2783ed81dfdbf83c94af4ef4a65eac35fe423416b2f8';
+/** The first 8 characters of a `hash …` file detail. */
+export const shortHash = (file: string): string => file.replace('hash ', '').slice(0, 8);
 
 export const NAMES: Record<string, string> = {
   bench: 'Detection bench',

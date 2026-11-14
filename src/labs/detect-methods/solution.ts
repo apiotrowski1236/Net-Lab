@@ -17,6 +17,7 @@ export const detectMethodsSolution: LabSolution = {
     moves: [
       { tool: { type: 'bench-baseline', device: D, client: PLANT, day: PLANT_INFECTED } },
       { tool: { type: 'bench-run', device: D, client: PLANT } },
+      { tool: { type: 'bench-baseline', device: D, client: PLANT, day: PLANT_CLEAN } },
     ],
   },
   'anomaly-stream': {

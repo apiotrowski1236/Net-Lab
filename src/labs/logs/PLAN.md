@@ -4,7 +4,7 @@ Status: built (wave 2). 11 steps, registered in `src/labs/index.ts`. Follows `do
 
 Tagline: Tune detection tools and read the logs to find attacks hiding in normal traffic.
 
-CodeHS: `3.18 The Story in the Logs`. CED LOs: 3.5.A, 3.5.B, 3.5.C, 3.5.D, 3.5.E.
+CodeHS: `3.18 The Story in the Logs`. CED LOs: 3.5.A, 3.5.B, 3.5.D, 3.5.E. (3.5.C, choosing a method, and 3.5.D's speed and cost moved to Pick Your Detector when the Pick a method step came out. The lab still introduces signature and anomaly detection and assesses false positives and false negatives.)
 
 ## What students learn
 

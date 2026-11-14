@@ -18,7 +18,9 @@ import {
   PLANT_CLEAN,
   PLANT_INFECTED,
   RENAMED,
+  LOCKDOWN_FILE,
   RENAMED_FILE,
+  shortHash,
   STREAM,
   STREAM_BASE,
   TODAY,
@@ -72,7 +74,7 @@ const renameFile: ActionDef = {
   run: (sim) => sim.benchSetDay(BENCH, DISPATCH, RENAMED),
   outcome: (sim) =>
     bench(sim).settings[DISPATCH].day === RENAMED
-      ? [{ tone: 'good', text: `The bench now replays Nov 12 with LockDown repacked. Its file’s hash is now ${RENAMED_FILE.replace('hash ', '')}.` }]
+      ? [{ tone: 'good', text: `The bench now replays Nov 12 with LockDown repacked. Its file’s hash now starts with ${shortHash(RENAMED_FILE)} instead of ${shortHash(LOCKDOWN_FILE)}. (A full hash is 64 characters long. These are the first 8.)` }]
       : [{ tone: 'wait', text: 'Loading…' }],
 };
 
@@ -171,7 +173,7 @@ export const detectMethodsLab: LabDef = {
           id: 'quiet',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'Signature detection raised no false alarms on StreamCo, even with 900,000 connections a minute. Why so few?',
+          prompt: 'Signature detection raised no false alarms on StreamCo, even with 900,000 connections a minute. Why none?',
           options: [
             { id: 'match', text: 'It alerts only on a known attack’s details, and normal traffic almost never has them.', correct: true },
             { id: 'skip', text: 'It skips most of the traffic so it can keep up with StreamCo.', feedback: 'It checks every connection. Looking up a detail in a list is quick, so it keeps up anyway.' },
@@ -290,6 +292,7 @@ export const detectMethodsLab: LabDef = {
 
         1. Record a baseline from **Nov 9**.
         2. Run anomaly detection and compare the result with your Sep 14 run.
+        3. Record the **Sep 14** baseline again, so Riverbend is back on a clean baseline.
       `,
       setup: (sim) => anomalyOn(sim, PLANT),
       open: 'tools',
@@ -302,12 +305,19 @@ export const detectMethodsLab: LabDef = {
           hint: 'Press Nov 9 under Record a baseline from, then run.',
           check: ({ sim, since }) => ranSince(sim, since, PLANT, (r) => r.baselineDay === PLANT_INFECTED),
         },
+        {
+          id: 'sep14-again',
+          label: 'Record the clean Sep 14 baseline again',
+          hint: 'After the Nov 9 run, press Sep 14 under Record a baseline from.',
+          check: ({ sim, since }) =>
+            ranSince(sim, since, PLANT, (r) => r.baselineDay === PLANT_INFECTED) && bench(sim).settings[PLANT].baseline?.day === PLANT_CLEAN,
+        },
       ],
       questions: [
         {
           id: 'why-missed',
           kind: 'choice',
-          afterGoals: true,
+          afterGoals: ['nov9'],
           prompt: 'The Nov 9 baseline missed the attack. Why?',
           options: [
             { id: 'infected', text: 'The controller was already infected on Nov 9, so the baseline learned the attack as normal.', correct: true },
@@ -339,9 +349,9 @@ export const detectMethodsLab: LabDef = {
       goals: [
         {
           id: 'run',
-          label: 'Run anomaly detection on StreamCo with the Nov 5 baseline',
+          label: 'Run anomaly detection on StreamCo with the Nov 5 baseline at ±25%',
           hint: 'Choose Anomaly, record the Nov 5 baseline, pick ±25%, and run.',
-          check: ({ sim, since }) => ranSince(sim, since, STREAM, (r) => r.method === 'anomaly' && r.tolerance <= 50 && r.baselineDay === STREAM_BASE),
+          check: ({ sim, since }) => ranSince(sim, since, STREAM, (r) => r.method === 'anomaly' && r.tolerance === 25 && r.baselineDay === STREAM_BASE),
         },
       ],
       questions: [
