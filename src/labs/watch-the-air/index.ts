@@ -246,7 +246,7 @@ export const watchTheAirLab: LabDef = {
         {
           id: 'shut',
           label: 'Shut the port the box is plugged into',
-          hint: 'Port 7 on [[lansw]]. Press Edit on it, then Shut port down.',
+          hint: 'Port 7 on [[lansw]]. Press **Edit** on it, then **Shut port down**.',
           check: ({ sim }) => !!sim.dev('lansw').switchSec?.ports[ROGUE_PORT]?.shutdown,
         },
       ],
@@ -295,7 +295,7 @@ export const watchTheAirLab: LabDef = {
         {
           id: 'copied',
           label: 'See which devices join the exact copy',
-          hint: 'Press The radio copies the name and the security, then read the lines under it.',
+          hint: 'Press **The radio copies the name and the security**, then read the lines under it.',
           check: ({ sim }) => copied(sim) && sim.dev('visitor').wifiClient?.joinedAp === 'twin' && STAFF.every((id) => onReal(sim, id)),
         },
       ],
@@ -449,7 +449,7 @@ export const watchTheAirLab: LabDef = {
             { id: 'crowd', text: 'Too many people are online at once tonight.', feedback: 'A crowd slows things down, but devices stay connected. Here nobody is connected.' },
             { id: 'password', text: 'Someone changed the Wi-Fi password today.', feedback: 'That would show sign-in failures in the log, not noise at 88.' },
           ],
-          explain: "**Jamming** drowns out a channel with noise. The access point still works, and a scanner still catches its name. But the noise drowns out the messages going back and forth, so no device can stay connected. A radio that is still on the air plus very high noise points to a jammer. Jamming is against the law, so the shelter would report it.",
+          explain: "**Jamming** fills a channel with noise. The access point still works, and a scanner still catches its name. But the noise drowns out the messages going back and forth, so no device can stay connected. A radio that is still on the air plus very high noise points to a jammer. Jamming is against the law, so the shelter would report it.",
         },
       ],
     },
@@ -542,7 +542,7 @@ export const watchTheAirLab: LabDef = {
             return !!r && r.missed.length === 0 && !r.falseAlarms.some(isMovieNight);
           },
         },
-        { id: 'read', label: 'Open an alert line in the Logs tab', hint: 'Check Alerts only in the Logs tab.', check: openedLog((e) => e.device === 'wap' && e.source === 'wids' && e.level === 'alert') },
+        { id: 'read', label: 'Open an alert line in the Logs tab', hint: 'In the Logs tab, check the **Alerts only** box.', check: openedLog((e) => e.device === 'wap' && e.source === 'wids' && e.level === 'alert') },
       ],
       questions: [
         {
@@ -554,7 +554,7 @@ export const watchTheAirLab: LabDef = {
             { id: 'keep', text: 'Keep the rule, and check each new device.', correct: true },
             { id: 'off', text: 'Turn off the rule for new devices on a switch port.', feedback: 'That rule also caught the rogue box on the wired side. Without it, a box with its radio off would slip past.' },
             { id: 'ignore', text: 'Keep the rule, but ignore every alert from the switch.', feedback: 'An alert nobody reads is the same as no alarm.' },
-            { id: 'ban', text: 'Ban volunteers from bringing their own laptops.', feedback: 'That costs the shelter help and still leaves the alarm with nothing to tell apart.' },
+            { id: 'ban', text: 'Ban volunteers from bringing their own laptops.', feedback: "That costs the shelter help, and the alarm still can't tell a rogue box from any other new device." },
           ],
           explain: 'Every alarm has a cost: someone has to check it. A rule that raises a few false alarms is worth keeping when it also catches real attacks. The rogue box showed up the same way the laptop did, as a new device on a switch port. Turning the rule off to stop the false alarms also stops it catching the next box.',
         },
@@ -584,7 +584,7 @@ export const watchTheAirLab: LabDef = {
             { id: 'sites', text: 'A log of every website each family visits on the Wi-Fi.', feedback: 'That watches people, not the air. It costs families their privacy and would catch none of tonight\'s attacks.' },
             { id: 'off', text: 'Turn the Wi-Fi off each night so there is nothing to watch.', feedback: 'That is not detection, and families need the Wi-Fi at night.' },
           ],
-          explain: 'A good set of detective controls covers each attack you saw: an inventory and sweeps for rogue boxes (the alarms only hear radios near the access points, and a sweep walks the whole building), name and address rules for evil twins, a tuned noise alarm for jammers, and a person who reads the alerts. Controls that watch what people do cost privacy without adding protection. Even the alarms keep a little about people: which device joined and when.',
+          explain: 'A good set of detective controls covers each attack you saw: an inventory and sweeps for rogue boxes, name and address rules for evil twins, a tuned noise alarm for jammers, and a person who reads the alerts. The sweeps matter because the alarms only hear radios near the access points, and a sweep walks the whole building. Controls that watch what people do cost privacy without adding protection. Even the alarms keep a little about people: which device joined and when.',
         },
         {
           id: 'impact',
