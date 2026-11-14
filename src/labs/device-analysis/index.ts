@@ -271,7 +271,7 @@ export const deviceAnalysisLab: LabDef = {
 
         1. Only the website (ports 80 and 443) is open to everyone on the internet.
         2. Remote administration (SSH, remote desktop, screen sharing) is allowed only from the office network, 192.0.2.0/24.
-        3. Files move only over encrypted connections: SFTP, never FTP. Bayline Farms uploads the nightly order file this way, from its own network.
+        3. Files move only over encrypted connections: **SFTP** (file transfer over SSH), never FTP. Bayline Farms uploads the nightly order file this way, from its own network.
         4. Security updates are installed within 7 days.
         5. Someone reviews the server's logs every Monday.
 
