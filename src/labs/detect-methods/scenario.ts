@@ -315,7 +315,7 @@ export const BENCH_CONFIG: BenchConfig = {
 // ---------------------------------------------------------------------------
 
 const TOP = 230;
-const ROW = 400;
+const ROW = 430;
 
 export function buildDetect(): Sim {
   const n = new NetBuilder({ linkMs: 600 })
@@ -323,7 +323,7 @@ export function buildDetect(): Sim {
       label: NAMES.bench,
       sublabel: 'replays recorded days',
       icon: 'server',
-      x: 120,
+      x: 110,
       y: TOP,
       ip: '10.9.0.10/24',
       notes: [
@@ -335,7 +335,7 @@ export function buildDetect(): Sim {
       label: NAMES.analyst,
       sublabel: 'checks alerts',
       icon: 'desktop',
-      x: 120,
+      x: 110,
       y: ROW,
       ip: '10.9.0.20/24',
       notes: ['Where an analyst reads each alert and decides whether it is a real attack. Checking one alert takes about 5 minutes.'],
@@ -343,19 +343,19 @@ export function buildDetect(): Sim {
     .switch('sc-net', {
       label: NAMES['sc-net'],
       sublabel: 'sensor on mirror port',
-      x: 430,
+      x: 420,
       y: TOP,
       notes: [
         'StreamCo streams shows to about 2 million viewers. Its traffic is enormous and changes all day: a new season or a big game can double it in an hour.',
         'Its sensor sees about 900,000 connections a minute.',
       ],
     })
-    .host('sc-video', { label: NAMES['sc-video'], icon: 'tv', x: 280, y: ROW, ip: '10.1.0.10/24', notes: ['Sends video to viewers. About 40 GB an hour, more in the evening.'] })
-    .host('sc-accounts', { label: NAMES['sc-accounts'], icon: 'server', x: 430, y: ROW, ip: '10.1.0.20/24', notes: ['Checks viewers’ passwords when they sign in.'] })
+    .host('sc-video', { label: NAMES['sc-video'], icon: 'tv', x: 290, y: ROW, ip: '10.1.0.10/24', notes: ['Sends video to viewers. About 40 GB an hour, more in the evening.'] })
+    .host('sc-accounts', { label: NAMES['sc-accounts'], icon: 'server', x: 420, y: ROW, ip: '10.1.0.20/24', notes: ['Checks viewers’ passwords when they sign in.'] })
     .host('sc-library', {
       label: NAMES['sc-library'],
       icon: 'server',
-      x: 580,
+      x: 550,
       y: ROW,
       ip: '10.1.0.30/24',
       notes: ['Holds every show, including ones not released yet. Copies shows to the video servers and trades files with partner studios.'],
@@ -363,29 +363,29 @@ export function buildDetect(): Sim {
     .switch('rb-net', {
       label: NAMES['rb-net'],
       sublabel: 'sensor on mirror port',
-      x: 930,
+      x: 860,
       y: TOP,
       notes: [
         'Riverbend Bottling fills and caps bottles. Its control network runs the machines on the factory floor.',
         'The same machines send the same messages every few seconds, all day, every day. Its sensor sees about 1,200 connections a minute.',
       ],
     })
-    .host('rb-filler', { label: NAMES['rb-filler'], icon: 'server', x: 780, y: ROW, ip: '10.2.0.11/24', notes: ['Runs the bottle filler. Reports to the control screen.'] })
-    .host('rb-capper', { label: NAMES['rb-capper'], icon: 'server', x: 930, y: ROW, ip: '10.2.0.12/24', notes: ['Runs the capping machine. Reports to the control screen.'] })
-    .host('rb-hmi', { label: NAMES['rb-hmi'], icon: 'desktop', x: 1080, y: ROW, ip: '10.2.0.20/24', notes: ['Where operators watch and steer the machines. Sends shift reports to the plant office.'] })
+    .host('rb-filler', { label: NAMES['rb-filler'], icon: 'server', x: 730, y: ROW, ip: '10.2.0.11/24', notes: ['Runs the bottle filler. Reports to the control screen.'] })
+    .host('rb-capper', { label: NAMES['rb-capper'], icon: 'server', x: 860, y: ROW, ip: '10.2.0.12/24', notes: ['Runs the capping machine. Reports to the control screen.'] })
+    .host('rb-hmi', { label: NAMES['rb-hmi'], icon: 'desktop', x: 990, y: ROW, ip: '10.2.0.20/24', notes: ['Where operators watch and steer the machines. Sends shift reports to the plant office.'] })
     .switch('cd-net', {
       label: NAMES['cd-net'],
       sublabel: 'sensor on mirror port',
-      x: 1430,
+      x: 1300,
       y: TOP,
       notes: [
         'County 911 Dispatch answers emergency calls and sends police, fire, and ambulances. If it goes down, help arrives late.',
         'Its sensor sees about 15,000 connections a minute.',
       ],
     })
-    .host('cd-console', { label: NAMES['cd-console'], icon: 'desktop', x: 1280, y: ROW, ip: '10.3.0.21/24', notes: ['Where a dispatcher takes calls and assigns units.'] })
-    .host('cd-cad', { label: NAMES['cd-cad'], icon: 'server', x: 1430, y: ROW, ip: '10.3.0.10/24', notes: ['Keeps every open call, every unit’s location, and the shared files dispatchers use.'] })
-    .host('cd-radio', { label: NAMES['cd-radio'], icon: 'wifi', x: 1580, y: ROW, ip: '10.3.0.30/24', notes: ['Connects the dispatch system to the police and fire radios, and records calls.'] })
+    .host('cd-console', { label: NAMES['cd-console'], icon: 'desktop', x: 1170, y: ROW, ip: '10.3.0.21/24', notes: ['Where a dispatcher takes calls and assigns units.'] })
+    .host('cd-cad', { label: NAMES['cd-cad'], icon: 'server', x: 1300, y: ROW, ip: '10.3.0.10/24', notes: ['Keeps every open call, every unit’s location, and the shared files dispatchers use.'] })
+    .host('cd-radio', { label: NAMES['cd-radio'], icon: 'wifi', x: 1430, y: ROW, ip: '10.3.0.30/24', notes: ['Connects the dispatch system to the police and fire radios, and records calls.'] })
     .link('bench', 'analyst');
   for (const [hub, hosts] of [
     ['sc-net', ['sc-video', 'sc-accounts', 'sc-library']],
@@ -403,10 +403,10 @@ export function zones(): MapZone[] {
   const y = TOP - 95;
   const h = ROW - TOP + 190;
   return [
-    { id: 'soc', shape: { kind: 'rect', x: 30, y, w: 180, h }, label: 'Your company', tone: 'info' },
-    { id: STREAM, shape: { kind: 'rect', x: 200 + 30, y, w: 400, h }, label: 'StreamCo: video streaming', tone: 'neutral' },
-    { id: PLANT, shape: { kind: 'rect', x: 700, y, w: 460, h }, label: 'Riverbend Bottling: plant controls', tone: 'neutral' },
-    { id: DISPATCH, shape: { kind: 'rect', x: 1200, y, w: 460, h }, label: 'County 911 Dispatch', tone: 'neutral' },
+    { id: 'soc', shape: { kind: 'rect', x: 30, y, w: 160, h }, label: 'Your company', tone: 'info' },
+    { id: STREAM, shape: { kind: 'rect', x: 220, y, w: 400, h }, label: 'StreamCo: video streaming', tone: 'neutral' },
+    { id: PLANT, shape: { kind: 'rect', x: 660, y, w: 400, h }, label: 'Riverbend Bottling: plant controls', tone: 'neutral' },
+    { id: DISPATCH, shape: { kind: 'rect', x: 1100, y, w: 400, h }, label: 'County 911 Dispatch', tone: 'neutral' },
   ];
 }
 

@@ -21,7 +21,7 @@ import { HardeningCard } from './HardeningCard';
 import { AiThresholdCard, IdsCard, SiemCard } from './DetectionCards';
 import { EchoTool } from './EchoTool';
 import { TerminalTool } from './Terminal';
-import { AnalystQueueCard, BenchCard, BenchPlanCard } from './Bench';
+import { BenchCard, BenchPlanCard } from './Bench';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -71,6 +71,5 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   terminal: TerminalTool,
   // detect-methods
   bench: BenchCard,
-  'analyst-queue': AnalystQueueCard,
   'bench-plan': BenchPlanCard,
 };

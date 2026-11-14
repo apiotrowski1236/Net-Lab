@@ -6604,14 +6604,17 @@ button.pl-tile:active {
 .bad-ink {
   color: var(--bad-ink);
 }
-.bench-queue .tool-desc {
-  margin-bottom: 6px;
+.bench-queue {
+  margin-bottom: 10px;
+}
+.bench-queue p {
+  margin: 0 0 6px;
 }
 .bench-alerts {
   list-style: none;
   margin: 6px 0 0;
   padding: 0;
-  max-height: 210px;
+  max-height: 160px;
   overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 8px;

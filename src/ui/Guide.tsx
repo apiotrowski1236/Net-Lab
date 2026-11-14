@@ -45,7 +45,6 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   siem: 'SIEM incidents (in the inspector)',
   'ai-threshold': 'AI threshold (in the inspector)',
   bench: 'Detection bench',
-  'analyst-queue': 'Analyst queue',
   'bench-plan': 'Detection plan',
   // smurf
   'echo-tool': 'Echo tool',

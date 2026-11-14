@@ -234,11 +234,11 @@ export type ToolSpec =
    * The detection bench `device` (detect-methods): pick a client, a method,
    * and settings, run it, and read the scoreboard. Only `clients` and
    * `methods` are offered; `controls` reveals the database, baseline, and
-   * tolerance controls.
+   * tolerance controls. `queue` shows the analyst queue for the newest run in
+   * place of the scoreboard: a tired analyst works through its alerts, and
+   * each row opens its ALERT line.
    */
-  | { kind: 'bench'; device: string; clients: string[]; methods: BenchMethod[]; controls: BenchControl[] }
-  /** A tired analyst works through `client`'s latest run's alerts on the bench `device`. Rows open in the Logs tab. */
-  | { kind: 'analyst-queue'; device: string; client: string }
+  | { kind: 'bench'; device: string; clients: string[]; methods: BenchMethod[]; controls: BenchControl[]; queue?: boolean }
   /** Recommend a method for each client on the bench `device`, within its budget. */
   | { kind: 'bench-plan'; device: string }
   /** Echo tool (smurf): ping from `device`, with an optional forged source address. Its own Toolkit card. */

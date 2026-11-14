@@ -203,6 +203,7 @@ export const detectMethodsLab: LabDef = {
         1. Press **Install the October 2026 update**.
         2. Run signature detection again, and compare the new row in the table with the first.
       `,
+      open: 'tools',
       focus: [BENCH],
       tools: [{ kind: 'bench', device: BENCH, clients: [STREAM], methods: ['signature'], controls: ['db'] }],
       goals: [
@@ -249,6 +250,7 @@ export const detectMethodsLab: LabDef = {
         3. Press **Run anomaly on Nov 12**.
       `,
       setup: (sim) => anomalyOn(sim, PLANT),
+      open: 'tools',
       focus: [BENCH, 'rb-net'],
       tools: [{ kind: 'bench', device: BENCH, clients: [PLANT], methods: ['anomaly'], controls: ['baseline'] }],
       goals: [
@@ -294,6 +296,7 @@ export const detectMethodsLab: LabDef = {
         3. Record from **Sep 14** again and run once more.
       `,
       setup: (sim) => anomalyOn(sim, PLANT),
+      open: 'tools',
       focus: [BENCH, 'rb-filler'],
       tools: [{ kind: 'bench', device: BENCH, clients: [PLANT], methods: ['anomaly'], controls: ['baseline'] }],
       goals: [
@@ -343,6 +346,7 @@ export const detectMethodsLab: LabDef = {
 
         Compare the new row in the table with your signature runs.
       `,
+      open: 'tools',
       focus: [BENCH, 'sc-net'],
       tools: [{ kind: 'bench', device: BENCH, clients: [STREAM], methods: ['signature', 'anomaly'], controls: ['baseline', 'tolerance'] }],
       goals: [
@@ -366,7 +370,7 @@ export const detectMethodsLab: LabDef = {
               correct: true,
             },
             { id: 'analyst', text: 'It waits for an analyst to approve each alert first.', feedback: 'Neither method waits for a person. The time is the computer’s work.' },
-            { id: 'hidden', text: 'The copied shows were hidden better than StuffBot was.', feedback: 'The copy was 3 GB, easy to see in the totals. The delay comes from the amount of traffic to measure.' },
+            { id: 'hidden', text: 'The copied shows were hidden better than StuffBot was.', feedback: 'The copy was 3 GB, which stands out in the totals. The delay comes from the amount of traffic to measure.' },
             { id: 'old', text: 'Anomaly detection runs on older computers than signatures.', feedback: 'It runs on more expensive computers, not older ones, and it is still slower.' },
           ],
           explain:
@@ -394,7 +398,7 @@ export const detectMethodsLab: LabDef = {
       body: md`
         Every alert goes to an analyst, who checks it before anyone acts. Checking one takes about 5 minutes. Most of StreamCo's alerts were **false positives**: normal swings in traffic that crossed the tolerance line.
 
-        The **Analyst queue** card shows what happened to your newest StreamCo run. After five false alarms in a row, the analyst started closing alerts without reading them. This is **alert fatigue**.
+        The **Analyst queue** in the bench card shows what happened to your newest StreamCo run. After five false alarms in a row, the analyst started closing alerts without reading them. This is **alert fatigue**.
 
         1. In the queue, find the 14:20 alert from [[sc-library]], marked **closed unread**, and click it.
         2. Change the tolerance and run again until the analyst finds the copied shows.
@@ -404,8 +408,7 @@ export const detectMethodsLab: LabDef = {
       open: 'tools',
       focus: [BENCH, 'sc-library'],
       tools: [
-        { kind: 'bench', device: BENCH, clients: [STREAM], methods: ['anomaly'], controls: ['tolerance'] },
-        { kind: 'analyst-queue', device: BENCH, client: STREAM },
+        { kind: 'bench', device: BENCH, clients: [STREAM], methods: ['anomaly'], controls: ['tolerance'], queue: true },
         { kind: 'logs', devices: [BENCH] },
       ],
       goals: [
@@ -470,6 +473,7 @@ export const detectMethodsLab: LabDef = {
         2. Run **Signature**, then **Anomaly**, then **Hybrid** on Nov 12.
         3. Compare the three rows in the table.
       `,
+      open: 'tools',
       focus: [BENCH, 'cd-net'],
       tools: [{ kind: 'bench', device: BENCH, clients: [DISPATCH], methods: [...ALL], controls: ['baseline', 'tolerance'] }],
       goals: [
@@ -500,7 +504,7 @@ export const detectMethodsLab: LabDef = {
             { id: 'quiet', text: 'The most per month, but the fewest alerts.', feedback: 'The cost is right. But hybrid raises every alert either method raises, so it has the most.' },
           ],
           explain:
-            'Hybrid gets the best of both: signatures catch known attacks in seconds, and anomaly detection catches new ones. It is the most expensive method and raises the most alerts, which suits a sensitive or critical network that can afford it.',
+            'Hybrid combines the two: signatures catch known attacks in seconds, and anomaly detection catches new ones. It is the most expensive method and raises the most alerts, which suits a sensitive or critical network that can afford it.',
         },
       ],
     },
@@ -517,6 +521,7 @@ export const detectMethodsLab: LabDef = {
       `,
       setup: (sim) => baselineFrom(sim, DISPATCH, DISPATCH_BASE),
       actions: [renameFile],
+      open: 'tools',
       focus: [BENCH, 'cd-console'],
       tools: [
         { kind: 'bench', device: BENCH, clients: [DISPATCH], methods: [...ALL], controls: ['tolerance'] },
@@ -547,7 +552,7 @@ export const detectMethodsLab: LabDef = {
           id: 'easier',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'Which method is easier for an attacker to get past, and why?',
+          prompt: 'Which method takes less work for an attacker to get past, and why?',
           options: [
             { id: 'sig', text: 'Signature: changing one detail, like a file name, is enough.', correct: true },
             { id: 'anom-rename', text: 'Anomaly: renaming a file makes the traffic look normal.', feedback: 'A new name didn’t change what the traffic did, so anomaly detection still caught it.' },
@@ -555,7 +560,7 @@ export const detectMethodsLab: LabDef = {
             { id: 'anom-tol', text: 'Anomaly: its tolerance lets most attacks through.', feedback: 'Tolerance lets normal swings through. The encrypting was traffic the baseline had never seen.' },
           ],
           explain:
-            'Signatures are easier to get past: an attacker changes the detail the signature looks for, and the attack becomes a false negative. Anomaly detection watches what the traffic does, which is harder to disguise.',
+            'Signatures take less work to get past: an attacker changes the detail the signature looks for, and the attack becomes a false negative. Anomaly detection watches what the traffic does, which is harder to disguise.',
         },
         {
           id: 'when',

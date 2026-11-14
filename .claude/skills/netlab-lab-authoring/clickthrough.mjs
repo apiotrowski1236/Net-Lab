@@ -127,7 +127,7 @@ async function settle(limit = 120000) {
   const end = Date.now() + limit;
   let quietSince = 0;
   while (Date.now() < end) {
-    const busy = await page.evaluate(() => document.querySelectorAll('g.packet').length + document.querySelectorAll('.action-outcome li.wait, .ping-log li.wait, .term-wait').length);
+    const busy = await page.evaluate(() => document.querySelectorAll('g.packet').length + document.querySelectorAll('.action-outcome li.wait, .ping-log li.wait, .term-wait, .bench-busy').length);
     if (busy) quietSince = 0;
     else if (!quietSince) quietSince = Date.now();
     else if (Date.now() - quietSince > 1000) return true;
@@ -138,6 +138,104 @@ async function settle(limit = 120000) {
 
 const tab = (name) => page.getByRole('tab', { name: new RegExp(name) }).click();
 const device = (id) => page.locator('g.device').filter({ has: page.locator('text.device-label', { hasText: new RegExp(`^${labels[id]}$`) }) });
+
+/** Click a log line: a row in the bench's analyst queue when the step shows one for it (detect-methods), else the row in the Logs tab. */
+async function openLog(i, step, m) {
+  const hit = [...model.sim.dev(m.openLog).logs].reverse().find(m.where);
+  if (!hit) await fail(i, `the model has no log line on ${m.openLog} for this move`);
+  const b = model.sim.dev(m.openLog).bench;
+  const run = b?.runs.find((r) => r.result?.alerts.some((a) => a.logNo === hit.no));
+  const queued = run && step.tools?.some((t) => t.kind === 'bench' && t.queue && t.device === m.openLog && t.clients.includes(run.client));
+  if (queued && run === [...b.runs].reverse().find((r) => r.client === run.client && r.result)) {
+    await tab('Toolkit');
+    const n = run.result.alerts.findIndex((a) => a.logNo === hit.no);
+    await page.locator('.bench-queue .bench-alerts li').nth(n).locator('button').click();
+    log(`  open queue row ${n + 1}: ${hit.msg.slice(0, 70)}`);
+    return;
+  }
+  await tab('Logs');
+  const search = page.locator('.logs-search');
+  await search.fill(hit.msg);
+  const rows = page.locator('.logs-table tbody tr').filter({ has: page.locator(`td[title="${hit.msg.replace(/"/g, '\\"')}"]`) });
+  if ((await rows.count()) === 0) await fail(i, `no row in the Logs tab for "${hit.msg}"`);
+  await rows.last().click();
+  await search.fill('');
+  log(`  open log line: ${hit.msg.slice(0, 80)}`);
+}
+
+/** Log Detective's controls in the inspector: the IDS sensor's switches and tolerance, SIEM triage, the AI threshold. */
+async function doDetection(i, a) {
+  await device(a.device).locator('rect.device-card').first().click({ force: true });
+  await tab('Inspect');
+  const flip = async (name, on) => {
+    const sw = page.getByRole('switch', { name });
+    if ((await sw.count()) === 0) await fail(i, `no ${name} switch in ${labels[a.device]}'s inspector`);
+    if ((await sw.first().getAttribute('aria-checked')) !== String(on)) await sw.first().click();
+  };
+  if (a.type === 'ids-signatures') await flip(/^Signature set/, a.on);
+  else if (a.type === 'ids-prevention') await flip(/^Prevention mode/, a.on);
+  else if (a.type === 'ids-anomaly') {
+    await flip(/^Anomaly detection$/, a.on);
+    const name = { loose: 'Loose', medium: 'Medium', strict: 'Strict' }[a.tolerance];
+    const btn = page.getByRole('group', { name: 'Anomaly tolerance' }).getByRole('button', { name, exact: true });
+    if ((await btn.getAttribute('aria-pressed')) !== 'true') await btn.click();
+  } else if (a.type === 'siem-triage') {
+    const row = page.locator('.incident-row').filter({ has: page.locator('strong', { hasText: new RegExp(`^${a.incident}$`) }) });
+    if ((await row.getAttribute('aria-expanded')) !== 'true') await row.click();
+    await page.getByRole('group', { name: `Incident ${a.incident} verdict` }).getByRole('button', { name: a.verdict === 'real' ? 'Real attack' : 'False alarm' }).click();
+    await page.getByRole('group', { name: `Incident ${a.incident} action` }).getByRole('button', { name: a.action === 'escalate' ? 'Escalate' : 'Close' }).click();
+    await page.getByRole('button', { name: 'Save triage' }).click();
+  } else if (a.type === 'ai-threshold') {
+    await page.locator(`#ai-th-${a.device}`).fill(String(a.value));
+  }
+  log(`  ${a.type} on ${labels[a.device]}: ${JSON.stringify({ ...a, type: undefined, device: undefined })}`);
+}
+
+/** The detection bench's cards in the Toolkit (detect-methods). */
+async function doBench(i, a) {
+  await tab('Toolkit');
+  const b = model.sim.dev(a.device).bench;
+  const name = (id) => b.config.clients.find((c) => c.id === id).name;
+  const METHOD = { signature: 'Signature', anomaly: 'Anomaly', hybrid: 'Hybrid' };
+  const card = page.locator('.bench-card');
+  const pickClient = async () => {
+    const seg = card.getByRole('group', { name: 'Client' });
+    if (await seg.count()) await seg.getByRole('button', { name: name(a.client), exact: true }).click();
+    const title = await card.locator('.tool-title').innerText();
+    if (!title.includes(name(a.client))) await fail(i, `the bench card shows "${title}", not ${name(a.client)}`);
+  };
+  if (a.type === 'bench-set') {
+    await pickClient();
+    if (a.method) {
+      const seg = card.getByRole('group', { name: 'Method' });
+      if (await seg.count()) await seg.getByRole('button', { name: METHOD[a.method], exact: true }).click();
+      else await fail(i, `the bench card offers no method choice (wanted ${a.method})`);
+    }
+    if (a.tolerance !== undefined) {
+      const seg = card.getByRole('group', { name: 'Tolerance' });
+      if (!(await seg.count())) await fail(i, 'the bench card offers no tolerance choice');
+      await seg.getByRole('button', { name: `±${a.tolerance}%`, exact: true }).click();
+    }
+  } else if (a.type === 'bench-baseline') {
+    await pickClient();
+    const day = b.config.clients.find((c) => c.id === a.client).days[a.day].label;
+    const btn = card.locator('.bench-row', { hasText: 'Record a baseline from' }).getByRole('button', { name: day, exact: true });
+    if (!(await btn.count())) await fail(i, `no "${day}" baseline button on the bench card`);
+    await btn.click();
+  } else if (a.type === 'bench-db') {
+    const label = b.config.versions.find((v) => v.id === a.version).label;
+    await card.getByRole('button', { name: `Install the ${label} update` }).click();
+  } else if (a.type === 'bench-run') {
+    await pickClient();
+    const run = card.locator('.btn.primary', { hasText: /^\s*Run / });
+    if (await run.isDisabled()) await fail(i, `the bench's Run button is greyed out: ${await card.locator('.bench-settings').innerText()}`);
+    await run.click();
+  } else if (a.type === 'bench-plan') {
+    const seg = page.locator('.bench-plan').getByRole('group', { name: `Method for ${name(a.client)}` });
+    await seg.getByRole('button', { name: new RegExp(`^${METHOD[a.method]} `) }).click();
+  }
+  log(`  ${a.type}: ${JSON.stringify({ ...a, type: undefined, device: undefined })}`);
+}
 
 /** The Java and JavaScript editors and the objects demo. Other demos have no driver yet, so they fail loudly. */
 async function doDemo(id, input) {
@@ -260,6 +358,10 @@ async function doMove(i, step, m) {
       const last = card.locator('.term-entry').last();
       if ((await last.getAttribute('data-local')) !== null) await fail(i, `the Terminal turned away "${a.line}": ${(await last.innerText()).replace(/\s+/g, ' ')}`);
       log(`  ${a.device}> ${a.line}`);
+    } else if (a.type.startsWith('ids-') || a.type === 'siem-triage' || a.type === 'ai-threshold') {
+      await doDetection(i, a);
+    } else if (a.type.startsWith('bench-')) {
+      await doBench(i, a);
     } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doMove.`);
   } else if ('filter' in m) {
     await tab('Capture');
@@ -277,6 +379,8 @@ async function doMove(i, step, m) {
     if (n < 0) await fail(i, `no row in the capture list for ${want.proto} ${want.src} → ${want.dst} "${want.info}"`);
     await rows.nth(n).click();
     log(`  open packet: ${want.proto} ${want.info}`);
+  } else if ('openLog' in m) {
+    await openLog(i, step, m);
   } else if ('demo' in m) {
     await doDemo(m.demo, m.input);
   } else throw new Error(`clickthrough has no UI driver for move ${JSON.stringify(m)}. Add one in doMove.`);

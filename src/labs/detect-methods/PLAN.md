@@ -3,7 +3,7 @@
 Split from `logs` (see `docs/unit3/SUITE-PLAN.md`). Slot 14 of 17, right after Log Detective.
 
 - **Title:** Pick Your Detector
-- **Tagline (draft):** Run three detection methods against three very different networks, count what each one catches and misses, and recommend the right one for each client within budget.
+- **Tagline (draft):** Run three detection methods against three very different networks, count what each one catches and misses, and recommend one for each client within budget.
 - **CodeHS:** 3.16 Choosing Between Detection Methods, 3.17 Evaluating Detection Methods (including 3.17.2 Signature vs Anomaly Simulation, 3.17.3 Alert Fatigue, 3.17.4 False Negatives, 3.17.6 to 3.17.8 Recommend a Detection Strategy, 3.17.9 Zero-Day Blindspot)
 - **CED:** 3.5.C.1 to 3.5.C.4 and 3.5.D.1 to 3.5.D.4, all hands-on
 - **Minutes:** 45. **Steps:** 10 or 11.
@@ -63,3 +63,17 @@ Reuse: the IDS engine's signature list and anomaly scoring in `src/sim/ids.ts`, 
 ## Done means
 
 All checks in the authoring skill pass (typecheck, tests including bench unit tests, walkthrough, playthrough in light, dark, and small, click-through at 4× and 1×) for this lab and the trimmed logs lab. `/avoid-ai-writing` run on the student text. PLAN.md in `src/labs/detect-methods/`, set to "Status: built".
+
+## As built
+
+Status: built. Code: `index.ts`, `scenario.ts`, `solution.ts`, `lab.test.ts` here; the bench model in `src/sim/bench.ts` (tests in `bench.test.ts`); the cards in `src/ui/tools/Bench.tsx`. `src/sim/ids.ts` is untouched.
+
+Where the build differs from the outline above:
+
+- **Step 2** runs with the September 2026 database, so signatures catch only StuffBot (1 of 3). Step 3's October update adds VidJack; the copied shows (the zero-day) stay missed. This gives step 3 something to change.
+- **Step 6** has two questions, speed and cost, instead of one.
+- **Step 7**: the analyst is simulated. They check alerts in order, 5 minutes each, and after 5 false alarms in a row close the rest unread. At ±25% the copied-shows alert (14:20, Content library) is closed unread; at ±100% the analyst finds it; at ±200% the bench misses it. The queue sits inside the bench card (`queue: true` on the `bench` tool) rather than in its own card, so it stays above the fold. The step's setup makes a ±25% run if the student's newest StreamCo run doesn't already show the closed alert.
+- **Step 9**: the changed detail is the file name (`dispatch_patch.exe`), loaded with a lesson button. Students open the anomaly alert in the Logs tab and type its time (10:42).
+- **Step 10** folds in the reflection: the write-up (60 words) names a method and a bench number per client and one remaining risk. There is no separate reflect step, so the lab has 11 steps.
+- The only plan that meets every client's need within $5,400 is signature / anomaly / hybrid ($5,200). `lab.test.ts` pins this and the other teaching numbers (false alarms 60/40/22/4/0 across the tolerances, detection times, the infected baseline's miss).
+- The scoreboard is a table in the bench card, not an inspector section. Map markers show each run's alert count and missed attacks on the device involved.

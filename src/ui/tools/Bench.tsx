@@ -177,13 +177,14 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
             <button class="btn primary" disabled={busy || needsBaseline} onClick={() => (session.dispatch({ type: 'bench-run', device: spec.device, client: cid }), setShown(null))}>
               <Icon name="play" /> Run {METHOD_NAME[set.method].toLowerCase()} on {dayLabel}
             </button>
-            {busy && <span class="small muted">Replaying {dayLabel}…</span>}
+            {busy && <span class="small muted bench-busy">Replaying {dayLabel}…</span>}
             {needsBaseline && !busy && <span class="small muted">Record a baseline first.</span>}
           </div>
         </div>
         <div class="bench-results">
-          {detail ? <RunDetail b={b} run={detail} /> : <p class="small muted">No runs on {c.name} yet. Results show here.</p>}
-          {runs.length > 1 && (
+          {spec.queue && <AnalystQueue key={lastRun(b, (r) => r.client === cid)?.no ?? 0} session={session} devId={spec.device} client={cid} />}
+          {detail ? <RunDetail b={b} run={detail} /> : !spec.queue && <p class="small muted">No runs on {c.name} yet. Results show here.</p>}
+          {runs.length > 1 && !spec.queue && (
             <table class="table bench-table">
               <thead>
                 <tr>
@@ -227,76 +228,70 @@ const QUEUE_TONE: Record<QueueStatus, string> = { real: 'good', false: 'muted', 
 
 /**
  * A tired analyst works through the newest run's alerts (bench.ts workQueue).
- * Each row opens its ALERT line, as the Logs tab does.
+ * Each row opens its ALERT line, as the Logs tab does. Shown in the bench
+ * card when its spec has `queue` (step "Alert fatigue").
  */
-export function AnalystQueueCard({ session, spec }: ToolCardProps<'analyst-queue'>) {
-  void session.simRev.value;
+function AnalystQueue({ session, devId, client }: { session: ToolCardProps['session']; devId: string; client: string }) {
   const [open, setOpen] = useState<number | null>(null);
   const sim = session.sim;
-  const dev = sim.devices[spec.device];
-  const b = dev?.bench;
-  if (!b) return null;
-  const c = clientOf(b, spec.client);
-  const run = lastRun(b, (r) => r.client === spec.client);
+  const dev = sim.devices[devId];
+  const b = dev.bench!;
+  const c = clientOf(b, client);
+  const run = lastRun(b, (r) => r.client === client);
   const name = (id: string) => b.config.names?.[id] ?? sim.devices[id]?.label ?? id;
   const pick = (a: BenchAlert, i: number) => {
     setOpen(open === i ? null : i);
     const entry = dev.logs.find((e) => e.no === a.logNo);
     if (entry) session.ui({ type: 'ui:open-log', device: dev.id, entry });
   };
+  const r = run?.result;
+  const q = r && queueCounts(r);
   return (
-    <div class="tool-card bench-queue">
-      <div class="tool-title">
-        <Icon name="users" /> Analyst queue: {c.name}
-      </div>
-      <p class="tool-desc">
-        The analyst checks alerts in order, {MINUTES_PER_ALERT} minutes each. After {FATIGUE_AFTER} false alarms in a row, they stop looking and close the rest unread.
+    <div class="bench-queue">
+      <p class="small">
+        <strong>Analyst queue.</strong> The analyst checks alerts in order, {MINUTES_PER_ALERT} minutes each. After {FATIGUE_AFTER} false alarms in a row, they stop
+        looking and close the rest unread.
       </p>
-      {!run?.result ? (
+      {!run || !r || !q ? (
         <p class="small muted">No finished run on {c.name} yet. Run the bench, and its alerts land here.</p>
       ) : (
-        (() => {
-          const r = run.result;
-          const q = queueCounts(r);
-          return (
-            <>
-              <p class="small">
-                <strong>Run {run.no}</strong> ({METHOD_NAME[run.method]}, {runSettings(b, run)}): {r.alerts.length} alert{r.alerts.length === 1 ? '' : 's'}. Checked{' '}
-                {q.checked}, {q.falseMinutes} minutes on false alarms.{' '}
-                {q.closed > 0 && (
+        <>
+          <p class="small">
+            Run {run.no}: {r.alerts.length} alert{r.alerts.length === 1 ? '' : 's'}. Checked {q.checked}, with {q.falseMinutes} minutes spent on false alarms.
+            {q.closed > 0 && (
+              <>
+                {' '}
+                Closed <strong>{q.closed}</strong> unread
+                {q.realClosed > 0 ? (
                   <>
-                    Closed <strong>{q.closed}</strong> unread
-                    {q.realClosed > 0 && (
-                      <>
-                        , including <strong class="bad-ink">{q.realClosed === 1 ? 'a real attack' : `${q.realClosed} real attacks`}</strong>
-                      </>
-                    )}
-                    .
+                    , including <strong class="bad-ink">{q.realClosed === 1 ? 'a real attack' : `${q.realClosed} real attacks`}</strong>.
                   </>
+                ) : (
+                  '.'
                 )}
-              </p>
-              {r.alerts.length > 0 && (
-                <ol class="bench-alerts">
-                  {r.alerts.map((a, i) => (
-                    <li key={i} class={open === i ? 'open' : ''}>
-                      <button class="bench-alert" onClick={() => pick(a, i)} aria-expanded={open === i}>
-                        <span class="mono">{clock(a.at)}</span>
-                        <span>{name(a.host)}</span>
-                        <span class={`pill tiny ${QUEUE_TONE[a.queue ?? 'false']}`}>{QUEUE_TEXT[a.queue ?? 'false']}</span>
-                      </button>
-                      {open === i && (
-                        <p class="small">
-                          {a.by === 'signature' ? 'Signature' : 'Anomaly'}: {a.why}.
-                          {a.attack ? ` This one was real: ${c.attacks.find((x) => x.id === a.attack)?.name}.` : ' Nothing was wrong.'}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </>
-          );
-        })()
+              </>
+            )}
+          </p>
+          {r.alerts.length > 0 && (
+            <ol class="bench-alerts" aria-label={`Run ${run.no} alerts`}>
+              {r.alerts.map((a, i) => (
+                <li key={`${run.no}-${i}`} class={open === i ? 'open' : ''}>
+                  <button class="bench-alert" onClick={() => pick(a, i)} aria-expanded={open === i}>
+                    <span class="mono">{clock(a.at)}</span>
+                    <span>{name(a.host)}</span>
+                    <span class={`pill tiny ${QUEUE_TONE[a.queue ?? 'false']}`}>{QUEUE_TEXT[a.queue ?? 'false']}</span>
+                  </button>
+                  {open === i && (
+                    <p class="small">
+                      {a.by === 'signature' ? 'Signature' : 'Anomaly'}: {a.why}.
+                      {a.attack ? ` This one was real: ${c.attacks.find((x) => x.id === a.attack)?.name}.` : ' Nothing was wrong.'}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
       )}
     </div>
   );
