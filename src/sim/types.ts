@@ -15,6 +15,7 @@ import type { DhcpMessage, DhcpState } from './dhcp';
 import type { NatEntry, NatNote, NatState } from './nat';
 import type { CaptureRun } from './capture';
 import type { Socket, TermRun } from './terminal';
+import type { BenchState } from './bench';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -230,6 +231,8 @@ export interface Device {
   term?: TermRun[];
   /** Connections this computer holds open, for netstat (see terminal.ts). */
   sockets?: Socket[];
+  /** A detection bench: replays clients' recorded traffic through detection methods and scores them (see bench.ts, detect-methods). */
+  bench?: BenchState;
 }
 
 // ---------------------------------------------------------------------------
@@ -483,7 +486,13 @@ export type SimEvent = (
    */
   | { t: number; type: 'nat'; device: string; what: 'out' | 'in'; entry: NatEntry; publicIp: Ip; who?: string; pkt: IpPacket }
   /** A command typed in `device`'s terminal finished: every answer is in, or the waits ran out (see terminal.ts). */
-  | { t: number; type: 'term-done'; device: string; run: TermRun }) & {
+  | { t: number; type: 'term-done'; device: string; run: TermRun }
+  /**
+   * A detection bench run finished (see bench.ts). `device` is a map device on
+   * the client's network: 'alerts' says how many alerts it raised, 'missed'
+   * how many attacks on it went unnoticed. `bench` is the bench device.
+   */
+  | { t: number; type: 'bench'; device: string; bench: string; run: number; what: 'alerts' | 'missed'; count: number }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */
   quiet?: boolean;
 };

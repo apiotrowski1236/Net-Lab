@@ -90,6 +90,7 @@ export const CURRICULA: Curriculum[] = [
       'segmentation',
       'firewall',
       'logs',
+      'detect-methods',
       // Answer sheets for CYBER.ORG Range labs (LabDef.worksheet). The home page lists them in their own group.
       'hijacked-ssh-1',
     ],

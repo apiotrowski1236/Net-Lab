@@ -241,6 +241,11 @@ function markerFor(
         default:
           return null;
       }
+    // detect-methods: a bench run's alerts and missed attacks, on the devices they were about
+    case 'bench':
+      return e.what === 'alerts'
+        ? { device: e.device, text: `${e.count} alert${e.count === 1 ? '' : 's'}`, tone: 'warn' }
+        : { device: e.device, text: `missed ${e.count === 1 ? 'an attack' : `${e.count} attacks`}`, tone: 'bad' };
     default:
       return null;
   }
