@@ -284,11 +284,11 @@ export function buildCoop(): Sim {
       label: 'web01',
       icon: 'server',
       x: 170,
-      y: 360,
+      y: 380,
       ip: `${IP.web}/24`,
       gateway: IP.webGw,
       services: [
-        { port: 21, proto: 'tcp', app: 'ftp', banner: '220 (vsFTPd 3.0.5)', program: 'vsftpd' },
+        { port: 21, proto: 'tcp', app: 'ftp', banner: 'vsftpd 3.0.5', program: 'vsftpd' },
         { port: 22, proto: 'tcp', app: 'ssh', banner: 'SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.10', program: 'sshd' },
         { port: 80, proto: 'tcp', app: 'http', banner: 'nginx/1.18.0 (Ubuntu)', program: 'nginx' },
         { port: 443, proto: 'tcp', app: 'https', banner: 'nginx/1.18.0 (Ubuntu)', program: 'nginx' },
@@ -317,7 +317,7 @@ export function buildCoop(): Sim {
       label: 'Internet',
       icon: 'cloud',
       x: 520,
-      y: 360,
+      y: 380,
       ifaces: [
         { id: 'web', ip: `${IP.webGw}/24` },
         { id: 'office', ip: `${IP.officeGw}/24` },
@@ -326,13 +326,13 @@ export function buildCoop(): Sim {
         { id: 'far', ip: `${IP.badGw}/24` },
       ],
     })
-    .host('jo', { label: "Jo's laptop", icon: 'laptop', x: 330, y: 130, ip: `${IP.jo}/24`, gateway: IP.officeGw })
-    .host('vendor', { label: 'Bayline Farms', icon: 'server', x: 720, y: 130, ip: `${IP.vendor}/24`, gateway: IP.vendorGw })
-    .host('customer', { label: 'Customer', icon: 'phone', x: 860, y: 300, ip: `${IP.customer}/24`, gateway: IP.customerGw })
-    .switch('badsw', { label: 'Switch', icon: 'switch', x: 760, y: 520, ports: 4 })
-    .host('sprayer', { label: 'Unknown A', icon: 'attacker', x: 1010, y: 430, ip: `${IP.sprayer}/24`, gateway: IP.badGw, attacker: true })
-    .host('scanner', { label: 'Unknown B', icon: 'attacker', x: 1010, y: 540, ip: `${IP.scanner}/24`, gateway: IP.badGw, attacker: true })
-    .host('bot', { label: 'Unknown C', icon: 'attacker', x: 1010, y: 650, ip: `${IP.bot}/24`, gateway: IP.badGw, attacker: true })
+    .host('jo', { label: "Jo's laptop", icon: 'laptop', x: 330, y: 150, ip: `${IP.jo}/24`, gateway: IP.officeGw })
+    .host('vendor', { label: 'Bayline Farms', icon: 'server', x: 720, y: 150, ip: `${IP.vendor}/24`, gateway: IP.vendorGw })
+    .host('customer', { label: 'Customer', icon: 'phone', x: 900, y: 270, ip: `${IP.customer}/24`, gateway: IP.customerGw })
+    .switch('badsw', { label: 'Switch', icon: 'switch', x: 980, y: 510, ports: 4 })
+    .host('sprayer', { label: 'Unknown A', icon: 'attacker', x: 830, y: 640, ip: `${IP.sprayer}/24`, gateway: IP.badGw, attacker: true })
+    .host('scanner', { label: 'Unknown B', icon: 'attacker', x: 980, y: 640, ip: `${IP.scanner}/24`, gateway: IP.badGw, attacker: true })
+    .host('bot', { label: 'Unknown C', icon: 'attacker', x: 1130, y: 640, ip: `${IP.bot}/24`, gateway: IP.badGw, attacker: true })
     .link(WEB, ['net', 'web'])
     .link('jo', ['net', 'office'])
     .link('vendor', ['net', 'vendor'])

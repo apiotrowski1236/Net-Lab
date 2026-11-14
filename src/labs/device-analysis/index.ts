@@ -44,10 +44,10 @@ import {
 
 function zones(): MapZone[] {
   return [
-    { id: 'coop', shape: { kind: 'rect', x: 60, y: 270, w: 220, h: 180 }, label: 'Harbor Food Co-op server', tone: 'good' },
-    { id: 'office', shape: { kind: 'rect', x: 220, y: 40, w: 220, h: 170 }, label: `Co-op office ${NET.office}`, tone: 'neutral' },
-    { id: 'vendor', shape: { kind: 'rect', x: 610, y: 40, w: 220, h: 170 }, label: `Bayline Farms ${NET.vendor}`, tone: 'neutral' },
-    { id: 'unknown', shape: { kind: 'rect', x: 680, y: 370, w: 420, h: 340 }, label: 'Unknown addresses 203.0.113.0/24', tone: 'bad', dashed: true },
+    { id: 'coop', shape: { kind: 'rect', x: 60, y: 290, w: 230, h: 200 }, label: 'Harbor Food Co-op server', tone: 'good' },
+    { id: 'office', shape: { kind: 'rect', x: 220, y: 80, w: 220, h: 170 }, label: `Co-op office ${NET.office}`, tone: 'neutral' },
+    { id: 'vendor', shape: { kind: 'rect', x: 610, y: 80, w: 220, h: 170 }, label: `Bayline Farms ${NET.vendor}`, tone: 'neutral' },
+    { id: 'unknown', shape: { kind: 'rect', x: 740, y: 400, w: 480, h: 320 }, label: 'Unknown addresses 203.0.113.0/24', tone: 'bad', dashed: true },
   ];
 }
 
@@ -136,9 +136,10 @@ const spray: ActionDef = {
     const g = guessLines(sim, since, 'sprayer', 'spray', 4);
     if (!g.done) return g.lines;
     const first = (sim.dev('sprayer').conns ?? []).find((c) => c.t >= since && c.tag === 'spray');
-    const why = first ? verdictWords(sim, first) : undefined;
-    if (g.reached) return [{ tone: 'bad', text: `${g.reached} of 4 guesses reached sshd. ${why ?? ''}. Each wrong guess is a new Failed password line in auth.log.` }];
-    return [{ tone: 'good', text: `All 4 guesses were blocked. ${why ?? ''}. sshd never saw them, so auth.log has no new lines from 203.0.113.77.` }];
+    const v = first ? verdictWords(sim, first) : undefined;
+    const why = v ? ` ${v}.` : '';
+    if (g.reached) return [{ tone: 'bad', text: `${g.reached} of 4 guesses reached sshd.${why} Each wrong guess is a new Failed password line in auth.log.` }];
+    return [{ tone: 'good', text: `All 4 guesses were blocked.${why} sshd never saw them, so auth.log has no new lines from 203.0.113.77.` }];
   },
 };
 
@@ -377,7 +378,9 @@ export const deviceAnalysisLab: LabDef = {
 
         You can search from the Terminal too. \`grep\` prints the lines of a file that contain some text, and \`-n\` adds the row numbers:
 
-        \`grep -n "Failed password" /var/log/auth.log\`
+        \`\`\`sh
+        grep -n "Failed password" /var/log/auth.log
+        \`\`\`
       `,
       tools: [logs(['auth']), term(['grep', 'tail'])],
       goals: [
@@ -685,14 +688,19 @@ export const deviceAnalysisLab: LabDef = {
 
         Then fix two of them:
 
-        1. **SSH from the office only.** Delete the rule that allows 22/tcp from Anywhere. Insert this in its place, using its old number for N: \`ufw insert N allow from 192.0.2.0/24 to any port 22 proto tcp\`
+        1. **SSH from the office only.** Delete the rule that allows 22/tcp from Anywhere. Insert this in its place, using its old number for N:
+
+           \`\`\`sh
+           ufw insert N allow from 192.0.2.0/24 to any port 22 proto tcp
+           \`\`\`
+
         2. **No FTP.** Delete the rule that allows 21/tcp.
 
         Rule numbers change after every delete, so run \`ufw status numbered\` again before each command.
 
         Answer the prediction question before you test. Then test: [[button:jo]] [[button:vendor]]
 
-        If something broke, fix it with one more rule above rule 10's DENY. Bayline Farms' network is 198.18.40.0/24.
+        If something broke, fix it with one more rule above the last rule, the DENY for everything else. Bayline Farms' network is 198.18.40.0/24.
       `,
       tools: [term(['ufw', 'ss', 'grep', 'tail']), logs(ALL_LOGS)],
       actions: [jo, vendor],

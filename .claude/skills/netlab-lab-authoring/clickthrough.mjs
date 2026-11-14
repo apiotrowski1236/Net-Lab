@@ -566,6 +566,14 @@ async function doMove(i, step, m) {
       if (!(await btn.count())) await fail(i, `no Connect button for ${a.to} port ${a.port} in the scan results`);
       await btn.click();
       log(`  connect to ${a.to} port ${a.port}`);
+    } else if (a.type === 'linux') {
+      // device-analysis: the Sign-in defenses card's switches.
+      await tab('Toolkit');
+      const name = a.setting === 'fail2ban' ? 'fail2ban' : 'Allow password sign-in';
+      const sw = page.locator('.sshg-card').getByRole('switch', { name });
+      if ((await sw.getAttribute('aria-checked')) === String(a.on)) await fail(i, `${name} is already ${a.on ? 'on' : 'off'}`);
+      await sw.click();
+      log(`  turn ${name} ${a.on ? 'on' : 'off'}`);
     } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doMove.`);
   } else if ('filter' in m) {
     await tab('Capture');

@@ -1,5 +1,7 @@
 # Spec: Device Security Analysis (`device-analysis`)
 
+**Status: built.** Code: `index.ts` (steps), `scenario.ts` (network, weekend logs, buttons, setups), `solution.ts` (answer key), `lab.test.ts`. The spec below is the plan as written; "As built" at the end lists where the lab differs.
+
 New capstone (see `docs/unit3/SUITE-PLAN.md`). Slot 17 of 17, the last lab of the unit. Top priority of the new labs.
 
 - **Title:** Device Security Analysis
@@ -63,3 +65,15 @@ Reuse: the firewall engine and rule editor, `src/runtime/firewallInput.ts`, the 
 ## Done means
 
 All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrough in light, dark, and small, click-through at 4× and 1×). The Terminal commands are covered by unit tests with exact messages. The logs read like real Ubuntu logs to someone who knows them. `/avoid-ai-writing` run on the student text. PLAN.md in `src/labs/device-analysis/`, set to "Status: built".
+
+## As built
+
+13 steps: case, trace, auth, ufw-log, web-log, command, fail2ban, keys, policy, write-ab, write-de, submit, and an optional extra challenge (close remote desktop) after submit. 50 minutes.
+
+- **Step order changed.** The spec puts the policy change (step 7) before fail2ban and keys. Built order: command, fail2ban, keys, policy. Once SSH is office-only, the bot and botnet can't reach sshd, so the fail2ban and keys demos would show nothing. The policy fix comes last, and the rule numbers in its text account for the rules added earlier (fail2ban's ban at the top, the student's deny for .77).
+- **Five evidence sources became four.** The firewall rules, auth.log, ufw.log, and access.log (plus fail2ban.log once fail2ban is on). The tagline says "four kinds of evidence".
+- **Botnet.** Each press of **The botnet tries again** moves Unknown C to the next address and makes 3 guesses, under fail2ban's maxretry of 5, so fail2ban never bans it. Only turning off password sign-in stops it.
+- **Log rows.** Every log line goes through `sim.log` with `fields.file`; row N is the Nth entry for that file. The weekend history is a pure generator (`weekend()`), so the row constants (`ROWS`) are fixed at module load and the tests check them.
+- **Typed rows.** `src/runtime/citeRows.ts` reads "11-24", "11 to 24", "11–24", "11, 12, 13" and explains a wrong citation ("Row 9 isn't part of the spray: ..."). capture-analysis and watch-the-air check citations too; the three could share this module.
+- **Left out for later.** File permissions (`chmod`, `ls -l`) and the update policy (rule 4) have no step. A permissions part could be added to the write-up later.
+- **Map.** One router, "Internet", joins the co-op server, the office, Bayline Farms, a customer, and a switch for the three unknown addresses.
