@@ -139,8 +139,27 @@ describe('firewall-types steps', () => {
     expect(done(s, 'table')).toBe(true);
     expect(done(s, 'fake')).toBe(true);
     expect(done(s, 'sneak')).toBe(false);
+    // The portal worked, but the hole is still open: that test doesn't count yet.
+    expect(done(s, 'portal')).toBe(false);
     play(s, { tool: { type: 'fw-delete-rule', device: 'fwA', id: 'r5' } }, { press: 'sneak' });
     expect(done(s, 'sneak')).toBe(true);
+    play(s, { press: 'portal' });
+    expect(done(s, 'portal')).toBe(true);
+  });
+
+  it('"Fake replies": a step 2 rule narrower than the usual one still leaves a hole to test', () => {
+    const s = fresh();
+    playStep(s, sol.tour);
+    s.goTo(1);
+    const narrow = { ...REPLIES_IN, dst: '10.0.2.0/24' };
+    playStep(s, { moves: sol.stateless.moves!.map((m) => ('tool' in m && m.tool.type === 'fw-add-rule' ? { tool: { ...m.tool, rule: narrow } } : m)) });
+    expect(s.missing()).toEqual([]);
+    s.goTo(2);
+    play(s, { press: 'fake' }, { press: 'sneak' });
+    expect(done(s, 'fake')).toBe(true);
+    expect(done(s, 'sneak')).toBe(true);
+    // The student's own rule is still there, above the one the lab added.
+    expect(s.sim.dev('fwA').firewall!.rules.filter((r) => r.sport === 443).map((r) => r.dst)).toEqual(['10.0.2.0/24', 'any']);
   });
 
   it('"Name the program": a port 8443 rule blocks the test but not the requirement', () => {
@@ -175,7 +194,7 @@ describe('firewall-types steps', () => {
     expect(lines(s, 'exploit')).toEqual(['bad: The attack worked. The web server answered with "All 18,240 appointments": names, dates of birth, and doctors.']);
     expect(done(s, 'hit')).toBe(true);
     play(s, { tool: { type: 'fw-ips', device: 'fwA', on: true } }, { press: 'exploit' });
-    expect(lines(s, 'exploit')).toEqual(['good: Firewall A blocked the request: intrusion prevention found SQL injection inside.']);
+    expect(lines(s, 'exploit')).toEqual(['good: Firewall A blocked the request: intrusion prevention found SQL injection inside. The attacker’s browser waits, then gives up.']);
     const alert = s.sim.dev('fwA').logs.at(-1)!;
     expect(alert.level).toBe('alert');
     expect(alert.msg).toContain('ips signature sql-injection (rule 3 allowed the port)');
@@ -217,7 +236,7 @@ describe('firewall-types steps', () => {
     expect(start.out).toEqual([
       'good: Cost: Firewall A stateful ($10,000) + Firewall B stateful ($10,000) = $20,000. Budget: $40,000.',
       `bad: Fail: The remote-control program on port ${ODD_PORT} is blocked.`,
-      'bad: Fail: The attack hidden in a booking request is blocked.',
+      'bad: Fail: The attack hidden in a booking lookup is blocked.',
       'good: Pass: The branch front desk opens the web app.',
       'good: Pass: The nurse station opens the clinic portal.',
       'good: Pass: A hacked web server can’t reach the patient records.',
@@ -243,6 +262,24 @@ describe('firewall-types steps', () => {
     expect(s.goalDone('choose', 'budget')).toBe(false);
     play(s, { press: 'tests' });
     expect(s.goalDone('choose', 'budget')).toBe(true);
+    // Results from before a change say so.
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateful' } });
+    expect(lines(s, 'tests')).toContain('wait: You changed a firewall after these tests ran. Run the tests again to see the new results.');
+  });
+
+  it('"Choose A and B": a firewall\'s deny settles a test before any timeout', () => {
+    const s = openAt('choose');
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } }, { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateless' } });
+    const def = s.step.actions!.find((a) => a.id === 'tests')!;
+    const t0 = s.sim.t;
+    def.run(s.sim);
+    s.sim.advance(4000);
+    const out = def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`);
+    expect(out.filter((l) => l.startsWith('wait'))).toEqual([]);
+    expect(out).toContain('bad: Fail: The nurse station opens the clinic portal.');
+    expect(out).toContain(`good: Pass: The remote-control program on port ${ODD_PORT} is blocked.`);
+    s.sim.runUntilIdle();
+    expect(def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`)).toEqual(out);
   });
 });
 

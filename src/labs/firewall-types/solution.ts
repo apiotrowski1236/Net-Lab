@@ -54,7 +54,7 @@ export const firewallTypesSolution: LabSolution = {
     ],
     text: {
       'real-time':
-        'Intrusion prevention read the booking request that the HTTPS rule allowed and compared it with signatures, patterns of known attacks. The request matched the SQL injection signature, so Firewall A denied it before it reached the web server and wrote an alert line in its log naming the signature.',
+        'Intrusion prevention read the booking lookup that the HTTPS rule allowed and compared it with signatures, patterns of known attacks. The request matched the SQL injection signature, so Firewall A denied it before it reached the web server and wrote an alert line in its log naming the signature.',
     },
   },
   branch: {

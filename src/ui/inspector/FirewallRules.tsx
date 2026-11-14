@@ -291,8 +291,8 @@ function RuleForm(props: {
         {!icmp && <>port {text('sport', 'Source port', 'any', 5)}</>}
       </div>
       <div class="sentence">
-        to {text('dst', 'Destination address', '10.0.1.10', 15)}
-        {!icmp && <>port {text('dport', 'Destination port', '443', 5)}</>}
+        to {text('dst', 'Destination address', 'any', 15)}
+        {!icmp && <>port {text('dport', 'Destination port', 'any', 5)}</>}
       </div>
       {apps && (
         <div class="sentence">

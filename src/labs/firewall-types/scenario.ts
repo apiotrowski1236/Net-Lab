@@ -20,7 +20,7 @@ import {
 import type { MapZone } from '../types';
 
 // Adams County Hospital a week after Firewall Rulebook: Firewalls A and B are
-// in place with the rulebooks students wrote. New here: a branch clinic whose
+// in place with the rulebooks students wrote. New here: a branch office whose
 // router has a firewall built in. The patient at home is gone (the branch's
 // front desk uses the web app instead), which keeps the map short.
 
@@ -30,10 +30,10 @@ export const BRANCH_NET = '10.0.3.0/24';
 export const DESK = '10.0.3.10';
 export const BRANCH_WAN = '192.0.2.2';
 
-/** The port the remote-control program moves to in step 6: no well-known program uses it. */
-export const ODD_PORT = 8443;
+/** The port the remote-control program moves to in step 6: a random high port no well-known program uses. (Not 8443, the usual second HTTPS port.) */
+export const ODD_PORT = 47001;
 
-/** The web app's booking page, and the attacker's booking request with database commands hidden in it. */
+/** The web app's booking page, and the attacker's booking lookup with database commands hidden in it. */
 export const BOOK_PATH = '/appointments?id=7';
 export const EXPLOIT_PATH = "/appointments?id=7' OR '1'='1";
 
@@ -65,7 +65,7 @@ export const PRICE: Record<FwMode, number> = { stateless: 4000, stateful: 10000,
 export const BUDGET = 40000;
 
 export function buildHospital2(): Sim {
-  const sim = new NetBuilder({ linkMs: 260, procMs: 80, httpTimeoutMs: 10000, pingTimeoutMs: 7000, autoArp: true })
+  const sim = new NetBuilder({ linkMs: 200, procMs: 60, httpTimeoutMs: 7000, pingTimeoutMs: 5000, autoArp: true })
     .host('attacker', {
       label: 'Attacker',
       sublabel: ATTACKER,
@@ -206,11 +206,11 @@ export function buildHospital2(): Sim {
   return sim;
 }
 
-/** Map zones: the internet, the branch clinic, the screened subnet, and the internal network. */
+/** Map zones: the internet, the branch office, the screened subnet, and the internal network. */
 export function zones(): MapZone[] {
   return [
     { id: 'internet', shape: { kind: 'rect', x: 12, y: 40, w: 290, h: 380 }, label: 'Internet', tone: 'bad' },
-    { id: 'branch', shape: { kind: 'rect', x: 100, y: 440, w: 350, h: 145 }, label: 'Branch clinic' },
+    { id: 'branch', shape: { kind: 'rect', x: 100, y: 440, w: 350, h: 145 }, label: 'Branch office' },
     { id: 'dmz', shape: { kind: 'rect', x: 375, y: 40, w: 180, h: 380 }, label: 'Screened subnet (DMZ)', tone: 'warn' },
     { id: 'lan', shape: { kind: 'rect', x: 615, y: 40, w: 373, h: 545 }, label: 'Internal network', tone: 'good' },
   ];

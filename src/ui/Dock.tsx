@@ -81,7 +81,8 @@ function AddressRow({
   const current = iface.ip ? `${iface.ip}/${iface.prefix}` : '';
   const draft = useDraft(current);
   const [msg, setMsg] = useState<Msg>(null);
-  const l2 = dev.kind === 'switch' || dev.kind === 'hub';
+  // Matches the table header in Dock (layer3): a switch, hub, or firewall shows ports and cables, no addresses.
+  const l2 = dev.kind !== 'host' && dev.kind !== 'router';
   const where = dev.ifaces.length > 1 ? `${dev.label} ${portName(iface.id)}` : dev.label;
   const save = (raw: string) => {
     const r = checkAddress(session.sim, dev.id, iface.id, raw, fixed);
