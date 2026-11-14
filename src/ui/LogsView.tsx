@@ -3,6 +3,7 @@ import type { LabSession } from '../runtime/session';
 import type { LogEntry, LogLevel } from '../sim/types';
 import { Icon } from './icons';
 import { LogDetailExtras } from './logDetail';
+import { CiteButton, EvidenceList } from './LogCite';
 
 /** Most lines the table draws at once. Filters narrow the rest down. */
 const MAX_ROWS = 300;
@@ -95,6 +96,7 @@ export function LogsView({ session }: { session: LabSession }) {
           <input class="logs-search" type="search" placeholder="Search" aria-label="Search the logs" value={text} onInput={(e) => setText((e.target as HTMLInputElement).value)} />
         </span>
       </div>
+      <EvidenceList session={session} onOpen={open} />
       {all.length === 0 ? (
         <div class="dock-empty">
           <Icon name="list" size={28} />
@@ -146,6 +148,7 @@ export function LogsView({ session }: { session: LabSession }) {
                   {sim.devices[sel.device]?.label} · {sel.source} · {LEVEL_TEXT[sel.level]}
                 </div>
                 <p class="mono small">{sel.msg}</p>
+                <CiteButton session={session} entry={sel} />
                 <table>
                   <tbody>
                     <tr>

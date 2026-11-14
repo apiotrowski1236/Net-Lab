@@ -100,3 +100,14 @@ export const demoFact =
   (demo: string, pred: (f: DemoFacts) => boolean) =>
   ({ ev }: CheckCtx): boolean =>
     ev?.type === 'ui:demo' && ev.demo === demo && pred(ev.facts);
+
+/**
+ * Log lines matching `pred` that the student cited as evidence since the step
+ * started and still cites (watch-the-air; see Sim.citeLog and src/ui/LogCite.tsx).
+ */
+export function citedLogs(sim: Sim, since: number, pred: (e: LogEntry) => boolean = () => true): LogEntry[] {
+  return sim.logCites
+    .filter((c) => c.t >= since)
+    .map((c) => sim.devices[c.device]?.logs.find((e) => e.no === c.no))
+    .filter((e): e is LogEntry => !!e && pred(e));
+}

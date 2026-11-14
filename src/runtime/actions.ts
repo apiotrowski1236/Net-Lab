@@ -9,6 +9,7 @@ import type { HardenSetting } from '../sim/hardening';
 import type { VpnAuth } from '../sim/vpn';
 import type { Tolerance, TriageAction, Verdict } from '../sim/ids';
 import type { BenchMethod, TolerancePct } from '../sim/bench';
+import type { WidsMark, WidsRule } from '../sim/wids';
 
 /**
  * Every change a student makes to the network is one of these. They are
@@ -74,6 +75,16 @@ export type SimAction =
   | { type: 'wifi-scan'; device: string }
   /** Take one signal reading of an access point from a point, for triangulation. */
   | { type: 'wifi-measure'; device: string; bssid: string; x: number; y: number }
+  /** Wireless watch (watch-the-air): mark a scanned network as on or off the approved list of access point `device` (null clears). */
+  | { type: 'wids-mark'; device: string; bssid: string; mark: WidsMark | null }
+  /** Wireless watch: turn one alarm rule on or off. */
+  | { type: 'wids-rule'; device: string; rule: WidsRule; on: boolean }
+  /** Wireless watch: the noise level the noise alarm fires above. */
+  | { type: 'wids-threshold'; device: string; level: number }
+  /** Wireless watch: replay the saved record through the alarms. */
+  | { type: 'wids-replay'; device: string }
+  /** Cite line `no` of `device`'s log as evidence, or take it back (watch-the-air). */
+  | { type: 'log-cite'; device: string; no: number; on: boolean }
   /** Port scan from `device`: an address or a network. */
   | { type: 'scan'; device: string; target: string; ports?: number[] }
   /** Run a command line in the terminal on `device` (net-tools): ping, traceroute, nslookup, netstat, nmap. */
@@ -256,6 +267,21 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'wifi-measure':
       sim.wifiMeasure(a.device, a.bssid, a.x, a.y);
+      return;
+    case 'wids-mark':
+      sim.widsMark(a.device, a.bssid, a.mark);
+      return;
+    case 'wids-rule':
+      sim.widsSetRule(a.device, a.rule, a.on);
+      return;
+    case 'wids-threshold':
+      sim.widsSetThreshold(a.device, a.level);
+      return;
+    case 'wids-replay':
+      sim.widsReplay(a.device);
+      return;
+    case 'log-cite':
+      sim.citeLog(a.device, a.no, a.on);
       return;
     case 'scan':
       sim.scan(a.device, a.target, a.ports);

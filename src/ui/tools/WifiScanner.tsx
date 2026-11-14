@@ -19,6 +19,10 @@ function Bars({ signal }: { signal: number }) {
  * Wi-Fi scanner: pick a spot (a device), listen to the air, and read every
  * network in range. Duplicate names and networks you didn't set up are flagged,
  * so a rogue box or an evil twin stands out. See src/sim/wifi.ts.
+ *
+ * With `spec.watch` (watch-the-air) it flags nothing: it adds each network's
+ * channel and the noise on each channel, and the student marks every network
+ * as on or off the watching access point's approved list (src/sim/wids.ts).
  */
 export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-scan'>) {
   void session.simRev.value;
@@ -33,8 +37,10 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
     setRows(sim.wifiScanRows(d, d.wifiClient?.antennaBoost ?? 0));
   };
 
-  // A name that more than one radio advertises is the evil-twin tell.
-  const dupSsid = new Set(rows?.filter((r, _i, a) => a.filter((x) => x.ssid === r.ssid).length > 1).map((r) => r.ssid));
+  const watch = spec.watch ? sim.devices[spec.watch]?.wids : undefined;
+  // A name that more than one radio advertises is the evil-twin tell. In watch mode the student judges.
+  const dupSsid = new Set(watch ? [] : rows?.filter((r, _i, a) => a.filter((x) => x.ssid === r.ssid).length > 1).map((r) => r.ssid));
+  const channels = rows && watch ? [...new Set([...rows.map((r) => r.channel), sim.dev(spec.watch!).wifi?.channel ?? 6])].sort((a, b) => a - b) : [];
 
   return (
     <div class="tool-card">
@@ -54,7 +60,7 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
       <button class="btn" onClick={() => scan(who)}>
         Scan from {sim.dev(who).label}
       </button>
-      {sim.jam.on && (
+      {sim.jam.on && !watch && (
         <p class="tool-msg bad" role="alert">
           <Icon name="warn" size={14} /> Heavy noise on channel {sim.jam.channel}. The air is being jammed.
         </p>
@@ -65,20 +71,21 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
             <tr>
               <th>Network</th>
               <th>Security</th>
+              {watch && <th>Channel</th>}
               <th>Signal</th>
-              <th />
+              <th>{watch ? 'Approved list' : ''}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={4} class="muted">
+                <td colSpan={watch ? 5 : 4} class="muted">
                   Nothing in range from here.
                 </td>
               </tr>
             )}
             {rows.map((r) => (
-              <tr key={r.bssid} class={r.rogue || dupSsid.has(r.ssid) ? 'flag' : ''}>
+              <tr key={r.bssid} class={!watch && (r.rogue || dupSsid.has(r.ssid)) ? 'flag' : ''}>
                 <td>
                   <button class="linklike" onClick={() => onSelect(r.device)}>
                     {r.ssid || '(hidden)'}
@@ -89,17 +96,46 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
                   {SECURITY_LABEL[r.security].replace(' (no encryption)', '')}
                   {r.wps ? ' · WPS' : ''}
                 </td>
+                {watch && <td class="small">{r.channel}</td>}
                 <td>
                   <Bars signal={r.signal} />
                 </td>
-                <td class="small">
-                  {dupSsid.has(r.ssid) && <span class="pill bad">duplicate name</span>}
-                  {r.rogue && !dupSsid.has(r.ssid) && <span class="pill warn">not yours</span>}
-                </td>
+                {watch ? (
+                  <td class="small">
+                    <div class="seg wids-mark" role="group" aria-label={`Is ${r.ssid || 'this network'} on the approved list?`}>
+                      {(['approved', 'unknown'] as const).map((m) => (
+                        <button
+                          key={m}
+                          class={`btn tiny ${watch.marks[r.bssid] === m ? 'on' : ''}`}
+                          aria-pressed={watch.marks[r.bssid] === m}
+                          onClick={() => session.dispatch({ type: 'wids-mark', device: spec.watch!, bssid: r.bssid, mark: watch.marks[r.bssid] === m ? null : m })}
+                        >
+                          {m === 'approved' ? 'On the list' : 'Not on it'}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                ) : (
+                  <td class="small">
+                    {dupSsid.has(r.ssid) && <span class="pill bad">duplicate name</span>}
+                    {r.rogue && !dupSsid.has(r.ssid) && <span class="pill warn">not yours</span>}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+      {rows && watch && (
+        <p class="small wifi-noise">
+          Noise by channel (quiet is about 5):{' '}
+          {channels.map((c, i) => (
+            <span key={c}>
+              {i > 0 && ', '}
+              channel {c}: <strong>{sim.channelNoise(c)}</strong>
+            </span>
+          ))}
+        </p>
       )}
     </div>
   );

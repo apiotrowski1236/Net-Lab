@@ -29,6 +29,7 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'wifi-scan': 'Wi-Fi scanner',
   'wifi-crack': 'Wi-Fi cracker',
   triangulate: 'Signal triangulation',
+  wids: 'Wireless alarms',
   'port-scan': 'Port scanner',
   'firewall-place': 'Place firewalls',
   'firewall-rules': 'Firewall rules (in the inspector)',

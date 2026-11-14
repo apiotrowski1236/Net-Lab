@@ -156,8 +156,12 @@ export type ToolSpec =
   | { kind: 'gateway' }
   /** Add and remove routers' static routes in the inspector. */
   | { kind: 'static-route' }
-  /** Unlock the Logs tab, showing these devices' logs. Not a Toolkit card. */
-  | { kind: 'logs'; devices: string[] }
+  /**
+   * Unlock the Logs tab, showing these devices' logs. Not a Toolkit card.
+   * `cite` adds **Cite this line** to an opened line in this step, and an
+   * evidence list (watch-the-air; goals use helpers.citedLog).
+   */
+  | { kind: 'logs'; devices: string[]; cite?: boolean }
   /** DNS forger: send forged answers from `device` to `resolver`. The student types the name and the address to plant. */
   | { kind: 'dns-forge'; device: string; resolver: string }
   /** Resolver defenses on `device`: flush the cache and turn on unpredictable query IDs. */
@@ -174,8 +178,16 @@ export type ToolSpec =
    * network's name, a password, and on or off.
    */
   | { kind: 'wifi-config'; device: string; basic?: boolean }
-  /** Scan the air from one of these devices to see nearby networks (wireless lab). */
-  | { kind: 'wifi-scan'; devices: string[] }
+  /**
+   * Scan the air from one of these devices to see nearby networks (wireless lab).
+   * `watch` (watch-the-air) names the access point whose approved list the
+   * student checks: the scanner then flags nothing itself, shows each
+   * network's channel and the noise, and lets the student mark each network
+   * on or off that list.
+   */
+  | { kind: 'wifi-scan'; devices: string[]; watch?: string }
+  /** The wireless watch's alarm rules and replay on access point `device` (watch-the-air). */
+  | { kind: 'wids'; device: string }
   /** Try to break into a network the attacker can hear (wireless lab). */
   | { kind: 'wifi-crack'; attacker: string }
   /** Locate a hidden access point by taking signal readings from set spots (wireless lab). */

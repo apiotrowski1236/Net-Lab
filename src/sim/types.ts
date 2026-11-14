@@ -3,6 +3,7 @@ import type { DnsResolver } from './dns';
 import type { Burst } from './burst';
 import type { SwitchSec } from './switchsec';
 import type { WifiAp, WifiClient } from './wifi';
+import type { WidsState } from './wids';
 import type { FirewallState, FwDir, FwVerdict } from './firewall';
 import type { Conn, Scan, Service } from './services';
 import type { Infection } from './malware';
@@ -190,6 +191,8 @@ export interface Device {
   wifi?: WifiAp;
   /** Wi-Fi client settings, when this device joins wireless networks (see src/sim/wifi.ts). */
   wifiClient?: WifiClient;
+  /** Wireless watch on an access point: its approved list, alarm rules, and record (see src/sim/wids.ts, watch-the-air). */
+  wids?: WidsState;
   /** Programs answering on ports (see services.ts). A web site and a DNS zone answer without being listed. */
   services?: Service[];
   /** Connections this device started with Sim.connectService (newest last). */
@@ -456,6 +459,10 @@ export type SimEvent = (
       ok?: boolean;
       detail?: string;
     }
+  /** Wireless watch (watch-the-air): a network was heard or marked, a device strayed, noise changed, alarms changed or were replayed. See src/sim/wids.ts. */
+  | { t: number; type: 'wids'; device: string; what: 'heard' | 'stray' | 'noise' | 'mark' | 'rule' | 'replay' | 'crowd'; bssid?: Mac; detail?: string }
+  /** A log line was cited as evidence, or the citation was taken back (watch-the-air, Sim.citeLog). */
+  | { t: number; type: 'log-cite'; device: string; no: number; on: boolean }
   /** A device wrote a log line (see Sim.log). */
   | { t: number; type: 'log'; device: string; entry: LogEntry }
   /** A firewall checked a packet (see firewall.ts). */

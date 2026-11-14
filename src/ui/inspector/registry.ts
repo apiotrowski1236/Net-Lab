@@ -19,6 +19,7 @@ import { routerPanelSection } from './TrafficMeter';
 import { dhcpLeasesSection } from './DhcpLeases';
 import { natTableSection } from './NatTable';
 import { wifiSetupSection, wifiSetupSummary } from './WifiSetup';
+import { ApprovedAps } from './ApprovedAps';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -73,4 +74,6 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   wifiSetupSummary,
   dhcpLeasesSection,
   natTableSection,
+  // watch-the-air
+  { id: 'approved-aps', slot: 'settings', Section: ApprovedAps },
 ];

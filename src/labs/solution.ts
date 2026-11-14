@@ -46,6 +46,8 @@ export type Move =
   | { openFinding: string; id: string }
   /** Click the newest line in `openLog`'s log that matches `where`, in the Logs tab. */
   | { openLog: string; where: (e: LogEntry) => boolean }
+  /** Cite the newest line in `citeLog`'s log that matches `where`, in the Logs tab (watch-the-air). */
+  | { citeLog: string; where: (e: LogEntry) => boolean }
   /** Type a display filter into `filter`'s Capture tab and apply it (packet-capture). It must be valid. */
   | { filter: string; text: string }
   /** Use demo `demo` on the step's stage (lessons with no network): one tap, flip, or choice. */
@@ -85,6 +87,14 @@ export function playMove(s: LabSession, m: Move): void {
     const hit = a?.reports[a.reports.length - 1]?.findings.find((f) => f.id === m.id);
     if (!hit) throw new Error(`No ${m.id} finding in ${m.openFinding}'s newest report`);
     s.ui({ type: 'ui:open-finding', device: m.openFinding, finding: m.id });
+  } else if ('citeLog' in m) {
+    const hit = [...s.sim.dev(m.citeLog).logs].reverse().find(m.where);
+    if (!hit) throw new Error(`No matching log line on ${m.citeLog} to cite`);
+    if (!(s.step.tools ?? []).some((t) => t.kind === 'logs' && t.cite && t.devices.includes(m.citeLog))) {
+      throw new Error(`Step "${s.step.id}" offers no citing on ${m.citeLog}. List { kind: 'logs', devices: [...], cite: true } in its tools.`);
+    }
+    s.ui({ type: 'ui:open-log', device: m.citeLog, entry: hit });
+    s.dispatch({ type: 'log-cite', device: m.citeLog, no: hit.no, on: true });
   } else if ('openLog' in m) {
     const hit = [...s.sim.dev(m.openLog).logs].reverse().find(m.where);
     if (!hit) throw new Error(`No matching log line on ${m.openLog}`);
@@ -146,6 +156,12 @@ const TOOL_FOR: Partial<Record<SimAction['type'], (t: ToolSpec, a: SimAction) =>
   'wifi-crack': (t, a) => t.kind === 'wifi-crack' && on(t, dev(a)),
   'wifi-scan': (t, a) => t.kind === 'wifi-scan' && on(t, dev(a)),
   'wifi-measure': (t, a) => t.kind === 'triangulate' && on(t, dev(a)),
+  // watch-the-air: marks are made in the scanner's watch mode; rules and replays on the wireless watch card.
+  'wids-mark': (t, a) => t.kind === 'wifi-scan' && t.watch === dev(a),
+  'wids-rule': (t, a) => t.kind === 'wids' && on(t, dev(a)),
+  'wids-threshold': (t, a) => t.kind === 'wids' && on(t, dev(a)),
+  'wids-replay': (t, a) => t.kind === 'wids' && on(t, dev(a)),
+  'log-cite': (t, a) => t.kind === 'logs' && !!t.cite && on(t, dev(a)),
   scan: (t, a) => t.kind === 'port-scan' && on(t, dev(a)),
   term: (t, a) => t.kind === 'terminal' && on(t, dev(a)),
   connect: (t, a) => t.kind === 'port-scan' && on(t, dev(a)),

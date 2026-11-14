@@ -9,6 +9,7 @@ import { PortSecurityCard } from './PortSecurityCard';
 import { WifiScanner } from './WifiScanner';
 import { WifiCracker } from './WifiCracker';
 import { Triangulate } from './Triangulate';
+import { WidsCard } from './WidsCard';
 import { FirewallPlaceTool } from './FirewallPlace';
 import { FirewallRulesTool } from './FirewallRules';
 import { PortScanTool } from './PortScan';
@@ -49,6 +50,7 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   'wifi-scan': WifiScanner,
   'wifi-crack': WifiCracker,
   triangulate: Triangulate,
+  wids: WidsCard,
   // firewall
   'port-scan': PortScanTool,
   'firewall-place': FirewallPlaceTool,
