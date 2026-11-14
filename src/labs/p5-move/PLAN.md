@@ -1,4 +1,4 @@
-# Make It Move (p5-move)
+# p5.js: Animation (p5-move)
 
 Status: built. Code: `index.ts`, `code.ts`, `solution.ts`, `lab.test.ts`. The engine is in `src/sketch/` (see p5-draw's plan).
 

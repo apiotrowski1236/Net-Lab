@@ -1,4 +1,4 @@
-# Write Your First Class (AP CSA, Unit 3)
+# Writing a Java Class (AP CSA, Unit 3)
 
 Status: built. Code in `index.ts`, `code.ts` (starting code and hidden checks), and `solution.ts`. The student panel reviews it.
 

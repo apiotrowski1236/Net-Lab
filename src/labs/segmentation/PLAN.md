@@ -1,8 +1,8 @@
-# Walls Inside the Network (`segmentation`)
+# Network Segmentation: Zones, VLANs, and Subnets (`segmentation`)
 
 Status: built (wave 2). Follows `docs/unit3/ARCHITECTURE.md`. Code: `index.ts` (steps), `scenario.ts` (network and setup helpers), `solution.ts` (answer key), `lab.test.ts`. Feature code: `src/sim/vlan.ts`, `src/sim/malware.ts`, `src/sim/zonePolicy.ts`, `src/sim/zones.ts`. Interface: `src/ui/inspector/Vlans.tsx`, `ZonePolicy.tsx`, `Malware.tsx`; `src/ui/tools/ZonePlan.tsx`, `VlanCard.tsx`, `ZonePolicyCard.tsx`. Full lesson: [SCRIPT.md](SCRIPT.md) (its top sections list where it departs from this plan, and what changed while building).
 
-Tagline: Split a submarine's flat network into zones and watch malware hit a wall.
+Tagline: Split a submarine’s flat network into zones with VLANs, subnets, and firewall rules, and watch the same malware stop at the zone boundary.
 
 CodeHS: `3.8 Network Segmentation`. CED LOs: 3.1.B, 3.1.C, 3.3.A, 3.3.B, 3.4.C.
 

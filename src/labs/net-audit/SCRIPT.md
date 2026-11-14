@@ -1,4 +1,4 @@
-# The Network Audit (`net-audit`) — lesson script
+# Vulnerability Scan and Risk Assessment (`net-audit`) — lesson script
 
 The full lesson as students see it. An implementer turns this into `index.ts`,
 `scenario.ts`, `solution.ts`, and the sim and UI features listed at the end.

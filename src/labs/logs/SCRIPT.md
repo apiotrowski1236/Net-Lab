@@ -1,4 +1,4 @@
-# Log Detective (`logs`) — lesson script
+# Log Analysis and Intrusion Detection (`logs`) — lesson script
 
 The full lesson, as students see it, ready to translate into `index.ts`, `scenario.ts`, and `solution.ts`. Voice follows `docs/unit3/ARCHITECTURE.md`: short sentences, imperatives, bold on first use, no em dashes, no emoji.
 
@@ -36,8 +36,8 @@ The plan's 12 steps, CodeHS lesson, and CED LOs are unchanged. This script fills
 ```
 id: 'logs'
 version: 1
-title: 'Log Detective'
-tagline: 'Read a night of logs and tune the detectors until the real attacks stand out from the noise.'
+title: 'Log Analysis and Intrusion Detection'
+tagline: 'Read a night of logs, turn on IDS signatures and anomaly detection, and tune them so real attacks stand out from false alarms.'
 unit: 3
 codehs: ['3.18 The Story in the Logs']
 ced: ['3.5.A', '3.5.B', '3.5.C', '3.5.D', '3.5.E']

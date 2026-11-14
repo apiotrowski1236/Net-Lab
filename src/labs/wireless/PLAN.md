@@ -1,4 +1,4 @@
-# Signals Past the Walls (`wireless`)
+# Wireless Security (`wireless`)
 
 Status: built. Follow `docs/unit3/ARCHITECTURE.md`.
 
@@ -13,7 +13,7 @@ CodeHS: `3.7 Locking Down the Airwaves`. CED LOs: 3.1.B, 3.1.C, 3.2.A, 3.2.B. (3
 - **Encryption** (3.2.B.3, 3.1.B.7): open Wi-Fi lets anyone in range read traffic. WEP, WPS, and the original WPA are broken. WPA2 holds with a strong passphrase. WPA3 is strongest.
 - **Who may join** (3.1.B.5, 3.2.B.4): MAC filtering helps but can be spoofed. Requiring each user to authenticate (EAP to an authentication server) is stronger.
 - **Rogue access point** (3.1.B.6): a WAP plugged into an open wall jack gives a back door into the LAN that skips every setting above.
-- The evil twin (3.5.E.1) and jamming (3.5.E.2) are taught in `watch-the-air` (Watch the Air), which follows this shelter two weeks later.
+- The evil twin (3.5.E.1) and jamming (3.5.E.2) are taught in `watch-the-air` (Wireless Intrusion Detection), which follows this shelter two weeks later.
 - A **wireless security policy** (3.2.A.4): EAP to an approved server, AES encryption with a minimum key length, beacons disabled.
 
 ## Scenario and map

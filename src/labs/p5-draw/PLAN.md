@@ -1,4 +1,4 @@
-# Draw with Code (p5-draw)
+# p5.js: Shapes and Color (p5-draw)
 
 Status: built. Code: `index.ts`, `code.ts`, `solution.ts`, `lab.test.ts`, and the p5.js engine in `src/sketch/` with its canvas in `src/ui/demos/Sketch.tsx`.
 

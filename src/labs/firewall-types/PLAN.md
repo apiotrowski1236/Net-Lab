@@ -1,11 +1,11 @@
-# Smarter Firewalls (`firewall-types`)
+# Firewall Types: Stateless, Stateful, and Next-Gen (`firewall-types`)
 
 Status: built. Code in `src/labs/firewall-types/` (`index.ts`, `scenario.ts`, `solution.ts`, `lab.test.ts`); engine in `src/sim/ngfw.ts`. The original spec follows the "As built" section and is kept for reference.
 
 ## As built
 
 - **Version 1, 11 steps, about 45 minutes.** CodeHS 3.9 Guarding the Gate. `ced: ['3.4.A', '3.4.B', '3.4.D', '3.5.A']`.
-- **Network** (`buildHospital2`): the hospital a week after Firewall Rulebook, with Firewalls A and B already in their cables and stateful, and the rulebooks the last lab ends with (A: out any, HTTPS in to the web server, clinic SSH, deny inbound TCP; B: staff out). It imports the firewall lab's addresses and rules but builds its own network, because the firewall lab's builder starts with the firewalls unplaced and has no patient-free variant. The patient at home is gone. New: a branch office (`branch` router, 192.0.2.2 / 10.0.3.0/24, with a stateless firewall built in and one rule, out any) and its **front desk** (10.0.3.10). The attacker runs the remote-control server on 443 and 47001. The web server has two pages: `/appointments?id=7` and the SQL injection version of it.
+- **Network** (`buildHospital2`): the hospital a week after Firewall Rules and Placement, with Firewalls A and B already in their cables and stateful, and the rulebooks the last lab ends with (A: out any, HTTPS in to the web server, clinic SSH, deny inbound TCP; B: staff out). It imports the firewall lab's addresses and rules but builds its own network, because the firewall lab's builder starts with the firewalls unplaced and has no patient-free variant. The patient at home is gone. New: a branch office (`branch` router, 192.0.2.2 / 10.0.3.0/24, with a stateless firewall built in and one rule, out any) and its **front desk** (10.0.3.10). The attacker runs the remote-control server on 443 and 47001. The web server has two pages: `/appointments?id=7` and the SQL injection version of it.
 - **Map zones:** Internet, Branch office, Screened subnet (DMZ), Internal network.
 
 ### Steps
@@ -49,20 +49,20 @@ Status: built. Code in `src/labs/firewall-types/` (`index.ts`, `scenario.ts`, `s
 
 # Original spec
 
-Split from `firewall` (see `docs/unit3/SUITE-PLAN.md`). Slot 12 of 17, right after Firewall Rulebook.
+Split from `firewall` (see `docs/unit3/SUITE-PLAN.md`). Slot 12 of 17, right after Firewall Rules and Placement.
 
-- **Title:** Smarter Firewalls
-- **Tagline (draft):** Decide what kind of firewall Adams County Hospital needs: watch a stateless firewall get fooled, give it a memory, then teach it to recognize programs no matter what port they use.
+- **Title:** Firewall Types: Stateless, Stateful, and Next-Gen
+- **Tagline:** Fool a stateless firewall with fake replies, add a connection table, block programs by name and attacks by what's inside the packets, then choose a firewall type for each job at the hospital.
 - **CodeHS:** 3.9 Guarding the Gate (3.9.1 to 3.9.5), and the type half of scenario 3A
 - **CED:** 3.4.A.1 to 3.4.A.4 (hands-on); 3.4.B.3 and 3.4.D.2 "service, or application" as a rule criterion; 3.5.A.3 as a bridge (an NGFW's intrusion prevention)
 - **Minutes:** 45. **Steps:** 10 or 11.
-- **Prerequisites:** Firewall Rulebook (ACLs, first match, implicit deny, rule order, placement of Firewalls A and B). home-network's "the router remembers who asked" is the plain-words version of a connection table; point back to it.
+- **Prerequisites:** Firewall Rules and Placement (ACLs, first match, implicit deny, rule order, placement of Firewalls A and B). home-network's "the router remembers who asked" is the plain-words version of a connection table; point back to it.
 
 ## Why this lab
 
 Firewalls are 8 of 26 CED periods. The current `firewall` lab packs types, rules, order, placement, the DMZ, and logs into one period and runs 55 to 65 minutes. Types (3.4.A) are its last three steps. They also leave two gaps: no firewall inside a router is hands-on (3.4.A.1), and the NGFW only blocks a program that doesn't match its port, while the CED defines it by deep packet inspection, intrusion prevention, and filtering by application type (3.4.A.4).
 
-CED scenario 3A asks students to "determine the **type** and placement of Firewalls A and B." Firewall Rulebook did placement. This lab does type.
+CED scenario 3A asks students to "determine the **type** and placement of Firewalls A and B." Firewall Rules and Placement did placement. This lab does type.
 
 ## Story
 
@@ -70,7 +70,7 @@ Same hospital, a week later. Firewalls A and B are placed, and the rulebooks fro
 
 ## Steps (outline)
 
-1. **Back at the hospital** (tour). Setup builds the finished network from Firewall Rulebook (placed A and B, working rules). Inspect A and B, and the clinic branch's router. Question: where firewall software can live (a standalone box, or inside a router: 3.4.A.1). Show the router's own rules in its inspector.
+1. **Back at the hospital** (tour). Setup builds the finished network from Firewall Rules and Placement (placed A and B, working rules). Inspect A and B, and the clinic branch's router. Question: where firewall software can live (a standalone box, or inside a router: 3.4.A.1). Show the router's own rules in its inspector.
 2. **A firewall with no memory.** Switch A to stateless. A patient's portal page stops loading because the replies are denied. Students write the rule that lets replies back in, from the requirement ("let replies from the portal back to patients"), not from dictated fields. 3.4.A.2.
 3. **Fake replies.** An attacker sends packets from source port 443 that match the reply rule. They get in. Question: what the stateless firewall checked and what it couldn't know.
 4. **Give it a memory.** Switch to stateful. Inspect the connection table. Replay: real replies pass, the forged one is denied (no matching connection). Delete the now-unneeded reply rule. 3.4.A.3.
@@ -104,7 +104,7 @@ Reuse: the firewall engine (`src/sim/firewall.ts`, `fw*` sim methods, actions `f
 ## Parent-lab trim (do this in the same branch)
 
 - In `src/labs/firewall/index.ts`, remove steps `stateless`, `fake`, and `ngfw`, and their answer-key entries in `solution.ts` and tests. Bump the firewall lab's `version`.
-- Add one sentence at the end of Firewall Rulebook pointing to this lab ("Next lab: what kind of firewall A and B should be").
+- Add one sentence at the end of Firewall Rules and Placement pointing to this lab ("Next lab: what kind of firewall A and B should be").
 - Update the firewall lab's `PLAN.md` to match. Make no other changes to the firewall lab: its other improvements are a separate pass.
 
 ## Done means

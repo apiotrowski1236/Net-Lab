@@ -1,8 +1,8 @@
-# Echo Storm (`smurf`)
+# Smurf Attacks and Amplification (`smurf`)
 
 Status: built
 
-Tagline: Turn a network's own echoes into a flood that knocks a ticket site offline, then shut the amplifier down.
+Tagline: Use a network's ping replies to knock a ticket site offline, then turn off the amplifier and filter at your own edge.
 
 CodeHS: `3.3 Misdirected and Overwhelmed`. CED LOs: 3.1.A, 3.1.B, 3.1.C, 3.5.E.
 

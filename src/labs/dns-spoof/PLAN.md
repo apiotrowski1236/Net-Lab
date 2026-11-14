@@ -1,10 +1,10 @@
-# Wrong Directions (`dns-spoof`)
+# DNS Cache Poisoning (`dns-spoof`)
 
 Status: built. 11 steps, registered in `src/labs/index.ts`. Feature code in
 `src/sim/dns.ts` (+ the resolver section of `src/sim/sim.ts`); scenario,
 lesson, answer key, and tests in this folder and `src/sim/dns.test.ts`.
 
-Tagline: Poison a DNS server's memory and send a whole school to a fake sign-in page.
+Tagline: Poison a DNS server's cache and send a whole school to a fake sign-in page, then make the attack harder.
 
 CodeHS: `3.3 Misdirected and Overwhelmed`. CED LOs: 3.1.A, 3.1.B, 3.1.C, 3.5.E.
 

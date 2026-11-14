@@ -1,4 +1,4 @@
-# Firewall Rulebook (`firewall`)
+# Firewall Rules and Placement (`firewall`)
 
 Status: built. Follow `docs/unit3/ARCHITECTURE.md`.
 
@@ -6,7 +6,7 @@ Tagline: Place two firewalls in a hospital network and write the rules that let 
 
 CodeHS: `3.10 The Rules of the Firewall`, `3.12 Writing the Rulebooks`. CED LOs: 3.1.B, 3.1.C, 3.3.A, 3.4.A, 3.4.B, 3.4.C, 3.4.D. Also EK 3.5.E.7 (a firewall log as a source of evidence), in steps 7 and 8.
 
-Version 2 moved the firewall-type steps (stateless, fake replies, next-generation) to *Smarter Firewalls* (`src/labs/firewall-types/`). 3.4.A (firewall types) is taught there now. Objective 4 dropped its firewall-type half and now reads "Read a firewall log for signs of attack, and explain what the firewalls still let through." The lab's `ced` list still names 3.4.A until the README and COVERAGE pass decides how to count it.
+Version 2 moved the firewall-type steps (stateless, fake replies, next-generation) to *Firewall Types: Stateless, Stateful, and Next-Gen* (`src/labs/firewall-types/`). 3.4.A (firewall types) is taught there now. Objective 4 dropped its firewall-type half and now reads "Read a firewall log for signs of attack, and explain what the firewalls still let through." The lab's `ced` list still names 3.4.A until the README and COVERAGE pass decides how to count it.
 
 ## What students learn
 
@@ -15,7 +15,7 @@ Version 2 moved the firewall-type steps (stateless, fake replies, next-generatio
 - **Placement** (3.4.C): a firewall where the internal network meets the internet, and one in front of each segment. Two firewalls make a **screened subnet (DMZ)** for the public web server (3.3.A.1).
 - An **ACL** (3.4.B): rules checked from the top, **first match wins**, each with a direction (in or out), criteria (protocol, addresses, ports), and an action (allow or deny). A packet that matches no rule is denied (the **implicit deny**, shown as the last row).
 - **Rule order** changes the result (3.4.D.3): deny-all-TCP above the clinic's SSH allow blocks the clinic; swapped, the clinic gets in.
-- Firewall types (3.4.A) are the next lab, *Smarter Firewalls*. Firewalls A and B stay stateful here.
+- Firewall types (3.4.A) are the next lab, *Firewall Types: Stateless, Stateful, and Next-Gen*. Firewalls A and B stay stateful here.
 
 ## Scenario and map
 
@@ -33,7 +33,7 @@ Simplification, said in step 2: the internet reaches the hospital's 10.x address
 6. **Firewall B**: write ALLOW out any from 10.0.2.0/24. Nurse station reaches the web server, the hacked web server can't reach the records. Questions: why keep the web server from the records, and why same-switch traffic never crosses B.
 7. **The firewall's log**: rescan as the attacker (only 443 on the web server answers), then open a DENY line from 203.0.113.66 in Firewall A's log. Questions: what a scan looks like in a log, and what the attacker can still find.
 8. **Defend your design**: a choice question (visitor Wi-Fi needs its own firewall), then a written FRQ-style answer: placement, and two of A's rules by number and what a swap breaks.
-9. **Submit**. The last line points to the next lab, *Smarter Firewalls*.
+9. **Submit**. The last line points to the next lab, *Firewall Types: Stateless, Stateful, and Next-Gen*.
 
 Goals that test a defense use "test after your last change": they need a matching event after `FirewallState.changedAt`, so an old test from before an edit doesn't count.
 

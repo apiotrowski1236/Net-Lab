@@ -1,10 +1,10 @@
-# What's in a Packet? (`packet-capture`)
+# Packet Capture Basics (`packet-capture`)
 
 Status: built. Code: `index.ts` (steps), `scenario.ts` (network, buttons, setups), `solution.ts` (answer key), `lab.test.ts`. Part 2 handout: `WIRESHARK.md`.
 
-Tagline: Capture the family laptop's traffic, open packets layer by layer, learn the common kinds, and use filters to find the packets you want, so Wireshark feels familiar.
+Tagline: Capture the family laptop's traffic, open packets layer by layer, learn the common kinds, and filter for the packets you want, to get ready for Wireshark.
 
-The second lab, after `home-network` (Who Gets the Packet?) and before `build-network`. It is Part 1 of a two-part lab: here, students practice packet capture on a slow, small, simulated network. In Part 2 (`WIRESHARK.md`, a handout) they install Wireshark and repeat the basics on a real computer. The goal is familiarity, not mastery: students should recognize Wireshark's window, know the half-dozen packet types they'll see first, and know that a display filter is how you stop drowning.
+The second lab, after `home-network` (Home Network: Switching, DHCP, and NAT) and before `build-network`. It is Part 1 of a two-part lab: here, students practice packet capture on a slow, small, simulated network. In Part 2 (`WIRESHARK.md`, a handout) they install Wireshark and repeat the basics on a real computer. The goal is familiarity, not mastery: students should recognize Wireshark's window, know the half-dozen packet types they'll see first, and know that a display filter is how you stop drowning.
 
 CodeHS: `3.1 How Network Traffic Moves`. CED: prerequisite networking (no Unit 3 LO is about packet capture by name). It touches 3.1.A.2 (eavesdropping: what a capture on a switched network can and can't see) and 3.2.B (encrypted traffic stays unreadable in a capture). About 45 minutes, 13 steps.
 

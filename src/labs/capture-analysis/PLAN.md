@@ -1,4 +1,4 @@
-# Spec: The Story in the Capture (`capture-analysis`)
+# Spec: Finding Attacks in Packet Captures (`capture-analysis`)
 
 **Status: built.** Code: `index.ts` (14 steps: 13 plus the optional Telnet challenge), `scenario.ts` (network, `dayTraffic`, the eight capture files in `FILES`, button replays), `solution.ts`, `lab.test.ts`. Shared features: `src/sim/tcp.ts` (flags, sessions, SYN scans, mirror port hooks in `sim.ts`), `src/sim/capfile.ts` (capture files, Endpoints, Conversations, I/O graph, follow stream, packet-list parsing), `src/labs/cite.ts` (cite-packets questions), goal helpers in `src/labs/helpers.ts` (`openedCapfile`, `openedPacket`, `sawStats`, `followed`, `fileFiltered`), the `capture-file` tool and `ui:*capfile*` events in `src/labs/types.ts`, the `capfile` answer-key move in `src/labs/solution.ts`, and the UI in `src/ui/CaptureFile.tsx` and `src/ui/inspector/MirrorPort.tsx`.
 
@@ -8,10 +8,10 @@ After the student panel (three rounds, Maya and Ethan): step 2 asks only for the
 
 After the PR review: the Statistics tables (Endpoints, Conversations) draw only the rows on screen and sort once per column click, like the packet list, so the 14:00 file's 3,037 MACs open in about 20 ms instead of half a second; the sentence-length choice questions were reworded so the longest option is right about as often as chance; `cite-orders` turns away the server's "received" after the upload (a command reply has `cmd=`); `cite-flood` names the ordinary packet when one inside a range leaves too few flood frames; the outage feedback counts 20 SYNs per kiosk, three seconds apart; packet lists accept "412." "412 or 415" and "412/415"; `tcp.flags == 0x012` gets a hint for the one-flag-at-a-time filters.
 
-Replaces Wireshark for Real in the suite (see `docs/unit3/SUITE-PLAN.md`). Slot 15 of 17, after `detect-methods` and before `watch-the-air`.
+Replaces Capturing Real Traffic with Wireshark in the suite (see `docs/unit3/SUITE-PLAN.md`). Slot 15 of 17, after `detect-methods` and before `watch-the-air`.
 
-- **Title:** The Story in the Capture
-- **Tagline (draft):** Open a day of packet captures from a bus depot, tell the broken from the malicious, and cite the packets that prove each attack.
+- **Title:** Finding Attacks in Packet Captures
+- **Tagline:** Open a day of packet captures from a bus depot, tell attacks from an outage and a false alarm, and cite the packets that prove each attack.
 - **CodeHS:** 3.18 The Story in the Logs (3.18.6 Packet Capture, 3.18.7 Packet Capture Lab: Reading Network Indicators, 3.18.8 Identifying Indicators of Compromise)
 - **CED:** 3.5.E.3, 3.5.E.4, 3.5.E.6, 3.5.E.7 (hands-on); 3.1.C.1 (CIA per finding); 3.5.D.3 (a false alarm)
 - **Minutes:** 50. **Steps:** 12 or 13.
@@ -19,7 +19,7 @@ Replaces Wireshark for Real in the suite (see `docs/unit3/SUITE-PLAN.md`). Slot 
 
 ## Why this lab
 
-The CED says network IoCs are "discovered when analyzing network traffic, often in the form of packet capture files." No current lab asks students to find an attack in a capture and prove it. The exam's FRQ asks students to cite specific evidence and name the adversary. This lab is that skill on packets. It also does the "deeper" capture work Wireshark for Real was meant to: statistics views, conversations, TCP flags, follow stream, and telling a broken service from an attack.
+The CED says network IoCs are "discovered when analyzing network traffic, often in the form of packet capture files." No current lab asks students to find an attack in a capture and prove it. The exam's FRQ asks students to cite specific evidence and name the adversary. This lab is that skill on packets. It also does the "deeper" capture work Capturing Real Traffic with Wireshark was meant to: statistics views, conversations, TCP flags, follow stream, and telling a broken service from an attack.
 
 ## Story
 

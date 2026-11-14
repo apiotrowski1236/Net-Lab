@@ -1,4 +1,4 @@
-# What's in a Packet? Part 2: Wireshark
+# Packet Capture Basics Part 2: Wireshark
 
 In Part 1 you captured packets on a small, slow, simulated network. Now you'll do the same on your own computer with **Wireshark**. Expect a lot more packets. You already know how to find the ones that matter: stop, then filter.
 

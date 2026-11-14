@@ -1,13 +1,13 @@
-# Spec: Pick Your Detector (`detect-methods`)
+# Spec: Signature, Anomaly, and Hybrid Detection (`detect-methods`)
 
-Split from `logs` (see `docs/unit3/SUITE-PLAN.md`). Slot 14 of 17, right after Log Detective.
+Split from `logs` (see `docs/unit3/SUITE-PLAN.md`). Slot 14 of 17, right after Log Analysis and Intrusion Detection.
 
-- **Title:** Pick Your Detector
-- **Tagline (draft):** Run three detection methods against three very different networks, count what each one catches and misses, and recommend one for each client within budget.
+- **Title:** Signature, Anomaly, and Hybrid Detection
+- **Tagline:** Run three detection methods against three very different networks, count what each one catches and misses, and recommend one for each client within budget.
 - **CodeHS:** 3.16 Choosing Between Detection Methods, 3.17 Evaluating Detection Methods (including 3.17.2 Signature vs Anomaly Simulation, 3.17.3 Alert Fatigue, 3.17.4 False Negatives, 3.17.6 to 3.17.8 Recommend a Detection Strategy, 3.17.9 Zero-Day Blindspot)
 - **CED:** 3.5.C.1 to 3.5.C.4 and 3.5.D.1 to 3.5.D.4, all hands-on
 - **Minutes:** 45. **Steps:** 10 or 11.
-- **Prerequisites:** Log Detective (NIDS, NIPS, SIEM, signatures, baselines, false positives, the AI threshold). Don't re-define these; use them.
+- **Prerequisites:** Log Analysis and Intrusion Detection (NIDS, NIPS, SIEM, signatures, baselines, false positives, the AI threshold). Don't re-define these; use them.
 
 ## Why this lab
 
@@ -40,7 +40,7 @@ There is a monthly budget for all three. A **detection bench** replays a recorde
 7. **Alert fatigue.** An analyst queue: the analyst has an hour and the queue fills with false positives. The real alert is in there. Show what happens when an analyst starts dismissing alerts without looking (one true alert dismissed). Students tune tolerance to bring false positives down and watch what that does to false negatives. 3.5.D.3, D.4.
 8. **Both at once for 911.** Hybrid on 911 Dispatch: catches the known and the new attack; most expensive; most alerts. 3.5.C.3, D.2.
 9. **Get past the signatures.** An attacker changes one detail of a known attack (a new port, a different file name). Signature misses it; anomaly flags it. Question: which method is easier to bypass, and what a false negative costs (3.5.D.4).
-10. **Recommend.** Assign a method to each client within the budget. Goals check the plan fits the budget and meets each client's main criterion. Written justification per client, citing the bench's numbers (teacher-graded). This replaces Log Detective's "Pick a method" step.
+10. **Recommend.** Assign a method to each client within the budget. Goals check the plan fits the budget and meets each client's main criterion. Written justification per client, citing the bench's numbers (teacher-graded). This replaces Log Analysis and Intrusion Detection's "Pick a method" step.
 11. **Review and submit.**
 
 The reflection can fold into step 10.
@@ -57,7 +57,7 @@ Reuse: the IDS engine's signature list and anomaly scoring in `src/sim/ids.ts`, 
 ## Parent-lab trim (do this in the same branch)
 
 - In `src/labs/logs/index.ts`, remove step `pick-method` and its answer-key entries and tests. Bump the logs lab's `version`.
-- Point Log Detective's write-up step at this lab ("Next lab: choosing a method for a network") and drop its "recommend a method" part if it depends on the removed step.
+- Point Log Analysis and Intrusion Detection's write-up step at this lab ("Next lab: choosing a method for a network") and drop its "recommend a method" part if it depends on the removed step.
 - Update the logs lab's `PLAN.md` to match. Make no other changes to the logs lab: its other improvements are a separate pass.
 
 ## Done means

@@ -1,4 +1,4 @@
-# JavaScript Arrays: The Dance Playlist (Intro CS)
+# JavaScript Arrays (Intro CS)
 
 Status: built. Code in `index.ts`, `code.ts` (starting code and hidden checks), and `solution.ts`. Tests in `lab.test.ts`.
 

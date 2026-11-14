@@ -1,4 +1,4 @@
-# Walls Inside the Network (`segmentation`): lesson script
+# Network Segmentation: Zones, VLANs, and Subnets (`segmentation`): lesson script
 
 This is the whole lesson as students will see it, plus everything the implementer needs to turn it into `index.ts`, `scenario.ts`, and `solution.ts`. Student-facing text is final: copy it as written. Bodies are in fenced `md` blocks; inside the `md` template in `index.ts`, escape the backticks (`` \` ``).
 
@@ -40,8 +40,8 @@ PLAN.md is updated for items 1 and 4.
 |---|---|
 | `id` | `segmentation` |
 | `version` | `1` |
-| `title` | `Walls Inside the Network` |
-| `tagline` | `Split a submarine's flat network into zones and watch malware hit a wall.` |
+| `title` | `Network Segmentation: Zones, VLANs, and Subnets` |
+| `tagline` | `Split a submarine’s flat network into zones with VLANs, subnets, and firewall rules, and watch the same malware stop at the zone boundary.` |
 | `unit` | `3` |
 | `codehs` | `['3.8 Network Segmentation']` |
 | `ced` | `['3.1.B', '3.1.C', '3.3.A', '3.3.B', '3.4.C']` |
@@ -611,7 +611,7 @@ Click [[fw]] and find its **Zone policy**. Each row is the zone a connection sta
 
 Then press each test button. If the firewall stops a packet, a red tag on the map shows where.
 
-Many networks put a separate firewall in front of each segment. Here one firewall does that job, with its own port and its own rules for each zone. The zone policy writes the firewall's rules for you. You'll write rules by hand in Firewall Rulebook.
+Many networks put a separate firewall in front of each segment. Here one firewall does that job, with its own port and its own rules for each zone. The zone policy writes the firewall's rules for you. You'll write rules by hand in the Firewall Rules and Placement lab.
 ```
 
 **The captain's orders as cells** (From row, To column)

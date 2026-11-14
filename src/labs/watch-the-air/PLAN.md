@@ -1,15 +1,15 @@
-# Spec: Watch the Air (`watch-the-air`)
+# Spec: Wireless Intrusion Detection (`watch-the-air`)
 
 Status: built. The code is in `src/labs/watch-the-air/` (`index.ts`, `scenario.ts`, `solution.ts`, `lab.test.ts`). Follow `docs/unit3/ARCHITECTURE.md`. See "Built" at the end for what changed from this spec.
 
-Split from `wireless` (see `docs/unit3/SUITE-PLAN.md`). Slot 16 of 17, after The Story in the Capture.
+Split from `wireless` (see `docs/unit3/SUITE-PLAN.md`). Slot 16 of 17, after Finding Attacks in Packet Captures.
 
-- **Title:** Watch the Air
-- **Tagline (draft):** Keep watch over the shelter's Wi-Fi: catch a rogue access point, a lookalike network, and a jammer, then choose the alarms that will catch the next one.
+- **Title:** Wireless Intrusion Detection
+- **Tagline:** Monitor the shelter's Wi-Fi: find a rogue access point, a lookalike network, and a jammer, then choose alerts that catch the next one.
 - **CodeHS:** 3.18.5 Locating a Rogue AP with Signal Triangulation; 3.14 The Automated Detectors; 3.4.2 Wireless Attacks (review)
 - **CED:** 3.5.E.1 and 3.5.E.2 (hands-on); 3.1.B.6 detection; scenario 3B's second half ("Recommend a collection of detective controls to monitor the network and raise an alert for any potential malicious activity" and "Describe the impact of the detective control recommendations"); 3.5.D.3 (false alarms)
 - **Minutes:** 45. **Steps:** 10 or 11.
-- **Prerequisites:** Signals Past the Walls (the shelter, WAP settings, WPA3, EAP, the rogue AP attack, the scanner), Log Detective (alerts, false positives), and The Story in the Capture (citing evidence).
+- **Prerequisites:** Wireless Security (the shelter, WAP settings, WPA3, EAP, the rogue AP attack, the scanner), Log Analysis and Intrusion Detection (alerts, false positives), and Finding Attacks in Packet Captures (citing evidence).
 
 ## Why this lab
 
@@ -17,11 +17,11 @@ Split from `wireless` (see `docs/unit3/SUITE-PLAN.md`). Slot 16 of 17, after The
 
 ## Story
 
-Two weeks after the shelter opened (the same shelter as Signals Past the Walls). The Wi-Fi is locked down. The National Guard technician now has to keep watch: families report odd things, and the technician needs alarms that catch problems without crying wolf.
+Two weeks after the shelter opened (the same shelter as Wireless Security). The Wi-Fi is locked down. The National Guard technician now has to keep watch: families report odd things, and the technician needs alarms that catch problems without crying wolf.
 
 ## Steps (outline)
 
-1. **Two weeks later** (tour). Setup applies Signals Past the Walls' finished configuration (WPA3, EAP for staff, power lowered, beacons off). Inspect the WAP and the **authorized access point list** (an inventory: name, MAC/BSSID, channel, location). Question: why keep an inventory.
+1. **Two weeks later** (tour). Setup applies Wireless Security's finished configuration (WPA3, EAP for staff, power lowered, beacons off). Inspect the WAP and the **authorized access point list** (an inventory: name, MAC/BSSID, channel, location). Question: why keep an inventory.
 2. **Sweep the air.** Run a scan from the gym. Compare each access point to the inventory; the student marks the one that isn't on it (the scanner must not label it for them). Then find it on the wired side: the switch log shows a new MAC on a jack that used to be unused. Cite the log row. Shut the port with port security. 3.1.B.6 detection, 3.1.B.3.
 3. **A name that's almost right.** A lookalike network appears ("Shelter-WiFi" vs "Shelter_WiFi", open). Staff phones with the saved WPA3/EAP profile ignore it; a visitor's phone with no saved profile joins it and gets a fake sign-in page. Question: why the saved profile protected staff (what the twin can't fake). 3.5.E.1.
 4. **Find the box.** Triangulate the lookalike from three spots and walk to it. 3.5.E.1.
