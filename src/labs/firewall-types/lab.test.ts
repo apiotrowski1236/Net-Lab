@@ -197,6 +197,36 @@ describe('firewall-types steps', () => {
     expect(done(s, 'odd')).toBe(false);
   });
 
+  it('"Name the program": a rule that blocks the attacker\'s address doesn\'t count', () => {
+    const s = openAt('ngfw');
+    const denyAttacker = { dir: 'out', proto: 'any', src: 'any', dst: ATTACKER, dport: 'any', action: 'deny' } as const;
+    const t0 = s.sim.t;
+    play(
+      s,
+      { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } },
+      { tool: { type: 'fw-add-rule', device: 'fwA', rule: denyAttacker } },
+      { tool: { type: 'fw-move-rule', device: 'fwA', id: 'r6', to: 0 } },
+      { press: 'malware-odd' },
+      { press: 'malware' },
+      { press: 'portal' },
+    );
+    // Both calls are blocked and the portal loads, but no rule names the program.
+    expect(s.sim.dev('nurse').conns!.filter((c) => c.to === ATTACKER && c.t >= t0).every((c) => c.status !== 'open')).toBe(true);
+    expect(done(s, 'odd')).toBe(false);
+    expect(done(s, 'web')).toBe(false);
+    expect(done(s, 'portal')).toBe(false);
+    // A program rule limited to the attacker's address doesn't stop the program calling another server.
+    const s2 = openAt('ngfw');
+    play(
+      s2,
+      { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } },
+      { tool: { type: 'fw-add-rule', device: 'fwA', rule: { ...NO_REMOTE, dst: ATTACKER } } },
+      { tool: { type: 'fw-move-rule', device: 'fwA', id: 'r6', to: 0 } },
+      { press: 'malware-odd' },
+    );
+    expect(done(s2, 'odd')).toBe(false);
+  });
+
   it('"Name the program": denying web browsing breaks the portal', () => {
     const s = openAt('ngfw');
     play(
@@ -261,6 +291,7 @@ describe('firewall-types steps', () => {
       'good: Pass: The branch front desk opens the web app.',
       'good: Pass: The nurse station opens the clinic portal.',
       'good: Pass: A hacked web server can’t reach the patient records, even from port 443.',
+      'good: Pass: A fake reply that claims to come from the clinic portal can’t reach the nurse station.',
     ]);
     expect(start.ok).toBe(false);
     const both = tryPair('ngfw', 'ngfw');
@@ -284,6 +315,27 @@ describe('firewall-types steps', () => {
     expect(lines(holeB, 'tests')).toContain('good: Pass: The nurse station opens the clinic portal.');
     expect(lines(holeB, 'tests')).toContain('bad: Fail: A hacked web server reached the patient records from port 443. It should be blocked.');
     expect(holeB.goalDone('choose', 'b')).toBe(false);
+    // A reply rule limited to the clinic stops that, but not a fake reply that copies the clinic's address.
+    const clinicB = openAt('choose');
+    const clinicReplies = { dir: 'in', proto: 'tcp', src: '198.51.100.0/24', sport: 443, dst: '10.0.2.0/24', dport: 'any', action: 'allow' } as const;
+    play(
+      clinicB,
+      { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } },
+      { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateless' } },
+      { tool: { type: 'fw-add-rule', device: 'fwB', rule: clinicReplies } },
+      { press: 'tests' },
+    );
+    expect(lines(clinicB, 'tests')).toEqual([
+      'good: Cost: Firewall A next-generation ($30,000) + Firewall B stateless ($4,000) = $34,000. Budget: $40,000.',
+      `good: Pass: The remote-control program on port ${ODD_PORT} is blocked.`,
+      'good: Pass: The attack hidden in a booking lookup is blocked.',
+      'good: Pass: The branch front desk opens the web app.',
+      'good: Pass: The nurse station opens the clinic portal.',
+      'good: Pass: A hacked web server can’t reach the patient records, even from port 443.',
+      'bad: Fail: A hacked web server sent the nurse station a fake reply that claimed to come from the clinic portal, and it got in. It should be blocked.',
+    ]);
+    expect(clinicB.goalDone('choose', 'b')).toBe(false);
+    expect(clinicB.goalDone('choose', 'budget')).toBe(false);
   });
 
   it('"Choose A and B": a test run from before the last change doesn\'t count', () => {

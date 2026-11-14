@@ -202,8 +202,11 @@ function portMatches(spec: number | 'any' | undefined, port: number | undefined)
   return port === spec;
 }
 
-/** `seesApps`: the firewall can identify applications (next-gen). Without it, a rule that names one never matches. */
-export function ruleMatches(rule: FwRule | FwRuleInput, pkt: IpPacket, dir: FwDir, seesApps = true): boolean {
+/**
+ * `seesApps`: the firewall can identify applications (next-gen; pass `fw.mode === 'ngfw'`).
+ * Without it, a rule that names one never matches, as in `evaluate`.
+ */
+export function ruleMatches(rule: FwRule | FwRuleInput, pkt: IpPacket, dir: FwDir, seesApps = false): boolean {
   if (rule.app && rule.app !== 'any' && (!seesApps || !appMatches(rule.app, pkt))) return false;
   if (rule.dir !== dir) return false;
   if (rule.proto !== 'any' && rule.proto !== pkt.proto) return false;
@@ -213,8 +216,8 @@ export function ruleMatches(rule: FwRule | FwRuleInput, pkt: IpPacket, dir: FwDi
   return true;
 }
 
-/** Index of the first rule that matches, or -1 (the implicit deny). */
-export function firstMatch(rules: (FwRule | FwRuleInput)[], pkt: IpPacket, dir: FwDir, seesApps = true): number {
+/** Index of the first rule that matches, or -1 (the implicit deny). `seesApps` as in `ruleMatches`. */
+export function firstMatch(rules: (FwRule | FwRuleInput)[], pkt: IpPacket, dir: FwDir, seesApps = false): number {
   return rules.findIndex((r) => ruleMatches(r, pkt, dir, seesApps));
 }
 

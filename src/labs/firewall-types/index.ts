@@ -152,12 +152,21 @@ const portalLoaded = (sim: Sim, since: number, fw = 'fwA') =>
 /** The front desk's web app loaded, started after `fw`'s last change. */
 const deskLoaded = (sim: Sim, since: number, fw: string) => pageSince(sim, 'desk', afterChange(sim, since, fw), (b) => b.status === 'loaded' && b.host === HOSPITAL_SITE);
 
-/** A remote-control program's request from the nurse station to the attacker on `port`, for checks that don't send anything. */
-function remoteProbe(port: number): IpPacket {
-  return { src: NURSE, dst: ATTACKER, ttl: 64, proto: 'tcp', srcPort: 50000, dstPort: port, app: { kind: 'svc', conn: 1, app: 'remote-control', reply: false } };
+/** A server no lab device uses and no network on the map contains, for "any server" checks. */
+const ELSEWHERE = '198.18.0.77';
+/** A remote-control program's request from the nurse station to `dst` on `port`, for checks that don't send anything. */
+function remoteProbe(port: number, dst = ATTACKER): IpPacket {
+  return { src: NURSE, dst, ttl: 64, proto: 'tcp', srcPort: 50000, dstPort: port, app: { kind: 'svc', conn: 1, app: 'remote-control', reply: false } };
 }
-/** Would `fw` stop the remote-control program on a port nobody's rule names? */
-const stopsRemoteAnywhere = (fw: FirewallState) => evaluate(fw, remoteProbe(5938), 'out').action === 'deny';
+/**
+ * Would `fw` stop the remote-control program on a port and a server nobody's
+ * rule names, with a rule that names the program? (An address or port rule
+ * doesn't count: the step asks for a rule that names the program.)
+ */
+function stopsRemoteAnywhere(fw: FirewallState): boolean {
+  const v = evaluate(fw, remoteProbe(5938, ELSEWHERE), 'out');
+  return v.action === 'deny' && v.by === 'rule' && fw.rules.find((r) => r.id === v.ruleId)?.app === 'remote-control';
+}
 const remoteDenied = (port: number) => (e: FwEvent) => e.pkt.src === NURSE && e.pkt.dst === ATTACKER && e.pkt.dstPort === port;
 
 /** The web server's reply to the front desk, for checks of the branch router's rules. */
@@ -247,8 +256,21 @@ const hospitalTests: ActionDef = {
     sim.browse('desk', `https://${HOSPITAL_SITE}${BOOK_PATH}`);
     // From port 443, like a reply: a reply rule on a stateless Firewall B would let this in.
     sim.connectService('web', FILES, 445, { sport: 443 });
+    // A fake reply that claims the clinic portal's address: even a reply rule
+    // limited to the clinic lets it through a stateless Firewall B.
+    sim.sendPacket('web', clinicFake);
   },
   outcome: (sim, since) => testLines(sim, since),
+};
+
+/** Step 10: a hacked web server's fake reply to the nurse station, claiming to come from the clinic portal. */
+const clinicFake: Omit<IpPacket, 'ttl'> = {
+  src: CLINIC,
+  dst: NURSE,
+  proto: 'tcp',
+  srcPort: 443,
+  dstPort: 51515,
+  app: { kind: 'svc', conn: 0, app: 'https', reply: true, text: 'fake reply' },
 };
 
 interface TestResult {
@@ -279,6 +301,8 @@ function testResults(sim: Sim, since: number): TestResult[] {
   const between = (a: string, b: string) => (e: FwEvent) => (e.pkt.src === a && e.pkt.dst === b) || (e.pkt.src === b && e.pkt.dst === a);
   const blocked = (v: boolean | undefined, pred: (e: FwEvent) => boolean) => (deny(pred) ? true : not(v));
   const reaches = (v: boolean | undefined, pred: (e: FwEvent) => boolean) => (v === undefined && deny(pred) ? false : v);
+  const isClinicFake = (e: FwEvent) => e.pkt.src === CLINIC && e.pkt.dst === NURSE && e.pkt.app.kind === 'svc' && e.pkt.app.conn === 0;
+  const fakeArrived = sim.events.some((e) => e.type === 'stray-reply' && e.device === 'nurse' && e.pkt.src === CLINIC && e.t >= since && e.t <= until);
   return [
     {
       fw: 'fwA',
@@ -309,6 +333,12 @@ function testResults(sim: Sim, since: number): TestResult[] {
       pass: blocked(done(conn('web', 445)), (e) => e.pkt.src === WEB && e.pkt.dst === FILES && e.pkt.dstPort === 445),
       text: 'A hacked web server can’t reach the patient records, even from port 443',
       fail: 'A hacked web server reached the patient records from port 443. It should be blocked',
+    },
+    {
+      fw: 'fwB',
+      pass: deny(isClinicFake) ? true : fakeArrived ? false : undefined,
+      text: 'A fake reply that claims to come from the clinic portal can’t reach the nurse station',
+      fail: 'A hacked web server sent the nurse station a fake reply that claimed to come from the clinic portal, and it got in. It should be blocked',
     },
   ];
 }
@@ -394,8 +424,8 @@ export const firewallTypesLab: LabDef = {
           prompt: 'Firewall A is a box of its own. Where does the branch office’s firewall run?',
           options: [
             { id: 'router', text: 'As software inside the branch router', correct: true },
-            { id: 'desk', text: 'On the front desk computer', feedback: 'Click the front desk computer: it has no firewall rules. Look at the router.' },
-            { id: 'isp', text: 'At the internet provider', feedback: 'The internet provider’s router passes the branch’s packets along, but its rules aren’t the branch’s. Click the branch router.' },
+            { id: 'desk', text: 'On the front desk computer at the branch', feedback: 'Click the front desk computer: it has no firewall rules. Look at the router.' },
+            { id: 'isp', text: 'At the internet provider, before packets reach the branch', feedback: 'The internet provider’s router passes the branch’s packets along, but its rules aren’t the branch’s. Click the branch router.' },
             { id: 'none', text: 'Nowhere. The branch has no firewall.', feedback: 'Click the branch router and look for **Firewall rules**.' },
           ],
           explain:
@@ -441,9 +471,9 @@ export const firewallTypesLab: LabDef = {
           afterGoals: ['portal'],
           prompt: 'Before your rule, the nurse’s request got out but the reply was denied. Why?',
           options: [
-            { id: 'each', text: 'The reply came in as a packet of its own, and no rule allowed it.', correct: true },
-            { id: 'clinic', text: 'The clinic portal was down until you added the rule.', feedback: 'The portal answered. Its reply stopped at Firewall A: read the result under the button.' },
-            { id: 'out', text: 'Rule 1 allows only requests out, not replies.', feedback: 'Rule 1 is an **out** rule. The reply was going **in**, so rule 1 never matched it.' },
+            { id: 'each', text: 'The reply was a separate packet, and no rule allowed it.', correct: true },
+            { id: 'clinic', text: 'The clinic portal was down and didn’t answer until you added the rule.', feedback: 'The portal answered. Its reply stopped at Firewall A: read the result under the button.' },
+            { id: 'out', text: 'Rule 1 allows only requests going out, not the replies that come back.', feedback: 'Rule 1 is an **out** rule. The reply was going **in**, so rule 1 never matched it.' },
             { id: 'b', text: 'Firewall B blocked it on the way back.', feedback: 'Firewall B is still stateful, so it let the reply through. The result under the button names the firewall that blocked it.' },
           ],
           explain: 'A stateless firewall checks each packet by itself. It doesn’t know the reply answers the nurse’s request, so the reply needs a rule of its own.',
@@ -562,9 +592,9 @@ export const firewallTypesLab: LabDef = {
           afterGoals: true,
           prompt: 'You deleted the port 443 rule. What changed?',
           options: [
-            { id: 'ssh', text: 'SSH from port 443 is denied. Real replies still get in through the table.', correct: true },
+            { id: 'ssh', text: 'SSH from port 443 is denied, and real replies still get in.', correct: true },
             { id: 'replies', text: 'Replies from web sites are denied now, so staff can’t browse.', feedback: 'The portal still loaded. The connection table lets real replies in without a rule.' },
-            { id: 'nothing', text: 'Nothing. The rule did nothing on a stateful firewall.', feedback: 'It did something: the SSH request was a new conversation, and that rule allowed it.' },
+            { id: 'nothing', text: 'Nothing. A stateful firewall checks its table, so the rule did nothing.', feedback: 'It did something: the SSH request was a new conversation, and that rule allowed it.' },
             { id: 'all', text: 'All SSH is denied now, even the clinic’s.', feedback: 'The clinic’s SSH rule is still there. Only SSH that matched the port 443 rule changed.' },
           ],
           explain:
@@ -615,7 +645,7 @@ export const firewallTypesLab: LabDef = {
           options: [
             { id: 'number', text: 'A port is a number the program picks. Any program can use 443.', correct: true },
             { id: 'encrypted', text: 'Port 443 is encrypted, so firewalls can’t see its port number.', feedback: 'Encryption hides what’s inside, not the header. The firewall read the port: 443.' },
-            { id: 'outbound', text: 'Firewalls never check traffic going out.', feedback: 'Rule 1 is an out rule, and Firewall A checked this request against it.' },
+            { id: 'outbound', text: 'Firewalls never check traffic going out, only traffic coming in.', feedback: 'Rule 1 is an out rule, and Firewall A checked this request against it.' },
             { id: 'stateful', text: 'Stateful firewalls only look at replies.', feedback: 'A stateful firewall checks every new request against the rules too. Rule 1 allowed this one.' },
           ],
           explain: 'A port tells a firewall which program a packet should be for. Nothing stops another program from using the same number.',
@@ -647,8 +677,8 @@ export const firewallTypesLab: LabDef = {
         { id: 'ngfw', label: '[[fwA]] is next-generation', check: ({ sim }) => mode(sim, 'fwA') === 'ngfw' },
         {
           id: 'odd',
-          label: `Firewall A blocks the program on port ${ODD_PORT}, and would on any port (test after your last change)`,
-          hint: 'Add a rule: **deny**, **out**, any protocol, from any to any, any port, program **Remote-control tool**. Put it above rule 1, which allows everything out.',
+          label: `A rule that names the program blocks it on port ${ODD_PORT}, and would on any port and any server (test after your last change)`,
+          hint: 'Add a rule: **deny**, **out**, any protocol, from any to any, any port, program **Remote-control tool**. Put it above rule 1, which allows everything out. A rule that blocks only the attacker’s address doesn’t count: the program could call any server.',
           check: ({ sim, since }) =>
             mode(sim, 'fwA') === 'ngfw' && stopsRemoteAnywhere(sim.dev('fwA').firewall!) && fwSaw(sim, afterChange(sim, since, 'fwA'), 'fwA', denied(remoteDenied(ODD_PORT))),
         },
@@ -686,8 +716,8 @@ export const firewallTypesLab: LabDef = {
           prompt: `Without your rule, the NGFW blocked the program on 443 but not on ${ODD_PORT}. Why?`,
           options: [
             { id: 'known', text: `It compares the program with the one a port is known for. ${ODD_PORT} has none.`, correct: true },
-            { id: 'trusted', text: `${ODD_PORT} is on a list of trusted ports.`, feedback: `No list trusts ${ODD_PORT}. Rule 1 allows everything going out, and the NGFW had nothing to compare the program with.` },
-            { id: 'hidden', text: `The program hides itself better on ${ODD_PORT}.`, feedback: 'The NGFW saw the same program both times. What changed is the port’s known program: 443 is HTTPS, and nothing is known for the other.' },
+            { id: 'trusted', text: `${ODD_PORT} is on the firewall’s list of trusted ports, so it skips the check.`, feedback: `No list trusts ${ODD_PORT}. Rule 1 allows everything going out, and the NGFW had nothing to compare the program with.` },
+            { id: 'hidden', text: `The program hides itself better on ${ODD_PORT}, so the NGFW couldn’t recognize it.`, feedback: 'The NGFW saw the same program both times. What changed is the port’s known program: 443 is HTTPS, and nothing is known for the other.' },
           ],
           explain: 'A program on the wrong port is an **indicator of compromise**: a clue that a computer may have been hacked. A rule that names the program doesn’t need the clue.',
         },
@@ -755,9 +785,9 @@ export const firewallTypesLab: LabDef = {
           kind: 'choice',
           prompt: 'A stateful firewall would have let this attack in. Why?',
           options: [
-            { id: 'allowed', text: 'It’s a new request that the HTTPS rule allows. Nothing checks what it carries.', correct: true },
-            { id: 'reply', text: 'It looked like a reply to the patient portal.', feedback: 'It’s a new request, not a reply. The rule for patients’ HTTPS allowed it.' },
-            { id: 'port', text: 'It used a port the firewall doesn’t know.', feedback: 'It used 443, the port the firewall allows for patients.' },
+            { id: 'allowed', text: 'The HTTPS rule allows the request, and nothing checks what it carries.', correct: true },
+            { id: 'reply', text: 'It looked like a reply to a patient’s visit, so the connection table let it in.', feedback: 'It’s a new request, not a reply. The rule for patients’ HTTPS allowed it.' },
+            { id: 'port', text: 'It used a port the firewall doesn’t know, so no rule applied to it.', feedback: 'It used 443, the port the firewall allows for patients.' },
           ],
           explain: 'Rules and the connection table only look at headers. To catch an attack inside allowed traffic, a firewall has to read the contents.',
         },
@@ -820,9 +850,9 @@ export const firewallTypesLab: LabDef = {
           afterGoals: true,
           prompt: 'The fake reply that claimed the web server’s address got through. Why?',
           options: [
-            { id: 'header', text: 'Its header matched your rule, and a stateless firewall checks only the header.', correct: true },
-            { id: 'rule', text: 'Your rule is wrong. A better rule would stop it.', feedback: 'Any rule that lets the real replies in also matches a fake one with the same header. Only a connection table tells them apart.' },
-            { id: 'router', text: 'Routers can’t run firewall rules.', feedback: 'The branch router ran your rules: it blocked the fake reply from the attacker’s own address.' },
+            { id: 'header', text: 'It matched your rule, and a stateless firewall checks only the header.', correct: true },
+            { id: 'rule', text: 'Your rule is wrong. A better rule on the branch router would have stopped it.', feedback: 'Any rule that lets the real replies in also matches a fake one with the same header. Only a connection table tells them apart.' },
+            { id: 'router', text: 'Routers can’t run firewall rules, so the packet went straight through.', feedback: 'The branch router ran your rules: it blocked the fake reply from the attacker’s own address.' },
           ],
           explain: 'Naming the web server made the rule much tighter: fakes from random addresses stop. A stateless firewall still can’t catch a fake that copies a real reply’s header.',
         },
@@ -941,7 +971,7 @@ export const firewallTypesLab: LabDef = {
         {
           id: 'b',
           label: 'Firewall B passes its tests (test after your last change)',
-          hint: 'Firewall B has no reply rules. Which type lets replies back in without them?',
+          hint: 'Firewall B has to let the clinic portal’s real replies in and keep fake ones out, even fakes that copy the clinic’s address. Which type can tell them apart?',
           check: ({ sim, since }) => passed(sim, since, ['fwB']),
         },
         {
@@ -957,7 +987,7 @@ export const firewallTypesLab: LabDef = {
           kind: 'text',
           afterGoals: true,
           prompt:
-            'Write to the IT director. Which type did you choose for Firewall A and for Firewall B, and why? Name one thing Firewall A must stop that a stateful firewall can’t. Then explain why Firewall B doesn’t need to be next-generation.',
+            'Write to the IT director. Which type did you choose for Firewall A and for Firewall B, and why? Name one thing Firewall A must stop that a stateful firewall can’t. Then explain why Firewall B can’t be stateless but doesn’t need to be next-generation.',
           minWords: 40,
           lines: 6,
         },

@@ -70,7 +70,7 @@ export const firewallTypesSolution: LabSolution = {
     moves: [{ tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } }, { press: 'tests' }],
     text: {
       justify:
-        'Firewall A should be next-generation and Firewall B should be stateful, which costs $40,000. Firewall A faces the internet, so it must stop the remote-control program on any port and the SQL injection hidden inside a booking request that the HTTPS rule allows. A stateful firewall only checks headers and its connection table, so it cannot see either one. Firewall B only has to let staff start conversations out and keep the screened subnet out of the staff network, and its connection table lets the replies back in.',
+        'Firewall A should be next-generation and Firewall B should be stateful, which costs $40,000. Firewall A faces the internet, so it must stop the remote-control program on any port and the SQL injection hidden inside a booking request that the HTTPS rule allows. A stateful firewall only checks headers and its connection table, so it cannot see either one. Firewall B only has to let staff start conversations out and keep the screened subnet out of the staff network, and its connection table lets the replies back in. A stateless Firewall B would need a reply rule, and a hacked web server could send the nurse station a fake reply that copies the clinic’s address and matches it.',
     },
   },
 };

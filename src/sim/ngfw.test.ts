@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluate, logLine, newFirewall, ruleText, type FwRuleInput } from './firewall';
+import { evaluate, firstMatch, logLine, newFirewall, ruleMatches, ruleText, type FwRuleInput } from './firewall';
 import { appMatches, ruleAppName, signatureOf } from './ngfw';
 import type { IpPacket } from './types';
 
@@ -46,6 +46,15 @@ describe('application rules', () => {
     fw.mode = 'ngfw';
     expect(evaluate(fw, svc('remote-control', 8443), 'out')).toMatchObject({ action: 'deny', ruleNo: 1 });
     expect(evaluate(fw, svc('https', 443), 'out')).toMatchObject({ action: 'allow', ruleNo: 2 });
+  });
+
+  it('are skipped by ruleMatches and firstMatch unless the caller says the firewall sees programs', () => {
+    const fw = newFirewall('outside', 'stateful', [NO_REMOTE, OUT_ANY]);
+    const p = svc('remote-control', 8443);
+    expect(ruleMatches(fw.rules[0], p, 'out')).toBe(false);
+    expect(firstMatch(fw.rules, p, 'out')).toBe(1);
+    expect(firstMatch(fw.rules, p, 'out')).toBe(evaluate(fw, p, 'out').ruleNo! - 1);
+    expect(firstMatch(fw.rules, p, 'out', true)).toBe(0);
   });
 });
 
