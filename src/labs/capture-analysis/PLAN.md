@@ -1,5 +1,9 @@
 # Spec: The Story in the Capture (`capture-analysis`)
 
+**Status: built.** Code: `index.ts` (14 steps: 13 plus the optional Telnet challenge), `scenario.ts` (network, `dayTraffic`, the eight capture files in `FILES`, button replays), `solution.ts`, `lab.test.ts`. Shared features: `src/sim/tcp.ts` (flags, sessions, SYN scans, mirror port hooks in `sim.ts`), `src/sim/capfile.ts` (capture files, Endpoints, Conversations, I/O graph, follow stream, packet-list parsing), `src/labs/cite.ts` (cite-packets questions), goal helpers in `src/labs/helpers.ts` (`openedCapfile`, `openedPacket`, `sawStats`, `followed`, `fileFiltered`), the `capture-file` tool and `ui:*capfile*` events in `src/labs/types.ts`, the `capfile` answer-key move in `src/labs/solution.ts`, and the UI in `src/ui/CaptureFile.tsx` and `src/ui/inspector/MirrorPort.tsx`.
+
+What changed from the outline below: step 3 cites one RST and asks attack-or-outage as a choice; step 5 asks the false-alarm question as a choice (true/false positive/negative); step 10 uses choice questions for the findings and IoCs plus mitigation choices for the smurf and ARP findings; step 11 replays the flood and the check-in with lesson buttons instead of re-running whole capture windows.
+
 Replaces Wireshark for Real in the suite (see `docs/unit3/SUITE-PLAN.md`). Slot 15 of 17, after `detect-methods` and before `watch-the-air`.
 
 - **Title:** The Story in the Capture

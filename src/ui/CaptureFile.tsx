@@ -342,8 +342,8 @@ function PacketList({
             <tr>
               <th class="no">No.</th>
               <th class="time">Time</th>
-              <th>Source</th>
-              <th>Destination</th>
+              <th class="addr">Source</th>
+              <th class="addr">Destination</th>
               <th class="proto-col">Protocol</th>
               <th class="len">Length</th>
               <th>Info</th>
@@ -375,15 +375,21 @@ function PacketList({
                 >
                   <td class="no">{c.no}</td>
                   <td class="mono time">{secs(c.t)}</td>
-                  <td class="mono">{src}</td>
-                  <td class="mono">{dst}</td>
+                  <td class="mono" title={src}>
+                    {src}
+                  </td>
+                  <td class="mono" title={dst}>
+                    {dst}
+                  </td>
                   <td class="proto-col">
                     <span class="proto" style={{ background: PROTO_COLOR[proto] }}>
                       {(lab.wireshark && WIRESHARK_PROTO[proto]) || proto}
                     </span>
                   </td>
                   <td class="mono len">{c.len}</td>
-                  <td class="mono info">{infoOf(c.frame)}</td>
+                  <td class="mono info" title={infoOf(c.frame)}>
+                    {infoOf(c.frame)}
+                  </td>
                 </tr>
               );
             })}
@@ -490,7 +496,7 @@ function SortTable<T>({ rows, cols, initial, caption, onRow, rowLabel }: {
                 <td class={c.num ? 'num mono' : 'mono'}>{c.show ? c.show(r) : typeof c.get(r) === 'number' ? n(c.get(r) as number) : c.get(r)}</td>
               ))}
               {onRow && (
-                <td class="act">
+                <td class="capfile-act">
                   <button type="button" class="btn tiny" aria-label={`Filter on ${rowLabel?.(r) ?? 'this row'}`} onClick={() => onRow(r)}>
                     <Icon name="filter" size={12} /> Filter
                   </button>
@@ -575,8 +581,20 @@ function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
   const max = Math.max(10, ...g.all);
   const step = max > 200 ? 100 : max > 100 ? 50 : max > 40 ? 20 : 10;
   const top = Math.ceil(max / step) * step;
-  const W = 720;
-  const H = 240;
+  // Draw at the box's real size, so the graph fits the dock and the text stays its normal size.
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 720, h: 240 });
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => setSize({ w: Math.max(320, el.clientWidth), h: Math.max(110, el.clientHeight) });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const W = size.w;
+  const H = size.h;
   const L = 44;
   const B = 28;
   const T = 10;
@@ -597,6 +615,7 @@ function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
     return <path class={cls} d={d} />;
   };
   const tip = hover !== null ? { s: hover, all: g.all[hover], match: g.match?.[hover] } : null;
+  const tipX = tip ? L + tip.s * bw + bw / 2 : 0;
   return (
     <div class="capfile-io">
       <p class="capfile-stats-head muted">
@@ -613,8 +632,8 @@ function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
           </span>
         </div>
       )}
-      <div class="capfile-io-box">
-        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Packets per second over ${g.all.length} seconds. The busiest second has ${n(Math.max(...g.all))} packets.`} onMouseLeave={() => setHover(null)}>
+      <div class="capfile-io-box" ref={box}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Packets per second over ${g.all.length} seconds. The busiest second has ${n(Math.max(...g.all))} packets.`} onMouseLeave={() => setHover(null)}>
           {ticks.map((v) => (
             <g>
               <line class="io-grid" x1={L} x2={W - 8} y1={y(v)} y2={y(v)} />
@@ -638,7 +657,7 @@ function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
           {tip && <line class="io-cross" x1={L + tip.s * bw + bw / 2} x2={L + tip.s * bw + bw / 2} y1={T} y2={T + ph} />}
         </svg>
         {tip && (
-          <div class="capfile-tip" style={{ left: `${((L + tip.s * bw + bw / 2) / W) * 100}%` }}>
+          <div class="capfile-tip" style={{ left: `${tipX}px`, transform: tipX < 80 ? 'none' : tipX > W - 80 ? 'translateX(-100%)' : undefined }}>
             <strong>
               {tip.s} to {tip.s + 1} s
             </strong>

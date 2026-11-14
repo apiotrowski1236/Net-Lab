@@ -159,7 +159,7 @@ export const captureAnalysisLab: LabDef = {
             { id: 'faster', text: 'The mirror port makes the depot’s network faster while you capture.', feedback: 'A copy doesn’t speed anything up. It lets one laptop see what every port sees.' },
             { id: 'decrypt', text: 'The mirror port decrypts the traffic, so you can read the card payments.', feedback: 'Encrypted traffic stays encrypted wherever you capture it. The mirror port only copies frames.' },
           ],
-          explain: 'A switch sends each frame only to the port it’s meant for, so a computer normally sees just its own traffic. A mirror port (Cisco calls it SPAN) gets a copy of everything, which is where sensors and analysts plug in.',
+          explain: 'A switch sends each frame only to the port it’s meant for, so a computer normally sees only its own traffic. A mirror port (Cisco calls it SPAN) gets a copy of everything, which is where sensors and analysts plug in.',
         },
       ],
     },
@@ -756,7 +756,7 @@ export const captureAnalysisLab: LabDef = {
           options: [
             { id: 'first', text: 'The router uses the first rule that matches, and allow out matches the check-in too.', correct: true },
             { id: 'newest', text: 'The router only reads the newest rule.', feedback: 'The router reads from the top, whatever order the rules were added in.' },
-            { id: 'deny-last', text: 'Deny rules only work at the top of a list.', feedback: 'A deny rule works anywhere. It just has to come before any rule that would allow the same packet.' },
+            { id: 'deny-last', text: 'Deny rules only work at the top of a list.', feedback: 'A deny rule works anywhere. It has to come before any rule that would allow the same packet.' },
             { id: 'cosmetic', text: 'It doesn’t matter. The order is only how they’re shown.', feedback: 'Try it: below allow out, the check-in matches allow first and goes through.' },
           ],
         },

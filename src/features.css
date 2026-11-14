@@ -6815,17 +6815,26 @@ button.pl-tile:active {
   table-layout: fixed;
   width: 100%;
 }
+/* Fixed columns, so Info (where the TCP flags are) gets the rest of the row. */
+@media (min-width: 901px) {
+  .capfile-split {
+    grid-template-columns: minmax(0, 1fr) clamp(210px, 23%, 380px);
+  }
+}
 .capfile-table th.no {
-  width: 4.2em;
+  width: 3.7em;
 }
 .capfile-table th.time {
-  width: 5.6em;
+  width: 5.1em;
+}
+.capfile-table th.addr {
+  width: 9.3em;
 }
 .capfile-table th.proto-col {
-  width: 6.4em;
+  width: 5.8em;
 }
 .capfile-table th.len {
-  width: 4.6em;
+  width: 4.5em;
 }
 .capfile-table tbody tr {
   height: 30px;
@@ -6880,7 +6889,7 @@ button.pl-tile:active {
 .capfile-io-table .num {
   text-align: right;
 }
-.capfile-stats-table td.act {
+.capfile-stats-table td.capfile-act {
   width: 1%;
   white-space: nowrap;
 }
@@ -6936,16 +6945,24 @@ button.pl-tile:active {
   background: var(--stream-b);
 }
 .capfile-io {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: auto;
 }
+/* The graph takes the room the dock has left, between these limits. */
 .capfile-io-box {
   position: relative;
-  max-width: 900px;
+  flex: 1 1 140px;
+  min-height: 120px;
+  max-height: 340px;
+  max-width: 1000px;
 }
 .capfile-io-box svg {
+  position: absolute;
+  inset: 0;
   display: block;
-  width: 100%;
-  height: auto;
 }
 .capfile-io path.io-all {
   fill: var(--io-all);
