@@ -120,7 +120,7 @@ export function buildHospital2(): Sim {
       firewall: { outside: 'wan', mode: 'stateless', rules: [BRANCH_OUT] },
     })
     .host('desk', {
-      label: 'Branch front desk',
+      label: 'Front desk',
       sublabel: DESK,
       icon: 'desktop',
       x: 370,
@@ -210,7 +210,7 @@ export function buildHospital2(): Sim {
 export function zones(): MapZone[] {
   return [
     { id: 'internet', shape: { kind: 'rect', x: 12, y: 40, w: 290, h: 380 }, label: 'Internet', tone: 'bad' },
-    { id: 'branch', shape: { kind: 'rect', x: 150, y: 440, w: 300, h: 145 }, label: 'Branch clinic' },
+    { id: 'branch', shape: { kind: 'rect', x: 100, y: 440, w: 350, h: 145 }, label: 'Branch clinic' },
     { id: 'dmz', shape: { kind: 'rect', x: 375, y: 40, w: 180, h: 380 }, label: 'Screened subnet (DMZ)', tone: 'warn' },
     { id: 'lan', shape: { kind: 'rect', x: 615, y: 40, w: 373, h: 545 }, label: 'Internal network', tone: 'good' },
   ];

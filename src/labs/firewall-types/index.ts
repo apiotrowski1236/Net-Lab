@@ -85,7 +85,7 @@ function fakeOutcome(sim: Sim, since: number, dev: string, from: string): Action
   const through = happened(sim, since, (e) => e.type === 'stray-reply' && e.device === dev && e.t > since);
   const blocked = [...sim.events].reverse().find((e) => e.t > since && e.type === 'firewall' && e.verdict.action === 'deny' && e.pkt.app.kind === 'svc' && e.pkt.app.conn === 0);
   const label = sim.dev(dev).label;
-  if (through) return [{ tone: 'bad', text: `The fake reply, claiming to come from ${from} port 443, got through to ${label}.` }];
+  if (through) return [{ tone: 'bad', text: `${label} received the fake reply from ${from}, port 443.` }];
   if (blocked && blocked.type === 'firewall') {
     const fw = sim.dev(blocked.device);
     const why = blocked.verdict.by === 'implicit' ? 'no rule matched it' : blocked.verdict.by === 'no-state' ? 'it answers no conversation in the connection table' : `rule ${blocked.verdict.ruleNo} denies it`;
@@ -749,7 +749,7 @@ export const firewallTypesLab: LabDef = {
       id: 'which',
       title: 'Which firewall would do that?',
       body: md`
-        You've seen all three types work. For each job below, pick the **simplest** type of firewall that can do it. A simpler firewall costs less and is easier to run.
+        You've seen all three types work. For each job below, pick the **simplest** type of firewall that can do it. A simpler firewall costs less and has fewer settings to get wrong.
 
         - **Stateless:** checks each packet's header (protocol, addresses, ports) against the rules.
         - **Stateful:** adds a connection table, so only real replies get back in.

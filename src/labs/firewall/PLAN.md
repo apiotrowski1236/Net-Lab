@@ -6,7 +6,7 @@ Tagline: Place two firewalls in a hospital network and write the rules that let 
 
 CodeHS: `3.10 The Rules of the Firewall`, `3.12 Writing the Rulebooks`. CED LOs: 3.1.B, 3.1.C, 3.3.A, 3.4.A, 3.4.B, 3.4.C, 3.4.D. Also EK 3.5.E.7 (a firewall log as a source of evidence), in steps 7 and 8.
 
-Version 2 moved the firewall-type steps (stateless, fake replies, next-generation) to *Smarter Firewalls* (`src/labs/firewall-types/`). 3.4.A (firewall types) is taught there now. The lab's `ced` list still names 3.4.A until the README and COVERAGE pass decides how to count it.
+Version 2 moved the firewall-type steps (stateless, fake replies, next-generation) to *Smarter Firewalls* (`src/labs/firewall-types/`). 3.4.A (firewall types) is taught there now. Objective 4 dropped its firewall-type half and now reads "Read a firewall log for signs of attack, and explain what the firewalls still let through." The lab's `ced` list still names 3.4.A until the README and COVERAGE pass decides how to count it.
 
 ## What students learn
 

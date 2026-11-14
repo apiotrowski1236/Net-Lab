@@ -194,7 +194,7 @@ describe('firewall-types steps', () => {
     const s = openAt('branch');
     play(s, { tool: { type: 'fw-add-rule', device: 'branch', rule: { ...BRANCH_REPLIES, src: 'any' } } }, { press: 'desk' }, { press: 'desk-fake' });
     expect(done(s, 'desk')).toBe(true);
-    expect(lines(s, 'desk-fake')).toEqual(['bad: The fake reply, claiming to come from the attacker’s own address port 443, got through to Branch front desk.']);
+    expect(lines(s, 'desk-fake')).toEqual(['bad: Front desk received the fake reply from the attacker’s own address, port 443.']);
     expect(done(s, 'fake')).toBe(false);
   });
 
@@ -203,7 +203,7 @@ describe('firewall-types steps', () => {
     play(s, { tool: { type: 'fw-add-rule', device: 'branch', rule: BRANCH_REPLIES } }, { press: 'desk-fake' });
     expect(lines(s, 'desk-fake')).toEqual(['good: Branch router blocked the fake reply from the attacker’s own address: no rule matched it.']);
     play(s, { press: 'desk-forged' });
-    expect(lines(s, 'desk-forged')).toEqual([`bad: The fake reply, claiming to come from the web server’s address, ${WEB} port 443, got through to Branch front desk.`]);
+    expect(lines(s, 'desk-forged')).toEqual([`bad: Front desk received the fake reply from the web server’s address, ${WEB}, port 443.`]);
     expect(done(s, 'forged')).toBe(true);
   });
 
@@ -247,13 +247,15 @@ describe('firewall-types steps', () => {
 });
 
 describe('firewall-types step setups', () => {
-  it('are safe to repeat, from a fresh network', () => {
+  it('are quiet and safe to repeat, from a fresh network', () => {
     for (const st of lab.steps) {
       if (!st.setup) continue;
       const once = buildHospital2();
+      const before = once.events.length;
       once.quiet = true;
       st.setup(once);
       once.runUntilIdle();
+      expect(once.events.slice(before).filter((e) => !e.quiet), `${st.id} setup is quiet`).toEqual([]);
       const twice = buildHospital2();
       twice.quiet = true;
       st.setup(twice);
