@@ -7,6 +7,7 @@ import { newFirewall, type FwMode, type FwRuleInput } from './firewall';
 import type { Service } from './services';
 import { newDhcpClient, newDhcpServer } from './dhcp';
 import { newNat, type NatForward } from './nat';
+import { newLinux, type LinuxOpts } from './linux';
 
 /**
  * Friendly builder for lab scenarios.
@@ -46,6 +47,10 @@ export interface HostOpts extends Placed {
   services?: Service[];
   /** Gets its address automatically (a DHCP client; see dhcp.ts). Leave out `ip` and `gateway`. */
   dhcp?: boolean;
+  /** A host firewall on the computer itself (device-analysis): checks what arrives for it and what it sends. See firewall.ts and ufw.ts. */
+  firewall?: { mode?: Exclude<FwMode, 'ngfw'>; rules?: FwRuleInput[] };
+  /** Makes this computer a Linux server with log files, sshd, nginx, and fail2ban (device-analysis; see linux.ts). */
+  linux?: LinuxOpts;
 }
 
 export interface FirewallOpts extends Placed {
@@ -138,6 +143,8 @@ export class NetBuilder {
     d.wifiClient = o.wifiClient;
     if (o.services) d.services = o.services.map((x) => ({ ...x }));
     if (o.dhcp) d.dhcp = { client: newDhcpClient('eth0') };
+    if (o.firewall) d.firewall = newFirewall('eth0', o.firewall.mode, o.firewall.rules);
+    if (o.linux) d.linux = newLinux(id, o.linux);
     if (o.gateway) (this.staticRoutes[id] ??= []).push({ prefix: '0.0.0.0/0', via: o.gateway, iface: 'eth0' });
     this.sim.devices[id] = d;
     return this;

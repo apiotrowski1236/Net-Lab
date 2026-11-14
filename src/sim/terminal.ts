@@ -2,6 +2,7 @@ import { isIp, isPrefix, normalizePrefix, prefixContains, type Ip } from './addr
 import type { L4 } from './services';
 import type { Sim } from './sim';
 import type { Device } from './types';
+import { parseHost, shellWords, type HostCmd, type HostCommand, type HostOutLine } from './linux';
 
 /**
  * The terminal: network commands typed on one computer (built for net-tools,
@@ -32,9 +33,13 @@ import type { Device } from './types';
  * have been back, instead of after the full wait, so a class isn't kept waiting.
  */
 
-export type TermCommand = 'ping' | 'traceroute' | 'nslookup' | 'netstat' | 'nmap';
+export type TermCommand = 'ping' | 'traceroute' | 'nslookup' | 'netstat' | 'nmap' | HostCommand;
 
-export const TERM_COMMANDS: TermCommand[] = ['ping', 'traceroute', 'nslookup', 'netstat', 'nmap'];
+export const TERM_COMMANDS: TermCommand[] = ['ping', 'traceroute', 'nslookup', 'netstat', 'nmap', 'ss', 'ufw', 'grep', 'tail'];
+
+/** Commands that run on a Linux server's own files and firewall (device-analysis; see linux.ts). */
+export const HOST_COMMANDS: HostCommand[] = ['ss', 'ufw', 'grep', 'tail'];
+export const isHostCommand = (c: string): c is HostCommand => (HOST_COMMANDS as string[]).includes(c);
 
 /** How each command is typed, and what it does, for help and the line under the prompt. */
 export const TERM_USAGE: Record<TermCommand, { usage: string; what: string }> = {
@@ -43,6 +48,11 @@ export const TERM_USAGE: Record<TermCommand, { usage: string; what: string }> = 
   nslookup: { usage: 'nslookup <name>', what: 'Ask the DNS server for the address that goes with a name.' },
   netstat: { usage: 'netstat [-a] [-b]', what: 'List this computer’s connections. -a adds ports waiting for connections. -b adds the program behind each one.' },
   nmap: { usage: 'nmap [-sV] [--script vuln] <address or network>', what: 'Scan for computers and open ports. Needs the owner’s written permission.' },
+  // device-analysis: a Linux server's own commands (linux.ts, ufw.ts)
+  ss: { usage: 'ss -tuln', what: 'List the ports where programs wait for connections. -t TCP, -u UDP, -l listening, -n numbers.' },
+  ufw: { usage: 'ufw status numbered', what: 'Show the firewall rules. Change them with ufw deny ..., ufw insert <number> ..., and ufw delete <number>.' },
+  grep: { usage: 'grep [-n] <text> <file>', what: 'Print the lines of a file that contain the text. -n adds line numbers, -c counts, -i ignores capitals.' },
+  tail: { usage: 'tail [-n 20] <file>', what: 'Print the last lines of a file: 10 unless you give a number.' },
 };
 
 /** A command line, read. `help` and `clear` only change the screen, so they never reach the network. */
@@ -52,6 +62,8 @@ export type Parsed =
   | { cmd: 'nslookup'; name: string; server?: Ip }
   | { cmd: 'netstat'; all: boolean; programs: boolean }
   | { cmd: 'nmap'; target: string; versions: boolean; vuln: boolean }
+  /** A Linux server's own command (device-analysis). */
+  | { cmd: HostCommand; host: HostCmd }
   | { cmd: 'help' }
   | { cmd: 'clear' };
 
@@ -91,6 +103,18 @@ export function parseCommand(raw: string): ParseResult {
   const words = raw.trim().split(/\s+/).filter(Boolean);
   if (!words.length) return { ok: false, msg: 'Type a command, then press Enter.' };
   const name = words[0].toLowerCase();
+  // device-analysis: sudo runs the rest as the administrator, and a Linux server's own commands read quotes.
+  if (name === 'sudo') {
+    if (words.length < 2) return { ok: false, msg: 'usage: sudo <command>. sudo runs one command as the administrator: sudo ufw status numbered' };
+    const r = parseCommand(raw.trim().slice(4));
+    return r.ok ? { ...r, line: `sudo ${r.line}` } : r;
+  }
+  if (isHostCommand(name)) {
+    const sw = shellWords(raw.trim());
+    if (!sw) return { ok: false, cmd: name, msg: 'A quote is missing its partner. Close the text with the same kind of quote: grep "Failed password" /var/log/auth.log' };
+    const h = parseHost(name, sw.slice(1));
+    return h.ok ? { ok: true, parsed: { cmd: name, host: h.host }, line: [name, ...raw.trim().split(/\s+/).slice(1)].join(' ') } : { ok: false, cmd: name, msg: h.msg };
+  }
   const args = words.slice(1);
   const line = [name, ...args].join(' ');
   switch (name) {
@@ -291,7 +315,17 @@ export interface NmapRun extends RunBase {
   scan?: number;
 }
 
-export type TermRun = PingRun | TraceRun | LookupRun | NetstatRun | NmapRun;
+/** A Linux server's own command (device-analysis): its output is a snapshot taken when it ran. */
+export interface HostRun extends RunBase {
+  kind: 'host';
+  cmd: HostCommand;
+  out: HostOutLine[];
+  meaning?: string;
+  /** Never looks up a name (keeps the name-lookup code's checks on `lookup` simple). */
+  lookup?: undefined;
+}
+
+export type TermRun = PingRun | TraceRun | LookupRun | NetstatRun | NmapRun | HostRun;
 
 /** Runs each computer keeps (oldest dropped first). */
 export const MAX_RUNS = 40;

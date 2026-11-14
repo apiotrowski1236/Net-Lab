@@ -221,7 +221,7 @@ export function TerminalTool({ session, spec, selected }: ToolCardProps<'termina
   };
 
   const typed = commandOf(draft);
-  const prompt = `${at}>`;
+  const prompt = dev?.linux ? `${dev.linux.user}@${dev.linux.hostname}:~$` : `${at}>`; // device-analysis: a Linux shell prompt
   const nmapHere = spec.commands.includes('nmap') && spec.nmap?.from === at;
 
   return (

@@ -1,6 +1,8 @@
 import { isIp, isPrefix, type Ip } from '../sim/addr';
 import type { Sim } from '../sim/sim';
-import { inScope, networkInScope, parseCommand, TERM_USAGE, type Parsed, type TermCommand } from '../sim/terminal';
+import { inScope, isHostCommand, networkInScope, parseCommand, TERM_USAGE, type Parsed, type TermCommand } from '../sim/terminal';
+import type { HostCmd } from '../sim/linux';
+import type { Device } from '../sim/types';
 import type { ToolSpec } from '../labs/types';
 import type { Checked } from './toolInput';
 
@@ -35,6 +37,10 @@ export function checkCommand(sim: Sim, spec: TerminalSpec, deviceId: string, raw
   if (!spec.commands.includes(c.cmd)) {
     return { ok: false, msg: `This step doesn’t use ${c.cmd}. Try ${list(spec.commands)}.` };
   }
+  if ('host' in c) {
+    const m = hostMistake(dev, c.host);
+    if (m) return { ok: false, msg: m };
+  }
   if (c.cmd === 'nmap') {
     const rule = spec.nmap;
     if (!rule) return { ok: false, msg: 'nmap isn’t installed on this computer.' };
@@ -57,6 +63,27 @@ export function checkCommand(sim: Sim, spec: TerminalSpec, deviceId: string, raw
     return { ok: false, msg: `${c.target} is ${dev.label}’s own address. Try another computer’s address.` };
   }
   return { ok: true, parsed: c, line: r.line };
+}
+
+/**
+ * A Linux server's command (device-analysis) that parses but can't be what
+ * the student meant: run on a computer that isn't Linux, or a ufw rule whose
+ * from and to are mixed up.
+ */
+export function hostMistake(dev: Device, h: HostCmd): string | undefined {
+  if (!isHostCommand(h.cmd)) return undefined;
+  if (!dev.linux) return `${h.cmd} runs on a Linux server. ${dev.label} isn't one.`;
+  if (h.cmd !== 'ufw' || (h.op.op !== 'add' && h.op.op !== 'delete-rule')) return undefined;
+  const r = h.op.rule;
+  if (r.dir !== 'in') return undefined;
+  const mine = (a: string) => a === 'any' || dev.ifaces.some((i) => i.ip === a);
+  if (r.sport !== undefined && r.sport !== 'any') {
+    return `“from ${r.src} port ${r.sport}” means traffic sent from port ${r.sport} on that computer. To match traffic going to this server's port ${r.sport}, write to any port ${r.sport}: ufw ${r.action} from ${r.src} to any port ${r.sport}`;
+  }
+  if (!mine(r.dst)) {
+    return `“to ${r.dst}” matches packets going to ${r.dst}. Packets that computer sends here come from it. Write from: ufw ${r.action} from ${r.dst}${r.dport !== 'any' ? ` to any port ${r.dport}` : ''}`;
+  }
+  return undefined;
 }
 
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);

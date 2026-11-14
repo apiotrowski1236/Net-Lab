@@ -1,4 +1,5 @@
 import type { Ip, Mac } from './addr';
+import type { LinuxState } from './linux';
 import type { DnsResolver } from './dns';
 import type { Burst } from './burst';
 import type { SwitchSec } from './switchsec';
@@ -244,6 +245,8 @@ export interface Device {
    * traffic. See Sim.setMirror.
    */
   mirror?: string;
+  /** A Linux server: its log files, sshd, nginx, and fail2ban (see linux.ts). Its host firewall is `firewall` (ufw.ts). */
+  linux?: LinuxState;
 }
 
 // ---------------------------------------------------------------------------

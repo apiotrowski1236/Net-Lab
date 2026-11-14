@@ -59,6 +59,7 @@ function outsideText(sim: Sim, dev: Device): string {
  * student adds, changes, deletes, and reorders rules here.
  */
 export function FirewallRulesSection(props: InspectorSectionProps) {
+  if (props.dev.kind === 'host') return null; // device-analysis: a host's own firewall is HostFirewall.tsx
   // A fresh form for each firewall and each step, so a half-written rule or an
   // old "Added as rule 2" never shows up on another firewall or in a later step.
   return <Rulebook key={`${props.dev.id} ${props.session.progress.step}`} {...props} />;

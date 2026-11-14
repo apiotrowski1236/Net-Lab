@@ -6,6 +6,7 @@ import type { DemoFacts, DemoSpec } from '../demos/types';
 import type { TermCommand } from '../sim/terminal';
 import type { BenchMethod } from '../sim/bench';
 import type { CapStatsView, CaptureFileDef } from '../sim/capfile';
+import type { LogFile } from '../sim/linux';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
@@ -284,7 +285,11 @@ export type ToolSpec =
    * views (Endpoints, Conversations, I/O Graph), and `follow` Follow TCP
    * Stream. See src/sim/capfile.ts and src/ui/CaptureFile.tsx.
    */
-  | { kind: 'capture-file'; device: string; files: string[]; filter?: boolean; stats?: boolean; follow?: boolean };
+  | { kind: 'capture-file'; device: string; files: string[]; filter?: boolean; stats?: boolean; follow?: boolean }
+  /** A Linux server's log files with numbered lines, to read and search (device-analysis). Its own Toolkit card. */
+  | { kind: 'log-files'; device: string; files: LogFile[] }
+  /** A Linux server's sign-in defenses (device-analysis): fail2ban's automatic bans, and SSH password sign-in. Its own Toolkit card. */
+  | { kind: 'ssh-guard'; device: string; controls: ('fail2ban' | 'passwords')[] };
 
 export type IdsControl = 'signatures' | 'anomaly' | 'prevention';
 export type BenchControl = 'db' | 'baseline' | 'tolerance';

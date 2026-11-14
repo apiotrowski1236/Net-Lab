@@ -8,6 +8,7 @@ import {
   PING_COUNT,
   reverseName,
   roundTripMs,
+  TERM_COMMANDS,
   TERM_USAGE,
   TRACE_MAX_HOPS,
   TRACE_SILENT,
@@ -54,6 +55,8 @@ export function runLines(sim: Sim, devId: string, run: TermRun): TermLine[] {
       return netstatLines(run);
     case 'nmap':
       return nmapLines(sim, devId, run);
+    case 'host':
+      return run.out;
   }
 }
 
@@ -203,6 +206,7 @@ function nmapLines(sim: Sim, devId: string, run: NmapRun): TermLine[] {
 
 /** One sentence under the newest result: what it means, in plain words. Undefined while it's still running. */
 export function runMeaning(sim: Sim, devId: string, run: TermRun): string | undefined {
+  if (run.kind === 'host') return run.meaning;
   if (run.doneAt === undefined && run.kind !== 'netstat') return undefined;
   const me = sim.devices[devId]?.label ?? devId;
   if (run.kind !== 'nslookup' && run.kind !== 'netstat' && run.lookup && run.lookup.status !== 'found') {
@@ -289,7 +293,9 @@ export function helpLines(commands: TermCommand[]): TermLine[] {
 
 /** "nslookup catalog.lakeside.example" → "nslookup": which command a half-typed line is. */
 export function commandOf(line: string): TermCommand | undefined {
-  const w = line.trim().split(/\s+/)[0]?.toLowerCase();
+  const words = line.trim().split(/\s+/);
+  // sudo runs the command after it (device-analysis).
+  const w = (words[0]?.toLowerCase() === 'sudo' ? words[1] : words[0])?.toLowerCase();
   if (w === 'tracert' || w === 'tracepath') return 'traceroute';
-  return (['ping', 'traceroute', 'nslookup', 'netstat', 'nmap'] as TermCommand[]).find((c) => c === w);
+  return TERM_COMMANDS.find((c) => c === w);
 }

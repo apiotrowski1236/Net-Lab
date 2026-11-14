@@ -72,6 +72,9 @@ export const WELL_KNOWN: WellKnownPort[] = [
   { port: 445, proto: 'tcp', app: 'smb', name: 'SMB', what: 'Windows file sharing' },
   { port: 631, proto: 'tcp', app: 'ipp', name: 'IPP', what: 'Printing over the network' },
   { port: 3389, proto: 'tcp', app: 'rdp', name: 'RDP', what: 'Remote desktop' },
+  // device-analysis
+  { port: 3306, proto: 'tcp', app: 'mysql', name: 'MySQL', what: 'A database server' },
+  { port: 5900, proto: 'tcp', app: 'vnc', name: 'VNC', what: 'Screen sharing (remote control of a desktop)' },
 ];
 
 /** Names for applications that have no well-known port of their own. */

@@ -23,6 +23,8 @@ import { AiThresholdCard, IdsCard, SiemCard } from './DetectionCards';
 import { EchoTool } from './EchoTool';
 import { TerminalTool } from './Terminal';
 import { BenchCard, BenchPlanCard } from './Bench';
+import { LogFilesTool } from './LogFiles';
+import { SshGuardTool } from './SshGuard';
 
 export type ToolCardProps<K extends ToolSpec['kind'] = ToolSpec['kind']> = {
   session: LabSession;
@@ -74,4 +76,7 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   // detect-methods
   bench: BenchCard,
   'bench-plan': BenchPlanCard,
+  // device-analysis
+  'log-files': LogFilesTool,
+  'ssh-guard': SshGuardTool,
 };
