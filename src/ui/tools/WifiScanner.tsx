@@ -40,7 +40,8 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
   const watch = spec.watch ? sim.devices[spec.watch]?.wids : undefined;
   // A name that more than one radio advertises is the evil-twin tell. In watch mode the student judges.
   const dupSsid = new Set(watch ? [] : rows?.filter((r, _i, a) => a.filter((x) => x.ssid === r.ssid).length > 1).map((r) => r.ssid));
-  const channels = rows && watch ? [...new Set([...rows.map((r) => r.channel), sim.dev(spec.watch!).wifi?.channel ?? 6])].sort((a, b) => a - b) : [];
+  // The three channels that don't overlap, plus any other channel a network uses, so the list stays the same between scans.
+  const channels = rows && watch ? [...new Set([1, 6, 11, ...rows.map((r) => r.channel)])].sort((a, b) => a - b) : [];
 
   return (
     <div class={`tool-card ${watch ? 'wifi-watch' : ''}`}>
@@ -128,7 +129,7 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
       )}
       {rows && watch && (
         <p class="small wifi-noise">
-          Noise by channel (quiet is about 5):{' '}
+          Noise by channel, on a scale of 0 to 100 (quiet is about 5):{' '}
           {channels.map((c, i) => (
             <span key={c}>
               {i > 0 && ', '}

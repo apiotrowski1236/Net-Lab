@@ -20,6 +20,12 @@ export function clockTime(t: number, clock = '09:00'): string {
   return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}.${Math.floor((ms % 1000) / 100)}`;
 }
 
+/** A log row's time: clockTime, with "yesterday" in front of a line seeded from before midnight, so the tab reads in order. */
+export function logTime(t: number, clock = '09:00'): string {
+  const [h, m] = clock.split(':').map(Number);
+  return `${(h * 60 + m) * 60 * 1000 + t < 0 ? 'yesterday ' : ''}${clockTime(t, clock)}`;
+}
+
 /** Every device the unlocked Logs tools point at, in the order the lesson listed them. */
 export function logDevices(session: LabSession): string[] {
   const ids: string[] = [];
@@ -129,7 +135,7 @@ export function LogsView({ session }: { session: LabSession }) {
               <tbody>
                 {rows.map((e) => (
                   <tr key={e.no} class={`lvl-${e.level} ${selected === e.no ? 'selected' : ''}`} onClick={() => open(e)}>
-                    <td class="mono">{clockTime(e.t, session.lab.clock)}</td>
+                    <td class="mono">{logTime(e.t, session.lab.clock)}</td>
                     {ids.length > 1 && <td>{sim.devices[e.device]?.label}</td>}
                     <td>{e.source}</td>
                     <td class="mono info" title={e.msg}>
@@ -153,7 +159,7 @@ export function LogsView({ session }: { session: LabSession }) {
                   <tbody>
                     <tr>
                       <td class="k">Time</td>
-                      <td class="v mono">{clockTime(sel.t, session.lab.clock)}</td>
+                      <td class="v mono">{logTime(sel.t, session.lab.clock)}</td>
                     </tr>
                     {Object.entries(sel.fields ?? {}).map(([k, v]) => (
                       <tr>

@@ -48,6 +48,9 @@ export const IP = {
 /** What every staff device has saved for the shelter network. */
 export const STAFF_PROFILE: WifiProfile = { security: 'wpa3', auth: 'eap', server: SERVER };
 
+/** Shelter logins. The lookalike radio's own sign-in server says yes to any of them. */
+const USERS = ['desk', 'rivera', 'chen', 'okafor'];
+
 /** Devices with the saved profile: they never join a copy of the network. */
 export const STAFF = ['desk', 'phone1', 'laptop1'] as const;
 
@@ -122,7 +125,7 @@ export function buildWatch(): Sim {
         security: 'wpa3',
         wps: false,
         auth: 'eap',
-        users: ['desk', 'rivera', 'chen', 'okafor'],
+        users: USERS,
         server: SERVER,
         beacon: false,
         power: 2,
@@ -147,8 +150,8 @@ export function buildWatch(): Sim {
       ifaces: [{ id: 'lan', ip: `${IP.gw}/24` }],
     })
     .hub('rogue', {
-      label: 'Unknown box',
-      sublabel: 'hallway jack',
+      // Named for the wall jack, the way a switch port's description would read: nothing on the wire says what it is.
+      label: 'Hallway jack',
       icon: 'wifi',
       x: 600,
       y: 210,
@@ -160,7 +163,9 @@ export function buildWatch(): Sim {
       icon: 'wifi',
       x: TWIN_POS.x,
       y: TWIN_POS.y,
-      wifi: { ssid: LOOKALIKE, bssid: BSSID.twin, security: 'open', wps: false, auth: 'psk', beacon: true, power: 2, boost: 45, channel: 6, off: true },
+      // Open at first. When it copies the network (copy-name in index.ts) it switches to WPA3 with a per-person
+      // login, checked by its own sign-in server, which accepts any login and has no certificate for radius.shelter.
+      wifi: { ssid: LOOKALIKE, bssid: BSSID.twin, security: 'open', wps: false, auth: 'psk', users: USERS, beacon: true, power: 2, boost: 45, channel: 6, off: true },
     });
   for (const h of hosts) net.host(h.id, h.o);
   net
@@ -205,6 +210,8 @@ export function seedRogue(sim: Sim): void {
       lastNight('23:43'),
     );
     w.heard[BSSID.rogue] = { t: lastNight('23:43'), ssid: ROGUE_SSID };
+    // The switch learned the box's address, so its MAC table agrees with the log.
+    sim.dev('lansw').macTable[BSSID.rogue] = ROGUE_PORT;
   }
   // Its radio is on until the port is shut and a volunteer takes it down (removeRogue).
   if (sim.dev('rogue').wifi!.off && !sim.dev('lansw').switchSec?.ports[ROGUE_PORT]?.shutdown) sim.setWifiOff('rogue', false);

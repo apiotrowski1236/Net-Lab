@@ -170,7 +170,7 @@ export function settingsKey(w: WidsState): string {
 /** The alerts one record raises under the current settings. */
 export function alertsFor(w: WidsState, r: AirRecord): WidsAlert[] {
   const out: WidsAlert[] = [];
-  const when = `Day ${r.day} ${r.time}`;
+  const when = `[record: day ${r.day}, ${r.time}]`;
   if (r.kind === 'ap') {
     const known = isApproved(w, r.bssid);
     if (w.rules['unknown-ap'] && !known) {

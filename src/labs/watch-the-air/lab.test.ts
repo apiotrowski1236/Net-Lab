@@ -86,12 +86,17 @@ describe('watch-the-air lab', () => {
     const lines = s.sim.dev('lansw').logs.filter((e) => e.fields?.port === ROGUE_PORT);
     expect(lines.length).toBe(2);
     expect(lines.every((e) => e.t < 0)).toBe(true);
+    // The switch's own MAC table agrees with its log line.
+    expect(s.sim.dev('lansw').macTable[BSSID.rogue]).toBe(ROGUE_PORT);
   });
 
-  it('a copy with the exact name pulls in the visitor but no staff device, even one that hears it louder', () => {
+  it('a copy with the exact name and security pulls in the visitor but no staff device, even one that hears it louder', () => {
     const s = playThrough('lookalike');
     const sim = s.sim;
-    expect(sim.dev('twin').wifi!.ssid).toBe(SSID);
+    const twin = sim.dev('twin').wifi!;
+    // A phone only roams between radios with the same name and security, so the copy matches both.
+    expect([twin.ssid, twin.security, twin.auth]).toEqual([SSID, 'wpa3', 'eap']);
+    expect(twin.server).not.toBe(sim.dev('wap').wifi!.server);
     expect(joined(s, 'visitor')).toBe('twin');
     for (const id of STAFF) expect(joined(s, id)).toBe('wap');
     // The lesson says some staff devices hear the copy louder. Keep that true.
@@ -99,6 +104,14 @@ describe('watch-the-air lab', () => {
     expect(louder.length).toBeGreaterThan(0);
     // The visitor also hears the copy louder, which is why the phone moved.
     expect(signalAt(sim.dev('twin').wifi!, sim.dev('twin'), sim.dev('visitor'))).toBeGreaterThan(signalAt(sim.dev('wap').wifi!, sim.dev('wap'), sim.dev('visitor')));
+  });
+
+  it('the radio can only be unplugged once the readings have found it', () => {
+    const s = enter('find');
+    s.runStepAction('unplug');
+    expect(s.sim.dev('twin').wifi!.off).toBeFalsy();
+    playStep(s, watchTheAirSolution.find);
+    expect(s.sim.dev('twin').wifi!.off).toBe(true);
   });
 
   it('unplugging the copy and saving a profile brings the visitor back to stay', () => {

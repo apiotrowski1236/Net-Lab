@@ -54,6 +54,8 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'vlans', slot: 'settings', Section: VlansSection, tools: ['vlan'] },
   // mac-flood
   { id: 'switch-ports', slot: 'settings', Section: SwitchPorts, tools: ['port-security'] },
+  // watch-the-air (before the Wi-Fi settings, so the inventory is the first thing under the access point)
+  { id: 'approved-aps', slot: 'settings', Section: ApprovedAps },
   // wireless
   { ...wifiSettingsSection, tools: ['wifi-config'] },
   // firewall
@@ -74,6 +76,4 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   wifiSetupSummary,
   dhcpLeasesSection,
   natTableSection,
-  // watch-the-air
-  { id: 'approved-aps', slot: 'settings', Section: ApprovedAps },
 ];

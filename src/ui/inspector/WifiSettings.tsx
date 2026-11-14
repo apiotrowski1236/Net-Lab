@@ -86,7 +86,9 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
                 ? 'The original WPA is broken too.'
                 : ap.security === 'wpa2'
                   ? `WPA2 holds with a long passphrase${needsKey && strength !== 'strong' ? ' (yours is short)' : ''}.`
-                  : 'WPA3 is the strongest. It resists guessing even with a short passphrase.'}
+                  : ap.auth === 'eap'
+                    ? 'WPA3 is the strongest. Each person signs in with their own login.'
+                    : 'WPA3 is the strongest. It resists guessing even with a short passphrase.'}
         </p>
       </div>
 
