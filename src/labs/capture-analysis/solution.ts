@@ -5,7 +5,7 @@ import { BREAKROOM_PORT, file, firstNo, IP, isEchoRequest, isFloodFrame, isPoiso
 
 /** Answer key for "The Story in the Capture". Choice answers come from the lab itself. */
 
-const DENY_C2: FwRuleInput = { dir: 'out', proto: 'any', src: 'any', dst: IP.c2, dport: 'any', action: 'deny', note: 'Threat list: C2 server' };
+const DENY_C2: FwRuleInput = { dir: 'out', proto: 'any', src: 'any', dst: IP.c2, dport: 'any', action: 'deny' };
 const kiosks: string[] = KIOSKS.map((k) => IP[k]);
 const nos = (id: Parameters<typeof file>[0], pred: Parameters<typeof firstNo>[1]) => file(id).frames.filter(pred).map((c) => c.no);
 const telnetStream = () => file('telnet').frames.find((c) => c.frame.ip?.dstPort === 23)!.frame.ip!.tcp!.stream!;

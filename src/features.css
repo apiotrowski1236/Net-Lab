@@ -6786,6 +6786,10 @@ button.pl-tile:active {
   flex-direction: column;
   gap: 6px;
 }
+/* The filter bar grows sideways in a row; in this column it keeps its own height. */
+.capfile-tools .capture-filter {
+  flex: none;
+}
 .capfile-files,
 .capfile-views {
   display: flex;

@@ -316,9 +316,58 @@ async function doDemo(id, input) {
   } else throw new Error(`clickthrough has no UI driver for demo input ${JSON.stringify(input)}. Add one in doDemo.`);
 }
 
+/** Saved capture files in the Capture tab (capture-analysis): pick the file, then filter, a Statistics view, a stream, or a packet. */
+const STATS_LABEL = { 'endpoints-eth': 'Endpoints: Ethernet', 'endpoints-ip': 'Endpoints: IPv4', conversations: 'Conversations', io: 'I/O Graph' };
+async function doCapfile(i, m) {
+  await tab('Capture');
+  const def = lab.captureFiles.find((f) => f.id === m.capfile);
+  const pick = page.locator('.capfile-files select');
+  if (await pick.count()) await pick.selectOption({ label: def.name });
+  else if (!(await page.locator('.capfile-files', { hasText: def.name }).count())) await fail(i, `the Capture tab doesn't offer ${def.name}`);
+  log(`  open ${def.name}`);
+  const filter = async (text) => {
+    await page.locator('.capfile .capture-filter input').fill(text);
+    await page.keyboard.press('Enter');
+    if (await page.locator('.capfile .filter-msg:not(.muted)').count()) await fail(i, `the filter bar turned away "${text}"`);
+  };
+  const list = async () => {
+    const b = page.locator('.capfile-views button', { hasText: 'Packet list' });
+    if (await b.count()) await b.click();
+  };
+  if (m.filter !== undefined) {
+    await filter(m.filter);
+    log(`  filter "${m.filter}"`);
+  }
+  if (m.stats) {
+    await page.locator('.capfile-views button', { hasText: STATS_LABEL[m.stats] }).click();
+    log(`  Statistics: ${STATS_LABEL[m.stats]}`);
+  }
+  if (m.follow !== undefined) {
+    // A student filters to the conversation, opens one of its packets, and presses Follow TCP Stream.
+    await filter(`tcp.stream == ${m.follow}`);
+    await list();
+    await page.locator('.capfile-table tbody tr[data-no]').first().click();
+    await page.getByRole('button', { name: 'Follow TCP Stream' }).click();
+    if (!(await page.locator('.capfile-follow').count())) await fail(i, `Follow TCP Stream ${m.follow} didn't open`);
+    log(`  follow TCP stream ${m.follow}`);
+  }
+  if (m.packet !== undefined) {
+    // The list draws only the rows on screen: scroll the packet into view first (no filter is on).
+    await list();
+    await page.locator('.capfile-list').evaluate((el, no) => (el.scrollTop = (no - 1) * 30 - 60), m.packet);
+    await page.waitForTimeout(100);
+    const row = page.locator(`.capfile-table tbody tr[data-no="${m.packet}"]`);
+    if (!(await row.count())) await fail(i, `packet ${m.packet} isn't in the list`);
+    await row.click();
+    log(`  open packet ${m.packet}`);
+  }
+}
+
 async function doMove(i, step, m) {
   if (await moreMoves({ page, log, fail, tab, device, labels, model, vite }, i, step, m)) {
     // drivers.mjs drove it.
+  } else if ('capfile' in m) {
+    await doCapfile(i, m);
   } else if ('inspect' in m) {
     // Spotlighted devices pulse, so Playwright never sees them as stable.
     await device(m.inspect).locator('rect.device-card').first().click({ force: true });
@@ -365,6 +414,47 @@ async function doMove(i, step, m) {
       await doDetection(i, a);
     } else if (a.type.startsWith('bench-')) {
       await doBench(i, a);
+    } else if (a.type === 'port-security') {
+      // The switch's Ports and port security section: Edit on the port, the toggle, the fields, Save.
+      await device(a.device).locator('rect.device-card').first().click({ force: true });
+      await tab('Inspect');
+      const sec = page.locator('section.switch-ports');
+      const name = a.port.replace(/^p(\d+)$/, 'port $1');
+      const row = sec.locator('tbody tr').filter({ has: page.locator('td', { hasText: new RegExp(`^${name}$`) }) });
+      await row.getByRole('button', { name: 'Edit' }).click();
+      const ed = sec.locator('.port-edit');
+      const tog = ed.getByRole('switch');
+      if ((await tog.getAttribute('aria-checked')) !== String(!!a.config)) await tog.click();
+      if (a.config) {
+        await ed.locator('input').first().fill(String(a.config.maxMacs));
+        await ed.locator('select').selectOption(a.config.violation);
+        if (a.config.allowed) await ed.locator('input').nth(1).fill(a.config.allowed.join(' '));
+      }
+      await ed.getByRole('button', { name: /^Save/ }).click();
+      log(`  port security on ${labels[a.device]} ${name}: ${a.config ? `${a.config.maxMacs} MAC, ${a.config.violation}` : 'off'}`);
+    } else if (a.type === 'fw-add-rule') {
+      // The device's Firewall rules section: Add a rule, the sentence form, Add rule, then the up arrows to reach `at`.
+      await device(a.device).locator('rect.device-card').first().click({ force: true });
+      await tab('Inspect');
+      const sec = page.locator('section.fw-section');
+      await sec.getByRole('button', { name: 'Add a rule' }).click();
+      const form = sec.locator('.fw-form');
+      const r = a.rule;
+      await form.getByLabel('Action').selectOption(r.action);
+      await form.getByLabel('Direction').selectOption(r.dir);
+      await form.getByLabel('Protocol').selectOption(r.proto);
+      await form.getByLabel('Source address').fill(r.src);
+      if (await form.getByLabel('Source port').count()) await form.getByLabel('Source port').fill(String(r.sport ?? 'any'));
+      await form.getByLabel('Destination address').fill(r.dst);
+      if (await form.getByLabel('Destination port').count()) await form.getByLabel('Destination port').fill(String(r.dport));
+      await form.getByRole('button', { name: 'Add rule', exact: true }).click();
+      if (await form.count()) await fail(i, `the firewall turned the rule away: ${(await sec.innerText()).replace(/\s+/g, ' ').slice(-200)}`);
+      let n = await sec.locator('button[aria-label^="Move rule"][aria-label$=" up"]').count();
+      while (a.at !== undefined && n > a.at + 1) {
+        await sec.getByRole('button', { name: `Move rule ${n} up`, exact: true }).click();
+        n--;
+      }
+      log(`  firewall rule on ${labels[a.device]}: ${r.action} ${r.dir} ${r.proto} to ${r.dst}${a.at !== undefined ? `, moved to rule ${a.at + 1}` : ''}`);
     } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doMove.`);
   } else if ('filter' in m) {
     await tab('Capture');
