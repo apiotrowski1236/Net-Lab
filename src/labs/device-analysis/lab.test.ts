@@ -103,6 +103,7 @@ describe('device-analysis: citing rows', () => {
     expect(verify('11-24')).toBeUndefined();
     expect(verify('10-24')).toBe("Row 10 isn't part of the spray: it is Bayline Farms' nightly upload, signing in with its key.");
     expect(verify('11-20')).toBe('You cited 10 of the 14 spray rows. Look above and below the rows you found for more.');
+    expect(verify('11-16, 18-24')).toBe('You cited 13 of the 14 spray rows. One is between rows you cited, so check for a row you skipped.');
     expect(checkRows('4-13', ROWS.scan, 'scan', () => undefined)).toBeUndefined();
   });
 });
@@ -171,6 +172,20 @@ describe('device-analysis: fail2ban and keys', () => {
     expect(cs.map((c) => c.status)).toEqual(['open', 'open', 'open', 'open', 'open', 'no-answer', 'no-answer', 'no-answer']);
     expect(fw(sim).rules[0]).toMatchObject({ src: IP.bot, action: 'deny', note: 'fail2ban' });
     expect(lines(sim, 'fail2ban').at(-1)).toMatch(/^2026-11-16 09:00:0\d,\d{3} fail2ban\.actions {8}\[\d+\]: NOTICE  \[sshd\] Ban 203\.0\.113\.201$/);
+  });
+
+  it('a second press during a run of guesses does nothing', () => {
+    const sim = buildCoop();
+    sim.linuxSet(WEB, 'fail2ban', true);
+    botnetAttack(sim);
+    sim.schedule(200, () => botnetAttack(sim));
+    sim.runUntilIdle();
+    expect(botIp(sim)).toBe('203.0.113.202');
+    expect((sim.dev('bot').conns ?? []).filter((c) => c.tag === 'botnet').map((c) => c.status)).toEqual(['open', 'open', 'open']);
+    expect(lx(sim).f2b.banned).toEqual([]);
+    botnetAttack(sim);
+    sim.runUntilIdle();
+    expect(botIp(sim)).toBe('203.0.113.203');
   });
 
   it('the botnet moves address each time, under the limit; with passwords off, it never gets to guess', () => {

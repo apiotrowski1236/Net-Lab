@@ -369,18 +369,38 @@ export const vendorUpload = (sim: Sim) => connect(sim, 'vendor', 22, sshRequest(
 export const scannerSsh = (sim: Sim) => connect(sim, 'scanner', 22, sshRequest({ user: 'root', auth: 'password' }), 'scanner-ssh');
 export const scannerRdp = (sim: Sim) => connect(sim, 'scanner', 3389, undefined, 'scanner-rdp');
 
-/** Password guesses from `from`, one username each, `gap` ms apart. */
+/** When each kind of guessing run last started, per network. A replay rebuilds it by running the same presses. */
+const RUN_START = new WeakMap<Sim, Record<string, { t: number; n: number; from: string }>>();
+
+/** When the run of guesses a press at `since` belongs to began: the press itself, or the run it landed in. */
+export function guessRunStart(sim: Sim, tag: string, since: number): number {
+  const r = RUN_START.get(sim)?.[tag];
+  return r && r.t <= since ? r.t : since;
+}
+
+/** A run of guesses is still going: not all sent, or some still waiting for an answer. */
+export function guessing(sim: Sim, tag: string): boolean {
+  const r = RUN_START.get(sim)?.[tag];
+  if (!r) return false;
+  const cs = (sim.dev(r.from).conns ?? []).filter((c) => c.tag === tag && c.t >= r.t);
+  return cs.length < r.n || cs.some((c) => c.status === 'pending');
+}
+
+/** Password guesses from `from`, one username each, `gap` ms apart. A second press during a run does nothing. */
 function guess(sim: Sim, from: string, users: string[], gap: number, tag: string): void {
+  const runs = RUN_START.get(sim) ?? {};
+  RUN_START.set(sim, runs);
+  runs[tag] = { t: sim.t, n: users.length, from };
   users.forEach((u, i) => sim.schedule(i * gap, () => connect(sim, from, 22, sshRequest({ user: u, auth: 'password' }), tag)));
 }
 
 /** The weekend's spray, again: four of its usernames from 203.0.113.77. */
 export const SPRAY_AGAIN = ['admin', 'ubuntu', 'oracle', 'root'];
-export const replaySpray = (sim: Sim) => guess(sim, 'sprayer', SPRAY_AGAIN, 250, 'spray');
+export const replaySpray = (sim: Sim) => void (guessing(sim, 'spray') || guess(sim, 'sprayer', SPRAY_AGAIN, 250, 'spray'));
 
 /** The bot's run of guesses: more than fail2ban's limit of 5. */
 export const BOT_USERS = ['admin', 'root', 'test', 'ubuntu', 'user', 'administrator', 'support', 'guest'];
-export const botAttack = (sim: Sim) => guess(sim, 'bot', BOT_USERS, 300, 'bot');
+export const botAttack = (sim: Sim) => void (guessing(sim, 'bot') || guessing(sim, 'botnet') || guess(sim, 'bot', BOT_USERS, 300, 'bot'));
 
 /**
  * Step 8: the bot is one of many. Each press comes from the next address,
@@ -388,6 +408,7 @@ export const botAttack = (sim: Sim) => guess(sim, 'bot', BOT_USERS, 300, 'bot');
  */
 export const BOTNET_USERS = ['admin', 'root', 'deploy'];
 export function botnetAttack(sim: Sim): void {
+  if (guessing(sim, 'botnet') || guessing(sim, 'bot')) return;
   const n = Number(botIp(sim).split('.')[3]);
   sim.setIp('bot', 'eth0', `203.0.113.${n + 1}`, 24);
   guess(sim, 'bot', BOTNET_USERS, 300, 'botnet');

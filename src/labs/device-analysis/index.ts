@@ -1,6 +1,6 @@
 import { checkRows, rowsText } from '../../runtime/citeRows';
 import type { LogFile } from '../../sim/linux';
-import { scanFindings } from '../../sim/services';
+import { scanFindings, type Conn } from '../../sim/services';
 import type { Sim } from '../../sim/sim';
 import type { HostCommand } from '../../sim/linux';
 import { happened, inspected, loggedSince } from '../helpers';
@@ -21,6 +21,7 @@ import {
   IP,
   joSignIn,
   connVerdict,
+  guessRunStart,
   lastConn,
   lx,
   NET,
@@ -124,14 +125,16 @@ const vendor: ActionDef = {
 };
 
 /** The lines under a button that makes several sign-in guesses. */
-function guessLines(sim: Sim, since: number, from: string, tag: string, n: number): { done: boolean; reached: number; blocked: number; lines: ActionLine[] } {
-  const cs = (sim.dev(from).conns ?? []).filter((c) => c.t >= since && c.tag === tag);
+function guessLines(sim: Sim, since: number, from: string, tag: string, n: number): { done: boolean; reached: number; blocked: number; cs: Conn[]; lines: ActionLine[] } {
+  // A press during a run is ignored, so its lines follow the run it landed in.
+  const start = guessRunStart(sim, tag, since);
+  const cs = (sim.dev(from).conns ?? []).filter((c) => c.t >= start && c.tag === tag);
   const done = cs.length === n && cs.every((c) => c.status !== 'pending');
   const reached = cs.filter((c) => c.status === 'open').length;
   const blocked = cs.filter((c) => c.status === 'no-answer').length;
   const dropped = cs.some((c) => connVerdict(sim, c)?.action === 'deny');
   const why = dropped ? ' ufw dropped a guess, and the attacker waits for an answer that never comes.' : '';
-  return { done, reached, blocked, lines: done ? [] : [{ tone: 'wait', text: `Guessing… ${cs.filter((c) => c.status !== 'pending').length} of ${n} done.${why}` }] };
+  return { done, reached, blocked, cs, lines: done ? [] : [{ tone: 'wait', text: `Guessing… ${cs.filter((c) => c.status !== 'pending').length} of ${n} done.${why}` }] };
 }
 
 const spray: ActionDef = {
@@ -141,7 +144,7 @@ const spray: ActionDef = {
   outcome: (sim, since) => {
     const g = guessLines(sim, since, 'sprayer', 'spray', 4);
     if (!g.done) return g.lines;
-    const first = (sim.dev('sprayer').conns ?? []).find((c) => c.t >= since && c.tag === 'spray');
+    const first = g.cs[0];
     const v = first ? verdictWords(sim, first) : undefined;
     const why = v ? ` ${v}.` : '';
     if (g.reached) return [{ tone: 'bad', text: `${g.reached} of 4 guesses reached sshd.${why} Each wrong guess is a new Failed password line in auth.log.` }];
@@ -157,7 +160,11 @@ const bot: ActionDef = {
     const g = guessLines(sim, since, 'bot', 'bot', 8);
     if (!g.done) return g.lines;
     const ip = botIp(sim);
-    if (!g.blocked) return [{ tone: 'bad', text: `All 8 guesses from ${ip} reached sshd. Nothing stopped them: fail2ban is off.` }];
+    if (!g.blocked) {
+      if (lx(sim).f2b.banned.includes(ip))
+        return [{ tone: 'bad', text: `All 8 guesses from ${ip} reached sshd before any ban. fail2ban banned ${ip} later, from the lines it read back when it started. Next time, turn fail2ban on first and watch it ban during the attack.` }];
+      return [{ tone: 'bad', text: `All 8 guesses from ${ip} reached sshd. Nothing stopped them: fail2ban is off.` }];
+    }
     if (!g.reached) return [{ tone: 'good', text: `${ip} is already banned. ufw blocked all 8 guesses before sshd saw them.` }];
     return [{ tone: 'good', text: `${g.reached} guesses reached sshd. Then fail2ban banned ${ip}, and ufw blocked the last ${g.blocked}.` }];
   },
@@ -171,7 +178,7 @@ const botnet: ActionDef = {
     const g = guessLines(sim, since, 'bot', 'botnet', 3);
     if (!g.done) return g.lines;
     const ip = botIp(sim);
-    const cs = (sim.dev('bot').conns ?? []).filter((c) => c.t >= since && c.tag === 'botnet');
+    const cs = g.cs;
     if (g.blocked) return [{ tone: 'good', text: `This time it came from ${ip}. ufw blocked ${g.blocked} of 3 guesses.` }];
     if (cs.every((c) => c.banner?.includes('publickey')))
       return [{ tone: 'good', text: `3 tries from ${ip}. sshd closed each connection before any password: password sign-in is off, so no guess can work.` }];
@@ -537,7 +544,7 @@ export const deviceAnalysisLab: LabDef = {
         2. Replay the spray: [[button:spray]]
         3. Read the result under the button. Did your rule stop it?
 
-        If the spray still got through, the problem is the order of the rules. Delete your rule first: \`ufw delete N\` deletes rule number N. Then \`ufw insert N\` followed by a rule puts it at position N, like \`ufw insert 1 deny from 203.0.113.77\`. Replay the spray again.
+        If the spray still got through, the problem is the order of the rules. Delete your rule first: \`ufw delete N\` deletes rule number N. (A real server asks you to confirm a delete with y. This one skips that.) Then \`ufw insert N\` followed by a rule puts it at position N, like \`ufw insert 1 deny from 203.0.113.77\`. Replay the spray again.
       `,
       tools: [term(['ufw', 'grep', 'tail']), logs(['auth', 'ufw'])],
       actions: [spray],
@@ -643,7 +650,7 @@ export const deviceAnalysisLab: LabDef = {
         A **countermeasure** is anything that defends against an attack. The strongest one here takes away what the attack needs: passwords. Jo and Bayline Farms already sign in with keys, so nobody needs a password to reach this server.
 
         1. In the **Sign-in defenses** card, turn off **Allow password sign-in**.
-        2. Press [[button:botnet]] again. Scroll to the bottom of auth.log and read the new lines.
+        2. Press [[button:botnet]] one more time. Scroll to the bottom of auth.log and read the new lines.
         3. Check that Jo can still get in: [[button:jo]]
 
         Turning off password sign-in makes sshd reload its settings: that's the "Received SIGHUP" line. After that, each try ends with [preauth], which means sshd closed the connection before any password was checked.

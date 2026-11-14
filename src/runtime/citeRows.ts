@@ -62,6 +62,10 @@ export function checkRows(value: string, want: readonly number[], what: string, 
     return d ? `Row ${extra[0]} isn't part of the ${what}: ${d}.` : `Row ${extra[0]} isn't in the file yet. Check the row numbers on the left.`;
   }
   const missing = want.filter((n) => !got.includes(n));
-  if (missing.length) return `You cited ${got.length} of the ${want.length} ${what} rows. Look above and below the rows you found for more.`;
+  if (missing.length) {
+    const inside = missing.some((n) => n > Math.min(...got) && n < Math.max(...got));
+    const where = inside ? 'One is between rows you cited, so check for a row you skipped.' : 'Look above and below the rows you found for more.';
+    return `You cited ${got.length} of the ${want.length} ${what} rows. ${where}`;
+  }
   return undefined;
 }
