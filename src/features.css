@@ -7131,6 +7131,22 @@ button.pl-tile:active {
 }
 
 /* ---------- device-analysis: host firewall, log files, sign-in defenses ---------- */
+/* A lit rule holds its color long enough to find, with a bar on its left edge. */
+.hostfw .table tr.flash td {
+  animation: hostfw-flash 4s ease;
+}
+.hostfw .table tr.flash td:first-child {
+  box-shadow: inset 4px 0 0 var(--brand);
+}
+@keyframes hostfw-flash {
+  0%,
+  70% {
+    background: var(--flash);
+  }
+  100% {
+    background: transparent;
+  }
+}
 .hostfw .fw-table tr.hostfw-new td {
   background: var(--good-soft);
 }

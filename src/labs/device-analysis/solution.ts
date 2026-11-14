@@ -42,21 +42,12 @@ export const deviceAnalysisSolution: LabSolution = {
     ],
   },
 
-  'write-ab': {
+  'write-up': {
     text: {
       'part-a':
-        'Policy rule 2 says remote administration is allowed only from the office network. That keeps attackers on the internet from even reaching the SSH sign-in, so they cannot guess passwords. Changing the rule that allows 22/tcp from Anywhere to allow 22/tcp only from 192.0.2.0/24 makes the server follow it.',
-      'part-b':
-        'Rows 11 to 24 of auth.log show 14 failed sign-ins from 203.0.113.77 in about seven minutes. Each row tries a different username, like admin, test, oracle, and root, and most of the accounts do not exist. That is a password spray: a few passwords tried on many usernames, where a brute-force attack would try many passwords on one account.',
-    },
-  },
-
-  'write-de': {
-    text: {
-      'part-d':
         'Row 11 of ufw.log shows a SYN from 203.0.113.140 to port 22. Rule 1 denies 22/tcp from 203.0.113.140, and it is the first rule that matches, so ufw dropped the packet and logged it. Deleting rule 1 would allow it, because rule 5 allows SSH from anywhere. The impact is that the scanner could then try to sign in with SSH.',
-      'part-e':
-        'Rows 21 to 23 of access.log show 203.0.113.140 asking for paths with ../ in them, like /download?file=../../../../etc/passwd. That is directory traversal. An intrusion prevention system such as a fail2ban jail on access.log could see the ../ requests and add a firewall rule that bans the address within seconds. A different countermeasure is input validation, so the site refuses any file name with .. in it.',
+      'part-b':
+        'Rows 21 to 23 of access.log show 203.0.113.140 asking for paths with ../ in them, like /download?file=../../../../etc/passwd. That is directory traversal. An intrusion prevention system such as a fail2ban jail on access.log could see the ../ requests and add a firewall rule that bans the address within seconds. A different countermeasure is input validation: the site works out the full location of each file it is asked for and refuses any outside the web folder.',
     },
   },
 

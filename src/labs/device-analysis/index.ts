@@ -125,7 +125,7 @@ function guessLines(sim: Sim, since: number, from: string, tag: string, n: numbe
   const done = cs.length === n && cs.every((c) => c.status !== 'pending');
   const reached = cs.filter((c) => c.status === 'open').length;
   const blocked = cs.filter((c) => c.status === 'no-answer').length;
-  return { done, reached, blocked, lines: done ? [] : [{ tone: 'wait', text: `Guessing… ${cs.filter((c) => c.status !== 'pending').length} of ${n} done` }] };
+  return { done, reached, blocked, lines: done ? [] : [{ tone: 'wait', text: `Guessing… ${cs.filter((c) => c.status !== 'pending').length} of ${n} done. A blocked guess waits for an answer that never comes.` }] };
 }
 
 const spray: ActionDef = {
@@ -190,7 +190,7 @@ const rescan: ActionDef = {
     return [
       {
         tone: 'good',
-        text: `The scan sent a ping and knocked on ${RESCAN_PORTS.length} ports. ufw blocked ${blocked} packets and wrote a line for each in ufw.log. Ports ${open.join(', ')} answered, and ufw wrote nothing about them.`,
+        text: `The scan pinged web01 to check it was up (ufw lets ping through), then knocked on ${RESCAN_PORTS.length} ports. ufw blocked ${blocked} packets and wrote a line for each in ufw.log. Ports ${open.join(', ')} answered, and ufw wrote nothing about them.`,
       },
     ];
   },
@@ -371,19 +371,21 @@ export const deviceAnalysisLab: LabDef = {
 
         Open the **Log files** card in the Toolkit and pick **auth.log**. The number at the left of each line is its **row**. On the exam, you cite rows like these as evidence. (In this simulation, each failed sign-in writes one line. A real server writes two or three.)
 
-        Two kinds of lines matter here:
+        Three kinds of lines matter here:
 
         - \`Accepted publickey for bayline\` means Bayline Farms signed in with its **key**: a secret file on its computer that proves who it is, in place of a password.
         - \`Failed password for invalid user admin\` means someone guessed a password for an account that doesn't exist on this server.
         - \`Failed password for root\` has no "invalid user", because root is a real account: the administrator account on every Linux server.
 
-        A **brute-force attack** tries many passwords on one account. A **password spray** turns that around: it tries one or two common passwords on many usernames. Each account sees only one wrong guess, so a rule like "lock the account after 5 wrong passwords" never kicks in.
+        A **brute-force attack** tries many passwords on one account. A **password spray** turns that around: it tries one or two common passwords on many usernames. Each account sees only one wrong guess, so a rule like "lock the account after 5 wrong passwords" never kicks in. Sprays also try usernames that might not exist here, which is why most of these lines say invalid user.
 
         You can search from the Terminal too. \`grep\` prints the lines of a file that contain some text, and \`-n\` adds the row numbers:
 
         \`\`\`sh
         grep -n "Failed password" /var/log/auth.log
         \`\`\`
+
+        Press **Bigger** on the Terminal to see more of the output.
       `,
       tools: [logs(['auth']), term(['grep', 'tail'])],
       goals: [
@@ -440,7 +442,7 @@ export const deviceAnalysisLab: LabDef = {
 
         Some of the scan's knocks aren't in ufw.log at all. Ports the rules allow, like 80 and 443, answered, and ufw writes nothing when it allows a packet. To see this happen, replay the scan: [[button:rescan]]
 
-        The replay writes new lines at the bottom of ufw.log. Scroll down to see them. The questions ask about the weekend's lines, above them.
+        Your tests in step 2 and this replay add new lines at the bottom of ufw.log, with today's date. Scroll down to see them. The questions ask about the weekend's lines, above them.
       `,
       tools: [logs(['auth', 'ufw']), term(['grep', 'tail'])],
       actions: [rescan],
@@ -467,7 +469,7 @@ export const deviceAnalysisLab: LabDef = {
           'ufw',
           ROWS.scan,
           'scan',
-          `Rows ${rowsText(ROWS.scan)}: ${ROWS.scan.length} different ports from 203.0.113.140 within about a second, all from the same source port. A person doesn't type that fast.`,
+          `Rows ${rowsText(ROWS.scan)}: ${ROWS.scan.length} different ports from 203.0.113.140 within about a second. A person doesn't type that fast.`,
         ),
       ],
     },
@@ -494,17 +496,17 @@ export const deviceAnalysisLab: LabDef = {
       tools: [logs(['auth', 'ufw', 'access']), term(['grep', 'tail'])],
       questions: [
         {
-          id: 'attack',
+          id: 'status',
           kind: 'choice',
-          prompt: 'What was 203.0.113.140 trying to do with the .. requests?',
+          prompt: 'The site answered each `..` request with status 400. What does that tell you?',
           options: [
-            { id: 'traversal', text: 'Directory traversal: climb out of the web folder to read files like /etc/passwd', correct: true },
-            { id: 'spray', text: 'A password spray against the website', feedback: 'A spray tries many usernames with a password. These requests name files, not accounts.' },
-            { id: 'scan', text: 'A port scan of the web server', feedback: 'A scan knocks on many ports. Every one of these requests went to the website’s port.' },
-            { id: 'normal', text: 'Normal browsing that nginx didn’t understand', feedback: 'Browsers don’t ask for ../../../../etc/passwd. And the user agent is curl, not a browser.' },
+            { id: 'refused', text: 'The site refused them, so the attacker didn’t get the files', correct: true },
+            { id: 'got', text: 'The attacker got the files', feedback: 'A request that worked would get 200, OK. 400 means bad request, refused.' },
+            { id: 'missing', text: 'The files don’t exist on this server', feedback: 'That would be 404, not found. /etc/passwd is on every Linux server. The site refused to hand it over.' },
+            { id: 'blocked', text: 'ufw blocked the requests', feedback: 'ufw let them through: they went to port 80 or 443, which the rules allow. The website itself answered, with 400.' },
           ],
           explain:
-            'The requests aimed at /etc/passwd, outside the web folder. The site refused all three (400), so the attack failed this time. A site with a bug in its download page might not refuse. **Input validation**, checking each request for things like `..` before using it, closes that hole.',
+            'The site refused all three, so the attack failed this time. A site with a bug in its download page might answer 200 and send /etc/passwd or /etc/shadow. **Input validation** closes that hole: the site works out the full location of every file a request names, and refuses any that land outside the web folder.',
         },
         cite(
           'traversal-rows',
@@ -579,9 +581,9 @@ export const deviceAnalysisLab: LabDef = {
 
         1. In the **Sign-in defenses** card, turn on **fail2ban**.
         2. Press [[button:bot]]. A new computer, [[bot]], starts guessing passwords.
-        3. Read **fail2ban.log**, then **ufw.log**. Click [[web01]] to see the new rule at the top of its firewall rules.
+        3. Read **fail2ban.log**, then **ufw.log**. Open the **Inspect** tab and scroll to web01's firewall rules to see the new rule at the top.
 
-        fail2ban.log calls each service it watches a **jail**. Here the jail is sshd. \`maxRetry: 5\` and \`findtime: 600\` mean 5 failures within 600 seconds, which is 10 minutes.
+        fail2ban.log calls each service it watches a **jail**. Here the jail is sshd. \`maxRetry: 5\` and \`findtime: 600\` mean 5 failures within 600 seconds, which is 10 minutes. \`banTime: 600\` means a ban lasts 10 minutes.
 
         fail2ban can watch other logs too. It could watch access.log and ban any address that sends \`..\` requests, like 203.0.113.140 did.
       `,
@@ -638,6 +640,8 @@ export const deviceAnalysisLab: LabDef = {
         2. Press [[button:botnet]] again. Scroll to the bottom of auth.log and read the new lines.
         3. Check that Jo can still get in: [[button:jo]]
 
+        Turning off password sign-in makes sshd reload its settings: that's the "Received SIGHUP" line. After that, each try ends with [preauth], which means sshd closed the connection before any password was checked.
+
         Two more countermeasures for SSH: **multi-factor authentication** (MFA), which asks for a second proof, like a code from a phone, as well as a password. And a **VPN** (virtual private network), an encrypted connection into the office network from outside: the firewall allows SSH only from office and VPN addresses.
       `,
       setup: (sim) => {
@@ -692,7 +696,13 @@ export const deviceAnalysisLab: LabDef = {
       id: 'policy',
       title: 'Change a rule, predict the impact',
       body: md`
-        Back to the policy. Compare it with [[web01]]'s rules. Type \`ufw status numbered\` to list them in the Terminal.
+        Here are the parts of the co-op's policy that cover the firewall:
+
+        1. Only the website (ports 80 and 443) is open to everyone on the internet.
+        2. Remote administration (SSH, remote desktop, screen sharing) is allowed only from the office network, 192.0.2.0/24.
+        3. Files move only over encrypted connections: SFTP (file transfer over SSH), never FTP. Bayline Farms uploads the nightly order file this way, from its own network.
+
+        Compare the policy with [[web01]]'s rules. Type \`ufw status numbered\` to list them in the Terminal.
 
         Then fix two of them:
 
@@ -750,7 +760,7 @@ export const deviceAnalysisLab: LabDef = {
           kind: 'choice',
           prompt: 'Predict: once SSH is allowed only from 192.0.2.0/24, who loses access?',
           options: [
-            { id: 'vendor', text: 'Bayline Farms: its upload uses SFTP, which runs over SSH', correct: true },
+            { id: 'vendor', text: 'Bayline Farms', correct: true },
             { id: 'jo', text: 'Jo', feedback: 'Jo’s laptop is 192.0.2.15, inside 192.0.2.0/24.' },
             { id: 'customers', text: 'Customers ordering on the website', feedback: 'Customers use port 443. This change touches only port 22.' },
             { id: 'nobody', text: 'Nobody, since only attackers use SSH from outside', feedback: 'Read policy rule 3 again. Who else connects from outside the office?' },
@@ -761,12 +771,25 @@ export const deviceAnalysisLab: LabDef = {
     },
 
     {
-      id: 'write-ab',
-      title: 'Write-up: the policy and the password attack',
+      id: 'write-up',
+      title: 'Write-up',
       body: md`
         The exam's free-response question asks for answers like these. Write in full sentences. Cite rows and rule numbers where they help. Your teacher grades this part.
 
-        The parts use the exam's letters. This lab skips part C.
+        Your changes moved the rule numbers around. Use the weekend's table:
+
+        | # | Action | From | Port |
+        |---|---|---|---|
+        | 1 | DENY | 203.0.113.140 | 22/tcp |
+        | 2 | ALLOW | Anywhere | 21/tcp |
+        | 3 | ALLOW | Anywhere | 80/tcp |
+        | 4 | ALLOW | Anywhere | 443/tcp |
+        | 5 | ALLOW | Anywhere | 22/tcp |
+        | 6 | ALLOW | 192.0.2.0/24 | 3306/tcp |
+        | 7 | ALLOW | Anywhere | 3389/tcp |
+        | 8 | ALLOW | 192.0.2.15 | 5900/tcp |
+        | 9 | ALLOW | 192.0.2.0/24 | 445/tcp |
+        | 10 | DENY | Anywhere | everything |
 
         The **Log files** card is open if you need to look back.
       `,
@@ -776,46 +799,19 @@ export const deviceAnalysisLab: LabDef = {
           id: 'part-a',
           kind: 'text',
           label: 'A',
-          prompt: 'Pick one rule of the co-op’s policy. Explain how it protects web01, and describe one firewall rule change that makes the server follow it.',
+          prompt:
+            'Pick one blocked connection from the weekend in ufw.log. Cite its row, name the rule in the table that blocked it, and explain how. Then describe a rule change that would allow it, and the impact of that change.',
           minWords: 25,
-          lines: 4,
+          lines: 5,
         },
         {
           id: 'part-b',
           kind: 'text',
           label: 'B',
-          prompt: 'Describe the evidence of the password attack in auth.log. Cite the rows, give the attacker’s IP address, and explain why it is a spray and not a brute-force attack.',
-          minWords: 25,
-          lines: 4,
-        },
-      ],
-    },
-
-    {
-      id: 'write-de',
-      title: 'Write-up: blocked traffic and the second attack',
-      body: md`
-        Two more parts, in full sentences.
-      `,
-      tools: [logs(ALL_LOGS)],
-      questions: [
-        {
-          id: 'part-d',
-          kind: 'text',
-          label: 'D',
           prompt:
-            'Pick one blocked connection in ufw.log. Cite its row, name the rule that blocked it (use the rule numbers from the weekend’s table in step 1), and explain how. Then describe a rule change that would allow it, and the impact of that change.',
+            'Describe one attack in the logs: the password spray in auth.log or the directory traversal in access.log. Cite the rows and the attacker’s IP address. Then explain how an automated system could stop an attack like it while it happens, and name a different countermeasure.',
           minWords: 25,
-          lines: 4,
-        },
-        {
-          id: 'part-e',
-          kind: 'text',
-          label: 'E',
-          prompt:
-            'Describe the second attack in access.log, citing rows. Explain how an automated system could stop an attack like it while it happens, and name a different countermeasure.',
-          minWords: 25,
-          lines: 4,
+          lines: 5,
         },
       ],
     },

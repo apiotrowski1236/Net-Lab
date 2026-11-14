@@ -279,7 +279,7 @@ export function describeRow(file: LogFile, n: number): string | undefined {
 // ---------------------------------------------------------------------------
 
 export function buildCoop(): Sim {
-  const sim = new NetBuilder({ linkMs: 130, procMs: 40, l2Ms: 30, arpTimeoutMs: 1200, pingTimeoutMs: 2500, httpTimeoutMs: 8000 })
+  const sim = new NetBuilder({ linkMs: 130, procMs: 40, l2Ms: 30, arpTimeoutMs: 1200, pingTimeoutMs: 1600, httpTimeoutMs: 8000 })
     .host(WEB, {
       label: 'web01',
       icon: 'server',
@@ -394,7 +394,6 @@ export function botnetAttack(sim: Sim): void {
 }
 export const botIp = (sim: Sim): Ip => sim.dev('bot').ifaces[0].ip ?? IP.bot;
 
-/** The Sunday night scan again, live: the ports nmap tries by default in this simulation. */
 /** The replay knocks on the same ports as Sunday night's scan. */
 export const RESCAN_PORTS = SCAN_ORDER;
 export const replayScan = (sim: Sim) => sim.scan('scanner', IP.web, RESCAN_PORTS);

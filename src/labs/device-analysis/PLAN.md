@@ -45,7 +45,7 @@ No NetLab lab has a host firewall, an sshd auth.log, UFW lines, an nginx log, or
 7. **Change a rule, predict the impact.** The policy says remote administration only from the office network, and no unencrypted file transfer. Students find the rules that break the policy (SSH from anywhere; FTP 21 open to all; maybe RDP). Change SSH to the office network only and remove FTP. Before testing, a question asks who loses access (impact). Then test: Jo still works and the internet can't reach SSH, but the vendor's nightly upload (SFTP, which runs over SSH from the vendor's network) now fails. Students add an allow for the vendor's network above the final deny and test again. Text question: describe the change and its impact on allowed and denied traffic. The surprise is the lesson: a rule change has side effects you have to predict.
 8. **Stop it while it happens.** Turn on automated prevention: after 5 failed sign-ins from one IP within a minute, ban that IP at the host firewall (the way fail2ban works). Replay the spray from a new IP. Watch the ban rule appear at the top of the table mid-attack, and the attack stop. Question: describe how this automated system halts the attack in real time (3.5.A.3).
 9. **Another countermeasure.** Choice or multi-select: SSH keys only (turn off password sign-in), MFA, a VPN for admin access, rate limiting. Students apply one hands-on (turn off password authentication) and see the spray fail even before the ban.
-10. **The write-up.** A short FRQ-style set, teacher-graded, mirroring the exam's parts: (A) one policy rule and how it protects the device; (B) evidence of the password attack with cited rows, and the IP; (D) how one connection was blocked, citing the log, and the impact of a rule change; (E) the second attack, its evidence, how an automated system halts it, and another countermeasure. Keep each part short, with `minWords` around 25.
+10. **The write-up.** A short FRQ-style pair, teacher-graded, with the weekend's rule table in the step: (A) how one weekend connection was blocked, citing the log and the rule, and the impact of a rule change that would allow it; (B) one attack (the spray or the traversal), its rows and address, how an automated system halts it, and another countermeasure. `minWords` 25 each. (The panel cut the policy and spray-only parts for time: step 9 and step 3 already cover them.)
 11. **Review and submit.**
 
 ## Features to build (this lab owns them)
@@ -68,7 +68,7 @@ All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrou
 
 ## As built
 
-13 steps: case, trace, auth, ufw-log, web-log, command, fail2ban, keys, policy, write-ab, write-de, submit, and an optional extra challenge (close remote desktop) after submit. 50 minutes.
+12 steps: case, trace, auth, ufw-log, web-log, command, fail2ban, keys, policy, write-up, submit, and an optional extra challenge (close remote desktop) after submit. 50 minutes.
 
 - **Step order changed.** The spec puts the policy change (step 7) before fail2ban and keys. Built order: command, fail2ban, keys, policy. Once SSH is office-only, the bot and botnet can't reach sshd, so the fail2ban and keys demos would show nothing. The policy fix comes last, and the rule numbers in its text account for the rules added earlier (fail2ban's ban at the top, the student's deny for .77).
 - **Five evidence sources became four.** The firewall rules, auth.log, ufw.log, and access.log (plus fail2ban.log once fail2ban is on). The tagline says "four kinds of evidence".

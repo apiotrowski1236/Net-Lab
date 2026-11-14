@@ -168,6 +168,18 @@ describe('sshd and fail2ban', () => {
     expect(f2b.filter((l) => l.includes('Found 203.0.113.77'))).toHaveLength(5);
     expect(out(run(sim, 'ufw status numbered'))[4]).toBe('[ 1] Anywhere                   DENY IN     203.0.113.77               # fail2ban');
   });
+
+  it('reads back through auth.log when it starts, and bans failures still inside findtime', () => {
+    const sim = net();
+    for (let i = 0; i < 6; i++) sim.schedule(i * 200, () => sim.connectService('bad', SERVER, 22, { data: sshRequest({ user: `u${i}`, auth: 'password' }) }));
+    sim.runUntilIdle();
+    const dev = sim.dev('srv');
+    expect(dev.firewall!.rules.some((r) => r.note === 'fail2ban')).toBe(false);
+    sim.linuxSet('srv', 'fail2ban', true);
+    sim.runUntilIdle();
+    expect(dev.firewall!.rules[0]).toMatchObject({ src: '203.0.113.77', action: 'deny', note: 'fail2ban' });
+    expect(lines(sim, 'fail2ban').filter((l) => l.includes('Found 203.0.113.77'))).toHaveLength(5);
+  });
 });
 
 describe('ufw', () => {

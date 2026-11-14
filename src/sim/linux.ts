@@ -306,10 +306,10 @@ function sshdLogin(sim: Sim, dev: Device, lx: LinuxState, ip: Ip, port: number, 
 /** The rule fail2ban's ufw action inserts at the top: deny everything from the address. */
 export const banRule = (ip: Ip): FwRuleInput => ({ dir: 'in', proto: 'any', src: ip, dst: 'any', dport: 'any', action: 'deny', note: 'fail2ban' });
 
-function f2bFailure(sim: Sim, dev: Device, lx: LinuxState, ip: Ip): void {
+function f2bFailure(sim: Sim, dev: Device, lx: LinuxState, ip: Ip, at = sim.t): void {
   const f = lx.f2b;
   if (!f.on || f.banned.includes(ip)) return;
-  const t = sim.t;
+  const t = at;
   const hits = (f.hits[ip] = (f.hits[ip] ?? []).filter((x) => t - x < f.findtime));
   hits.push(t);
   sim.log(dev.id, f2bEntry('fail2ban.filter', f.pid, 'INFO', `[sshd] Found ${ip} - ${isoStamp(lx.epoch + t).slice(0, 19)}`, { ip, src: ip, count: hits.length }));
@@ -319,7 +319,7 @@ function f2bFailure(sim: Sim, dev: Device, lx: LinuxState, ip: Ip): void {
   const fw = dev.firewall;
   if (fw && !fw.rules.some((r) => sameCriteria(r, banRule(ip)) && r.action === 'deny')) sim.fwAddRule(dev.id, banRule(ip), 0);
   sim.log(dev.id, f2bEntry('fail2ban.actions', f.pid, 'NOTICE', `[sshd] Ban ${ip}`, { ip, src: ip, action: 'ban' }));
-  sim.emit({ t, type: 'config', device: dev.id, what: 'fail2ban-ban', detail: ip });
+  sim.emit({ t: sim.t, type: 'config', device: dev.id, what: 'fail2ban-ban', detail: ip });
 }
 
 /** Turn fail2ban on or off. Starting it writes its startup lines. */
@@ -336,6 +336,12 @@ export function setFail2ban(sim: Sim, dev: Device, on: boolean): void {
     sim.log(dev.id, f2bEntry('fail2ban.filter', f.pid, 'INFO', `  findtime: ${f.findtime / 1000}`));
     sim.log(dev.id, f2bEntry('fail2ban.actions', f.pid, 'INFO', `  banTime: ${f.bantime / 1000}`));
     sim.log(dev.id, f2bEntry('fail2ban.jail', f.pid, 'INFO', "Jail 'sshd' started"));
+    // Like the real fail2ban, a new jail reads back through auth.log for failures still inside findtime.
+    for (const e of [...dev.logs]) {
+      const ip = e.fields?.src;
+      if (e.fields?.file !== 'auth' || typeof ip !== 'string' || sim.t - e.t >= f.findtime) continue;
+      if (['invalid', 'failed', 'preauth'].includes(String(e.fields.result))) f2bFailure(sim, dev, dev.linux!, ip, e.t);
+    }
   } else {
     sim.log(dev.id, f2bEntry('fail2ban.jail', f.pid, 'INFO', "Jail 'sshd' stopped"));
     sim.log(dev.id, f2bEntry('fail2ban.server', f.pid, 'INFO', 'Exiting Fail2ban'));

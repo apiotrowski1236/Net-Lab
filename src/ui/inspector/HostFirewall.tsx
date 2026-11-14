@@ -19,13 +19,13 @@ export function HostFirewallSection({ session, sim, dev }: InspectorSectionProps
   useEffect(() => {
     if (hitAt < 0 || hitAt === lastHit.current) return;
     lastHit.current = hitAt;
-    box.current?.querySelector('tr.flash')?.scrollIntoView({ block: 'nearest' });
+    box.current?.querySelector('tr.flash')?.scrollIntoView({ block: 'center' });
   }, [hitAt]);
   const fw = dev.firewall;
   if (dev.kind !== 'host' || !fw) return null;
   const policy = dev.linux?.ufw ?? UFW_DEFAULT;
   const terminal = session.tools.some((t) => t.kind === 'terminal' && t.devices.includes(dev.id));
-  const hit = (pred: (v: { ruleId?: string; by: string; action: string }) => boolean) => recentlyChanged(sim, (e) => e.type === 'firewall' && e.device === dev.id && pred(e.verdict), 2500);
+  const hit = (pred: (v: { ruleId?: string; by: string; action: string }) => boolean) => recentlyChanged(sim, (e) => e.type === 'firewall' && e.device === dev.id && pred(e.verdict), 4000);
   const fresh = (i: number) => recentlyChanged(sim, (e) => e.type === 'config' && e.device === dev.id && e.what === 'firewall-rules' && e.detail === `added rule ${i + 1}`, 4000);
   const any = (a: string) => (a === 'any' ? 'Anywhere' : a);
   return (
@@ -81,11 +81,11 @@ export function HostFirewallSection({ session, sim, dev }: InspectorSectionProps
   );
 }
 
-/** When the last firewall verdict on this device happened, if it was in the last 2.5 seconds. */
+/** When the last firewall verdict on this device happened, if it was in the last 4 seconds. */
 function latestHit(sim: InspectorSectionProps['sim'], id: string): number {
   for (let i = sim.events.length - 1; i >= 0; i--) {
     const e = sim.events[i];
-    if (sim.t - e.t > 2500) return -1;
+    if (sim.t - e.t > 4000) return -1;
     if (e.type === 'firewall' && e.device === id) return e.t;
   }
   return -1;
