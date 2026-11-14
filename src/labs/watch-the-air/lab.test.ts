@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LabSession } from '../../runtime/session';
 import type { LabProgress } from '../../store/progress';
+import type { ActionDef } from '../types';
 import { signalAt } from '../../sim/wifi';
 import { replayRecord } from '../../sim/wids';
 import { playStep } from '../solution';
 import { watchTheAirLab } from './index';
 import { watchTheAirSolution } from './solution';
-import { BSSID, buildWatch, isMovieNight, ROGUE_PORT, SSID, STAFF } from './scenario';
+import { BSSID, buildWatch, isMovieNight, ROGUE_PORT, SSID, STAFF, STAFF_PROFILE } from './scenario';
 
 class MemoryStorage {
   private m = new Map<string, string>();
@@ -71,6 +72,26 @@ function enter(id: string): LabSession {
 
 const joined = (s: LabSession, id: string) => s.sim.dev(id).wifiClient?.joinedAp;
 
+/** A lesson button by id, and the tones of the lines under it right now. */
+const action = (id: string): ActionDef => watchTheAirLab.steps.flatMap((x) => x.actions ?? []).find((a) => a.id === id)!;
+const tones = (s: LabSession, id: string) => action(id).outcome!(s.sim, s.since).map((l) => l.tone);
+
+/** Enter step `id` from the step before it, and return the events entering it emitted. */
+function entering(id: string) {
+  const at = watchTheAirLab.steps.findIndex((x) => x.id === id);
+  const s = playThrough(watchTheAirLab.steps[at - 1].id);
+  const n = s.sim.events.length;
+  s.goTo(at);
+  return { s, events: s.sim.events.slice(n) };
+}
+
+/** Run step `id`'s setup again, as a reload or a skip-ahead would, quietly. */
+function rerunSetup(s: LabSession, id: string) {
+  s.sim.quiet = true;
+  watchTheAirLab.steps.find((x) => x.id === id)!.setup!(s.sim);
+  s.sim.quiet = false;
+}
+
 beforeEach(() => vi.stubGlobal('localStorage', new MemoryStorage()));
 
 describe('watch-the-air lab', () => {
@@ -130,7 +151,8 @@ describe('watch-the-air lab', () => {
     expect(s.sim.dev('lansw').switchSec?.ports.p1?.shutdown).toBeUndefined();
     expect(s.sim.dev('lansw').ifaces.find((i) => i.id === 'p1')?.linkId).toBeTruthy();
     expect(s.sim.channelNoise(6)).toBe(88);
-    expect(s.sim.wifiScanRows(s.sim.dev('desk')).map((r) => r.bssid)).toContain(BSSID.wap);
+    // The access point keeps writing its log while jammed, which the lesson points to.
+    expect(s.sim.dev('wap').logs.some((e) => e.t >= s.since && e.fields?.action === 'noise')).toBe(true);
   });
 
   it("tonight's log times match the story and the 14-day record", () => {
@@ -182,6 +204,93 @@ describe('watch-the-air lab', () => {
       for (const r of Object.keys(w.rules) as (keyof typeof w.rules)[]) w.rules[r] = r === only;
       expect(replayRecord(w, 0).missed.length).toBeGreaterThan(0);
     }
+  });
+
+  it('a copy that changes its security after taking the name leaves staff profiles alone', () => {
+    const sim = buildWatch();
+    const before = STAFF.map((id) => JSON.stringify(sim.dev(id).wifiClient!.profile));
+    expect(before.every((p) => p !== undefined)).toBe(true);
+    // The wrong order on purpose: name first, then the sign-in and the encryption.
+    sim.setWifiOff('twin', false);
+    sim.setWifiSsid('twin', SSID);
+    sim.setWifiAuth('twin', 'eap');
+    sim.setWifiSecurity('twin', 'wpa3');
+    expect(STAFF.map((id) => JSON.stringify(sim.dev(id).wifiClient!.profile))).toEqual(before);
+    for (const id of STAFF) expect(sim.dev(id).wifiClient!.joinedAp).toBe('wap');
+  });
+
+  it('the real access point changing its security re-saves the profiles of devices on it', () => {
+    const sim = buildWatch();
+    sim.setWifiSecurity('wap', 'wpa2');
+    for (const id of STAFF) {
+      expect(sim.dev(id).wifiClient!.profile).toEqual({ ...STAFF_PROFILE, security: 'wpa2' });
+      expect(sim.dev(id).wifiClient!.joinedAp).toBe('wap');
+    }
+  });
+
+  it('the lesson buttons wait until their result is in, then report it', () => {
+    const look = enter('lookalike');
+    expect(tones(look, 'copy-name')).toEqual(['wait']);
+    look.runStepAction('copy-name');
+    expect(tones(look, 'copy-name')).toEqual([...STAFF.map(() => 'good'), 'bad']);
+
+    const find = enter('find');
+    expect(tones(find, 'unplug')).toEqual(['wait']);
+    find.runStepAction('unplug');
+    expect(tones(find, 'unplug')).toEqual(['wait']);
+    expect(tones(find, 'save-profile')).toEqual(['wait']);
+    playStep(find, watchTheAirSolution.find);
+    expect(tones(find, 'unplug')).toEqual(['good']);
+    expect(action('unplug').outcome!(find.sim, find.since)[0].text).toContain('is back on the real network');
+    expect(tones(find, 'save-profile')).toEqual(['good']);
+
+    const crowd = enter('crowd');
+    expect(tones(crowd, 'movie-night')).toEqual(['wait']);
+    crowd.runStepAction('movie-night');
+    expect(tones(crowd, 'movie-night')).toEqual(['good']);
+  });
+
+  it('the movie-night scan only counts once movie night has started', () => {
+    const s = enter('crowd');
+    s.dispatch({ type: 'wifi-scan', device: 'desk' });
+    s.runStepAction('movie-night');
+    expect(s.goalDone('crowd', 'busy')).toBe(true);
+    expect(s.goalDone('crowd', 'scan')).toBe(false);
+    s.dispatch({ type: 'wifi-scan', device: 'desk' });
+    expect(s.goalDone('crowd', 'scan')).toBe(true);
+  });
+
+  it('setups are quiet and give the same network when they run again', () => {
+    let seen = 0;
+    for (const id of ['sweep', 'lookalike', 'find', 'jam', 'crowd', 'alarms']) {
+      const { s, events } = entering(id);
+      seen += events.length;
+      expect(events.every((e) => e.quiet), id).toBe(true);
+      const snap = () => JSON.stringify({ wifi: ['rogue', 'twin', 'wap'].map((d) => s.sim.dev(d).wifi), joined: [...STAFF, 'visitor'].map((d) => joined(s, d)), port: s.sim.dev('lansw').switchSec!.ports, logs: s.sim.dev('lansw').logs.length, heard: s.sim.dev('wap').wids!.heard });
+      const before = snap();
+      rerunSetup(s, id);
+      expect(snap(), id).toBe(before);
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it("setups keep the student's own moves", () => {
+    // Port 7 shut by the student stays shut, and the box's log lines aren't added twice.
+    const sweep = playThrough('sweep');
+    expect(sweep.sim.dev('lansw').switchSec!.ports[ROGUE_PORT].shutdown).toBeTruthy();
+    rerunSetup(sweep, 'sweep');
+    expect(sweep.sim.dev('lansw').logs.filter((e) => e.fields?.port === ROGUE_PORT && e.t < 0).length).toBe(2);
+    expect(sweep.sim.dev('lansw').switchSec!.ports[ROGUE_PORT].shutdown).toBeTruthy();
+    // A copy the student already unplugged doesn't come back on the air.
+    const find = playThrough('find');
+    rerunSetup(find, 'find');
+    rerunSetup(find, 'lookalike');
+    expect(find.sim.dev('twin').wifi!.off).toBe(true);
+    expect(joined(find, 'visitor')).toBe('wap');
+    // A profile the student saved stays as it was.
+    const saved = JSON.stringify(find.sim.dev('visitor').wifiClient!.profile);
+    rerunSetup(find, 'jam');
+    expect(JSON.stringify(find.sim.dev('visitor').wifiClient!.profile)).toBe(saved);
   });
 
   it('replays the same network and citations after a reload', () => {

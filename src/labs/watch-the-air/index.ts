@@ -146,6 +146,17 @@ const scannedSince = (sim: Sim, since: number) => happened(sim, since, (e) => e.
 const marks = (sim: Sim) => sim.dev('wap').wids!.marks;
 const noiseLine = (e: LogEntry) => e.device === 'wap' && e.fields?.action === 'noise';
 
+/** A desk scan after movie night started in this step (in event order: a scan in the same instant, before the button, doesn't count). */
+function scannedInMovieNight(sim: Sim, since: number): boolean {
+  let scanned = false;
+  for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= since; i--) {
+    const e = sim.events[i];
+    if (e.type === 'wids' && e.what === 'crowd' && e.device === 'wap') return scanned && Number(e.detail) >= MOVIE_CROWD;
+    if (e.type === 'wifi' && e.what === 'scan' && e.device === 'desk') scanned = true;
+  }
+  return false;
+}
+
 /** The newest replay, if it ran with the alarm settings that are on now. */
 function currentReplay(sim: Sim): WidsReplay | undefined {
   const w = sim.dev('wap').wids!;
@@ -442,14 +453,14 @@ export const watchTheAirLab: LabDef = {
           id: 'what',
           kind: 'choice',
           afterGoals: true,
-          prompt: "The access point's port is up, and its radio still shows in the scan. The noise on channel 6 is 88. What is going on?",
+          prompt: "The access point's port is up, and it is still writing log lines. The noise on channel 6 is 88. What is going on?",
           options: [
             { id: 'jam', text: 'A radio is drowning out channel 6.', correct: true },
-            { id: 'broken', text: 'The access point broke and stopped sending.', feedback: 'A broken access point goes quiet. This one is up on the wire and still on the air. The noise is the problem.' },
+            { id: 'broken', text: 'The access point broke and stopped sending.', feedback: 'A broken access point goes quiet. This one is up on the wire and still writing its log. The noise is the problem.' },
             { id: 'crowd', text: 'Too many people are online at once tonight.', feedback: 'A crowd slows things down, but devices stay connected. Here nobody is connected.' },
             { id: 'password', text: 'Someone changed the Wi-Fi password today.', feedback: 'That would show sign-in failures in the log, not noise at 88.' },
           ],
-          explain: "**Jamming** fills a channel with noise. The access point still works, and a scanner still catches its name. But the noise drowns out the messages going back and forth, so no device can stay connected. A radio that is still on the air plus very high noise points to a jammer. Jamming is against the law, so the shelter would report it.",
+          explain: "**Jamming** fills a channel with noise. The access point still works: its port is up, and it keeps writing its log. But the noise drowns out the messages going back and forth, so no device can stay connected. A working access point plus very high noise points to a jammer. Jamming is against the law, so the shelter would report it.",
         },
       ],
     },
@@ -485,7 +496,7 @@ export const watchTheAirLab: LabDef = {
       actions: [movieNight],
       goals: [
         { id: 'busy', label: 'Start movie night', check: ({ sim }) => (sim.dev('wap').wids?.crowd ?? 0) >= MOVIE_CROWD },
-        { id: 'scan', label: 'Scan from the [[desk]] during movie night', check: ({ sim, since }) => (sim.dev('wap').wids?.crowd ?? 0) >= MOVIE_CROWD && scannedSince(sim, since) },
+        { id: 'scan', label: 'Scan from the [[desk]] during movie night', check: ({ sim, since }) => scannedInMovieNight(sim, since) },
         { id: 'log', label: 'Open the noise line from movie night', hint: 'Search the log for "noise". Pick the newest line.', check: openedLog((e) => noiseLine(e) && Number(e.fields?.noise) > 10 && Number(e.fields?.noise) <= 50) },
       ],
       questions: [

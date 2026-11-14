@@ -1953,8 +1953,9 @@ export class Sim {
     for (const d of Object.values(this.devices)) {
       if (d.wifiClient && !d.attacker && !d.wifiClient.outsider && d.wifiClient.ssid === ap.wifi.ssid) {
         d.wifiClient.passphrase = ap.wifi.passphrase;
-        // Staff re-save the network on devices that keep a profile (watch-the-air).
-        if (d.wifiClient.profile) d.wifiClient.profile = { security: ap.wifi.security, auth: ap.wifi.auth, server: ap.wifi.server };
+        // Staff re-save the network on devices that keep a profile (watch-the-air), but only from the access point
+        // the device is on. Another radio that copies the name (an evil twin) must not rewrite the profile.
+        if (d.wifiClient.profile && d.wifiClient.joinedAp === ap.id) d.wifiClient.profile = { security: ap.wifi.security, auth: ap.wifi.auth, server: ap.wifi.server };
       }
     }
   }

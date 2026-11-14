@@ -10,6 +10,8 @@ import type { ToolCardProps } from './registry';
  */
 /** Map units per meter, for showing a reading's distance in words a student can picture. */
 const UNITS_PER_METER = 20;
+/** How close (map units) a device must be to the solved spot for the result to name it. */
+const NEAR = 60;
 
 export function Triangulate({ session, spec, onSelect }: ToolCardProps<'triangulate'>) {
   void session.simRev.value;
@@ -28,12 +30,17 @@ export function Triangulate({ session, spec, onSelect }: ToolCardProps<'triangul
   const reading = (x: number, y: number) => readings.find((r) => r.x === x && r.y === y);
   const measured = (x: number, y: number) => !!reading(x, y);
   const loc = target ? triangulate(readings) : null;
-  const near = loc
-    ? Object.values(sim.devices).reduce<{ id: string; d: number } | null>((best, d) => {
-        const dist = distance(d, loc);
-        return !best || dist < best.d ? { id: d.id, d: dist } : best;
-      }, null)
+  // Only a device the map still draws (LabDef.map.hide) and that sits at the spot: an unplugged radio isn't named.
+  const hidden = new Set(session.lab.map?.hide?.(sim) ?? []);
+  const nearest = loc
+    ? Object.values(sim.devices)
+        .filter((d) => !hidden.has(d.id))
+        .reduce<{ id: string; d: number } | null>((best, d) => {
+          const dist = distance(d, loc);
+          return !best || dist < best.d ? { id: d.id, d: dist } : best;
+        }, null)
     : null;
+  const near = nearest && nearest.d < NEAR ? nearest : null;
   const place = loc && spec.places?.length ? spec.places.reduce((a, b) => (distance(b, loc) < distance(a, loc) ? b : a)) : null;
 
   return (
@@ -78,6 +85,11 @@ export function Triangulate({ session, spec, onSelect }: ToolCardProps<'triangul
             {sim.dev(near.id).label}
           </button>
           .
+        </p>
+      )}
+      {loc && !near && (
+        <p class="tool-msg good" role="status">
+          <Icon name="check" size={14} /> The three distances meet {place ? place.label : 'at one spot'}. Nothing on the map is there now.
         </p>
       )}
     </div>
