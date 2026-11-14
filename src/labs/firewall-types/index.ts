@@ -1,4 +1,4 @@
-import { evaluate, MODE_NAME, type FirewallState, type FwMode } from '../../sim/firewall';
+import { evaluate, MODE_NAME, verdictText, type FirewallState, type FwMode } from '../../sim/firewall';
 import type { Conn } from '../../sim/services';
 import type { Sim } from '../../sim/sim';
 import type { IpPacket, SimEvent } from '../../sim/types';
@@ -32,7 +32,12 @@ import {
 // Test traffic (the lesson's buttons)
 // ---------------------------------------------------------------------------
 
-const nursePortal: ActionDef = { id: 'portal', label: 'Nurse station opens the clinic portal', run: (sim) => sim.browse('nurse', `https://${PORTAL_SITE}/`) };
+const nursePortal: ActionDef = {
+  id: 'portal',
+  label: 'Nurse station opens the clinic portal',
+  run: (sim) => sim.browse('nurse', `https://${PORTAL_SITE}/`),
+  outcome: (sim, since) => pageOutcome(sim, since, 'nurse', CLINIC, 'the clinic portal'),
+};
 const attackerSsh: ActionDef = { id: 'attacker-ssh', label: 'Attacker tries SSH on the web server', run: (sim) => void sim.connectService('attacker', WEB, 22) };
 const fakeReplies: ActionDef = { id: 'fake', label: 'Attacker sends a fake reply', run: (sim) => fakeReply(sim, WEB) };
 const sneakySsh: ActionDef = {
@@ -50,7 +55,12 @@ const callHomeOdd: ActionDef = {
   label: `Remote-control program tries port ${ODD_PORT}`,
   run: (sim) => void sim.connectService('nurse', ATTACKER, ODD_PORT, { app: 'remote-control' }),
 };
-const deskBooks: ActionDef = { id: 'desk', label: 'Front desk opens the web app', run: (sim) => sim.browse('desk', `https://${HOSPITAL_SITE}${BOOK_PATH}`) };
+const deskBooks: ActionDef = {
+  id: 'desk',
+  label: 'Front desk opens the web app',
+  run: (sim) => sim.browse('desk', `https://${HOSPITAL_SITE}${BOOK_PATH}`),
+  outcome: (sim, since) => pageOutcome(sim, since, 'desk', WEB, 'the web app'),
+};
 const deskFake: ActionDef = {
   id: 'desk-fake',
   label: 'Attacker sends the front desk a fake reply',
@@ -80,6 +90,29 @@ function exploitLines(sim: Sim, since: number): ActionLine[] {
   if (!b || b.startedAt < since || b.status === 'resolving' || b.status === 'loading') return [{ tone: 'wait', text: 'The request is on its way…' }];
   if (b.status === 'loaded') return [{ tone: 'bad', text: `The attack worked. The web server answered with "${b.title}": names, dates of birth, and doctors.` }];
   return [{ tone: 'good', text: 'The request never reached the web server.' }];
+}
+
+/**
+ * A page load's fate, settled as soon as a firewall denies the request or its
+ * reply (the browser itself would wait for its timeout).
+ */
+function pageOutcome(sim: Sim, since: number, dev: string, server: string, what: string): ActionLine[] {
+  const label = sim.dev(dev).label;
+  const b = sim.dev(dev).browser;
+  const block = [...sim.events]
+    .reverse()
+    .find(
+      (e): e is FwEvent =>
+        e.type === 'firewall' && e.t >= since && e.verdict.action === 'deny' && ((e.pkt.src === sim.dev(dev).ifaces[0].ip && e.pkt.dst === server) || (e.pkt.src === server && e.pkt.dst === sim.dev(dev).ifaces[0].ip)),
+    );
+  if (b && b.startedAt >= since && b.status === 'loaded') return [{ tone: 'good', text: `${label} opened ${what}.` }];
+  if (block) {
+    const fw = sim.dev(block.device);
+    const which = block.pkt.src === server ? 'the reply' : 'the request';
+    return [{ tone: 'bad', text: `${fw.label} blocked ${which}. ${verdictText(block.verdict, fw.firewall?.rules)}. The browser waits, then gives up.` }];
+  }
+  if (!b || b.startedAt < since || b.status === 'resolving' || b.status === 'loading') return [{ tone: 'wait', text: `${label} is opening ${what}…` }];
+  return [{ tone: 'bad', text: `${label} couldn’t open ${what}.` }];
 }
 
 /** A fake reply's fate: through to `dev`, or blocked by a firewall on the way. */
@@ -149,8 +182,8 @@ const from443 = (dport: number, reply: boolean): IpPacket => ({
   app: { kind: 'svc', conn: 0, app: reply ? 'https' : 'ssh', reply },
 });
 
-/** Does Firewall A still have a rule that lets SSH in from port 443 (the hole step 4 closes)? */
-const replyRuleLeft = (sim: Sim) => evaluate(sim.dev('fwA').firewall!, from443(22, false), 'in').action === 'allow';
+/** Does Firewall A still have a rule that lets SSH in from port 443, to the web server or the staff network (the holes step 4 closes)? */
+const replyRuleLeft = (sim: Sim) => [WEB, NURSE].some((dst) => evaluate(sim.dev('fwA').firewall!, { ...from443(22, false), dst }, 'in').action === 'allow');
 
 /**
  * Firewall A stateless, with a reply rule that lets in anything from port 443
@@ -164,7 +197,7 @@ function replyHole(sim: Sim): void {
   const open = [from443(51515, true), from443(22, false)].every((p) => evaluate(fw, p, 'in').action === 'allow');
   if (!open) {
     const deny = fw.rules.findIndex((r) => r.dir === 'in' && r.action === 'deny');
-    sim.fwAddRule('fwA', REPLIES_IN, deny < 0 ? undefined : deny);
+    sim.fwAddRule('fwA', { ...REPLIES_IN, note: 'Added by the lab for step 3: the usual reply rule' }, deny < 0 ? undefined : deny);
   }
 }
 
@@ -212,7 +245,8 @@ const hospitalTests: ActionDef = {
     sim.browse('attacker', `https://${HOSPITAL_SITE}${EXPLOIT_PATH}`);
     sim.browse('nurse', `https://${PORTAL_SITE}/`);
     sim.browse('desk', `https://${HOSPITAL_SITE}${BOOK_PATH}`);
-    sim.connectService('web', FILES, 445);
+    // From port 443, like a reply: a reply rule on a stateless Firewall B would let this in.
+    sim.connectService('web', FILES, 445, { sport: 443 });
   },
   outcome: (sim, since) => testLines(sim, since),
 };
@@ -221,7 +255,10 @@ interface TestResult {
   /** Firewall the test is about. */
   fw: 'fwA' | 'fwB';
   pass: boolean | undefined;
+  /** What should happen. */
   text: string;
+  /** What happened instead, when it fails. */
+  fail: string;
 }
 
 /** Results of the tests started at `since` (undefined pass: still running). */
@@ -247,11 +284,32 @@ function testResults(sim: Sim, since: number): TestResult[] {
       fw: 'fwA',
       pass: blocked(done(conn('nurse', ODD_PORT)), (e) => e.pkt.src === NURSE && e.pkt.dst === ATTACKER && e.pkt.dstPort === ODD_PORT),
       text: `The remote-control program on port ${ODD_PORT} is blocked`,
+      fail: `The remote-control program got out on port ${ODD_PORT}. It should be blocked`,
     },
-    { fw: 'fwA', pass: blocked(page('attacker'), (e) => e.pkt.src === ATTACKER && e.pkt.dst === WEB), text: 'The attack hidden in a booking lookup is blocked' },
-    { fw: 'fwA', pass: reaches(page('desk'), between(DESK, WEB)), text: 'The branch front desk opens the web app' },
-    { fw: 'fwB', pass: reaches(page('nurse'), between(NURSE, CLINIC)), text: 'The nurse station opens the clinic portal' },
-    { fw: 'fwB', pass: blocked(done(conn('web', 445)), (e) => e.pkt.src === WEB && e.pkt.dst === FILES && e.pkt.dstPort === 445), text: 'A hacked web server can’t reach the patient records' },
+    {
+      fw: 'fwA',
+      pass: blocked(page('attacker'), (e) => e.pkt.src === ATTACKER && e.pkt.dst === WEB),
+      text: 'The attack hidden in a booking lookup is blocked',
+      fail: 'The attack hidden in a booking lookup reached the web server. It should be blocked',
+    },
+    {
+      fw: 'fwA',
+      pass: reaches(page('desk'), between(DESK, WEB)),
+      text: 'The branch front desk opens the web app',
+      fail: 'The branch front desk couldn’t open the web app',
+    },
+    {
+      fw: 'fwB',
+      pass: reaches(page('nurse'), between(NURSE, CLINIC)),
+      text: 'The nurse station opens the clinic portal',
+      fail: 'The nurse station couldn’t open the clinic portal',
+    },
+    {
+      fw: 'fwB',
+      pass: blocked(done(conn('web', 445)), (e) => e.pkt.src === WEB && e.pkt.dst === FILES && e.pkt.dstPort === 445),
+      text: 'A hacked web server can’t reach the patient records, even from port 443',
+      fail: 'A hacked web server reached the patient records from port 443. It should be blocked',
+    },
   ];
 }
 
@@ -269,7 +327,7 @@ function testLines(sim: Sim, since: number): ActionLine[] {
     lines.push({ tone: 'wait', text: 'You changed a firewall after these tests ran. Run the tests again to see the new results.' });
   }
   for (const t of testResults(sim, since)) {
-    lines.push({ tone: t.pass === undefined ? 'wait' : t.pass ? 'good' : 'bad', text: `${t.pass === undefined ? 'Testing' : t.pass ? 'Pass' : 'Fail'}: ${t.text}.` });
+    lines.push({ tone: t.pass === undefined ? 'wait' : t.pass ? 'good' : 'bad', text: t.pass === false ? `Fail: ${t.fail}.` : `${t.pass ? 'Pass' : 'Testing'}: ${t.text}.` });
   }
   return lines;
 }
@@ -341,7 +399,7 @@ export const firewallTypesLab: LabDef = {
             { id: 'none', text: 'Nowhere. The branch has no firewall.', feedback: 'Click the branch router and look for **Firewall rules**.' },
           ],
           explain:
-            'A firewall is software. It can run on a box of its own, like Firewalls A and B, or inside another device, like a router. Small offices often use the one in their router.',
+            'A firewall is mostly software. It can run on a box of its own, like Firewalls A and B (some boxes add special chips for speed), or inside another device, like a router. Small offices often use the one in their router.',
         },
       ],
     },
@@ -449,7 +507,7 @@ export const firewallTypesLab: LabDef = {
         2. Press **Nurse station opens the clinic portal**, and find the conversation in Firewall A's **Connection table**.
         3. Press **Attacker sends a fake reply** and **Attacker tries SSH from port 443** again.
 
-        One attack still gets in. Find the rule that lets it in and delete it. Then test it again, and check that the clinic portal still works.
+        One attack still gets in. Find every rule that lets in packets from port 443 and delete it. Then test it again, and check that the clinic portal still works.
       `,
       setup: replyHole,
       focus: ['fwA'],
@@ -479,8 +537,8 @@ export const firewallTypesLab: LabDef = {
         },
         {
           id: 'portal',
-          label: 'With the port 443 rule gone, [[nurse]] still opens the clinic portal (test after your last change)',
-          hint: 'Delete the rule that lets in anything from port 443, then press **Nurse station opens the clinic portal**.',
+          label: 'With the port 443 rules gone, [[nurse]] still opens the clinic portal (test after your last change)',
+          hint: 'Delete every rule that lets in packets from port 443, then press **Nurse station opens the clinic portal**.',
           check: ({ sim, since }) => mode(sim, 'fwA') !== 'stateless' && !replyRuleLeft(sim) && portalLoaded(sim, since),
         },
       ],
@@ -547,7 +605,7 @@ export const firewallTypesLab: LabDef = {
             { id: 'denied', text: 'It gets blocked, because it isn’t really web traffic.', feedback: 'The rule matches the port, and the program uses 443. The firewall can’t see that it isn’t web traffic.' },
             { id: 'implicit', text: 'The implicit deny blocks it.', feedback: 'The implicit deny only blocks packets no rule matched. This one matches the port 443 rule.' },
           ],
-          explain: 'Attackers pick 443 because nearly every firewall lets it out. Stopping this program takes a firewall that can tell programs apart.',
+          explain: 'Attackers pick 443 because nearly every firewall lets it out. Stopping this program on any port and any server takes a firewall that can tell programs apart.',
         },
         {
           id: 'ports',
@@ -619,7 +677,7 @@ export const firewallTypesLab: LabDef = {
             { id: 'allowed', text: 'Allowed: port 80 is ordinary web traffic.', feedback: 'Your rule doesn’t look at the port. It matches the remote-control program on any port.' },
             { id: 'new-rule', text: 'Blocked, but only after you add a rule for port 80.', feedback: 'You wrote the rule once, for the program. It covers every port.' },
           ],
-          explain: 'Filtering by application is what sets a next-generation firewall apart. An attacker can change the port in seconds. Making the program look like a different one takes far more work.',
+          explain: 'Filtering by application is what sets a next-generation firewall apart. An attacker can change the port in seconds. Making the program look like a different one takes more work.',
         },
         {
           id: 'mismatch',
@@ -727,7 +785,7 @@ export const firewallTypesLab: LabDef = {
 
         The requirement: *the front desk uses the hospital web app at ${WEB}. Nothing else from the internet gets in.* Write the rule on [[branch]]. Then test the attacker's fake reply too.
 
-        (A real branch would reach the hospital's 10.0 addresses through a **VPN**, a protected tunnel across the internet, since those private addresses don't travel on the internet by themselves. The map leaves the tunnel out.)
+        (A real branch would reach the hospital's private 10.0 addresses through a **VPN**, a protected tunnel across the internet, and a newer router would drop internet packets that claim a private address. This old router does neither, and the map leaves the tunnel out.)
       `,
       focus: ['branch', 'desk'],
       open: { inspect: 'branch' },

@@ -98,12 +98,12 @@ export function buildHospital2(): Sim {
       y: 300,
       ifaces: [
         { id: 'clinic', ip: '198.51.100.1/24' },
-        { id: 'att', ip: '203.0.113.1/24' },
-        { id: 'hosp', ip: '10.0.1.1/24' },
+        { id: 'attacker', ip: '203.0.113.1/24' },
+        { id: 'hospital', ip: '10.0.1.1/24' },
         { id: 'branch', ip: '192.0.2.1/24' },
       ],
       routes: [
-        { prefix: STAFF_NET, via: '10.0.1.2', iface: 'hosp' },
+        { prefix: STAFF_NET, via: '10.0.1.2', iface: 'hospital' },
         { prefix: BRANCH_NET, via: BRANCH_WAN, iface: 'branch' },
       ],
     })
@@ -187,11 +187,11 @@ export function buildHospital2(): Sim {
         { port: 445, proto: 'tcp', app: 'smb', banner: 'Shared folder PatientRecords: 18,240 patient files' },
       ],
     })
-    .link('attacker', ['inet', 'att'])
+    .link('attacker', ['inet', 'attacker'])
     .link('clinic', ['inet', 'clinic'])
     .link(['inet', 'branch'], ['branch', 'wan'])
     .link(['branch', 'lan'], 'desk')
-    .link(['inet', 'hosp'], ['fwA', 'outside'])
+    .link(['inet', 'hospital'], ['fwA', 'outside'])
     .link(['fwA', 'inside'], 'serversw')
     .link('serversw', 'web')
     .link('serversw', ['fwB', 'outside'])

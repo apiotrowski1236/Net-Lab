@@ -160,6 +160,27 @@ describe('firewall-types steps', () => {
     expect(done(s, 'sneak')).toBe(true);
     // The student's own rule is still there, above the one the lab added.
     expect(s.sim.dev('fwA').firewall!.rules.filter((r) => r.sport === 443).map((r) => r.dst)).toEqual(['10.0.2.0/24', 'any']);
+    playStep(s, sol.fake);
+    s.goTo(3);
+    // Step 4: deleting only the rule the lab added leaves the student's own hole into the staff network.
+    const wide = s.sim.dev('fwA').firewall!.rules.find((r) => r.sport === 443 && r.dst === 'any')!;
+    const own = s.sim.dev('fwA').firewall!.rules.find((r) => r.sport === 443 && r.dst !== 'any')!;
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateful' } }, { tool: { type: 'fw-delete-rule', device: 'fwA', id: wide.id } }, { press: 'portal' });
+    expect(done(s, 'portal')).toBe(false);
+    play(s, { tool: { type: 'fw-delete-rule', device: 'fwA', id: own.id } }, { press: 'portal' });
+    expect(done(s, 'portal')).toBe(true);
+  });
+
+  it('"A firewall with no memory": a blocked reply shows at once, with the rule that blocked it', () => {
+    const s = openAt('stateless');
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateless' } });
+    const def = s.step.actions!.find((a) => a.id === 'portal')!;
+    const t0 = s.sim.t;
+    def.run(s.sim);
+    s.sim.advance(3000);
+    expect(def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`)).toEqual([
+      'bad: Firewall A blocked the reply. Denied by rule 4: DENY in TCP from any to any. The browser waits, then gives up.',
+    ]);
   });
 
   it('"Name the program": a port 8443 rule blocks the test but not the requirement', () => {
@@ -235,11 +256,11 @@ describe('firewall-types steps', () => {
     const start = tryPair('stateful', 'stateful');
     expect(start.out).toEqual([
       'good: Cost: Firewall A stateful ($10,000) + Firewall B stateful ($10,000) = $20,000. Budget: $40,000.',
-      `bad: Fail: The remote-control program on port ${ODD_PORT} is blocked.`,
-      'bad: Fail: The attack hidden in a booking lookup is blocked.',
+      `bad: Fail: The remote-control program got out on port ${ODD_PORT}. It should be blocked.`,
+      'bad: Fail: The attack hidden in a booking lookup reached the web server. It should be blocked.',
       'good: Pass: The branch front desk opens the web app.',
       'good: Pass: The nurse station opens the clinic portal.',
-      'good: Pass: A hacked web server can’t reach the patient records.',
+      'good: Pass: A hacked web server can’t reach the patient records, even from port 443.',
     ]);
     expect(start.ok).toBe(false);
     const both = tryPair('ngfw', 'ngfw');
@@ -248,9 +269,21 @@ describe('firewall-types steps', () => {
     expect(both.s.goalDone('choose', 'b')).toBe(true);
     expect(both.s.goalDone('choose', 'budget')).toBe(false);
     const cheapB = tryPair('ngfw', 'stateless');
-    expect(cheapB.out).toContain('bad: Fail: The nurse station opens the clinic portal.');
+    expect(cheapB.out).toContain('bad: Fail: The nurse station couldn’t open the clinic portal.');
     expect(cheapB.s.goalDone('choose', 'b')).toBe(false);
     expect(tryPair('ngfw', 'stateful').ok).toBe(true);
+    // A stateless B with a step 2 style reply rule lets the nurse's replies in, and a hacked web server too.
+    const holeB = openAt('choose');
+    play(
+      holeB,
+      { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } },
+      { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateless' } },
+      { tool: { type: 'fw-add-rule', device: 'fwB', rule: { ...REPLIES_IN, dst: '10.0.2.0/24' } } },
+      { press: 'tests' },
+    );
+    expect(lines(holeB, 'tests')).toContain('good: Pass: The nurse station opens the clinic portal.');
+    expect(lines(holeB, 'tests')).toContain('bad: Fail: A hacked web server reached the patient records from port 443. It should be blocked.');
+    expect(holeB.goalDone('choose', 'b')).toBe(false);
   });
 
   it('"Choose A and B": a test run from before the last change doesn\'t count', () => {
@@ -276,7 +309,7 @@ describe('firewall-types steps', () => {
     s.sim.advance(4000);
     const out = def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`);
     expect(out.filter((l) => l.startsWith('wait'))).toEqual([]);
-    expect(out).toContain('bad: Fail: The nurse station opens the clinic portal.');
+    expect(out).toContain('bad: Fail: The nurse station couldn’t open the clinic portal.');
     expect(out).toContain(`good: Pass: The remote-control program on port ${ODD_PORT} is blocked.`);
     s.sim.runUntilIdle();
     expect(def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`)).toEqual(out);

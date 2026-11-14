@@ -367,7 +367,7 @@ export function logLine(pkt: IpPacket, dir: FwDir, v: FwVerdict): Omit<LogEntry,
             ? 'no matching connection'
             : v.by === 'ips'
               ? `ips signature ${v.signature} (rule ${v.ruleNo} allowed the port)`
-              : `app ${v.app} on port ${pkt.dstPort} (expected ${v.expected}) rule ${v.ruleNo}`;
+              : `app ${v.app} on port ${pkt.dstPort}, expected ${v.expected} (rule ${v.ruleNo} allowed the port)`;
   const level: LogLevel = v.by === 'ips' ? 'alert' : v.by === 'app' ? 'warn' : v.action === 'deny' ? 'notice' : 'info';
   const fields: Record<string, string | number> = {
     action: v.action,

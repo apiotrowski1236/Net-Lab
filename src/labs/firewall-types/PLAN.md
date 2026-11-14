@@ -33,6 +33,8 @@ Status: built. Code in `src/labs/firewall-types/` (`index.ts`, `scenario.ts`, `s
 
 - **Student panel, round 1** (Maya, Ethan): step 3's setup now adds the usual wide reply rule when the student's step 2 rule is narrower, so the fake packets always have a hole to use. Link delays and timeouts are shorter (link 200 ms, proc 60 ms, HTTP 7 s, connect 5 s), and the exploit outcome and the hospital's tests settle as soon as a firewall denies, instead of waiting for a timeout. Step 4's and step 6's "still works" goals count only after the rule change they test. The branch clinic is now the branch office, so it isn't confused with Lakeside Clinic. Shared fixes the panel hit: the rule form's destination placeholders read "any" (a blank field means any, and "10.0.1.10"/"443" looked like filled-in values), and a firewall's Ports table no longer has an unlabeled MAC/IP column (`Dock.tsx`).
 
+- **Student panel, round 2:** the hospital's "hacked web server" test now connects from source port 443, so a stateless Firewall B with a step 2 style reply rule fails it (it passed every test before). Failed tests say what happened ("got out", "reached"). The portal and front-desk buttons settle as soon as a firewall blocks the request or reply, quoting the rule. Step 4's portal goal waits until no rule lets port 443 packets in to the web server or the staff network, and the rule step 3 adds carries a note. The ISP router's ports are named `attacker` and `hospital`. Shared: the next-generation mismatch log line ends "(rule N allowed the port)", like the intrusion prevention line.
+
 ### Shared APIs added
 
 - `src/sim/ngfw.ts`: `APP_GROUPS`, `APP_CHOICES`, `ruleAppName`, `appMatches`, `IPS_SIGNATURES`, `payloadOf`, `signatureOf`, `signatureName`.
