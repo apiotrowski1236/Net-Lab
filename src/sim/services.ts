@@ -80,6 +80,8 @@ const OTHER_APPS: Record<string, string> = {
   // segmentation: the submarine's own software
   'target-data': 'Target data',
   'status-reports': 'Status reports',
+  // capture-analysis: the depot's backup program
+  rsync: 'Rsync',
 };
 
 /** Ports a scan knocks on when it isn't given a list. */

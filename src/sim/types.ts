@@ -17,6 +17,7 @@ import type { NatEntry, NatNote, NatState } from './nat';
 import type { CaptureRun } from './capture';
 import type { Socket, TermRun } from './terminal';
 import type { BenchState } from './bench';
+import type { TcpInfo, TcpSession } from './tcp';
 
 // ---------------------------------------------------------------------------
 // Devices
@@ -236,6 +237,13 @@ export interface Device {
   sockets?: Socket[];
   /** A detection bench: replays clients' recorded traffic through detection methods and scores them (see bench.ts, detect-methods). */
   bench?: BenchState;
+  /**
+   * A switch's mirror port (SPAN port, capture-analysis): the switch sends a
+   * copy of every frame it accepts on its other ports out this port, so one
+   * computer plugged in here can capture everything. The port gets no normal
+   * traffic. See Sim.setMirror.
+   */
+  mirror?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -316,6 +324,8 @@ export interface IpPacket {
   flow?: FlowInfo;
   /** Set when a NAT router rewrote the addresses: what they were before (see nat.ts). */
   nat?: NatNote;
+  /** TCP flags and payload length, for packets a capture should show segment by segment (see tcp.ts). */
+  tcp?: TcpInfo;
 }
 
 export interface ArpPayload {
@@ -499,7 +509,9 @@ export type SimEvent = (
    * the client's network: 'alerts' says how many alerts it raised, 'missed'
    * how many attacks on it went unnoticed. `bench` is the bench device.
    */
-  | { t: number; type: 'bench'; device: string; bench: string; run: number; what: 'alerts' | 'missed'; count: number }) & {
+  | { t: number; type: 'bench'; device: string; bench: string; run: number; what: 'alerts' | 'missed'; count: number }
+  /** A scripted TCP session (Sim.tcpConnect) opened, was refused with RST, got no answer, or ended. `device` is the client. See tcp.ts. */
+  | { t: number; type: 'tcp'; device: string; what: 'open' | 'refused' | 'no-answer' | 'done'; session: TcpSession }) & {
   /** Happened while a lesson setup arranged the network (see Sim.quiet). */
   quiet?: boolean;
 };

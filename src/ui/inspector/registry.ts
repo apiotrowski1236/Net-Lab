@@ -20,6 +20,7 @@ import { dhcpLeasesSection } from './DhcpLeases';
 import { natTableSection } from './NatTable';
 import { wifiSetupSection, wifiSetupSummary } from './WifiSetup';
 import { ApprovedAps } from './ApprovedAps';
+import { MirrorPortSection } from './MirrorPort';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -76,4 +77,6 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   wifiSetupSummary,
   dhcpLeasesSection,
   natTableSection,
+  // capture-analysis
+  { id: 'mirror-port', slot: 'settings', Section: MirrorPortSection },
 ];

@@ -25,6 +25,7 @@ import { isEncrypted, isPlainLogin, isTelnetLogin } from './helpers';
 import { RISK_LEVELS } from '../sim/audit';
 import { HARDEN_SETTINGS } from '../sim/hardening';
 import type { DemoInput } from '../demos/types';
+import { loadCaptureFile, type CapStatsView } from '../sim/capfile';
 import type { ChoiceQuestion, ToolSpec } from './types';
 
 /**
@@ -51,7 +52,13 @@ export type Move =
   /** Type a display filter into `filter`'s Capture tab and apply it (packet-capture). It must be valid. */
   | { filter: string; text: string }
   /** Use demo `demo` on the step's stage (lessons with no network): one tap, flip, or choice. */
-  | { demo: string; input: DemoInput };
+  | { demo: string; input: DemoInput }
+  /**
+   * Open capture file `capfile` in the Capture tab (capture-analysis), then
+   * optionally do one thing in it: apply a display filter, open a Statistics
+   * view, follow TCP stream `follow`, or click packet `packet` (its No.).
+   */
+  | { capfile: string; filter?: string; stats?: CapStatsView; follow?: number; packet?: number };
 
 export interface StepSolution {
   /** What to do, in order. The network runs until it is quiet after each move. */
@@ -75,6 +82,7 @@ export function playMove(s: LabSession, m: Move): void {
     assertTypable(s, m.tool);
     s.dispatch(m.tool);
   }
+  else if ('capfile' in m) playCapfile(s, m);
   else if ('filter' in m) {
     if (!s.tools.some((t) => t.kind === 'capture' && t.device === m.filter && t.filter)) {
       throw new Error(`Step "${s.step.id}" offers no display filter on ${m.filter}. List { kind: 'capture', device: '${m.filter}', filter: true } in its tools.`);
@@ -106,6 +114,35 @@ export function playMove(s: LabSession, m: Move): void {
     s.ui({ type: 'ui:open-frame', device: m.openFrame, frame: hit.frame });
   }
   s.sim.runUntilIdle();
+}
+
+function playCapfile(s: LabSession, m: Extract<Move, { capfile: string }>): void {
+  const tool = s.tools.find((t): t is Extract<ToolSpec, { kind: 'capture-file' }> => t.kind === 'capture-file' && t.files.includes(m.capfile));
+  if (!tool) throw new Error(`Step "${s.step.id}" offers no capture file "${m.capfile}". List it in a { kind: 'capture-file' } tool.`);
+  const def = s.lab.captureFiles?.find((f) => f.id === m.capfile);
+  if (!def) throw new Error(`Lab has no capture file "${m.capfile}" in captureFiles`);
+  s.ui({ type: 'ui:open-capfile', file: m.capfile });
+  if (m.filter !== undefined) {
+    if (!tool.filter) throw new Error(`Step "${s.step.id}" offers no display filter on capture files. Set filter: true.`);
+    const p = parseFilter(m.filter);
+    if (!p.ok) throw new Error(`The filter "${m.filter}" is invalid: ${p.msg}`);
+    s.ui({ type: 'ui:capfile-filter', file: m.capfile, filter: m.filter });
+  }
+  if (m.stats) {
+    if (!tool.stats) throw new Error(`Step "${s.step.id}" offers no Statistics. Set stats: true.`);
+    s.ui({ type: 'ui:capfile-stats', file: m.capfile, view: m.stats });
+  }
+  const file = loadCaptureFile(def);
+  if (m.follow !== undefined) {
+    if (!tool.follow) throw new Error(`Step "${s.step.id}" offers no Follow TCP Stream. Set follow: true.`);
+    if (!file.frames.some((c) => c.frame.ip?.tcp?.stream === m.follow)) throw new Error(`${m.capfile} has no TCP stream ${m.follow}`);
+    s.ui({ type: 'ui:follow-stream', file: m.capfile, stream: m.follow });
+  }
+  if (m.packet !== undefined) {
+    const c = file.frames[m.packet - 1];
+    if (!c) throw new Error(`${m.capfile} has no packet ${m.packet}`);
+    s.ui({ type: 'ui:open-packet', file: m.capfile, no: c.no, frame: c.frame });
+  }
 }
 
 /** Whether `t` works on device `d`: its device, one of its devices, or any device for a tool that names none. */

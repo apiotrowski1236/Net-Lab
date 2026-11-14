@@ -112,6 +112,8 @@ describe('display filters', () => {
     expect(msg('dns ||')).toBe('Something is missing after ||.');
     expect(msg('(dns')).toBe('A “(” is missing its “)”.');
     expect(msg('dns)')).toBe('There\'s a “)” with no “(” before it.');
+    // Real Wireshark takes the whole flags byte; here each flag is its own field.
+    expect(msg('tcp.flags == 0x012')).toBe('Filter one flag at a time. For SYN, ACK: tcp.flags.syn == 1 && tcp.flags.ack == 1');
     expect(msg('weather')).toBe("“weather” isn't a protocol or field Wireshark knows. Try a protocol, like dns, or an address, like ip.addr == 192.168.1.10.");
     expect(msg('dns.qry.name == "school')).toBe('A quote mark is missing its partner.');
   });

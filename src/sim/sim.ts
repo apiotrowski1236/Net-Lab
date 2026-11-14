@@ -28,7 +28,8 @@ import type {
 } from './types';
 import { forgedGuesses, freshEntry, nextQueryParams, type Waiter } from './dns';
 import { burstIp, burstMac, burstSize, type Burst } from './burst';
-import { directedBroadcastIface } from './broadcast';
+import { broadcastAddr, directedBroadcastIface } from './broadcast';
+import { payloadLen, scriptTurns, SYN_TRIES, tcpKey, type TcpFlags, type TcpScript, type TcpSession } from './tcp';
 import { clearAllFloods, clearFlood, linkLoad, newCongestion, setFlood, type CongestionState, type FloodKind } from './congestion';
 import {
   applyPortSecurity,
@@ -168,6 +169,12 @@ export interface SimOptions {
   icmpErrors: boolean;
   /** Seeds Sim.rand. Same seed, same actions: same network, every time. */
   seed: number;
+  /**
+   * Computers answer a ping sent to their own network's broadcast address,
+   * as older systems did (capture-analysis records a smurf attack with it).
+   * Off by default: modern systems ignore such pings.
+   */
+  broadcastEcho: boolean;
 }
 
 export const DEFAULT_SIM_OPTIONS: SimOptions = {
@@ -180,6 +187,7 @@ export const DEFAULT_SIM_OPTIONS: SimOptions = {
   autoArp: false,
   icmpErrors: false,
   seed: 1,
+  broadcastEcho: false,
 };
 
 interface Job {
@@ -483,15 +491,17 @@ export class Sim {
         this.drop(dev, refused, frame.ip, frame);
         return;
       }
+      // A mirror port gets a copy of every frame the switch accepts (capture-analysis).
+      if (dev.mirror && dev.mirror !== ifaceId) this.mirrorCopy(dev, frame);
       // A MAC learned on a port in another VLAN counts as unknown (vlan.ts).
       const known = frame.dst === BROADCAST_MAC ? undefined : dev.macTable[frame.dst];
       const out = known && sameVlan(dev, ifaceId, known) ? known : undefined;
       if (out) {
-        if (out !== ifaceId && portUp(dev, out)) this.transmit(dev.id, out, frame, this.opts.l2Ms);
+        if (out !== ifaceId && out !== dev.mirror && portUp(dev, out)) this.transmit(dev.id, out, frame, this.opts.l2Ms);
         return;
       }
       for (const i of dev.ifaces) {
-        if (i.id !== ifaceId && i.linkId && portUp(dev, i.id) && sameVlan(dev, ifaceId, i.id)) this.transmit(dev.id, i.id, frame, this.opts.l2Ms);
+        if (i.id !== ifaceId && i.id !== dev.mirror && i.linkId && portUp(dev, i.id) && sameVlan(dev, ifaceId, i.id)) this.transmit(dev.id, i.id, frame, this.opts.l2Ms);
       }
       return;
     }
@@ -593,6 +603,8 @@ export class Sim {
       return;
     }
     if (!dev.forwarding) {
+      // A ping to the whole network's broadcast address, on a network whose computers answer those (capture-analysis).
+      if (this.broadcastEchoIn(dev, frame, iface)) return;
       this.drop(dev, 'not-forwarding', pkt, frame);
       return;
     }
@@ -600,6 +612,8 @@ export class Sim {
     if (dev.firewall && iface && !this.fwPass(dev, iface.id, frame)) return;
     // A packet aimed at one of this router's LANs' broadcast addresses is a directed broadcast.
     if (this.handleDirectedBroadcast(dev, frame, iface)) return;
+    // The same, on a router whose LAN has real computers to answer (capture-analysis).
+    if (this.relayDirectedBroadcast(dev, frame, iface)) return;
     pkt.ttl -= 1;
     if (pkt.ttl <= 0) {
       this.drop(dev, 'ttl', pkt, frame);
@@ -785,7 +799,9 @@ export class Sim {
         this.onDnsAnswer(dev, pkt);
         return;
       case 'svc':
-        this.onSvc(dev, pkt);
+        // A packet with TCP flags is a segment of a TCP conversation (tcp.ts).
+        if (pkt.tcp) this.tcpIn(dev, pkt);
+        else this.onSvc(dev, pkt);
         return;
     }
   }
@@ -3783,6 +3799,264 @@ export class Sim {
         this.emit({ t: this.t, type: 'wids', device: ap.id, what: 'noise', detail: String(noise) });
       }
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // --- TCP sessions, mirror ports, and broadcast echo (capture-analysis) ---
+  // TCP flags and scripted sessions live in tcp.ts; capture files that record
+  // them live in capfile.ts. A switch's mirror port copies every frame it
+  // accepts to one port, for a capture computer.
+  // -------------------------------------------------------------------------
+
+  private tcpTable = new Map<string, TcpSession>();
+  private nextTcp = 1;
+
+  /** Scripted TCP sessions, oldest first (see tcp.ts). */
+  get tcpSessions(): TcpSession[] {
+    return [...this.tcpTable.values()];
+  }
+
+  /**
+   * Open a TCP connection from a device to `to` on `port`, and play `script`:
+   * the handshake, each side's data in turn, and the close (see tcp.ts).
+   * Returns the session id. `src` writes another source address on the
+   * client's packets (a device standing in for several outside addresses).
+   */
+  tcpConnect(devId: string, to: Ip, port: number, script: TcpScript, opts: { sport?: number; src?: Ip } = {}): number {
+    const dev = this.dev(devId);
+    const s: TcpSession = {
+      id: this.nextTcp++,
+      client: devId,
+      clientIp: opts.src ?? this.srcFor(dev, to) ?? '0.0.0.0',
+      sport: opts.sport ?? this.nextPort++,
+      serverIp: to,
+      dport: port,
+      script,
+      state: 'syn-sent',
+      turn: 0,
+      got: 0,
+      tries: 0,
+      t: this.t,
+    };
+    this.tcpTable.set(tcpKey(s.clientIp, s.sport, to, port), s);
+    this.tcpSyn(dev, s);
+    return s.id;
+  }
+
+  /**
+   * A SYN scan: one bare SYN from `devId` to each of `ports` on `to`, `gapMs`
+   * apart. Closed ports answer RST; open ones answer SYN, ACK, and the
+   * scanner hangs up with RST. `src` writes another source address.
+   */
+  tcpSynScan(devId: string, to: Ip, ports: number[], opts: { gapMs?: number; src?: Ip; sport?: number } = {}): void {
+    const dev = this.dev(devId);
+    const src = opts.src ?? this.srcFor(dev, to) ?? '0.0.0.0';
+    const sport = opts.sport ?? this.nextPort++;
+    ports.forEach((port, k) =>
+      this.schedule((opts.gapMs ?? 20) * k, () =>
+        this.originate(dev, {
+          src,
+          dst: to,
+          ttl: 64,
+          proto: 'tcp',
+          srcPort: sport,
+          dstPort: port,
+          app: { kind: 'svc', conn: 0, app: appForPort('tcp', port) ?? 'tcp', reply: false },
+          tcp: { flags: { syn: true } },
+        }),
+      ),
+    );
+  }
+
+  /** Give a switch a mirror port (or none with null): a copy of every frame it accepts goes out that port. */
+  setMirror(devId: string, port: string | null): void {
+    const dev = this.dev(devId);
+    if (port === null) delete dev.mirror;
+    else dev.mirror = port;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'mirror', on: port !== null, detail: port ?? undefined });
+  }
+
+  private mirrorCopy(dev: Device, frame: Frame): void {
+    const port = dev.mirror!;
+    if (!portUp(dev, port)) return;
+    this.transmit(dev.id, port, frame, this.opts.l2Ms);
+  }
+
+  /** A computer answers a ping sent to its network's broadcast address (SimOptions.broadcastEcho). */
+  private broadcastEchoIn(dev: Device, frame: Frame, iface?: Iface): boolean {
+    const pkt = frame.ip!;
+    if (!this.opts.broadcastEcho || dev.kind !== 'host' || pkt.app.kind !== 'ping' || pkt.app.reply) return false;
+    if (!iface?.ip || iface.prefix === undefined || broadcastAddr(iface.ip, iface.prefix) !== pkt.dst) return false;
+    this.originate(dev, { src: iface.ip, dst: pkt.src, ttl: 64, proto: 'icmp', app: { kind: 'ping', seq: pkt.app.seq, reply: true } });
+    return true;
+  }
+
+  /**
+   * A directed broadcast on a router whose LAN holds real computers (no
+   * `lanHosts`): with directedBroadcast on, the router sends the packet onto
+   * that LAN as a broadcast, and every computer gets it.
+   */
+  private relayDirectedBroadcast(dev: Device, frame: Frame, ingress?: Iface): boolean {
+    if (dev.directedBroadcast !== true) return false;
+    const pkt = frame.ip!;
+    const lan = dev.ifaces.find((i) => i.ip && i.prefix !== undefined && i.lanHosts === undefined && i.prefix < 31 && broadcastAddr(i.ip, i.prefix) === pkt.dst);
+    if (!lan) return false;
+    if (ingress?.id === lan.id || !lan.linkId) {
+      this.drop(dev, 'no-broadcast', pkt, frame);
+      return true;
+    }
+    if (pkt.app.kind === 'ping' && !pkt.app.reply) {
+      this.log(dev.id, {
+        source: 'router',
+        level: 'warn',
+        msg: `ICMP echo request to ${pkt.dst} (directed broadcast) relayed to the LAN`,
+        fields: { src: pkt.src, dst: pkt.dst, proto: 'icmp' },
+      });
+    }
+    this.transmit(dev.id, lan.id, this.frame(dev.id, lan.mac, BROADCAST_MAC, { ip: { ...pkt, ttl: pkt.ttl - 1 } }));
+    return true;
+  }
+
+  private tcpSyn(dev: Device, s: TcpSession): void {
+    s.tries++;
+    this.tcpSend(dev, s, 'client', { syn: true });
+    // Wait longer after each try, as TCP does: 1, 2, then 4 timeouts.
+    const wait = this.opts.pingTimeoutMs * 2 ** (s.tries - 1);
+    this.schedule(wait, () => {
+      if (s.state !== 'syn-sent') return;
+      if (s.tries < SYN_TRIES) return this.tcpSyn(dev, s);
+      this.tcpEnd(s, 'no-answer');
+    });
+  }
+
+  private tcpSend(dev: Device, s: TcpSession, side: 'client' | 'server', flags: TcpFlags, seg?: { text?: string; len: number }): void {
+    const c = side === 'client';
+    const data = !!seg && seg.len > 0;
+    const pkt: IpPacket = {
+      src: c ? s.clientIp : s.serverIp,
+      dst: c ? s.serverIp : s.clientIp,
+      ttl: 64,
+      proto: 'tcp',
+      srcPort: c ? s.sport : s.dport,
+      dstPort: c ? s.dport : s.sport,
+      app: { kind: 'svc', conn: 0, app: s.script.app, reply: !c, ...(data && seg.text ? { text: seg.text } : {}) },
+      tcp: { flags, ...(data && (seg.len !== (seg.text?.length ?? 0) || !seg.text) ? { len: seg.len } : {}) },
+    };
+    if (data && s.script.encrypted) pkt.encrypted = true;
+    this.originate(dev, pkt);
+  }
+
+  /** Send a bare flags-only answer to `pkt` (RST, SYN-ACK) from the device it reached. */
+  private tcpAnswer(dev: Device, pkt: IpPacket, flags: TcpFlags): void {
+    const a = pkt.app as Extract<AppData, { kind: 'svc' }>;
+    this.originate(dev, {
+      src: pkt.dst,
+      dst: pkt.src,
+      ttl: 64,
+      proto: 'tcp',
+      srcPort: pkt.dstPort,
+      dstPort: pkt.srcPort,
+      app: { kind: 'svc', conn: 0, app: a.app, reply: !a.reply },
+      tcp: { flags },
+    });
+  }
+
+  private tcpEnd(s: TcpSession, state: 'done' | 'refused' | 'no-answer'): void {
+    s.state = state;
+    s.doneAt = this.t;
+    this.emit({ t: this.t, type: 'tcp', device: s.client, what: state, session: { ...s } });
+  }
+
+  /** A TCP segment arrived at `dev` (tcp.ts). */
+  private tcpIn(dev: Device, pkt: IpPacket): void {
+    const f = pkt.tcp!.flags;
+    const a = pkt.app as Extract<AppData, { kind: 'svc' }>;
+    const toServer = !a.reply;
+    const key = toServer ? tcpKey(pkt.src, pkt.srcPort, pkt.dst, pkt.dstPort) : tcpKey(pkt.dst, pkt.dstPort, pkt.src, pkt.srcPort);
+    const s = this.tcpTable.get(key);
+    if (toServer) {
+      if (f.syn && !f.ack) {
+        this.tcpAnswer(dev, pkt, serviceAt(dev, 'tcp', pkt.dstPort) ? { syn: true, ack: true } : { rst: true, ack: true });
+        return;
+      }
+      if (f.rst || !s) return;
+      if (f.fin) {
+        this.tcpAnswer(dev, pkt, { fin: true, ack: true });
+        return;
+      }
+      if (payloadLen(pkt) > 0) this.tcpData(dev, s, 'server');
+      // The handshake's last ACK: a server that speaks first (a Telnet login prompt) starts now.
+      else if (s.state === 'open' && s.turn === 0 && !s.greeted) {
+        s.greeted = true;
+        this.tcpSpeak(dev, s, 'server');
+      }
+      return;
+    }
+    // At the client.
+    if (!s || s.client !== dev.id) {
+      // A SYN scanner that got SYN, ACK hangs up at once.
+      if (f.syn && f.ack) this.tcpAnswer(dev, pkt, { rst: true });
+      return;
+    }
+    if (f.rst) {
+      if (s.state === 'syn-sent') this.tcpEnd(s, 'refused');
+      else if (s.state !== 'done') this.tcpEnd(s, 'done');
+      return;
+    }
+    if (f.syn && f.ack) {
+      if (s.state !== 'syn-sent') return;
+      s.state = 'open';
+      this.tcpSend(dev, s, 'client', { ack: true });
+      this.emit({ t: this.t, type: 'tcp', device: s.client, what: 'open', session: { ...s } });
+      this.tcpSpeak(dev, s, 'client');
+      return;
+    }
+    if (f.fin) {
+      if (s.state === 'done') return;
+      this.tcpSend(dev, s, 'client', { ack: true });
+      this.tcpEnd(s, 'done');
+      return;
+    }
+    if (payloadLen(pkt) > 0) this.tcpData(dev, s, 'client');
+  }
+
+  /** `side` received a data segment: acknowledge it, and take its turn once the other side's turn is all in. */
+  private tcpData(dev: Device, s: TcpSession, side: 'client' | 'server'): void {
+    const turns = scriptTurns(s.script);
+    const turn = turns[s.turn];
+    if (!turn || turn.from === side || s.state !== 'open') return;
+    s.got++;
+    const total = turn.segments.length;
+    const last = s.got >= total;
+    // A long transfer is acknowledged every other segment, as real receivers do.
+    if (total <= 2 || s.got % 2 === 0 || last) this.tcpSend(dev, s, side, { ack: true });
+    if (!last) return;
+    s.turn++;
+    s.got = 0;
+    this.tcpSpeak(dev, s, side);
+  }
+
+  /** If the conversation's next turn is `side`'s, send it; at the end, the client closes. */
+  private tcpSpeak(dev: Device, s: TcpSession, side: 'client' | 'server'): void {
+    const turns = scriptTurns(s.script);
+    const turn = turns[s.turn];
+    const gap = s.script.gapMs ?? 20;
+    if (!turn) {
+      if (side === 'client') this.tcpClose(dev, s, 0);
+      return;
+    }
+    if (turn.from !== side) return;
+    turn.segments.forEach((seg, k) => this.schedule(gap * k, () => s.state === 'open' && this.tcpSend(dev, s, side, { psh: true, ack: true }, seg)));
+    // The client's own last turn: it closes after its last segment.
+    if (side === 'client' && s.turn === turns.length - 1) this.tcpClose(dev, s, gap * turn.segments.length);
+  }
+
+  private tcpClose(dev: Device, s: TcpSession, delay: number): void {
+    this.schedule(delay, () => {
+      if (s.state !== 'open') return;
+      s.state = 'closing';
+      this.tcpSend(dev, s, 'client', { fin: true, ack: true });
+    });
   }
 }
 

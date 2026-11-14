@@ -52,6 +52,8 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   // net-tools
   terminal: 'Terminal',
   'directed-broadcast': 'Directed-broadcast setting (in the inspector)',
+  // capture-analysis
+  'capture-file': 'Capture files: filters, Statistics, and Follow TCP Stream (in the Capture tab)',
 };
 
 function Md({ src, labels, actions }: { src: string; labels: Record<string, string>; actions?: MdActions }) {
