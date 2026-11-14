@@ -335,7 +335,7 @@ export const FILES = {
   night: {
     id: 'night',
     name: '02:00 depot.pcap',
-    note: 'Overnight: nobody at the depot',
+    note: 'Overnight',
     record: () => {
       const sim = recorder(201);
       // The real nightly backup.
@@ -348,7 +348,7 @@ export const FILES = {
   telnet: {
     id: 'telnet',
     name: '16:00 depot.pcap',
-    note: 'Someone signs in to the router',
+    note: 'Late afternoon',
     record: () => {
       const sim = recorder(1601);
       sim.dev('gw').services = [{ port: 23, proto: 'tcp', app: 'telnet' }];

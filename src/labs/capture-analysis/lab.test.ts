@@ -3,6 +3,7 @@ import { conversationStats, endpointStats, followStream, ioGraph, loadCaptureFil
 import { matchFilter, parseFilter } from '../../sim/displayFilter';
 import type { Sim } from '../../sim/sim';
 import { payloadLen } from '../../sim/tcp';
+import { happened } from '../helpers';
 import type { QuestionDef, TextQuestion } from '../types';
 import type { AnyEvent } from '../types';
 import { captureAnalysisLab as lab } from '.';
@@ -242,6 +243,18 @@ describe('capture-analysis: fixing the live network', () => {
     since = sim.t;
     play(sim, replayCheckin);
     expect(check('fix', 'c2-blocked', undefined, sim, since)).toBe(true);
+  });
+
+  it('does not count a check-in that got through, even if the rule moves up partway', () => {
+    const sim = build();
+    sim.fwAddRule('gw', { dir: 'out', proto: 'any', src: 'any', dst: IP.c2, dport: 'any', action: 'deny' });
+    const since = sim.t;
+    replayCheckin(sim);
+    // Let the handshake finish, then move the rule up while the check-in is still talking.
+    for (let i = 0; i < 400 && !happened(sim, since, (e) => e.type === 'tcp' && e.what === 'open'); i++) sim.advance(5);
+    sim.fwMoveRule('gw', sim.dev('gw').firewall!.rules.at(-1)!.id, 0);
+    sim.runUntilIdle();
+    expect(check('fix', 'c2-blocked', undefined, sim, since)).toBe(false);
   });
 
   it('does not count a rule that blocks everything going out', () => {

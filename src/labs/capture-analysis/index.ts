@@ -64,8 +64,10 @@ function mapsAllowed(sim: Sim): boolean {
 
 const floodBlocked = (sim: Sim, since: number) =>
   happened(sim, since, (e) => e.type === 'port-security' && e.device === 'switch' && e.iface === BREAKROOM_PORT);
+// Only a check-in stopped at its first SYN counts: a stateless firewall also denies the rest of one that
+// already got through when the rule moves up partway, and that check-in reached 192.0.2.44.
 const checkinBlocked = (sim: Sim, since: number) =>
-  happened(sim, since, (e) => e.type === 'firewall' && e.device === 'gw' && e.verdict.action === 'deny' && e.pkt.dst === IP.c2);
+  happened(sim, since, (e) => e.type === 'firewall' && e.device === 'gw' && e.verdict.action === 'deny' && e.pkt.dst === IP.c2 && !!e.pkt.tcp?.flags.syn && !e.pkt.tcp.flags.ack);
 const checkinOpened = (sim: Sim, since: number) => happened(sim, since, (e) => e.type === 'tcp' && e.what === 'open' && e.session.serverIp === IP.c2);
 
 const replayFloodAction: ActionDef = {
@@ -136,7 +138,6 @@ export const captureAnalysisLab: LabDef = {
 
         The **No.** column numbers every packet in the file. A packet keeps its number even when a filter hides the rows around it, so analysts use these numbers to point to evidence in a report. **Time** counts seconds from the start of the file.
       `,
-      open: { inspect: 'switch' },
       focus: ['switch', 'analyst'],
       tools: [{ kind: 'capture-file', device: 'analyst', files: ['morning'] }],
       goals: [
@@ -196,17 +197,6 @@ export const captureAnalysisLab: LabDef = {
             { id: 'cams', text: '198.51.100.40, the camera recorder', feedback: 'The recorder isn’t in this file at all. Remember that for later.' },
           ],
           explain: 'Every kiosk payment is a conversation with the fare server, so it tops a normal hour. The camera recorder doesn’t show up at all: the cameras are wired straight to it, so it has no reason to send anything across the depot switch.',
-        },
-        {
-          id: 'why-baseline',
-          kind: 'choice',
-          prompt: 'Why does an analyst look at a normal hour first?',
-          options: [
-            { id: 'compare', text: 'To spot what changes later: a new address, a new port, or far more packets than usual.', correct: true },
-            { id: 'safe', text: 'Normal hours can’t contain attacks, so they can be skipped from now on.', feedback: 'Attacks can hide in any hour. The baseline is for comparing, not for skipping.' },
-            { id: 'tool', text: 'Wireshark can’t open other files until it has read a normal one.', feedback: 'Wireshark opens any file. The baseline is for you, so you know what to compare against.' },
-            { id: 'infected', text: 'The normal hour lists which computers are infected.', feedback: 'A normal hour shows healthy traffic. It tells you what to expect, so the odd parts stand out later.' },
-          ],
         },
       ],
     },
@@ -295,7 +285,7 @@ export const captureAnalysisLab: LabDef = {
 
         The I/O Graph draws the matching packets in a darker color, so you can check that the filter covers the spike. Click a bar in the spike to open the **Packet list** at that second. An **echo request** is a ping, and an **echo reply** answers it.
 
-        Look at where the echo requests are sent: 198.51.100.255 is the depot's **broadcast address**. Every computer on the depot network gets a copy of each one, and every one of them replies.
+        Look at where the echo requests are sent: 198.51.100.255 is the depot's **broadcast address**. The depot's old router lets pings from outside through to it, so every computer on the depot network gets a copy of each one, and every one of them replies.
 
         Then look at the Source. Anyone who builds a packet can write any address there. Faking it is called **spoofing**. So ask: who gets all the replies?
       `,
@@ -356,7 +346,7 @@ export const captureAnalysisLab: LabDef = {
 
         The top conversation is between two depot computers. Press its **Filter** button to show only their packets. Then look at the I/O Graph again, and read a few packets in the list. Which port do they use? (Port 873 is **rsync**, a program that copies files from one computer to another.)
 
-        A detector that watches traffic raises an alert when something looks wrong. The alert is a **true positive** if there really was an attack, and a **false positive** if the traffic was harmless.
+        A detector that watches traffic raises an alert when something looks wrong. The alert is a **true positive** if there really was an attack, and a **false positive** if the traffic was harmless. A real attack with no alert at all is a **false negative**.
       `,
       open: 'capture',
       focus: ['backup', 'fares'],
@@ -446,7 +436,7 @@ export const captureAnalysisLab: LabDef = {
         {
           id: 'whose-mac',
           kind: 'choice',
-          prompt: 'Which device sent the forged replies? Compare their MAC with the devices on the map.',
+          prompt: 'Which device sent the forged replies? Click devices on the map to compare their MACs.',
           options: [
             { id: 'breakroom', text: 'The Break-room PC', correct: true },
             { id: 'router', text: 'The Depot router', feedback: `The router’s MAC is ${MAC.gw}. The forged replies only claim its IP address.` },
@@ -463,6 +453,8 @@ export const captureAnalysisLab: LabDef = {
       id: 'flood',
       title: 'Thousands of MACs in ten seconds',
       body: md`
+        A switch keeps a **MAC address table**: which MAC is on which port, so it can send each frame out one port only. The table has room for only so many MACs.
+
         Open **14:00 depot.pcap** and **Endpoints: Ethernet**, which lists every MAC address in the file. A depot this size has about ten. How many does this file have?
 
         Open the **I/O Graph** to find when it happened, and click a bar in the spike. The **Packet list** opens at that second. Open a few frames there. Each is an Ethernet frame with nothing inside, from a different made-up MAC. (Click a row, then the arrow keys move up and down.)
@@ -485,6 +477,7 @@ export const captureAnalysisLab: LabDef = {
           // A range across the flood picks up a few ordinary packets sent in the same seconds. They don't count either way.
           skip: (c) => !isFloodFrame(c.frame) && c.t >= 20_000 && c.t <= 30_500,
           fits: (c) => (isFloodFrame(c.frame) ? true : 'is ordinary depot traffic from before or after the flood.'),
+          explain: 'A range across the flood also takes in a few ordinary packets sent in the same seconds. In a real report, say so, or list only the flood’s frames.',
         }),
         {
           id: 'mac-table',
@@ -562,7 +555,7 @@ export const captureAnalysisLab: LabDef = {
                     ? 'is a SYN, ACK from an ordinary connection, not an answer to the scanner.'
                     : 'is not a SYN, ACK sent to the scanner.',
           explain:
-            'Two SYN, ACKs go back to 203.0.113.66: from port 443, the fare program, and port 873, rsync. Now the scanner knows where to aim next. A scan is **reconnaissance**: an attacker mapping targets before striking. One that nobody approved is a warning sign even before any attack lands.',
+            'Two SYN, ACKs go back to 203.0.113.66: from port 443, the fare program, and port 873, rsync. Now the scanner knows where to aim next. A scan is **reconnaissance**: an attacker mapping targets before striking. Nobody approved this one, so it goes in your report as an attack, even though nothing else has landed yet. (rsync open to the internet is a problem of its own, since it doesn’t encrypt.)',
         }),
       ],
     },
@@ -577,9 +570,9 @@ export const captureAnalysisLab: LabDef = {
 
         > 192.0.2.44, 198.18.5.9, 203.0.113.250
 
-        Web traffic normally uses port 80 (HTTP) or 443 (HTTPS). Port 4444 is the default for a well-known attack tool, so web traffic on 4444 stands out.
+        Web traffic normally uses port 80 (HTTP) or 443 (HTTPS). Port 4444 is the default for a well-known attack tool, so web traffic on 4444 stands out. A known bad address and a program on the wrong port are both **indicators of compromise** (IoCs): evidence in traffic or logs that an attack happened.
 
-        Click one of the recorder's packets and press **Follow TCP Stream**. It puts one connection in order: what the recorder sent in one color, and what came back in another. Each check-in is a new connection with its own stream. To see every check-in at once, filter to \`ip.addr == 192.0.2.44 && http\`.
+        Click one of the recorder's packets and press **Follow TCP Stream**. It puts one connection in order: what the recorder sent in one color, and what came back in another. Each check-in is a new connection with its own stream. To see every check-in at once, filter to \`tcp.port == 4444 && http\`.
       `,
       open: 'capture',
       focus: ['cams'],
@@ -606,7 +599,7 @@ export const captureAnalysisLab: LabDef = {
         },
         citeQuestion({
           id: 'cite-orders',
-          prompt: 'Cite every packet where the outside server sends the recorder a command. There are at least two.',
+          prompt: 'Cite two or more packets where the outside server sends the recorder a command, like cmd=sleep or cmd=upload.',
           file: FILES.night,
           min: 2,
           minText: 'two packet numbers',
@@ -640,7 +633,7 @@ export const captureAnalysisLab: LabDef = {
         | 15:00 | SYNs from 203.0.113.66 to 1,024 ports on the fare server |
         | 02:00 | Plain HTTP from the camera recorder to 192.0.2.44 on port 4444 |
 
-        An **indicator of compromise** (IoC) is evidence in traffic or logs that an attack happened. The **CIA triad** names what security protects: **confidentiality** (only the right people can see data), **integrity** (data isn't changed without permission), and **availability** (systems work when people need them).
+        The **CIA triad** names what security protects: **confidentiality** (only the right people can see data), **integrity** (data isn't changed without permission), and **availability** (systems work when people need them).
 
         The capture files are still in the Capture tab if you want to check your evidence. Answer these for your report.
       `,
@@ -660,20 +653,7 @@ export const captureAnalysisLab: LabDef = {
             { id: 'scan', text: '15:00: the SYNs to 1,024 ports', correct: true },
             { id: 'c2', text: '02:00: the recorder’s HTTP to 192.0.2.44', correct: true },
           ],
-          explain: 'Five attacks: a smurf, ARP poisoning, a MAC flood, a port scan, and C2 traffic. The outage and the backup are on the list too, marked “not an attack,” so nobody wastes time on them again.',
-        },
-        {
-          id: 'iocs',
-          kind: 'choice',
-          multi: true,
-          prompt: 'Which of these are indicators of compromise in the 02:00 traffic? Choose every one.',
-          options: [
-            { id: 'list', text: 'The recorder talks to an address on the threat list.', correct: true },
-            { id: 'port', text: 'Plain HTTP runs on port 4444 instead of the web’s port 80.', correct: true },
-            { id: 'backup', text: 'The backup server copies files from the fare server.', feedback: 'That’s the nightly backup, between two depot servers on the backup port.' },
-            { id: 'tcp', text: 'The recorder’s traffic uses TCP.', feedback: 'Almost every program uses TCP. That alone says nothing.' },
-          ],
-          explain: 'A known bad address and a program on the wrong port are both classic IoCs. Either one is worth a look. Together they’re hard to explain away.',
+          explain: 'Five attacks: a smurf, ARP poisoning, a MAC flood, a port scan (reconnaissance), and C2 traffic. The outage and the backup are on the list too, marked “not an attack,” so nobody wastes time on them again.',
         },
         {
           id: 'cia-c2',
@@ -719,12 +699,12 @@ export const captureAnalysisLab: LabDef = {
       body: md`
         Two of the attacks can be stopped right here, on the live depot network.
 
-        1. **The MAC flood.** Click [[switch]]. In **Ports and port security**, press **Edit** on **port 7**, the [[breakroom]]'s port. Turn port security on, keep **Most MACs** at 1 and **Shut the port down**, and press **Save port 7**.
+        1. **The MAC flood.** Click [[switch]]. In **Ports and port security**, press **Edit** on **port 7**, the [[breakroom]]'s port. Turn port security on, keep **Most MACs** at 1, keep **If another MAC shows up** on **Shut the port down**, and press **Save port 7**.
         2. **The C2 traffic.** Click [[gw]] and press **Add a rule**: **deny**, direction **out**, any protocol, destination 192.0.2.44, port **any**. Press **Add rule**.
         3. The router checks its rules from the top. Use the arrows to move your rule above **allow out**.
-        4. Press **Start** in the Capture tab to capture live on [[analyst]]. Then press each button below and watch what happens.
+        4. Press **Start** in the Capture tab to capture live on [[analyst]]. Then press each button below and watch what happens. If port security stops the flood, the capture stays empty: the frames never get past port 7.
 
-        (Rule 2, **allow in** from anywhere, is how the 15:00 scan reached the fare server. Closing it is a job for another lab.)
+        (The **allow in** rule, from anywhere, is how the 15:00 scan reached the fare server. Closing it is a job for another lab.)
       `,
       open: { inspect: 'switch' },
       focus: ['switch', 'breakroom', 'gw', 'cams'],

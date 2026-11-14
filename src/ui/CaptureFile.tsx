@@ -148,8 +148,9 @@ export function CaptureFileView({ session, tool }: { session: LabSession; tool: 
           ) : (
             <strong class="mono">{def.name}</strong>
           )}
-          <span class="muted">
-            {n(file.frames.length)} packets · {Math.round(file.ms / 1000)} seconds{def.note && ` · ${def.note}`}
+          {/* The note and the length go in a tooltip, so the file and the Statistics buttons fit one row on a laptop. */}
+          <span class="muted" title={`${Math.round(file.ms / 1000)} seconds${def.note ? ` · ${def.note}` : ''}`}>
+            {n(file.frames.length)} packets
           </span>
         </div>
         {tool.stats && (
