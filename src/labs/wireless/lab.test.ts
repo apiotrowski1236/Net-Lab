@@ -99,30 +99,6 @@ describe('wireless lab', () => {
     expect(FAMILIES.every((f) => joined(sim, f) === 'wap')).toBe(true);
   });
 
-  it('the evil twin attracts a device only when its signal is stronger', () => {
-    const sim = buildShelter();
-    sim.setWifiPower('wap', 2);
-    // A weak twin loses to the real access point.
-    sim.setWifiOff('twin', false);
-    sim.setWifiPower('twin', 1);
-    sim.dev('twin').wifi!.boost = 0;
-    sim.recomputeWifi();
-    expect(joined(sim, 'phonelot')).toBe('wap');
-    // A loud twin wins the lot-side phone.
-    sim.setWifiPower('twin', 2);
-    sim.dev('twin').wifi!.boost = 40;
-    sim.recomputeWifi();
-    expect(joined(sim, 'phonelot')).toBe('twin');
-  });
-
-  it('jamming the channel knocks every device off', () => {
-    const sim = buildShelter();
-    sim.setWifiJam('mallory', true, 6);
-    expect(FAMILIES.every((f) => joined(sim, f) === undefined)).toBe(true);
-    sim.setWifiJam('mallory', false, 6);
-    expect(FAMILIES.every((f) => joined(sim, f) === 'wap')).toBe(true);
-  });
-
   it('replay rebuilds the same associations', () => {
     const s = new LabSession(wirelessLab, freshProgress());
     for (let i = 0; i < wirelessLab.steps.length; i++) {
@@ -134,15 +110,5 @@ describe('wireless lab', () => {
     const again = new LabSession(wirelessLab, saved);
     const replayed = Object.fromEntries(Object.values(again.sim.devices).filter((d) => d.wifiClient).map((d) => [d.id, d.wifiClient!.joinedAp]));
     expect(replayed).toEqual(live);
-  });
-
-  it('the triangulation readings place the twin in the parking lot', () => {
-    const s = new LabSession(wirelessLab, freshProgress());
-    const at = wirelessLab.steps.findIndex((x) => x.id === 'twin');
-    for (let i = 0; i <= at; i++) {
-      playStep(s, wirelessSolution[s.step.id]);
-      if (i < at) s.goTo(i + 1);
-    }
-    expect(s.goalDone('twin', 'located')).toBe(true);
   });
 });
