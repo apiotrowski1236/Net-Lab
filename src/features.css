@@ -7079,3 +7079,28 @@ button.pl-tile:active {
   font-style: italic;
   color: var(--ink-2);
 }
+/* Statistics tables draw only the rows on screen, so every row is one fixed height (capture-analysis). */
+.capfile-stats-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.capfile-stats-table th.capfile-act {
+  width: 7em;
+}
+.capfile-stats-table td {
+  height: 30px;
+  padding-top: 0;
+  padding-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.capfile-stats-table tr.capfile-pad td {
+  height: auto;
+  padding: 0;
+  border: 0;
+}
+.capfile-stats-table tr.capfile-pad:hover td {
+  background: transparent;
+}

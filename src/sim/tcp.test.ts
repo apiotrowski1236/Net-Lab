@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NetBuilder } from './build';
 import type { Sim } from './sim';
-import { flagText, scriptTurns, type TcpScript } from './tcp';
+import { flagText, scriptTurns, SYN_TRIES, type TcpScript } from './tcp';
 import type { Frame } from './types';
 import { matchFilter, parseFilter } from './displayFilter';
 
@@ -94,5 +94,123 @@ describe('tcp sessions', () => {
     sim.tcpConnect('a', '10.0.0.2', 80, HELLO);
     sim.runUntilIdle();
     expect(seen(sim)).toHaveLength(0);
+  });
+});
+
+/**
+ * A depot-like edge (capture-analysis): an outside router with a far-off victim
+ * and server, and a router with a LAN of two real computers behind a switch
+ * whose mirror port feeds a sniffer. `a` thinks its network is a /25, so it
+ * sends 10.0.0.255 to its gateway instead of onto the LAN.
+ */
+function edge(opts: { broadcastEcho?: boolean; directed?: boolean; denyOut?: number } = {}): Sim {
+  const sim = new NetBuilder({ broadcastEcho: opts.broadcastEcho ?? false })
+    .router('far', {
+      label: 'Far',
+      x: 0,
+      y: 0,
+      ifaces: [
+        { id: 'wan', ip: '172.16.0.2/30' },
+        { id: 'victim', ip: '192.0.2.77/32' },
+        { id: 'srv', ip: '192.0.2.44/32' },
+      ],
+      routes: [{ prefix: '10.0.0.0/24', via: '172.16.0.1', iface: 'wan' }],
+      services: [{ port: 4444, proto: 'tcp', app: 'http' }],
+    })
+    .router('gw', {
+      label: 'GW',
+      x: 0,
+      y: 0,
+      ifaces: [
+        { id: 'lan', ip: '10.0.0.126/24' },
+        { id: 'wan', ip: '172.16.0.1/30' },
+      ],
+      routes: [{ prefix: '0.0.0.0/0', via: '172.16.0.2', iface: 'wan' }],
+      ...(opts.denyOut
+        ? { firewall: { outside: 'wan', mode: 'stateless' as const, rules: [{ dir: 'out' as const, proto: 'tcp' as const, src: 'any', dst: 'any', dport: opts.denyOut, action: 'deny' as const }] } }
+        : {}),
+    })
+    .switch('sw', { label: 'SW', x: 0, y: 0, ports: 4, mirror: 'p4' })
+    .host('a', { label: 'A', x: 0, y: 0, ip: '10.0.0.1/25', gateway: '10.0.0.126' })
+    .host('b', { label: 'B', x: 0, y: 0, ip: '10.0.0.2/24', gateway: '10.0.0.126' })
+    .host('tap', { label: 'Tap', x: 0, y: 0 })
+    .link(['far', 'wan'], ['gw', 'wan'])
+    .link(['gw', 'lan'], ['sw', 'p1'])
+    .link('a', ['sw', 'p2'])
+    .link('b', ['sw', 'p3'])
+    .link('tap', ['sw', 'p4'])
+    .build();
+  if (opts.directed) sim.dev('gw').directedBroadcast = true;
+  sim.prewarmArp(['a', 'b', 'gw', 'far']);
+  sim.setSniffing('tap', true);
+  return sim;
+}
+const smurfPing = (sim: Sim) => sim.sendPacket('far', { src: '192.0.2.77', dst: '10.0.0.255', proto: 'icmp', app: { kind: 'ping', seq: 1, reply: false } });
+const icmpSeen = (sim: Sim) => sim.dev('tap').capture.map((c) => c.frame).filter((f) => f.ip?.proto === 'icmp');
+const replies = (sim: Sim) => icmpSeen(sim).filter((f) => f.ip!.app.kind === 'ping' && f.ip!.app.reply).map((f) => `${f.ip!.src}>${f.ip!.dst}`).sort();
+
+describe('directed broadcast to a LAN of real computers', () => {
+  it('the router relays a ping for the LAN broadcast address as one broadcast frame, and logs it', () => {
+    const sim = edge({ directed: true });
+    smurfPing(sim);
+    sim.runUntilIdle();
+    const req = icmpSeen(sim).filter((f) => f.ip!.app.kind === 'ping' && !f.ip!.app.reply);
+    expect(req).toHaveLength(1);
+    expect(req[0].dst).toBe('ff:ff:ff:ff:ff:ff');
+    expect(req[0].ip!.src).toBe('192.0.2.77');
+    expect(sim.dev('gw').logs.some((l) => /directed broadcast/.test(l.msg))).toBe(true);
+  });
+
+  it('with directed broadcast off, the router drops it and nothing reaches the LAN', () => {
+    const sim = edge();
+    smurfPing(sim);
+    sim.runUntilIdle();
+    expect(icmpSeen(sim)).toHaveLength(0);
+  });
+
+  it('drops a directed broadcast that came in from the LAN itself', () => {
+    const sim = edge({ directed: true, broadcastEcho: true });
+    sim.sendPacket('a', { src: '10.0.0.1', dst: '10.0.0.255', proto: 'icmp', app: { kind: 'ping', seq: 1, reply: false } });
+    sim.runUntilIdle();
+    expect(sim.events.some((e) => e.type === 'drop' && e.device === 'gw' && e.reason === 'no-broadcast')).toBe(true);
+    // Only a's own request to the router crossed the switch: no broadcast copy, no replies.
+    expect(icmpSeen(sim).map((f) => f.dst)).not.toContain('ff:ff:ff:ff:ff:ff');
+    expect(replies(sim)).toEqual([]);
+  });
+});
+
+describe('broadcast pings (SimOptions.broadcastEcho)', () => {
+  it('on: every computer on the LAN answers the forged source', () => {
+    const sim = edge({ directed: true, broadcastEcho: true });
+    smurfPing(sim);
+    sim.runUntilIdle();
+    // a's /25 holds 10.0.0.127 as its broadcast, so only b counts 10.0.0.255 as its own.
+    expect(replies(sim)).toEqual(['10.0.0.2>192.0.2.77']);
+  });
+
+  it('off: the broadcast arrives and nobody answers', () => {
+    const sim = edge({ directed: true });
+    smurfPing(sim);
+    sim.runUntilIdle();
+    expect(icmpSeen(sim)).toHaveLength(1);
+    expect(replies(sim)).toEqual([]);
+  });
+});
+
+describe('a SYN that never gets an answer', () => {
+  it('tries three times, waiting longer each time, then gives up with no-answer', () => {
+    const sim = edge({ denyOut: 4444 });
+    const t0 = sim.t;
+    sim.tcpConnect('b', '192.0.2.44', 4444, HELLO);
+    sim.runUntilIdle();
+    const denied = sim.events.filter((e) => e.type === 'drop' && e.device === 'gw' && e.reason === 'firewall' && e.pkt?.tcp?.flags.syn);
+    expect(denied).toHaveLength(SYN_TRIES);
+    // Sent at 0 s, 10 s and 30 s (the timeout doubles each time). Each reaches the firewall the same few hops later.
+    const at = denied.map((e) => e.t - denied[0].t);
+    expect(at).toEqual([0, 10_000, 30_000]);
+    const end = sim.events.find((e) => e.type === 'tcp' && e.what === 'no-answer');
+    expect(end).toBeDefined();
+    expect(end!.t - t0).toBe(70_000);
+    expect(sim.tcpSessions[0]).toMatchObject({ state: 'no-answer', tries: SYN_TRIES });
   });
 });

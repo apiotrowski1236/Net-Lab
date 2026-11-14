@@ -79,6 +79,17 @@ describe('capture-analysis: the capture files', () => {
     expect(f.some((c) => isSynAck(c.frame) && c.frame.ip!.src === IP.fares)).toBe(false);
   });
 
+  it('08:00: each kiosk sends 20 SYNs, three seconds apart (the syn-flood feedback says so)', () => {
+    const f = file('outage').frames;
+    for (const k of [IP.kiosk1, IP.kiosk2, IP.kiosk3]) {
+      const t = f.filter((c) => isSyn(c.frame) && c.frame.ip!.src === k && c.frame.ip!.dst === IP.fares).map((c) => c.t);
+      expect(t).toHaveLength(20);
+      // The file's timestamps carry a little jitter, like a real capture.
+      const gaps = t.slice(1).map((x, i) => x - t[i]);
+      expect(Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length / 1000)).toBe(3);
+    }
+  });
+
   it('12:00: a smurf at 14 s, then a backup spike at 38 s', () => {
     const f = file('noon');
     const reqs = f.frames.filter((c) => isEchoRequest(c.frame) && c.frame.ip!.dst === IP.broadcast);
@@ -172,6 +183,28 @@ describe('capture-analysis: cited packets', () => {
     expect(say('flood', 'cite-flood', `${mid} through ${mid + 100}`)).toBeUndefined();
     const before = flood[0].no - 1;
     expect(say('flood', 'cite-flood', `${before - 20}-${before}`)).toMatch(/is ordinary depot traffic/);
+  });
+
+  it('names the ordinary packet when a range inside the flood leaves too few flood frames', () => {
+    const f = file('flood').frames;
+    const flood = f.filter((c) => isFloodFrame(c.frame));
+    const inside = f.find((c) => !isFloodFrame(c.frame) && c.t > flood[0].t && c.t < flood.at(-1)!.t)!;
+    // Ten numbers ending at the ordinary packet: nine flood frames count, and that one doesn't.
+    const nine = flood.filter((c) => c.no < inside.no).slice(-9).map((c) => c.no);
+    expect(say('flood', 'cite-flood', [...nine, inside.no].join(', '))).toBe(
+      `Packet ${inside.no} is ordinary depot traffic sent during the flood, so it doesn’t count. Type at least ten of the flood’s frames.`,
+    );
+    expect(say('flood', 'cite-flood', [flood[0].no - 1, ...flood.slice(0, 10).map((c) => c.no)].join(', '))).toMatch(/from before or after the flood/);
+  });
+
+  it('cite-orders takes the cmd= replies, not the server’s “received” after the upload', () => {
+    const replies = file('night').frames.filter((c) => toC2(c.frame) && c.frame.ip!.src === IP.c2 && payloadLen(c.frame.ip!) > 0);
+    const text = (c: (typeof replies)[number]) => (c.frame.ip!.app.kind === 'svc' ? (c.frame.ip!.app.text ?? '') : '');
+    const cmds = replies.filter((c) => text(c).includes('cmd=')).map((c) => c.no);
+    const ok = replies.find((c) => /received/.test(text(c)))!.no;
+    expect(cmds.length).toBeGreaterThanOrEqual(2);
+    expect(say('c2', 'cite-orders', `${cmds[0]}, ${cmds[1]}`)).toBeUndefined();
+    expect(say('c2', 'cite-orders', `${cmds[0]}, ${ok}`)).toBe(`Packet ${ok} is the server confirming the upload, not a command. A command reply has cmd= in it.`);
   });
 
   it('turns away numbers that are not in the file', () => {

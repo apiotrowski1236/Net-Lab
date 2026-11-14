@@ -97,6 +97,24 @@ export function CaptureFileView({ session, tool }: { session: LabSession; tool: 
     if (def) session.ui({ type: 'ui:open-capfile', file: def.id });
   }, [def?.id, key]);
 
+  // The Statistics tables are kept as one element, so a re-render from elsewhere (a goal ticking when the
+  // view opens, the clock) doesn't redraw them. Their Filter buttons switch to the Packet list.
+  const statsView = st.view === 'endpoints-eth' || st.view === 'endpoints-ip' || st.view === 'conversations' ? st.view : null;
+  const stats = useMemo(() => {
+    if (!def || !file || !statsView) return null;
+    const onFilter = tool.filter
+      ? (text: string) => {
+          set({ filter: text, view: 'packets', top: 0 });
+          session.ui({ type: 'ui:capfile-filter', file: def.id, filter: text });
+        }
+      : undefined;
+    return statsView === 'conversations' ? (
+      <ConversationsView file={file} onFilter={onFilter} />
+    ) : (
+      <EndpointsView file={file} kind={statsView === 'endpoints-eth' ? 'eth' : 'ip'} onFilter={onFilter} />
+    );
+  }, [file, statsView, key, tool.filter]);
+
   if (!def || !file) return <div class="dock-empty">No capture file in this step.</div>;
 
   const applied = tool.filter ? st.filter : '';
@@ -185,10 +203,7 @@ export function CaptureFileView({ session, tool }: { session: LabSession; tool: 
           onFollow={tool.follow ? follow : undefined}
         />
       )}
-      {(st.view === 'endpoints-eth' || st.view === 'endpoints-ip') && (
-        <EndpointsView file={file} kind={st.view === 'endpoints-eth' ? 'eth' : 'ip'} onFilter={tool.filter ? applyFilter : undefined} />
-      )}
-      {st.view === 'conversations' && <ConversationsView file={file} onFilter={tool.filter ? applyFilter : undefined} />}
+      {stats}
       {st.view === 'io' && <IoGraph file={file} filter={applied} onJump={jumpTo} />}
       {st.view === 'follow' && st.stream !== null && (
         <FollowView file={file} stream={st.stream} onBack={() => set({ view: 'packets' })} onFilter={tool.filter ? applyFilter : undefined} />
@@ -463,8 +478,14 @@ function PacketList({
 // Statistics
 // ---------------------------------------------------------------------------
 
-type Col<T> = { key: string; label: string; num?: boolean; get: (r: T) => string | number; show?: (r: T) => string };
+type Col<T> = { key: string; label: string; num?: boolean; width?: string; get: (r: T) => string | number; show?: (r: T) => string };
 
+const collate = new Intl.Collator('en', { numeric: true }).compare;
+
+/**
+ * A sortable Statistics table. Like the packet list, it draws only the rows on screen (14:00 has 3,037 MACs),
+ * and it sorts once per column click, not on every render.
+ */
 function SortTable<T>({ rows, cols, initial, caption, onRow, rowLabel }: {
   rows: T[];
   cols: Col<T>[];
@@ -474,21 +495,41 @@ function SortTable<T>({ rows, cols, initial, caption, onRow, rowLabel }: {
   rowLabel?: (r: T) => string;
 }) {
   const [sort, setSort] = useState<{ key: string; down: boolean }>({ key: initial, down: true });
-  const col = cols.find((c) => c.key === sort.key) ?? cols[0];
-  const sorted = [...rows].sort((a, b) => {
-    const x = col.get(a);
-    const y = col.get(b);
-    const d = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'en', { numeric: true });
-    return sort.down ? -d : d;
-  });
+  const sorted = useMemo(() => {
+    const col = cols.find((c) => c.key === sort.key) ?? cols[0];
+    const keyed = rows.map((r) => ({ r, k: col.get(r) }));
+    keyed.sort((a, b) => {
+      const d = typeof a.k === 'number' && typeof b.k === 'number' ? a.k - b.k : collate(String(a.k), String(b.k));
+      return sort.down ? -d : d;
+    });
+    return keyed.map((x) => x.r);
+  }, [rows, sort.key, sort.down]);
+  const box = useRef<HTMLDivElement>(null);
+  const [scroll, setScroll] = useState(0);
+  const [height, setHeight] = useState(400);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    setHeight(el.clientHeight);
+    const ro = new ResizeObserver(() => setHeight(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const from = Math.max(0, Math.floor(scroll / ROW) - OVERSCAN);
+  const to = Math.min(sorted.length, Math.ceil((scroll + height) / ROW) + OVERSCAN);
+  const span = cols.length + (onRow ? 1 : 0);
   return (
-    <div class="capture-list capfile-stats">
+    <div class="capture-list capfile-stats" ref={box} onScroll={(e) => setScroll((e.currentTarget as HTMLDivElement).scrollTop)}>
       <table class="table capfile-stats-table">
         <caption class="visually-hidden">{caption}</caption>
         <thead>
           <tr>
             {cols.map((c) => (
-              <th class={c.num ? 'num' : ''} aria-sort={sort.key === c.key ? (sort.down ? 'descending' : 'ascending') : undefined}>
+              <th
+                class={c.num ? 'num' : ''}
+                style={c.width ? { width: c.width } : undefined}
+                aria-sort={sort.key === c.key ? (sort.down ? 'descending' : 'ascending') : undefined}
+              >
                 <button type="button" class="capfile-sort" onClick={() => setSort({ key: c.key, down: sort.key === c.key ? !sort.down : !!c.num })}>
                   {c.label}
                   {sort.key === c.key && (
@@ -499,11 +540,20 @@ function SortTable<T>({ rows, cols, initial, caption, onRow, rowLabel }: {
                 </button>
               </th>
             ))}
-            {onRow && <th class="visually-hidden">Filter</th>}
+            {onRow && (
+              <th class="capfile-act">
+                <span class="visually-hidden">Filter</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {sorted.map((r) => (
+          {from > 0 && (
+            <tr class="capfile-pad" aria-hidden="true" style={{ height: `${from * ROW}px` }}>
+              <td colSpan={span} />
+            </tr>
+          )}
+          {sorted.slice(from, to).map((r) => (
             <tr>
               {cols.map((c) => (
                 <td class={c.num ? 'num mono' : 'mono'}>{c.show ? c.show(r) : typeof c.get(r) === 'number' ? n(c.get(r) as number) : c.get(r)}</td>
@@ -517,6 +567,11 @@ function SortTable<T>({ rows, cols, initial, caption, onRow, rowLabel }: {
               )}
             </tr>
           ))}
+          {to < sorted.length && (
+            <tr class="capfile-pad" aria-hidden="true" style={{ height: `${(sorted.length - to) * ROW}px` }}>
+              <td colSpan={span} />
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -527,7 +582,7 @@ function EndpointsView({ file, kind, onFilter }: { file: CaptureFile; kind: 'eth
   const rows = useMemo(() => endpointStats(file.frames, kind), [file, kind]);
   type R = (typeof rows)[number];
   const cols: Col<R>[] = [
-    { key: 'addr', label: kind === 'eth' ? 'MAC address' : 'IP address', get: (r) => r.addr },
+    { key: 'addr', label: kind === 'eth' ? 'MAC address' : 'IP address', width: kind === 'eth' ? '11.5em' : '9.5em', get: (r) => r.addr },
     { key: 'packets', label: 'Packets', num: true, get: (r) => r.packets },
     { key: 'bytes', label: 'Bytes', num: true, get: (r) => r.bytes },
     { key: 'tx', label: 'Packets sent', num: true, get: (r) => r.tx },
@@ -555,8 +610,8 @@ function ConversationsView({ file, onFilter }: { file: CaptureFile; onFilter?: (
   const rows = useMemo(() => conversationStats(file.frames, 'ip'), [file]);
   type R = (typeof rows)[number];
   const cols: Col<R>[] = [
-    { key: 'a', label: 'Address A', get: (r) => r.a },
-    { key: 'b', label: 'Address B', get: (r) => r.b },
+    { key: 'a', label: 'Address A', width: '9.5em', get: (r) => r.a },
+    { key: 'b', label: 'Address B', width: '9.5em', get: (r) => r.b },
     { key: 'packets', label: 'Packets', num: true, get: (r) => r.packets },
     { key: 'bytes', label: 'Bytes', num: true, get: (r) => r.bytes },
     { key: 'aToB', label: 'A → B', num: true, get: (r) => r.aToB },

@@ -339,7 +339,8 @@ export function streamOf(f: Frame): number | undefined {
 export const isBroadcastMac = (mac: string) => mac === BROADCAST_MAC;
 
 /**
- * Packet numbers a student typed: "412, 415", "412 and 415", "#412; #415",
+ * Packet numbers a student typed: "412, 415", "412 and 415", "412 or 415",
+ * "412/415", "#412; #415", "412, 415." (a sentence's last period),
  * "packets 1200-1250" (a range counts every number in it). Numbers come back
  * sorted, without repeats.
  */
@@ -350,7 +351,9 @@ export function parsePacketList(text: string, maxRange = 20_000): { ok: true; nu
     .replace(/\b(packets?|frames?|numbers?|no\.?|nos\.?|#)\s*/g, ' ')
     .replace(/#/g, ' ')
     .replace(/\bthrough\b|\bthru\b|\bto\b/g, '-')
-    .replace(/\band\b|&|;|,|\+/g, ' ')
+    .replace(/\band\b|\bor\b|&|;|,|\+|\//g, ' ')
+    // A period, colon, or bracket at the end of a number: "412." or "(412)".
+    .replace(/[.:!?()[\]]+(?=\s|$)|(?<=^|\s)[([]+/g, ' ')
     .trim();
   if (!src) return { ok: false, msg: 'Type the packet numbers from the No. column, like 412, 415.' };
   const nums = new Set<number>();

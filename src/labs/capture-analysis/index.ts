@@ -40,6 +40,8 @@ const files = (...ids: FileId[]): ToolSpec => ({ kind: 'capture-file', device: '
 
 const kioskIps: string[] = KIOSKS.map((k) => IP[k]);
 const payload = (f: Frame) => !!f.ip && payloadLen(f.ip) > 0;
+/** The text a service packet carries (an HTTP reply's headers and body). */
+const svcText = (f: Frame) => (f.ip?.app.kind === 'svc' ? (f.ip.app.text ?? '') : '');
 const port = (f: Frame, p: number) => f.ip?.srcPort === p || f.ip?.dstPort === p;
 const ipText = /^\s*\d{1,3}(\.\d{1,3}){3}\s*$/;
 
@@ -151,7 +153,7 @@ export const captureAnalysisLab: LabDef = {
           kind: 'choice',
           prompt: 'Why capture at the mirror port instead of on one of the depot’s computers?',
           options: [
-            { id: 'all', text: 'The mirror port gets a copy of every device’s traffic, so one capture shows the whole depot.', correct: true },
+            { id: 'all', text: 'It gets a copy of every port’s traffic.', correct: true },
             {
               id: 'one',
               text: 'A capture on one computer would show the whole depot, but more slowly.',
@@ -259,11 +261,11 @@ export const captureAnalysisLab: LabDef = {
             {
               id: 'syn-flood',
               text: 'Yes. Someone is flooding the fare server with SYNs.',
-              feedback: 'Count them: one SYN from each kiosk every few seconds, the same pace as a normal morning. A flood would be thousands.',
+              feedback: 'Count them: each kiosk sends one SYN every three seconds as it retries, 20 in the whole minute. A flood would be thousands.',
             },
             {
               id: 'unplugged',
-              text: 'No. The kiosks are unplugged from the switch.',
+              text: 'No. The kiosks are unplugged from the switch, so their payments never arrive.',
               feedback: 'The kiosks’ SYNs are in the capture, so they’re connected. The fare server answers them too. It says no.',
             },
           ],
@@ -319,7 +321,7 @@ export const captureAnalysisLab: LabDef = {
           kind: 'choice',
           prompt: 'The echo requests say they come from 203.0.113.77. Is that the attacker?',
           options: [
-            { id: 'victim', text: 'No. It’s the victim. The attacker forged its address, so every reply lands on it.', correct: true },
+            { id: 'victim', text: 'No. It’s the victim, and its address was forged.', correct: true },
             {
               id: 'source',
               text: 'Yes. The Source column always shows who sent a packet.',
@@ -366,13 +368,13 @@ export const captureAnalysisLab: LabDef = {
           kind: 'choice',
           prompt: 'Is the second spike an attack?',
           options: [
-            { id: 'backup', text: 'No. The backup server is copying the fare server’s files over rsync.', correct: true },
+            { id: 'backup', text: 'No. It’s the backup server copying files with rsync.', correct: true },
             {
               id: 'theft',
               text: 'Yes. Two computers moving this much data must be stealing it.',
               feedback: 'Both ends are the depot’s own servers, on the backup program’s port. Data moving between them doesn’t leave the depot.',
             },
-            { id: 'smurf2', text: 'Yes. It’s a second smurf attack.', feedback: 'A smurf is pings to a broadcast address. These are TCP packets between two depot servers on one port.' },
+            { id: 'smurf2', text: 'Yes. It’s a second smurf attack, aimed at the fare server.', feedback: 'A smurf is pings to a broadcast address. These are TCP packets between two depot servers on one port.' },
             { id: 'chatter', text: 'No. It’s the switch’s own background chatter.', feedback: 'A switch doesn’t send hundreds of packets a second. Read the addresses: two servers.' },
           ],
           explain:
@@ -473,9 +475,9 @@ export const captureAnalysisLab: LabDef = {
           placeholder: 'Packet numbers or a range, like 1200-1250',
           file: FILES.flood,
           min: 10,
-          minText: 'ten packet numbers',
+          minText: 'ten of the flood’s frames',
           // A range across the flood picks up a few ordinary packets sent in the same seconds. They don't count either way.
-          skip: (c) => !isFloodFrame(c.frame) && c.t >= 20_000 && c.t <= 30_500,
+          skip: (c) => !isFloodFrame(c.frame) && c.t >= 20_000 && c.t <= 30_500 && 'is ordinary depot traffic sent during the flood, so it doesn’t count.',
           fits: (c) => (isFloodFrame(c.frame) ? true : 'is ordinary depot traffic from before or after the flood.'),
           explain: 'A range across the flood also takes in a few ordinary packets sent in the same seconds. In a real report, say so, or list only the flood’s frames.',
         }),
@@ -484,7 +486,7 @@ export const captureAnalysisLab: LabDef = {
           kind: 'choice',
           prompt: 'What did the flood do to the depot switch’s MAC address table?',
           options: [
-            { id: 'filled', text: 'It filled the table with made-up MACs, so the switch sent frames out every port.', correct: true },
+            { id: 'filled', text: 'It filled the table with made-up MACs, so frames went out every port.', correct: true },
             { id: 'erased', text: 'It erased the table, and the switch turned itself off.', feedback: 'A full table doesn’t turn a switch off. The switch stops learning, and frames for unknown MACs go out every port.' },
             { id: 'ignored', text: 'Nothing. A switch ignores frames that have no IP packet inside.', feedback: 'A switch reads only the Ethernet header. It learns every new source MAC, whatever is inside.' },
             { id: 'shut', text: 'It made the switch shut off the port the frames came in on.', feedback: 'Only port security shuts a port, and it was off at 14:00.' },
@@ -610,7 +612,9 @@ export const captureAnalysisLab: LabDef = {
                 ? 'carries no data, only TCP flags.'
                 : f.ip!.src !== IP.c2
                   ? 'is the recorder’s own message. Cite the replies from 192.0.2.44.'
-                  : true,
+                  : !svcText(f).includes('cmd=')
+                    ? 'is the server confirming the upload, not a command. A command reply has cmd= in it.'
+                    : true,
           explain:
             'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. One reply said to upload a garage camera video, and the next connection sent it.',
         }),
@@ -672,9 +676,9 @@ export const captureAnalysisLab: LabDef = {
           prompt: 'Which change stops the depot being used in the next smurf attack?',
           options: [
             { id: 'directed', text: 'Turn off directed broadcast on the depot router.', correct: true },
-            { id: 'victim', text: 'Block 203.0.113.77 at the router.', feedback: 'That’s the victim. The next attack will forge some other victim’s address.' },
-            { id: 'port-sec', text: 'Turn on port security on the switch.', feedback: 'Port security limits MACs on a switch port. The pings came in from the internet, through the router.' },
-            { id: 'one-host', text: 'Turn off ping on the fare server.', feedback: 'Nine computers answered. One fewer still leaves eight replies per ping.' },
+            { id: 'victim', text: 'Block 203.0.113.77, the address in the pings, at the router.', feedback: 'That’s the victim. The next attack will forge some other victim’s address.' },
+            { id: 'port-sec', text: 'Turn on port security on every port of the depot switch.', feedback: 'Port security limits MACs on a switch port. The pings came in from the internet, through the router.' },
+            { id: 'one-host', text: 'Turn off ping replies on the fare server.', feedback: 'Nine computers answered. One fewer still leaves eight replies per ping.' },
           ],
           explain: 'With directed broadcast off, the router drops pings from outside aimed at 198.51.100.255, so nobody inside answers them.',
         },
@@ -684,8 +688,8 @@ export const captureAnalysisLab: LabDef = {
           prompt: 'Which change protects dispatch from the 13:00 ARP poisoning?',
           options: [
             { id: 'static', text: 'A static ARP entry for the router on each dispatch computer.', correct: true },
-            { id: 'block-gw', text: 'A firewall rule blocking 198.51.100.1.', feedback: 'That’s the router itself. Blocking it cuts dispatch off from the internet.' },
-            { id: 'encrypt', text: 'Turning on encryption for ARP replies.', feedback: 'ARP has no encryption to turn on. A computer believes any reply unless its entry is fixed.' },
+            { id: 'block-gw', text: 'A firewall rule on the router blocking 198.51.100.1.', feedback: 'That’s the router itself. Blocking it cuts dispatch off from the internet.' },
+            { id: 'encrypt', text: 'Turning on encryption for all ARP replies.', feedback: 'ARP has no encryption to turn on. A computer believes any reply unless its entry is fixed.' },
             { id: 'mirror', text: 'Moving the analyst laptop off the mirror port.', feedback: 'The analyst laptop only listens. The forged replies come from the Break-room PC.' },
           ],
           explain: 'A static entry can’t be changed by a reply, forged or not. On a bigger network, a switch feature called Dynamic ARP Inspection checks replies for every port.',
@@ -746,11 +750,12 @@ export const captureAnalysisLab: LabDef = {
           kind: 'choice',
           prompt: 'Why does the deny rule have to sit above “allow out”?',
           options: [
-            { id: 'first', text: 'The router uses the first rule that matches, and allow out matches the check-in too.', correct: true },
+            { id: 'first', text: 'The router uses the first rule that matches.', correct: true },
             { id: 'newest', text: 'The router only reads the newest rule.', feedback: 'The router reads from the top, whatever order the rules were added in.' },
             { id: 'deny-last', text: 'Deny rules only work at the top of a list.', feedback: 'A deny rule works anywhere. It has to come before any rule that would allow the same packet.' },
             { id: 'cosmetic', text: 'It doesn’t matter. The order is only how they’re shown.', feedback: 'Try it: below allow out, the check-in matches allow first and goes through.' },
           ],
+          explain: 'Allow out matches the check-in too. The router stops at the first rule that matches, so a deny rule below allow out never gets checked.',
         },
       ],
     },

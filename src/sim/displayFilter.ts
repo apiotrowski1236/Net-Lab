@@ -304,6 +304,9 @@ const HINT: Record<string, string> = {
   'tcp.syn': 'Wireshark calls it tcp.flags.syn. Try: tcp.flags.syn == 1',
   'tcp.rst': 'Wireshark calls it tcp.flags.reset. Try: tcp.flags.reset == 1',
   'tcp.reset': 'Wireshark calls it tcp.flags.reset. Try: tcp.flags.reset == 1',
+  // capture-analysis: tcp.flags == 0x012 is real Wireshark, but here each flag is its own field.
+  'tcp.flags': 'Filter one flag at a time. For SYN, ACK: tcp.flags.syn == 1 && tcp.flags.ack == 1',
+  flags: 'Filter one flag at a time. For SYN, ACK: tcp.flags.syn == 1 && tcp.flags.ack == 1',
   'tcp.flags.rst': 'Wireshark spells it out: tcp.flags.reset',
   'tcp.flags.psh': 'Wireshark spells it out: tcp.flags.push',
   'arp.src.ip': 'Wireshark calls it arp.src.proto_ipv4',

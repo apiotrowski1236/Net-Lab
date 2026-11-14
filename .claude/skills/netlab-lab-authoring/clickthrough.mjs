@@ -62,12 +62,16 @@ const { LabSession } = await vite.ssrLoadModule('/src/runtime/session.ts');
 const { playMove, playStep } = await vite.ssrLoadModule('/src/labs/solution.ts');
 const { infoOf, endpoints, protoOf } = await vite.ssrLoadModule('/src/ui/describe.ts');
 const { isEncrypted, isPlainLogin, isTelnetLogin } = await vite.ssrLoadModule('/src/labs/helpers.ts');
+const { portName } = await vite.ssrLoadModule('/src/runtime/toolInput.ts');
+const { portLabel } = await vite.ssrLoadModule('/src/sim/switchsec.ts');
+const { pairName } = await vite.ssrLoadModule('/src/sim/zonePolicy.ts');
 const mod = await vite.ssrLoadModule(`/src/labs/${LAB}/solution.ts`);
 const sol = Object.entries(mod).find(([n]) => n.endsWith('Solution'))?.[1];
 const lab = LABS.find((l) => l.id === LAB);
 if (!lab || !sol) throw new Error(`No lab or solution for ${LAB}`);
 // A lesson (no `build`) has no network, so no devices and no speed button.
-const labels = lab.build ? Object.fromEntries(Object.values(lab.build().devices).map((d) => [d.id, d.label])) : {};
+const built = lab.build ? lab.build().devices : {};
+const labels = Object.fromEntries(Object.values(built).map((d) => [d.id, d.label]));
 const MATCH = { login: isPlainLogin, encrypted: isEncrypted, telnet: isTelnetLogin };
 
 // Play the key in a model session alongside the browser, to know which captured row each openFrame move means.
@@ -455,6 +459,53 @@ async function doMove(i, step, m) {
         n--;
       }
       log(`  firewall rule on ${labels[a.device]}: ${r.action} ${r.dir} ${r.proto} to ${r.dst}${a.at !== undefined ? `, moved to rule ${a.at + 1}` : ''}`);
+    } else if (a.type === 'mac-flood') {
+      await tab('Toolkit');
+      const card = page.locator('.tool-card', { hasText: `MAC flooder (${labels[a.device]})` });
+      await card.getByRole('group', { name: 'How many bursts' }).getByRole('button', { name: String(a.bursts), exact: true }).click();
+      await card.getByRole('button', { name: 'Flood' }).click();
+      log(`  MAC flood from ${labels[a.device]}: ${a.bursts} bursts`);
+    } else if (a.type === 'set-mac') {
+      await tab('Toolkit');
+      const card = page.locator('.tool-card', { hasText: `MAC changer (${labels[a.device]})` });
+      if (a.mac === null) await card.getByRole('button', { name: /factory MAC/ }).click();
+      else {
+        await card.getByLabel('New MAC address').fill(a.mac);
+        await card.getByRole('button', { name: 'Change MAC' }).click();
+      }
+      log(`  MAC on ${labels[a.device]}: ${a.mac ?? 'factory'}`);
+    } else if (a.type === 'set-zone' || a.type === 'set-zone-level') {
+      // The Toolkit's Zone plan card: one select per computer, one per zone.
+      await tab('Toolkit');
+      const card = page.locator('.tool-card.zone-plan');
+      if (a.type === 'set-zone') await card.getByLabel(`Zone for ${labels[a.device]}`, { exact: true }).selectOption(a.zone ?? '');
+      else {
+        const label = step.tools?.find((t) => t.kind === 'zone-plan')?.zones.find((z) => z.id === a.zone)?.label ?? a.zone;
+        await card.getByLabel(`Security level for ${label}`, { exact: true }).selectOption(a.level ?? '');
+      }
+      log(`  zone plan: ${a.type === 'set-zone' ? `${labels[a.device]} in ${a.zone}` : `${a.zone} is ${a.level}`}`);
+    } else if (a.type === 'set-zone-policy') {
+      await device(a.device).locator('rect.device-card').first().click({ force: true });
+      await tab('Inspect');
+      const zp = built[a.device].zonePolicy;
+      await page.locator('section.zone-policy').getByLabel(pairName(zp, a.from, a.to), { exact: true }).selectOption(a.value);
+      log(`  zone policy on ${labels[a.device]}: ${pairName(zp, a.from, a.to)} ${a.value}`);
+    } else if (a.type === 'set-vlan') {
+      await device(a.device).locator('rect.device-card').first().click({ force: true });
+      await tab('Inspect');
+      await page.locator('section.vlans').getByLabel(`VLAN for ${portLabel(a.iface)}`, { exact: true }).selectOption(String(a.vlan));
+      log(`  VLAN ${a.vlan} on ${labels[a.device]} ${portLabel(a.iface)}`);
+    } else if (a.type === 'set-ip' || a.type === 'gateway') {
+      // Device settings in the inspector: the address box and its Save, or the default gateway box.
+      await device(a.device).locator('rect.device-card').first().click({ force: true });
+      await tab('Inspect');
+      const where = a.type === 'gateway' ? `Default gateway for ${labels[a.device]}` : `IP address for ${built[a.device].ifaces.length > 1 ? `${labels[a.device]} ${portName(a.iface)}` : labels[a.device]}`;
+      const box = page.getByLabel(where, { exact: true });
+      await box.fill(a.type === 'gateway' ? a.ip : (a.cidr ?? ''));
+      await box.press('Enter');
+      const bad = await box.getAttribute('aria-invalid');
+      if (bad === 'true') await fail(i, `${where} turned the value away`);
+      log(`  ${where}: ${a.type === 'gateway' ? a.ip : a.cidr}`);
     } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doMove.`);
   } else if ('filter' in m) {
     await tab('Capture');

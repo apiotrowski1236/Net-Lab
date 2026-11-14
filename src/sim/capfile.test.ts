@@ -87,6 +87,13 @@ describe('capture files', () => {
     expect(parsePacketList('10-12; 11')).toEqual({ ok: true, nums: [10, 11, 12] });
     expect(parsePacketList('12 to 10')).toEqual({ ok: true, nums: [10, 11, 12] });
     expect(parsePacketList('No. 7')).toEqual({ ok: true, nums: [7] });
+    // A sentence's period, "or", and a slash.
+    expect(parsePacketList('412, 415.')).toEqual({ ok: true, nums: [412, 415] });
+    expect(parsePacketList('412.')).toEqual({ ok: true, nums: [412] });
+    expect(parsePacketList('412 or 415')).toEqual({ ok: true, nums: [412, 415] });
+    expect(parsePacketList('412/415')).toEqual({ ok: true, nums: [412, 415] });
+    expect(parsePacketList('(412), 415!')).toEqual({ ok: true, nums: [412, 415] });
+    expect(parsePacketList('412.5').ok).toBe(false);
     expect(parsePacketList('the first one').ok).toBe(false);
     expect(parsePacketList('').ok).toBe(false);
   });

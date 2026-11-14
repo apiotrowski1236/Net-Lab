@@ -122,7 +122,8 @@ async function drive(c, i, step, m) {
     case 'port-shutdown': {
       await inspector(a.device);
       const where = a.port.replace(/^p(\d+)$/, 'port $1');
-      const row = page.locator('tr', { has: page.locator('td', { hasText: new RegExp(`^${where}$`) }) }).first();
+      // Ports and port security's own row: a VLANs table on the same switch lists the same ports.
+      const row = page.locator('section.switch-ports tr', { has: page.locator('td', { hasText: new RegExp(`^${where}$`) }) }).first();
       await row.getByRole('button', { name: 'Edit' }).click();
       await page.locator('.port-edit').getByRole('button', { name: a.shut ? 'Shut port down' : 'Turn port on' }).click();
       log(`  ${a.shut ? 'shut' : 'turn on'} ${where} on ${labels[a.device]}`);

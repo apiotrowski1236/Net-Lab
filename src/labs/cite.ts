@@ -28,9 +28,11 @@ export interface CiteOpts {
   /**
    * Packets that count neither for nor against the student: ordinary traffic
    * inside a range they typed (a flood with a few normal packets mixed in).
-   * They don't count toward `min`.
+   * They don't count toward `min`. Return a string to say why, written like
+   * `fits` ("is ordinary traffic sent during the flood."): when skipped
+   * packets leave too few, the feedback names the first one with it.
    */
-  skip?: (c: FileFrame, file: CaptureFile) => boolean;
+  skip?: (c: FileFrame, file: CaptureFile) => boolean | string;
   /** At least this many numbers (default 1). */
   min?: number;
   /** At most this many (default: no limit). Ranges count every number in them. */
@@ -53,15 +55,22 @@ export function checkCited(o: Pick<CiteOpts, 'file' | 'fits' | 'skip' | 'min' | 
   if (o.max !== undefined && p.nums.length > o.max) return `Type no more than ${o.max} packet numbers: the ones that prove it.`;
   const file = loadCaptureFile(o.file);
   let fit = 0;
+  let skipped: string | undefined;
   for (const n of p.nums) {
     const c = file.frames[n - 1];
     if (!c) return `There is no packet ${n} in ${file.name}. It has ${file.frames.length.toLocaleString('en-US')} packets.`;
-    if (o.skip?.(c, file)) continue;
+    const skip = o.skip?.(c, file);
+    if (skip) {
+      skipped ??= `Packet ${n} ${typeof skip === 'string' ? skip : 'doesn’t count either way.'}`;
+      continue;
+    }
     const why = o.fits(c, file);
     if (why !== true) return `Packet ${n} ${why}`;
     fit++;
   }
-  return fit < min ? atLeast : undefined;
+  // Too few left: if skipped packets are why, name the first one, not only the count.
+  if (fit < min) return skipped ? `${skipped} ${atLeast}` : atLeast;
+  return undefined;
 }
 
 export function citeQuestion(o: CiteOpts): TextQuestion {
