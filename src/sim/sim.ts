@@ -110,6 +110,8 @@ import { canGrant, fromClient, grant, newDhcpClient, newDhcpServer, offer, pickA
 import { addEntry, allocPort, endText, findIn, findOut, forwardFor, natPorts, newNat, type NatForward } from './nat';
 import { newCaptureRun } from './capture';
 import { BENCH_METHODS, clientOf, clock, dbSignatures, learnBaseline, METHOD_NAME, newBench, runBench, RUN_MS, runSettings, TOLERANCES_PCT, type BenchConfig, type BenchMethod, type BenchState, type TolerancePct } from './bench';
+import { linuxServe, runHost, setFail2ban, setSshPasswords } from './linux';
+import { hostVerdict, ufwLogLine, UFW_DEFAULT } from './ufw';
 import {
   inScope,
   MAX_RUNS,
@@ -597,6 +599,8 @@ export class Sim {
     const pkt = frame.ip!;
     if (dev.vpn?.client && iface && this.vpnRelay(dev, frame, iface)) return;
     if (this.isLocal(dev, pkt.dst) || (dev.impersonate && this.hijacked(dev, pkt.dst))) {
+      // A host firewall (device-analysis) checks requests arriving for the computer itself.
+      if (dev.kind === 'host' && dev.firewall && iface && !isReply(pkt) && !this.hostFwIn(dev, iface.id, frame)) return;
       // A router firewall with guardSelf also checks requests from outside to the router itself.
       if (dev.firewall?.guardSelf && iface?.id === dev.firewall.outside && !isReply(pkt) && !this.fwPass(dev, iface.id, frame)) return;
       this.deliver(dev, pkt, frame);
@@ -745,6 +749,8 @@ export class Sim {
       this.drop(dev, 'no-link', pkt);
       return;
     }
+    // A host firewall (device-analysis) checks connections the computer starts.
+    if (dev.kind === 'host' && dev.firewall && !isReply(pkt) && !this.hostFwOut(dev, pkt)) return;
     this.routeAndSend(dev, pkt, undefined, forged, burst);
   }
 
@@ -2383,7 +2389,9 @@ export class Sim {
     const proto: L4 = pkt.proto === 'udp' ? 'udp' : 'tcp';
     const svc = serviceAt(dev, proto, pkt.dstPort);
     if (svc) probeArrived(this, this.outbreak, dev, a.conn, pkt.dstPort);
-    this.reply(dev, pkt, { kind: 'svc', conn: a.conn, app: svc?.app ?? a.app, reply: true, status: svc ? 'open' : 'closed', text: svc?.banner });
+    // A Linux server's sshd and nginx log the request and answer it (device-analysis).
+    const said = svc && dev.linux ? linuxServe(this, dev, pkt, svc) : undefined;
+    this.reply(dev, pkt, { kind: 'svc', conn: a.conn, app: svc?.app ?? a.app, reply: true, status: svc ? 'open' : 'closed', text: said ?? svc?.banner });
   }
 
   private endConn(devId: string, id: number, patch: Partial<Conn>): void {
@@ -3319,6 +3327,12 @@ export class Sim {
       case 'nmap':
         run = { ...base, kind: 'nmap', target: c.target, versions: c.versions, vuln: c.vuln };
         break;
+      case 'ss':
+      case 'ufw':
+      case 'grep':
+      case 'tail':
+        run = { ...base, kind: 'host', cmd: c.cmd, ...runHost(this, dev, c.host) };
+        break;
     }
     const list = (dev.term ??= []);
     list.push(run);
@@ -3334,6 +3348,9 @@ export class Sim {
         break;
       case 'netstat':
         run.rows = this.netstatRows(dev, run.all);
+        this.termDone(dev, run);
+        break;
+      case 'host':
         this.termDone(dev, run);
         break;
     }
@@ -4071,6 +4088,45 @@ export class Sim {
     fw.ips = on || undefined;
     fw.changedAt = this.t;
     this.emit({ t: this.t, type: 'config', device: devId, what: 'firewall-ips', on });
+  }
+
+  // -------------------------------------------------------------------------
+  // --- host firewall and server logs (device-analysis) ---
+  // A firewall on a computer itself (a host-based firewall), and a Linux
+  // server's log files, sshd, nginx, and fail2ban. See ufw.ts and linux.ts.
+  // -------------------------------------------------------------------------
+
+  /** A host firewall checks a request that arrived for the computer. Denied: logs it, drops it, and returns false. */
+  private hostFwIn(dev: Device, ingress: string, frame: Frame): boolean {
+    return this.hostFwCheck(dev, ingress, frame.ip!, 'in', frame);
+  }
+
+  /** A host firewall checks a connection the computer starts. */
+  private hostFwOut(dev: Device, pkt: IpPacket): boolean {
+    return this.hostFwCheck(dev, dev.firewall!.outside, pkt, 'out');
+  }
+
+  private hostFwCheck(dev: Device, iface: string, pkt: IpPacket, dir: 'in' | 'out', frame?: Frame): boolean {
+    const fw = dev.firewall!;
+    const v = hostVerdict(fw, pkt, dir, dev.linux?.ufw ?? UFW_DEFAULT);
+    track(fw, pkt, dir, v, this.t);
+    // The default policy allowing a computer's own connection out is no news: no event, no log line.
+    if (v.by === 'implicit' && v.action === 'allow') return true;
+    this.emit({ t: this.t, type: 'firewall', device: dev.id, dir, verdict: v, pkt });
+    if (v.action === 'allow') return true;
+    const a = pkt.app;
+    const scanProbe = a.kind === 'svc' && !!a.conn && this.svcWaiting.get(a.conn)?.scan !== undefined;
+    this.log(dev.id, dev.linux ? ufwLogLine(iface, pkt, dir, v, scanProbe) : logLine(pkt, dir, v));
+    this.drop(dev, 'firewall', pkt, frame);
+    return false;
+  }
+
+  /** Turn a Linux server's fail2ban (automatic bans) or SSH password sign-in on or off. */
+  linuxSet(devId: string, setting: 'fail2ban' | 'passwords', on: boolean): void {
+    const dev = this.dev(devId);
+    if (!dev.linux) throw new Error(`${devId} is not a Linux server`);
+    if (setting === 'fail2ban') setFail2ban(this, dev, on);
+    else setSshPasswords(this, dev, on);
   }
 }
 
