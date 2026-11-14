@@ -8,6 +8,7 @@ import type { ActionDef, ActionLine, LabDef, MapZone, ToolSpec } from '../types'
 import {
   BSSID,
   buildWatch,
+  catchUp,
   CLOCK,
   GYM,
   isMovieNight,
@@ -25,6 +26,7 @@ import {
   SSID,
   STAFF,
   STAFF_PROFILE,
+  TONIGHT,
   TWIN_POS,
 } from './scenario';
 
@@ -89,11 +91,11 @@ const unplug: ActionDef = {
 
 const saveProfile: ActionDef = {
   id: 'save-profile',
-  label: "Save the shelter profile on Mr. Okafor's phone",
+  label: "Give Mr. Okafor a new login and save the profile",
   run: (sim) => sim.setWifiProfile('visitor', { ...STAFF_PROFILE }),
   outcome: (sim) =>
     sim.dev('visitor').wifiClient?.profile
-      ? [{ tone: 'good', text: `${label(sim, 'visitor')} now has the profile. A copy of the network can't pull it away again.` }]
+      ? [{ tone: 'good', text: `The desk reset his login, so the one the copy took no longer works. ${label(sim, 'visitor')} now has the profile, so a copy can't pull it away again.` }]
       : [{ tone: 'wait', text: 'Not saved yet.' }],
 };
 
@@ -118,6 +120,7 @@ function online(sim: Sim): number {
 function setupLookalike(sim: Sim): void {
   seedRogue(sim);
   removeRogue(sim);
+  catchUp(sim, TONIGHT.lookalike);
   const twin = sim.dev('twin').wifi!;
   const heard = sim.dev('wap').wids!.heard[BSSID.twin];
   if (twin.off && !heard) sim.setWifiOff('twin', false);
@@ -180,6 +183,8 @@ export const watchTheAirLab: LabDef = {
         The emergency shelter in the Ridgeview High gym has been open for two weeks. Its Wi-Fi is locked down: **WPA3** encryption scrambles everything sent over the air, each person signs in with their own login, and the signal is turned down so it doesn't reach far past the walls.
 
         Your job is different now. You **keep watch**. Tonight, people report strange things on the Wi-Fi. You will check each report, collect evidence, and then choose alarms that catch the next problem for you.
+
+        The map shows a few of the gym's phones and laptops, not all of them.
 
         Start with what belongs here. Click [[wap]] and find **Approved access points**. This list is an **inventory**: every access point the shelter put up, with its name, its radio address (the **BSSID**), its channel, and where it hangs.
 
@@ -268,14 +273,14 @@ export const watchTheAirLab: LabDef = {
       id: 'lookalike',
       title: "A name that's almost right",
       body: md`
-        A volunteer unplugged the box and locked it in the office. A few minutes later, a new network appears: **${LOOKALIKE}**. Look closely. The real one is **${SSID}**, with a dash. This one has an underscore and no password. A network built to pass for yours is an **evil twin**.
+        A volunteer unplugged the box and locked it in the office. A few minutes later, a new network appears: **${LOOKALIKE}**. Look closely. The real one is **${SSID}**, with a dash. This one has an underscore and is open: no encryption and no sign-in. A network built to pass for yours is an **evil twin**.
 
         1. Scan from the [[desk]] again and mark the new network.
-        2. Press **The radio copies the name and the security**. Now the copy has the exact name, WPA3, and its own sign-in server. Watch which devices move.
+        2. Press **The radio copies the name and the security**. Now the copy has the exact name, WPA3, and its own sign-in server. Scan again, and watch which devices move.
 
         A phone hops to the louder of two radios with the same name and security. That's how it roams around a big building. What it can still check is the sign-in server, **${SERVER}**. The server proves who it is with a **certificate**, a digital ID card only the real server has.
 
-        Staff devices have a **saved profile** that names the sign-in server, so they check the certificate before they send a login. Mr. Okafor arrived yesterday. A volunteer typed his login in by hand and skipped the profile, so his phone never checks.
+        Every device set up at the desk, for staff and families alike, has a **saved profile** that names the sign-in server. It checks the certificate before it sends a login. Mr. Okafor arrived this afternoon. A volunteer typed his login in by hand and skipped the profile, so his phone never checks.
       `,
       setup: setupLookalike,
       focus: ['twin', 'visitor', 'phone1', 'desk'],
@@ -301,14 +306,14 @@ export const watchTheAirLab: LabDef = {
           id: 'why-stay',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'The copy used the exact name and WPA3, and some staff devices heard it louder than the real network. Why did they stay?',
+          prompt: 'The copy used the exact name and WPA3, and some devices with a profile heard it louder than the real network. Why did they stay?',
           options: [
             { id: 'profile', text: `Their profile checks for ${SERVER}'s certificate.`, correct: true },
             { id: 'name', text: 'They noticed the underscore in the network name.', feedback: 'By then the copy used the exact name. Anyone can copy a name.' },
             { id: 'louder', text: 'The real network was louder for every staff device.', feedback: 'Not for all of them. A staff device can hear the copy louder and still refuse it.' },
             { id: 'mac', text: 'The copy blocked their MAC addresses from joining.', feedback: 'The copy wants everyone to join. The devices turned it down themselves.' },
           ],
-          explain: "Anyone can copy a name, the security type, and a strong signal. Nobody else can show the sign-in server's certificate. That's why staff devices get a saved profile, and why guests should get one too.",
+          explain: "Anyone can copy a name, the security type, and a strong signal. Nobody else can show the sign-in server's certificate. That's why the desk saves a profile on every device it sets up, including a newcomer's.",
         },
       ],
     },
@@ -322,7 +327,7 @@ export const watchTheAirLab: LabDef = {
         1. In **Signal triangulation**, choose the network whose BSSID is not on the approved list.
         2. Measure it from all three spots.
         3. When the card says where the radio is, press **Unplug the radio**.
-        4. Press **Save the shelter profile on Mr. Okafor's phone**, so a copy can't pull it away again.
+        4. The copy's server kept Mr. Okafor's login, so it has to change. Press **Give Mr. Okafor a new login and save the profile**.
 
         (The map already shows the radio because this is a simulation. In a real building you only have the readings.)
       `,
@@ -339,7 +344,7 @@ export const watchTheAirLab: LabDef = {
           check: ({ sim }) => locatedTwin(sim),
         },
         { id: 'off', label: 'Unplug the radio', check: ({ sim }) => !!sim.dev('twin').wifi!.off },
-        { id: 'profile', label: "Save the profile on Mr. Okafor's phone", check: ({ sim }) => !!sim.dev('visitor').wifiClient?.profile && onReal(sim, 'visitor') },
+        { id: 'profile', label: "Give Mr. Okafor a new login and save the profile", check: ({ sim }) => !!sim.dev('visitor').wifiClient?.profile && onReal(sim, 'visitor') },
       ],
       questions: [
         {
@@ -347,7 +352,7 @@ export const watchTheAirLab: LabDef = {
           kind: 'choice',
           prompt: 'Why does triangulation need readings from three spots?',
           options: [
-            { id: 'circles', text: 'Each reading is a circle. Three circles meet at one spot.', correct: true },
+            { id: 'circles', text: 'A reading gives a distance, not a direction.', correct: true },
             { id: 'strength', text: 'Three weak readings add up to one strong, clear signal.', feedback: 'Each reading is separate. Together they narrow down the place, not the strength.' },
             { id: 'answer', text: 'The radio only answers every third reading that you take.', feedback: 'The radio broadcasts all the time. The number of spots is about geometry.' },
             { id: 'rule', text: 'Two would work fine. A third is only a safety rule.', feedback: 'Two circles usually cross in two places, so two readings leave you with two guesses.' },
@@ -413,16 +418,17 @@ export const watchTheAirLab: LabDef = {
       id: 'jam',
       title: 'Nobody can connect',
       body: md`
-        Every device in the gym drops off the Wi-Fi at once, and none can get back on. Families are lining up at the desk.
+        Later that evening, every device in the gym drops off the Wi-Fi at once, and none can get back on. Families are lining up at the desk.
 
         Is the access point broken? Collect evidence before you decide.
 
-        1. Click [[lansw]] and look at port 1, where the access point is plugged in.
+        1. Click [[lansw]] and check the state of port 1, where the access point is plugged in.
         2. Scan from the [[desk]]. Read the noise on each channel. A quiet channel reads about 5.
         3. In the Logs tab, open the [[wap]]'s newest noise line.
       `,
       setup: (sim) => {
         setupAfterTwin(sim);
+        catchUp(sim, TONIGHT.jam);
         setJam(sim, true);
       },
       focus: ['wap', 'lansw', 'desk'],
@@ -445,7 +451,7 @@ export const watchTheAirLab: LabDef = {
             { id: 'crowd', text: 'Too many people are online at once tonight.', feedback: 'A crowd slows things down, but devices stay connected. Here nobody is connected.' },
             { id: 'password', text: 'Someone changed the Wi-Fi password today.', feedback: 'That would show sign-in failures in the log, not noise at 88.' },
           ],
-          explain: "**Jamming** drowns out a channel with noise. The access point still works, but no device can hear it. A radio that is still on the air plus very high noise points to a jammer. Jamming is against the law, so the shelter would report it.",
+          explain: "**Jamming** drowns out a channel with noise. The access point still works, and a scanner still catches its name. But the noise drowns out the messages going back and forth, so no device can stay connected. A radio that is still on the air plus very high noise points to a jammer. Jamming is against the law, so the shelter would report it.",
         },
       ],
     },
@@ -456,16 +462,22 @@ export const watchTheAirLab: LabDef = {
       body: md`
         The noise stopped as suddenly as it started. A van drove out of the parking lot at the same moment, and every device reconnected.
 
-        Then movie night starts, and lots of families stream at once. Someone at the desk asks, "It's slow again. Is the jammer back?"
+        Half an hour later, movie night starts, and lots of families stream at once. Someone at the desk asks, "It's slow again. Is the jammer back?"
 
         1. Press **Movie night starts**.
         2. Scan from the [[desk]] and read the noise.
         3. Open the [[wap]]'s newest noise line in the Logs tab. Compare it with the line from the jamming.
 
-        (Real Wi-Fi tools show a crowd as a busy channel: the airtime is used up. This lab puts a crowd and a jammer on one noise scale to keep it simple.)
+        (Real Wi-Fi tools show a crowd as a busy channel, with little free time left to send. This lab puts a crowd and a jammer on one noise scale to keep it simple.)
       `,
       setup: (sim) => {
         setupAfterTwin(sim);
+        // A student who skipped the jamming step still gets its log line to compare against.
+        if (!sim.dev('wap').logs.some((e) => noiseLine(e) && Number(e.fields?.noise) > 50)) {
+          catchUp(sim, TONIGHT.jam);
+          setJam(sim, true);
+        }
+        catchUp(sim, TONIGHT.movie);
         setJam(sim, false);
       },
       focus: ['wap', 'desk'],
@@ -538,7 +550,7 @@ export const watchTheAirLab: LabDef = {
           id: 'laptop',
           kind: 'choice',
           afterGoals: true,
-          prompt: "With every rule on, the replay still raises one false alarm: a volunteer plugged her new laptop into port 4 on day 5. What should the shelter do about it?",
+          prompt: "With every rule on, the replay still raises one false alarm: a volunteer plugged her new laptop into port 4 on day 5 and took it home that night. What should the shelter do about it?",
           options: [
             { id: 'keep', text: 'Keep the rule, and check each new device.', correct: true },
             { id: 'off', text: 'Turn off the rule for new devices on a switch port.', feedback: 'That rule also caught the rogue box on the wired side. Without it, a box with its radio off would slip past.' },
@@ -556,7 +568,7 @@ export const watchTheAirLab: LabDef = {
       body: md`
         The shelter director wants your recommendation in writing. Pick the **detective controls** the shelter should run. A detective control finds a problem once it starts, so people can respond. It doesn't block the attack.
 
-        Then describe the impact of your plan: what it costs the shelter and what it changes for the people there. Some controls watch the air. Others watch what people do, and that costs them privacy.
+        Then describe the impact of your plan: the work it gives the staff and what it changes for the people there. Checking one alert takes a volunteer about 5 minutes. Some controls watch the air. Others watch what people do, and that costs them privacy.
       `,
       questions: [
         {

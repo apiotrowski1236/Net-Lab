@@ -130,6 +130,19 @@ describe('watch-the-air lab', () => {
     expect(s.sim.wifiScanRows(s.sim.dev('desk')).map((r) => r.bssid)).toContain(BSSID.wap);
   });
 
+  it("tonight's log times match the story and the 14-day record", () => {
+    const s = playThrough('crowd');
+    const min = (hhmm: string) => (Number(hhmm.slice(0, 2)) - 18) * 60 * 60 * 1000 + Number(hhmm.slice(3)) * 60 * 1000;
+    const wap = s.sim.dev('wap').logs;
+    const heard = wap.find((e) => e.fields?.bssid === BSSID.twin && e.fields?.action === 'heard')!;
+    const jam = wap.find((e) => e.fields?.action === 'noise' && Number(e.fields?.noise) > 50)!;
+    const movie = wap.filter((e) => e.fields?.action === 'noise' && Number(e.fields?.noise) > 10 && Number(e.fields?.noise) <= 50).pop()!;
+    // Within a few minutes of the record's day-14 entries.
+    expect(Math.abs(heard.t - min('18:05'))).toBeLessThan(5 * 60 * 1000);
+    expect(Math.abs(jam.t - min('19:30'))).toBeLessThan(5 * 60 * 1000);
+    expect(Math.abs(movie.t - min('20:00'))).toBeLessThan(5 * 60 * 1000);
+  });
+
   it('movie night raises the noise a little and keeps everyone connected', () => {
     const s = playThrough('crowd');
     const noise = s.sim.channelNoise(6);

@@ -142,7 +142,9 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
 
       <div class="wifi-field">
         <Toggle on={ap.wps} label={ap.wps ? 'WPS on (a PIN button)' : 'WPS off'} onChange={(on) => edit && session.dispatch({ type: 'wifi-wps', device: dev.id, on })} />
-        <p class="small muted">Wi-Fi Protected Setup lets a device join with a short PIN. The PIN can be guessed, so it undoes a strong passphrase.</p>
+        <p class="small muted">
+          Wi-Fi Protected Setup lets a device join with a short PIN. The PIN can be guessed, so it undoes {ap.auth === 'eap' ? 'the per-person logins' : 'a strong passphrase'}.
+        </p>
       </div>
 
       <div class="wifi-field">

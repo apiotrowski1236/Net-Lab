@@ -3673,24 +3673,26 @@ export class Sim {
     w.replays.push(run);
     const on = WIDS_RULES.filter((r) => w.rules[r]);
     const days = Math.max(0, ...w.record.map((r) => r.day));
+    // Each replay's lines carry its number, so repeated replays don't read as repeated alarms.
+    const n = `replay ${w.replays.length}`;
     this.log(apId, {
       source: 'wids',
       level: 'info',
-      msg: `replaying ${days} days of records with ${on.length ? on.join(', ') : 'no rules'}${w.rules.noise ? `, noise alarm above ${w.noiseThreshold}` : ''}`,
+      msg: `${n}: replaying ${days} days of records with ${on.length ? on.join(', ') : 'no rules'}${w.rules.noise ? `, noise alarm above ${w.noiseThreshold}` : ''}`,
       fields: { action: 'replay', rules: on.join(' '), threshold: w.noiseThreshold },
     });
     for (const a of run.alerts) {
       this.log(apId, {
         source: 'wids',
         level: 'alert',
-        msg: a.text,
+        msg: `${n} ${a.text}`,
         fields: { rule: a.rule, day: a.record.day, time: a.record.time, ...('bssid' in a.record ? { bssid: a.record.bssid } : {}), ...('mac' in a.record ? { mac: a.record.mac } : {}) },
       });
     }
     this.log(apId, {
       source: 'wids',
       level: 'info',
-      msg: `replay done: ${run.alerts.length} alert${run.alerts.length === 1 ? '' : 's'}`,
+      msg: `${n} done: ${run.alerts.length} alert${run.alerts.length === 1 ? '' : 's'}`,
       fields: { action: 'replay-done', count: run.alerts.length },
     });
     this.emit({ t: this.t, type: 'wids', device: apId, what: 'replay', detail: run.settings });

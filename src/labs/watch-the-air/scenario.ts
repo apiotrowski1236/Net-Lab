@@ -73,6 +73,9 @@ export const ROGUE_PORT = 'p7';
 /** The lab's clock: the evening of day 14. */
 export const CLOCK = '18:00';
 
+/** When tonight's events start (the clock opens at 18:00): the lookalike, the jammer, movie night. */
+export const TONIGHT = { lookalike: '18:05', jam: '19:30', movie: '20:00' } as const;
+
 /** Phones and laptops online on a usual evening, and on movie night. */
 export const USUAL_CROWD = 20;
 export const MOVIE_CROWD = 140;
@@ -93,10 +96,11 @@ export const RECORD: AirRecord[] = [
   { day: 10, time: '19:50', kind: 'noise', channel: 6, level: 17, what: 'movie night (day 10)', attack: false },
   { day: 13, time: '23:41', kind: 'port-mac', port: 'port 7', mac: BSSID.rogue, what: 'the rogue box', attack: true },
   { day: 13, time: '23:43', kind: 'ap', ssid: ROGUE_SSID, bssid: BSSID.rogue, channel: 11, what: 'the rogue box', attack: true },
-  { day: 14, time: '18:00', kind: 'ap', ssid: LOOKALIKE, bssid: BSSID.twin, channel: 6, what: 'the lookalike radio', attack: true },
-  { day: 14, time: '18:01', kind: 'ap', ssid: SSID, bssid: BSSID.twin, channel: 6, what: 'the lookalike radio', attack: true },
-  { day: 14, time: '18:02', kind: 'noise', channel: 6, level: 88, what: 'the jammer', attack: true },
-  { day: 14, time: '18:03', kind: 'noise', channel: 6, level: 17, what: 'movie night (day 14)', attack: false },
+  // Tonight, at the times the step setups move the clock to (see TONIGHT).
+  { day: 14, time: '18:05', kind: 'ap', ssid: LOOKALIKE, bssid: BSSID.twin, channel: 6, what: 'the lookalike radio', attack: true },
+  { day: 14, time: '18:06', kind: 'ap', ssid: SSID, bssid: BSSID.twin, channel: 6, what: 'the lookalike radio', attack: true },
+  { day: 14, time: '19:30', kind: 'noise', channel: 6, level: 88, what: 'the jammer', attack: true },
+  { day: 14, time: '20:00', kind: 'noise', channel: 6, level: 17, what: 'movie night (day 14)', attack: false },
 ];
 
 export const isMovieNight = (what: string) => what.startsWith('movie night');
@@ -153,13 +157,12 @@ export function buildWatch(): Sim {
       // Named for the wall jack, the way a switch port's description would read: nothing on the wire says what it is.
       label: 'Hallway jack',
       icon: 'wifi',
-      x: 600,
-      y: 210,
+      x: 560,
+      y: 215,
       wifi: { ssid: ROGUE_SSID, bssid: BSSID.rogue, security: 'open', wps: false, auth: 'psk', beacon: true, power: 2, channel: 11, off: true },
     })
     .hub('twin', {
       label: 'Lookalike radio',
-      sublabel: 'behind the bleachers',
       icon: 'wifi',
       x: TWIN_POS.x,
       y: TWIN_POS.y,
@@ -176,6 +179,9 @@ export function buildWatch(): Sim {
 
   const sim = net.build();
   sim.configureSwitch('lansw');
+  // Two weeks of traffic taught the switch who is behind each port. The box on port 7 isn't plugged in yet.
+  sim.prelearnSwitch('lansw');
+  for (const [mac, port] of Object.entries(sim.dev('lansw').macTable)) if (port === ROGUE_PORT) delete sim.dev('lansw').macTable[mac];
   // Staff and families are already connected when the lab opens.
   sim.recomputeWifi();
   sim.configureWids('wap', { approved: APPROVED, record: RECORD, usualCrowd: USUAL_CROWD });
@@ -215,6 +221,16 @@ export function seedRogue(sim: Sim): void {
   }
   // Its radio is on until the port is shut and a volunteer takes it down (removeRogue).
   if (sim.dev('rogue').wifi!.off && !sim.dev('lansw').switchSec?.ports[ROGUE_PORT]?.shutdown) sim.setWifiOff('rogue', false);
+}
+
+/**
+ * Move the clock forward to `hhmm` tonight, if it isn't there yet, so the log's
+ * times match the story (a student works through the steps in minutes of lab time).
+ */
+export function catchUp(sim: Sim, hhmm: string): void {
+  const [h, m] = hhmm.split(':').map(Number);
+  const at = ((h - 18) * 60 + m) * 60 * 1000;
+  if (sim.t < at) sim.advanceTo(at);
 }
 
 /** The box comes off the wall (a volunteer unplugs it), and the port stays shut. */
