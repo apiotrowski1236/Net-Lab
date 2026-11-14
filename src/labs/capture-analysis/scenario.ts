@@ -181,7 +181,7 @@ const BACKUP = (segments: number): TcpScript => ({
   gapMs: 16,
   lines: [
     { from: 'client', text: '@RSYNCD: 31.0\nfares-data/' },
-    { from: 'server', len: 1448, count: segments },
+    { from: 'server', len: 1460, count: segments },
   ],
 });
 
@@ -312,7 +312,7 @@ export const FILES = {
   flood: {
     id: 'flood',
     name: '14:00 depot.pcap',
-    note: 'The switch acted like a hub',
+    note: 'Early afternoon',
     record: () => {
       const sim = recorder(1401);
       dayTraffic(sim, MINUTE);

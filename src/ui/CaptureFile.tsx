@@ -100,13 +100,22 @@ export function CaptureFileView({ session, tool }: { session: LabSession; tool: 
   if (!def || !file) return <div class="dock-empty">No capture file in this step.</div>;
 
   const applied = tool.filter ? st.filter : '';
-  const applyFilter = (text: string) => {
-    set({ filter: text, view: 'packets', top: 0 });
+  // A filter typed on the I/O Graph stays there, so the darker bars show what it matches.
+  const applyFilter = (text: string, stay = false) => {
+    set({ filter: text, view: stay && st.view === 'io' ? 'io' : 'packets', top: 0 });
     session.ui({ type: 'ui:capfile-filter', file: def.id, filter: text });
   };
   const openStats = (view: CapStatsView) => {
     set({ view });
     session.ui({ type: 'ui:capfile-stats', file: def.id, view });
+  };
+  // A click on an I/O Graph bar opens the Packet list at that second.
+  const jumpTo = (second: number) => {
+    const p = parseFilter(applied);
+    const node = p.ok ? p.node : null;
+    const rows = node ? file.frames.filter((c) => matchFilter(node, c.frame)) : file.frames;
+    const i = rows.findIndex((c) => c.t >= second * 1000);
+    set({ view: 'packets', top: Math.max(0, (i < 0 ? rows.length : i) * ROW) });
   };
   const follow = (stream: number) => {
     set({ view: 'follow', stream });
@@ -123,6 +132,7 @@ export function CaptureFileView({ session, tool }: { session: LabSession; tool: 
         >
           Back to the lesson
         </button>
+        <div class="capfile-head">
         <div class="capfile-files" role="group" aria-label="Capture file">
           <Icon name="list" size={14} />
           {defs.length > 1 ? (
@@ -139,10 +149,9 @@ export function CaptureFileView({ session, tool }: { session: LabSession; tool: 
             <strong class="mono">{def.name}</strong>
           )}
           <span class="muted">
-            {n(file.frames.length)} packets · {Math.round(file.ms / 1000)} seconds
+            {n(file.frames.length)} packets · {Math.round(file.ms / 1000)} seconds{def.note && ` · ${def.note}`}
           </span>
         </div>
-        {tool.filter && <FilterBar key={`${key}/${def.id}`} applied={applied} onApply={applyFilter} />}
         {tool.stats && (
           <div class="capfile-views" role="group" aria-label="Views">
             <span class="muted">Statistics:</span>
@@ -156,8 +165,9 @@ export function CaptureFileView({ session, tool }: { session: LabSession; tool: 
             ))}
           </div>
         )}
+        </div>
+        {tool.filter && <FilterBar key={`${key}/${def.id}`} applied={applied} onApply={(t) => applyFilter(t, true)} />}
       </div>
-      {def.note && st.view === 'packets' && <p class="capfile-note muted">{def.note}</p>}
       {st.view === 'packets' && (
         <PacketList
           session={session}
@@ -178,7 +188,7 @@ export function CaptureFileView({ session, tool }: { session: LabSession; tool: 
         <EndpointsView file={file} kind={st.view === 'endpoints-eth' ? 'eth' : 'ip'} onFilter={tool.filter ? applyFilter : undefined} />
       )}
       {st.view === 'conversations' && <ConversationsView file={file} onFilter={tool.filter ? applyFilter : undefined} />}
-      {st.view === 'io' && <IoGraph file={file} filter={applied} />}
+      {st.view === 'io' && <IoGraph file={file} filter={applied} onJump={jumpTo} />}
       {st.view === 'follow' && st.stream !== null && (
         <FollowView file={file} stream={st.stream} onBack={() => set({ view: 'packets' })} onFilter={tool.filter ? applyFilter : undefined} />
       )}
@@ -288,6 +298,8 @@ function PacketList({
     const node = p.ok ? p.node : null;
     return node ? file.frames.filter((c) => matchFilter(node, c.frame)) : file.frames;
   }, [file, filter]);
+  // A file with frames that carry no IP (ARP, a MAC flood) shows MAC addresses as Source and Destination: give them room.
+  const macs = useMemo(() => file.frames.some((c) => !c.frame.ip), [file]);
   const listRef = useRef<HTMLDivElement>(null);
   const [scroll, setScroll] = useState(top);
   const [height, setHeight] = useState(400);
@@ -337,7 +349,7 @@ function PacketList({
           onScroll(t);
         }}
       >
-        <table class="table capture-table capfile-table">
+        <table class={`table capture-table capfile-table ${macs ? 'wide-addr' : ''}`}>
           <thead>
             <tr>
               <th class="no">No.</th>
@@ -573,7 +585,7 @@ function ConversationsView({ file, onFilter }: { file: CaptureFile; onFilter?: (
 // I/O Graph: packets per second, with the filter's packets drawn over them
 // ---------------------------------------------------------------------------
 
-function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
+function IoGraph({ file, filter, onJump }: { file: CaptureFile; filter: string; onJump: (second: number) => void }) {
   const p = parseFilter(filter);
   const node = p.ok ? p.node : null;
   const g = useMemo(() => ioGraph(file.frames, file.ms, 1000, node), [file, filter]);
@@ -620,7 +632,7 @@ function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
     <div class="capfile-io">
       <p class="capfile-stats-head muted">
         Packets per second in {file.name}. {node ? 'The filter’s packets are drawn darker, over all packets.' : 'Apply a display filter to see how much of each spike it matches.'}{' '}
-        Point at a bar to see its numbers.
+        Point at a bar to see its numbers, and click it to open the Packet list at that second.
       </p>
       {g.match && (
         <div class="capfile-legend" aria-hidden="true">
@@ -652,7 +664,7 @@ function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
             ) : null,
           )}
           {g.all.map((_, i) => (
-            <rect class="io-hit" x={L + i * bw} y={T} width={bw} height={ph} onMouseEnter={() => setHover(i)} />
+            <rect class="io-hit" x={L + i * bw} y={T} width={bw} height={ph} onMouseEnter={() => setHover(i)} onClick={() => onJump(i)} />
           ))}
           {tip && <line class="io-cross" x1={L + tip.s * bw + bw / 2} x2={L + tip.s * bw + bw / 2} y1={T} y2={T + ph} />}
         </svg>
@@ -674,6 +686,7 @@ function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
               <th>Second</th>
               <th class="num">Packets</th>
               {g.match && <th class="num">Matching</th>}
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -684,6 +697,11 @@ function IoGraph({ file, filter }: { file: CaptureFile; filter: string }) {
                 </td>
                 <td class="num mono">{n(v)}</td>
                 {g.match && <td class="num mono">{n(g.match[i])}</td>}
+                <td class="capfile-act">
+                  <button type="button" class="btn tiny" onClick={() => onJump(i)}>
+                    Packets
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

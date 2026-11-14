@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { checkPortSecurity } from '../../runtime/switchInput';
 import { macsOnPort, macTableUse, portLabel, type PortSecurityConfig, type SwitchPort } from '../../sim/switchsec';
 import type { Device } from '../../sim/types';
@@ -113,6 +113,9 @@ function PortEditor({ session, dev, port }: { session: InspectorSectionProps['se
   const [violation, setViolation] = useState<PortSecurityConfig['violation']>(cur?.violation ?? 'shutdown');
   const [allowed, setAllowed] = useState((cur?.allowed ?? []).join(' '));
   const [msg, setMsg] = useState<Msg>(null);
+  // Edit opens the editor under the table, which can be below the fold: bring it into view.
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => box.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }), []);
   const where = portLabel(port);
   const Where = where.charAt(0).toUpperCase() + where.slice(1);
   const save = () => {
@@ -135,7 +138,7 @@ function PortEditor({ session, dev, port }: { session: InspectorSectionProps['se
   };
   const bad = (f: string) => (msg?.tone === 'bad' && msg.field === f ? 'invalid' : '');
   return (
-    <div class="port-edit">
+    <div class="port-edit" ref={box}>
       <div class="port-edit-head">
         <strong>{where}</strong>
         {p?.shutdown !== 'admin' && (

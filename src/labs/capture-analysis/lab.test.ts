@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { conversationStats, endpointStats, followStream, ioGraph, loadCaptureFile } from '../../sim/capfile';
+import { matchFilter, parseFilter } from '../../sim/displayFilter';
 import type { Sim } from '../../sim/sim';
+import { payloadLen } from '../../sim/tcp';
 import type { QuestionDef, TextQuestion } from '../types';
 import type { AnyEvent } from '../types';
 import { captureAnalysisLab as lab } from '.';
@@ -133,6 +135,16 @@ describe('capture-analysis: the capture files', () => {
     const texts = [...all].map((s) => followStream(f, s!)!.parts.map((p) => p.text).join('\n'));
     expect(texts.some((t) => t.includes('cmd=upload'))).toBe(true);
     expect(texts.some((t) => t.includes('POST /upload'))).toBe(true);
+  });
+
+  it('02:00: the filter the lesson gives shows every command from 192.0.2.44', () => {
+    const f = file('night');
+    const p = parseFilter('ip.addr == 192.0.2.44 && http');
+    if (!p.ok) throw new Error(p.msg);
+    const shown = f.frames.filter((c) => matchFilter(p.node, c.frame));
+    const orders = f.frames.filter((c) => toC2(c.frame) && c.frame.ip!.src === IP.c2 && payloadLen(c.frame.ip!) > 0);
+    expect(orders.length).toBeGreaterThanOrEqual(2);
+    for (const o of orders) expect(shown).toContain(o);
   });
 
   it('16:00: the Telnet stream shows the password in plain text', () => {

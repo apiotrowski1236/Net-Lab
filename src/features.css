@@ -6790,6 +6790,14 @@ button.pl-tile:active {
 .capfile-tools .capture-filter {
   flex: none;
 }
+/* The file and the Statistics buttons share one row, so the packet list keeps its height on a laptop. */
+.capfile-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
 .capfile-files,
 .capfile-views {
   display: flex;
@@ -6805,11 +6813,6 @@ button.pl-tile:active {
   background: var(--brand-soft);
   border-color: var(--brand-line);
   color: var(--brand-ink);
-}
-.capfile-note {
-  flex: none;
-  margin: 0 0 6px;
-  font-size: 13px;
 }
 .capfile-table {
   table-layout: fixed;
@@ -6830,6 +6833,9 @@ button.pl-tile:active {
 .capfile-table th.addr {
   width: 9.3em;
 }
+.capfile-table.wide-addr th.addr {
+  width: 11.2em;
+}
 .capfile-table th.proto-col {
   width: 5.8em;
 }
@@ -6838,6 +6844,11 @@ button.pl-tile:active {
 }
 .capfile-table tbody tr {
   height: 30px;
+}
+.capfile-table th,
+.capfile-table td {
+  padding-left: 7px;
+  padding-right: 7px;
 }
 .capfile-table td {
   padding-top: 0;
@@ -6980,6 +6991,7 @@ button.pl-tile:active {
 }
 .capfile-io .io-hit {
   fill: transparent;
+  cursor: pointer;
 }
 .capfile-io .io-cross {
   stroke: var(--line-strong);
