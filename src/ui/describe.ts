@@ -3,11 +3,12 @@ import type { Frame, SimEvent } from '../sim/types';
 import { appName, portLabel } from '../sim/services';
 import { fwDenyText } from './firewallText';
 import { DHCP_OP_LABEL, dhcpIps, dhcpSays, fromClient } from '../sim/dhcp';
+import { flagText, isHandshakeOnly, payloadLen } from '../sim/tcp';
 
-export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH' | 'TELNET' | 'DHCP' | 'PRINT';
+export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH' | 'TELNET' | 'DHCP' | 'PRINT' | 'RSYNC';
 
 /** Pill for a connection to a service (services.ts), by the program really inside. */
-const SVC_PROTO: Record<string, Proto> = { https: 'HTTPS', http: 'HTTP', ssh: 'SSH', smb: 'SMB', dns: 'DNS', telnet: 'TELNET', ipp: 'PRINT' };
+const SVC_PROTO: Record<string, Proto> = { https: 'HTTPS', http: 'HTTP', ssh: 'SSH', smb: 'SMB', dns: 'DNS', telnet: 'TELNET', ipp: 'PRINT', rsync: 'RSYNC' };
 
 export function protoOf(f: Frame): Proto {
   if (f.arp) return 'ARP';
@@ -18,7 +19,8 @@ export function protoOf(f: Frame): Proto {
   const ip = f.ip;
   if (ip.app.kind === 'ping' || ip.app.kind === 'icmp-error') return 'PING';
   if (ip.app.kind === 'dns-query' || ip.app.kind === 'dns-answer') return 'DNS';
-  if (ip.app.kind === 'svc') return SVC_PROTO[ip.app.app] ?? 'TCP';
+  // A TCP handshake, ACK, reset, or FIN carries no program's data (capture-analysis).
+  if (ip.app.kind === 'svc') return isHandshakeOnly(ip) ? 'TCP' : (SVC_PROTO[ip.app.app] ?? 'TCP');
   return ip.encrypted ? 'HTTPS' : 'HTTP';
 }
 
@@ -40,6 +42,7 @@ export const PROTO_COLOR: Record<Proto, string> = {
   TELNET: '#a21caf',
   DHCP: '#4338ca',
   PRINT: '#0f766e',
+  RSYNC: '#57534e',
 };
 
 /** Fill for forged ("FAKE") packets. White text, 4.8:1. */
@@ -77,6 +80,7 @@ export const PROTO_BLURB: Record<Proto, string> = {
   TELNET: 'Telnet: an administrator logging in to a device from far away, in plain text. Anyone who sees it reads the password.',
   DHCP: 'DHCP: a device asking for an IP address, and the router handing one out.',
   PRINT: 'Print: a document on its way to a printer over the network.',
+  RSYNC: 'Rsync: one computer copying files to another, like a nightly backup.',
 };
 
 /** Packet colors the legend adds for labs whose hosts run services (services.ts), hand out addresses (dhcp.ts), or print. */
@@ -133,6 +137,7 @@ function infoOfOne(f: Frame): string {
   if (f.dhcp) return dhcpSays(f.dhcp);
   if (!f.ip) return 'Ethernet frame, no data';
   const ip = f.ip;
+  if (ip.tcp && ip.app.kind === 'svc') return tcpInfo(ip);
   if (ip.encrypted && (ip.app.kind === 'http-req' || ip.app.kind === 'http-res')) return 'Application Data (encrypted)';
   switch (ip.app.kind) {
     case 'ping':
@@ -153,6 +158,17 @@ function infoOfOne(f: Frame): string {
       return ip.app.status === 'closed' ? `Port ${port} closed` : `Port ${port} open${ip.app.text ? `: ${ip.app.text}` : ''}`;
     }
   }
+}
+
+/** Info for a packet with TCP flags (capture-analysis): the ports and flags, or the data a program sent. */
+function tcpInfo(ip: NonNullable<Frame['ip']>): string {
+  const head = `${ip.srcPort} → ${ip.dstPort} [${flagText(ip.tcp!.flags)}]`;
+  const app = ip.app as Extract<NonNullable<Frame['ip']>['app'], { kind: 'svc' }>;
+  const len = payloadLen(ip);
+  if (!len) return head;
+  if (ip.encrypted) return 'Application Data (encrypted)';
+  if (app.text) return app.text.split('\n')[0];
+  return `${head} Len=${len}`;
 }
 
 export function endpoints(f: Frame): { src: string; dst: string } {
@@ -191,6 +207,7 @@ const WS_SVC: Record<string, string> = {
   smb: 'SMB2 (Server Message Block Protocol version 2)',
   ipp: 'Internet Printing Protocol',
   dns: 'Domain Name System',
+  rsync: 'RSYNC File Synchroniser',
 };
 
 /** Packet details, layer by layer, for the capture viewer and packet inspector. */
@@ -302,6 +319,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
     ],
     note: ip.nat ? natNote(sim, ip) : undefined,
   });
+  if (ip.tcp && ip.app.kind === 'svc') return [...layers, ...tcpLayers(f, ip)];
   if (ip.proto !== 'icmp') {
     layers.push({
       title: ip.proto === 'tcp' ? 'TCP' : 'UDP',
@@ -399,6 +417,44 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       break;
   }
   return layers;
+}
+
+const FLAG_WORDS: [keyof NonNullable<NonNullable<Frame['ip']>['tcp']>['flags'], string][] = [
+  ['syn', 'SYN: "Let\u2019s start a connection."'],
+  ['ack', 'ACK: "Got it."'],
+  ['psh', 'PSH: "Here is data, pass it on now."'],
+  ['fin', 'FIN: "I\u2019m done. Let\u2019s close."'],
+  ['rst', 'RST: "No. Stop." (nothing listens on that port, or the connection is cut off)'],
+];
+
+/** The TCP layer and the data inside, for a packet with TCP flags (capture-analysis). */
+function tcpLayers(f: Frame, ip: NonNullable<Frame['ip']>): Layer[] {
+  const t = ip.tcp!;
+  const app = ip.app as Extract<NonNullable<Frame['ip']>['app'], { kind: 'svc' }>;
+  const len = payloadLen(ip);
+  const set = FLAG_WORDS.filter(([k]) => t.flags[k]);
+  const rows: [string, string, string?][] = [
+    ['From port', String(ip.srcPort)],
+    ['To port', String(ip.dstPort), ip.dstPort === 443 ? '(HTTPS)' : ip.dstPort === 80 ? '(HTTP)' : ip.dstPort === 23 ? '(Telnet)' : undefined],
+    ['Flags', `[${flagText(t.flags)}]`],
+    ...set.map(([, words]): [string, string] => ['', words]),
+    ['Data length', `${len} bytes`],
+  ];
+  if (t.stream !== undefined) rows.push(['Stream', String(t.stream), '(which conversation in this file)']);
+  const out: Layer[] = [{ title: 'TCP', color: LAYER_COLOR.transport, ws: WS.tcp, rows }];
+  if (!len) return out;
+  if (ip.encrypted) {
+    out.push({ title: 'TLS (encrypted)', color: LAYER_COLOR.HTTPS, ws: WS.tls, rows: [['Data', gibberish(f.id)]], locked: true, note: 'Only the two ends of this connection hold the keys to read this.' });
+    return out;
+  }
+  out.push({
+    title: `${appName(app.app)} data`,
+    color: LAYER_COLOR.transport,
+    ws: WS_SVC[app.app],
+    rows: [['Data', app.text ?? `(${len} bytes of file data)`]],
+    note: app.app === 'telnet' && app.text ? 'Telnet sends what you type as plain text, password included.' : undefined,
+  });
+  return out;
 }
 
 /** What a NAT router changed on this packet (nat.ts), in plain words. */

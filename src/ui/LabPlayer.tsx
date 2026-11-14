@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { CAPTURE_TOOLS, isLesson, TAB_TOOLS, toolKey, type LabDef } from '../labs/types';
+import { CAPTURE_TOOLS, isLesson, TAB_TOOLS, toolKey, type LabDef, type ToolSpec } from '../labs/types';
 import { LabSession } from '../runtime/session';
 import { checkCable } from '../runtime/toolInput';
 import { profile } from '../store/profile';
 import { getProgress } from '../store/progress';
 import { CaptureView, Inspector, Toolkit } from './Dock';
+import { CaptureFileView } from './CaptureFile';
 import { DemoStage } from './demos/DemoStage';
 import { extraProtos, FORGED_COLOR, PROTO_BLURB, PROTO_COLOR, type Proto } from './describe';
 import { Icon } from './icons';
@@ -253,6 +254,8 @@ function Dock({
   const tools = session.tools.filter((t) => !(TAB_TOOLS as readonly string[]).includes(t.kind) && !(CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const captureTools = session.tools.some((t) => (CAPTURE_TOOLS as readonly string[]).includes(t.kind));
   const capDev = lab.captureDevice ? session.sim.devices[lab.captureDevice] : undefined;
+  // A step that hands out saved capture files shows them in the Capture tab instead of the live capture (capture-analysis).
+  const fileTool = session.tools.find((t): t is Extract<ToolSpec, { kind: 'capture-file' }> => t.kind === 'capture-file');
   // A terminal command is running, or a lesson button set the network moving: Bigger gives the map
   // its room back until it's done. After a button, a moment more, so its last packet and tag can be
   // seen landing. After a command, the output is what matters: the Terminal grows back at once.
@@ -355,7 +358,7 @@ function Dock({
         </button>
         {capDev && (
           <button role="tab" aria-selected={tab === 'capture'} class={tab === 'capture' ? 'on' : ''} onClick={() => setTab('capture')}>
-            <Icon name="eye" /> Capture <span class="count">{capDev.capture.length}</span>
+            <Icon name="eye" /> Capture {!fileTool && <span class="count">{capDev.capture.length}</span>}
           </button>
         )}
         <button role="tab" aria-selected={tab === 'tools'} class={tab === 'tools' ? 'on' : ''} onClick={() => setTab('tools')}>
@@ -369,7 +372,7 @@ function Dock({
       </div>
       <div class="dock-body" ref={body} onScroll={measure}>
         {tab === 'inspect' && <Inspector session={session} deviceId={selected} />}
-        {tab === 'capture' && capDev && <CaptureView session={session} deviceId={capDev.id} />}
+        {tab === 'capture' && capDev && (fileTool ? <CaptureFileView key={session.step.id} session={session} tool={fileTool} /> : <CaptureView session={session} deviceId={capDev.id} />)}
         {tab === 'tools' && <Toolkit session={session} tools={tools} onSelect={onSelect} inCapture={captureTools} selected={selected} />}
         {tab === 'logs' && <LogsView session={session} />}
       </div>

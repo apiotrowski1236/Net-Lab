@@ -3,6 +3,7 @@ import type { Frame, LogEntry, SimEvent } from '../sim/types';
 import type { DemoFacts } from '../demos/types';
 import type { CheckCtx } from './types';
 import { matchFilter, parseFilter } from '../sim/displayFilter';
+import { loadCaptureFile, type CapStatsView, type CaptureFileDef, type FileFrame } from '../sim/capfile';
 
 /**
  * Small building blocks for goal checks. A goal's check runs on every network
@@ -111,3 +112,55 @@ export function citedLogs(sim: Sim, since: number, pred: (e: LogEntry) => boolea
     .map((c) => sim.devices[c.device]?.logs.find((e) => e.no === c.no))
     .filter((e): e is LogEntry => !!e && pred(e));
 }
+
+// ---------------------------------------------------------------------------
+// Capture files (capture-analysis; see src/sim/capfile.ts)
+// ---------------------------------------------------------------------------
+
+/** The student opened capture file `file` in the Capture tab. */
+export const openedCapfile =
+  (file: string) =>
+  ({ ev }: CheckCtx): boolean =>
+    ev?.type === 'ui:open-capfile' && ev.file === file;
+
+/** The student clicked a packet in capture file `file` that matches `pred`. */
+export const openedPacket =
+  (file: string, pred: (c: Pick<FileFrame, 'no' | 'frame'>) => boolean = () => true) =>
+  ({ ev }: CheckCtx): boolean =>
+    ev?.type === 'ui:open-packet' && ev.file === file && pred({ no: ev.no, frame: ev.frame });
+
+/** The student opened one of these Statistics views of capture file `file`. */
+export const sawStats =
+  (file: string, ...views: CapStatsView[]) =>
+  ({ ev }: CheckCtx): boolean =>
+    ev?.type === 'ui:capfile-stats' && ev.file === file && views.includes(ev.view);
+
+/** The student followed a TCP stream in capture file `file` that `pred` accepts (it gets the stream's packets). */
+export const followed =
+  (def: CaptureFileDef, pred: (frames: FileFrame[]) => boolean = () => true) =>
+  ({ ev }: CheckCtx): boolean => {
+    if (ev?.type !== 'ui:follow-stream' || ev.file !== def.id) return false;
+    return pred(loadCaptureFile(def).frames.filter((c) => c.frame.ip?.tcp?.stream === ev.stream));
+  };
+
+/**
+ * The student applied a display filter to capture file `def` that shows only
+ * packets matching `want`, and at least `min` of them (default 1). Any filter
+ * that does that counts. With `all`, it must also show every matching packet.
+ */
+export const fileFiltered =
+  (def: CaptureFileDef, want: (f: Frame) => boolean, opts: { min?: number; all?: boolean } = {}) =>
+  ({ ev }: CheckCtx): boolean => {
+    if (ev?.type !== 'ui:capfile-filter' || ev.file !== def.id) return false;
+    const p = parseFilter(ev.filter);
+    if (!p.ok || !p.node) return false;
+    let shown = 0;
+    for (const c of loadCaptureFile(def).frames) {
+      const hit = matchFilter(p.node, c.frame);
+      const ok = want(c.frame);
+      if (hit && !ok) return false;
+      if (!hit && ok && opts.all) return false;
+      if (hit) shown++;
+    }
+    return shown >= (opts.min ?? 1);
+  };

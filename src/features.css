@@ -6758,3 +6758,291 @@ button.pl-tile:active {
   min-width: 0;
   overflow-x: auto;
 }
+
+/* ---------------------------------------------------------------------------
+   capture-analysis: saved capture files in the Capture tab (src/ui/CaptureFile.tsx):
+   the file picker, Statistics, the I/O Graph, and Follow TCP Stream. The
+   packet list draws only the rows on screen, so every row is one line tall.
+   --------------------------------------------------------------------------- */
+:root,
+:root[data-theme='dark'] {
+  --stream-a: #fca5a5;
+  --stream-a-soft: #3f2626;
+  --stream-b: #93c5fd;
+  --stream-b-soft: #1f2d40;
+  --io-all: #5b6472;
+  --io-match: #8b8ff7;
+}
+:root[data-theme='light'] {
+  --stream-a: #b91c1c;
+  --stream-a-soft: #fdecec;
+  --stream-b: #1d4ed8;
+  --stream-b-soft: #eaf1fd;
+  --io-all: #c3cad5;
+  --io-match: #4f46e5;
+}
+.capfile-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.capfile-files,
+.capfile-views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 13.5px;
+}
+.capfile-files select {
+  font-weight: 650;
+}
+.capfile-views .btn.tiny.on {
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+  color: var(--brand-ink);
+}
+.capfile-note {
+  flex: none;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.capfile-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.capfile-table th.no {
+  width: 4.2em;
+}
+.capfile-table th.time {
+  width: 5.6em;
+}
+.capfile-table th.proto-col {
+  width: 6.4em;
+}
+.capfile-table th.len {
+  width: 4.6em;
+}
+.capfile-table tbody tr {
+  height: 30px;
+}
+.capfile-table td {
+  padding-top: 0;
+  padding-bottom: 0;
+  height: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.capfile-table td.info {
+  min-width: 0;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.capfile-table tr.capfile-pad td,
+.capfile-table tr.capfile-pad {
+  padding: 0;
+  border: 0;
+  cursor: default;
+}
+.capfile-table tr.capfile-pad:hover td {
+  background: transparent;
+}
+.capfile-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+}
+.capfile-detail-head .btn {
+  margin-left: auto;
+}
+.layer tr.sub td.v {
+  padding-left: 1.2em;
+}
+.capfile-stats-head {
+  flex: none;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.capfile-stats {
+  flex: 1;
+}
+.capfile-stats-table th.num,
+.capfile-stats-table td.num,
+.capfile-io-table .num {
+  text-align: right;
+}
+.capfile-stats-table td.act {
+  width: 1%;
+  white-space: nowrap;
+}
+.capfile-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.capfile-sort:hover {
+  color: var(--ink);
+}
+.capfile-arrow {
+  display: inline-flex;
+}
+.capfile-arrow.up {
+  transform: rotate(180deg);
+}
+.capfile-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.capfile-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.capfile-legend i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.capfile-legend i.io-all {
+  background: var(--io-all);
+}
+.capfile-legend i.io-match {
+  background: var(--io-match);
+}
+.capfile-legend i.side-a {
+  background: var(--stream-a);
+}
+.capfile-legend i.side-b {
+  background: var(--stream-b);
+}
+.capfile-io {
+  overflow: auto;
+}
+.capfile-io-box {
+  position: relative;
+  max-width: 900px;
+}
+.capfile-io-box svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.capfile-io path.io-all {
+  fill: var(--io-all);
+}
+.capfile-io path.io-match {
+  fill: var(--io-match);
+}
+.capfile-io .io-grid {
+  stroke: var(--line-2);
+  stroke-width: 1;
+}
+.capfile-io .io-tick {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.capfile-io .io-hit {
+  fill: transparent;
+}
+.capfile-io .io-cross {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  pointer-events: none;
+}
+.capfile-tip {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+  font-size: 12.5px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.capfile-io-table {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.capfile-io-table table {
+  max-width: 360px;
+}
+.capfile-follow {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.capfile-follow-head {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+}
+.capfile-follow-btns {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.capfile-locked {
+  margin: 0 0 6px;
+}
+.capfile-stream {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.stream-part {
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  border-left: 3px solid;
+  border-radius: 4px;
+}
+.stream-part.side-a {
+  border-left-color: var(--stream-a);
+  background: var(--stream-a-soft);
+}
+.stream-part.side-b {
+  border-left-color: var(--stream-b);
+  background: var(--stream-b-soft);
+}
+.stream-who {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.stream-part pre {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  color: var(--ink);
+}
+.stream-part.bytes pre {
+  font-style: italic;
+  color: var(--ink-2);
+}

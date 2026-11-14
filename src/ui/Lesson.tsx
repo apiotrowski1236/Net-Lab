@@ -433,7 +433,7 @@ export function LessonPanel({
   const just = session.justCompleted.value;
   const p = session.progress;
   const step = session.step;
-  const captureTool = session.tools.find((t): t is Extract<ToolSpec, { kind: 'capture' }> => t.kind === 'capture');
+  const captureTool = session.tools.find((t): t is Extract<ToolSpec, { kind: 'capture' | 'capture-file' }> => t.kind === 'capture' || t.kind === 'capture-file');
   const total = session.lab.steps.length;
   const [outline, setOutline] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);

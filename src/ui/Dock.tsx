@@ -596,7 +596,7 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 // ---------------------------------------------------------------------------
 
 /** Wireshark's Protocol column names, where they differ from NetLab's (LabDef.wireshark). */
-const WIRESHARK_PROTO: Partial<Record<string, string>> = { PING: 'ICMP', HTTPS: 'TLS' };
+export const WIRESHARK_PROTO: Partial<Record<string, string>> = { PING: 'ICMP', HTTPS: 'TLS' };
 
 /** Whether a filter names an IP address no device on the map has (a likely typo). */
 function unknownAddress(sim: Sim, filter: string): boolean {

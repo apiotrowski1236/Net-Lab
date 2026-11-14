@@ -1,6 +1,7 @@
 import { ipToInt, isIp } from './addr';
 import { dhcpIps, fromClient } from './dhcp';
 import type { Frame } from './types';
+import { isHandshakeOnly } from './tcp';
 
 /**
  * Display filters (packet-capture): a small part of Wireshark's filter
@@ -11,6 +12,9 @@ import type { Frame } from './types';
  *   ip.addr == 192.168.1.0/24   anything on that network
  *   tcp.port == 443             either port (tcp.srcport, tcp.dstport; udp.* too)
  *   dns.qry.name contains "school"
+ *   tcp.flags.syn == 1          TCP flags (capture-analysis; see tcp.ts): syn, ack, reset, fin, push
+ *   tcp.stream == 3             one TCP conversation in a capture file (capfile.ts numbers them)
+ *   arp.src.proto_ipv4 == 198.51.100.1   the IP an ARP message speaks for (arp.src.hw_mac: its MAC)
  *   !arp    dns || http    dns && ip.addr == 192.0.2.53    (dns || http) && !tls
  *
  * Words work too: and, or, not, eq, ne, gt, lt, ge, le. As in Wireshark,
@@ -48,6 +52,7 @@ const SVC_PROTO: Record<string, string[]> = {
   // Printing (IPP) travels inside HTTP; Wireshark lists both.
   ipp: ['http', 'ipp'],
   dns: ['dns'],
+  rsync: ['rsync'],
 };
 
 /** The protocols in a frame, outermost first, by the names Wireshark's filters use. */
@@ -73,6 +78,8 @@ export function protocolsOf(f: Frame): string[] {
       out.push(ip.encrypted ? 'tls' : 'http');
       break;
     case 'svc':
+      // A TCP handshake, ACK, reset, or FIN carries no data: Wireshark shows it as plain TCP (capture-analysis).
+      if (isHandshakeOnly(ip)) break;
       if (!(app.reply && app.status === 'closed')) out.push(...(SVC_PROTO[app.app] ?? (ip.encrypted ? ['tls'] : [])));
       break;
   }
@@ -83,7 +90,7 @@ export function protocolsOf(f: Frame): string[] {
 const ALIAS: Record<string, string> = { bootp: 'dhcp', ssl: 'tls', smb: 'smb2' };
 
 // quic and ipv6 are real Wireshark filters that no simulated packet matches (packet-capture names them for Part 2).
-const PROTOCOLS = new Set(['eth', 'arp', 'ip', 'icmp', 'udp', 'tcp', 'dns', 'dhcp', 'http', 'tls', 'ipp', 'ssh', 'smb2', 'telnet', 'bgp', 'quic', 'ipv6']);
+const PROTOCOLS = new Set(['eth', 'arp', 'ip', 'icmp', 'udp', 'tcp', 'dns', 'dhcp', 'http', 'tls', 'ipp', 'ssh', 'smb2', 'telnet', 'bgp', 'quic', 'ipv6', 'rsync']);
 
 type FieldType = 'ip' | 'mac' | 'num' | 'str' | 'flag';
 
@@ -118,6 +125,9 @@ function httpRes(f: Frame) {
   return a?.kind === 'http-res' && !f.ip!.encrypted ? a : undefined;
 }
 
+/** One TCP flag, as Wireshark's 0 or 1 (capture-analysis). Packets with no flags recorded have no tcp.flags fields. */
+const tcpFlag = (k: 'syn' | 'ack' | 'rst' | 'fin' | 'psh') => (f: Frame) => (f.ip?.proto === 'tcp' && f.ip.tcp ? [f.ip.tcp.flags[k] ? 1 : 0] : []);
+
 const FIELDS: Record<string, FieldDef> = {
   'ip.addr': { type: 'ip', get: (f) => both(ips(f)) },
   'ip.src': { type: 'ip', get: (f) => one(ips(f)?.src) },
@@ -133,6 +143,17 @@ const FIELDS: Record<string, FieldDef> = {
   'udp.srcport': { type: 'num', get: (f) => one(ports(f, 'udp')?.src) },
   'udp.dstport': { type: 'num', get: (f) => one(ports(f, 'udp')?.dst) },
   'arp.opcode': { type: 'num', get: (f) => one(f.arp ? (f.arp.op === 'request' ? 1 : 2) : undefined) },
+  'arp.src.proto_ipv4': { type: 'ip', get: (f) => one(f.arp?.senderIp) },
+  'arp.src.hw_mac': { type: 'mac', get: (f) => one(f.arp?.senderMac) },
+  'arp.dst.proto_ipv4': { type: 'ip', get: (f) => one(f.arp?.targetIp) },
+  'arp.dst.hw_mac': { type: 'mac', get: (f) => one(f.arp?.targetMac) },
+  'tcp.flags.syn': { type: 'num', get: tcpFlag('syn') },
+  'tcp.flags.ack': { type: 'num', get: tcpFlag('ack') },
+  'tcp.flags.reset': { type: 'num', get: tcpFlag('rst') },
+  'tcp.flags.fin': { type: 'num', get: tcpFlag('fin') },
+  'tcp.flags.push': { type: 'num', get: tcpFlag('psh') },
+  'tcp.stream': { type: 'num', get: (f) => one(f.ip?.tcp?.stream) },
+  'tcp.len': { type: 'num', get: (f) => (f.ip?.proto === 'tcp' && f.ip.tcp ? [f.ip.tcp.len ?? (f.ip.app.kind === 'svc' ? (f.ip.app.text?.length ?? 0) : 0)] : []) },
   'icmp.type': { type: 'num', get: (f) => one(f.ip?.app.kind === 'ping' ? (f.ip.app.reply ? 0 : 8) : f.ip?.app.kind === 'icmp-error' ? 11 : undefined) },
   'dns.qry.name': { type: 'str', get: (f) => one(f.ip?.app.kind === 'dns-query' || f.ip?.app.kind === 'dns-answer' ? f.ip.app.name : undefined) },
   'dns.a': { type: 'ip', get: (f) => one(f.ip?.app.kind === 'dns-answer' ? f.ip.app.ip : undefined) },
@@ -277,6 +298,20 @@ const HINT: Record<string, string> = {
   'ip.destination': 'Wireshark shortens it: ip.dst',
   'ip.from': 'For the sender, Wireshark says ip.src',
   'ip.to': 'For the receiver, Wireshark says ip.dst',
+  syn: 'Wireshark calls it tcp.flags.syn. Try: tcp.flags.syn == 1',
+  rst: 'Wireshark calls it tcp.flags.reset. Try: tcp.flags.reset == 1',
+  reset: 'Wireshark calls it tcp.flags.reset. Try: tcp.flags.reset == 1',
+  'tcp.syn': 'Wireshark calls it tcp.flags.syn. Try: tcp.flags.syn == 1',
+  'tcp.rst': 'Wireshark calls it tcp.flags.reset. Try: tcp.flags.reset == 1',
+  'tcp.reset': 'Wireshark calls it tcp.flags.reset. Try: tcp.flags.reset == 1',
+  'tcp.flags.rst': 'Wireshark spells it out: tcp.flags.reset',
+  'tcp.flags.psh': 'Wireshark spells it out: tcp.flags.push',
+  'arp.src.ip': 'Wireshark calls it arp.src.proto_ipv4',
+  'arp.src.mac': 'Wireshark calls it arp.src.hw_mac',
+  'arp.dst.ip': 'Wireshark calls it arp.dst.proto_ipv4',
+  'arp.dst.mac': 'Wireshark calls it arp.dst.hw_mac',
+  'arp.reply': 'ARP replies have opcode 2. Try: arp.opcode == 2',
+  'arp.request': 'ARP requests have opcode 1. Try: arp.opcode == 1',
 };
 
 const KNOWN = (w: string) => PROTOCOLS.has(w) || !!ALIAS[w] || !!FIELDS[w];
@@ -333,6 +368,7 @@ function parseValue(field: string, type: FieldType, op: FilterOp, tok: Tok | und
     }
     case 'num':
       if (/^\d+$/.test(raw)) return { kind: 'num', n: Number(raw) };
+      if (field.startsWith('tcp.flags.')) return fail(`${field} is 1 when the flag is set and 0 when it isn't. Try: ${field} == 1`);
       return fail(`${field} needs a number, like 443.`);
     case 'str':
       return { kind: 'str', s: raw };

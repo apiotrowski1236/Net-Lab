@@ -79,6 +79,8 @@ export interface L2Opts extends Placed {
   named?: string[];
   /** Makes this an access point (wireless lab). Open Wi-Fi is a hub; encrypted is a switch. */
   wifi?: WifiAp;
+  /** A switch's mirror port: every frame the switch accepts is copied out this port (capture-analysis; see Device.mirror). */
+  mirror?: string;
 }
 
 type End = string | [device: string, iface: string];
@@ -166,6 +168,7 @@ export class NetBuilder {
   switch(id: string, o: L2Opts): this {
     const d = this.ports(blank(id, 'switch', o, 'switch'), o.ports, o.named);
     d.wifi = o.wifi;
+    if (o.mirror) d.mirror = o.mirror;
     this.sim.devices[id] = d;
     return this;
   }

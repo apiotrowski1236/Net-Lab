@@ -5,6 +5,7 @@ import type { ZoneLevel } from '../sim/zones';
 import type { DemoFacts, DemoSpec } from '../demos/types';
 import type { TermCommand } from '../sim/terminal';
 import type { BenchMethod } from '../sim/bench';
+import type { CapStatsView, CaptureFileDef } from '../sim/capfile';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
@@ -18,7 +19,18 @@ export type UiEvent =
   /** The student applied a display filter in the Capture tab (packet-capture). Only valid filters; '' clears it. See src/sim/displayFilter.ts. */
   | { type: 'ui:filter'; device: string; filter: string }
   /** The student changed a demo on a lesson's stage (lessons with no network). `facts` is the demo's report after the change. */
-  | { type: 'ui:demo'; step: string; demo: string; facts: DemoFacts };
+  | { type: 'ui:demo'; step: string; demo: string; facts: DemoFacts }
+  // Capture files (capture-analysis; see src/sim/capfile.ts). `file` is the CaptureFileDef id.
+  /** The student opened a capture file in the Capture tab. */
+  | { type: 'ui:open-capfile'; file: string }
+  /** The student applied a display filter to a capture file. Only valid filters; '' clears it. */
+  | { type: 'ui:capfile-filter'; file: string; filter: string }
+  /** The student clicked packet `no` in a capture file. */
+  | { type: 'ui:open-packet'; file: string; no: number; frame: Frame }
+  /** The student opened one of a capture file's Statistics views. */
+  | { type: 'ui:capfile-stats'; file: string; view: CapStatsView }
+  /** The student followed TCP stream `stream` in a capture file. */
+  | { type: 'ui:follow-stream'; file: string; stream: number };
 
 export type AnyEvent = SimEvent | UiEvent;
 
@@ -262,7 +274,16 @@ export type ToolSpec =
   /** Echo tool (smurf): ping from `device`, with an optional forged source address. Its own Toolkit card. */
   | { kind: 'echo-tool'; device: string }
   /** Turn `device`'s directed-broadcast forwarding on or off, in the inspector (smurf). Not a Toolkit card. */
-  | { kind: 'directed-broadcast'; device: string };
+  | { kind: 'directed-broadcast'; device: string }
+  /**
+   * Saved capture files to open in the Capture tab instead of a live capture
+   * (capture-analysis). `files` are ids from LabDef.captureFiles, in the order
+   * listed. `device` is the computer the files were captured on: its chips
+   * jump to the Capture tab. `filter` adds the display filter bar, `stats` the Statistics
+   * views (Endpoints, Conversations, I/O Graph), and `follow` Follow TCP
+   * Stream. See src/sim/capfile.ts and src/ui/CaptureFile.tsx.
+   */
+  | { kind: 'capture-file'; device: string; files: string[]; filter?: boolean; stats?: boolean; follow?: boolean };
 
 export type IdsControl = 'signatures' | 'anomaly' | 'prevention';
 export type BenchControl = 'db' | 'baseline' | 'tolerance';
@@ -294,7 +315,7 @@ export const SETTING_TOOLS = ['ip-config', 'gateway', 'static-route', 'wifi-conf
 export const TAB_TOOLS = ['logs'] as const;
 
 /** Tools that live in the Capture tab's toolbar instead of the Toolkit. Like other tools, only the steps that list them offer them. */
-export const CAPTURE_TOOLS = ['capture'] as const;
+export const CAPTURE_TOOLS = ['capture', 'capture-file'] as const;
 
 /** Identifies a tool across steps: its kind and the device (or devices) it works on. */
 export function toolKey(t: ToolSpec): string {
@@ -381,6 +402,12 @@ export interface LabDef {
   steps: StepDef[];
   /** Device whose packet capture appears in the Capture tab. */
   captureDevice?: string;
+  /**
+   * Saved capture files a step can hand out with the 'capture-file' tool
+   * (capture-analysis). Each is recorded from scripted traffic the first time
+   * it's opened (src/sim/capfile.ts).
+   */
+  captureFiles?: CaptureFileDef[];
   /**
    * Make the Capture tab look more like Wireshark, for a lab that gets students
    * ready for it (packet-capture): Wireshark's name under each packet layer,
