@@ -176,10 +176,15 @@ describe('device-analysis: fail2ban and keys', () => {
   it('the botnet moves address each time, under the limit; with passwords off, it never gets to guess', () => {
     const sim = buildCoop();
     sim.linuxSet(WEB, 'fail2ban', true);
+    botAttack(sim);
+    sim.runUntilIdle();
+    const t0 = sim.t;
     botnetAttack(sim);
     sim.runUntilIdle();
     expect(botIp(sim)).toBe('203.0.113.202');
-    expect(lx(sim).f2b.banned).toEqual([]);
+    expect(lx(sim).f2b.banned).toEqual(['203.0.113.201']);
+    // Every guess from the new address reaches sshd, even the first, which waits on ARP.
+    expect((sim.dev('bot').conns ?? []).filter((c) => c.t >= t0).map((c) => c.status)).toEqual(['open', 'open', 'open']);
     sim.linuxSet(WEB, 'passwords', false);
     botnetAttack(sim);
     sim.runUntilIdle();

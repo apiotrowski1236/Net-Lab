@@ -26,6 +26,12 @@ export function LogFilesTool({ session, spec }: ToolCardProps<'log-files'>) {
   const file = spec.files.includes(open.get(dev?.id ?? '') as LogFile) ? (open.get(dev.id) as LogFile) : spec.files[0];
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<number | null>(null);
+  // A new step hands out a new card: start it with no filter, so no file looks shorter than it is.
+  const lastSpec = useRef(spec);
+  if (lastSpec.current !== spec) {
+    lastSpec.current = spec;
+    if (query) setQuery('');
+  }
   const screen = useRef<HTMLDivElement>(null);
   const rows = dev && lx ? fileRows(dev, file) : [];
   const q = query.trim().toLowerCase();

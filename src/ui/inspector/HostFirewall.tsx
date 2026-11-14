@@ -14,8 +14,9 @@ export function HostFirewallSection({ session, sim, dev }: InspectorSectionProps
   void session.simRev.value;
   const box = useRef<HTMLElement>(null);
   const lastHit = useRef(-1);
-  // A lesson button lit a row: bring it into view, once per packet.
-  const hitAt = latestHit(sim, dev.id);
+  // A lesson button lit a row: bring it into view, once per packet. Only the newest decision lights up.
+  const latest = latestHit(sim, dev.id);
+  const hitAt = latest?.t ?? -1;
   useEffect(() => {
     if (hitAt < 0 || hitAt === lastHit.current) return;
     lastHit.current = hitAt;
@@ -25,7 +26,7 @@ export function HostFirewallSection({ session, sim, dev }: InspectorSectionProps
   if (dev.kind !== 'host' || !fw) return null;
   const policy = dev.linux?.ufw ?? UFW_DEFAULT;
   const terminal = session.tools.some((t) => t.kind === 'terminal' && t.devices.includes(dev.id));
-  const hit = (pred: (v: { ruleId?: string; by: string; action: string }) => boolean) => recentlyChanged(sim, (e) => e.type === 'firewall' && e.device === dev.id && pred(e.verdict), 4000);
+  const hit = (pred: (v: { ruleId?: string; by: string; action: string }) => boolean) => !!latest && pred(latest);
   const fresh = (i: number) => recentlyChanged(sim, (e) => e.type === 'config' && e.device === dev.id && e.what === 'firewall-rules' && e.detail === `added rule ${i + 1}`, 4000);
   const any = (a: string) => (a === 'any' ? 'Anywhere' : a);
   return (
@@ -81,12 +82,12 @@ export function HostFirewallSection({ session, sim, dev }: InspectorSectionProps
   );
 }
 
-/** When the last firewall verdict on this device happened, if it was in the last 4 seconds. */
-function latestHit(sim: InspectorSectionProps['sim'], id: string): number {
+/** The last packet this device's rules decided, if it was in the last 4 seconds. Replies matched by state don't count. */
+function latestHit(sim: InspectorSectionProps['sim'], id: string): { t: number; ruleId?: string; by: string; action: string } | undefined {
   for (let i = sim.events.length - 1; i >= 0; i--) {
     const e = sim.events[i];
-    if (sim.t - e.t > 4000) return -1;
-    if (e.type === 'firewall' && e.device === id) return e.t;
+    if (sim.t - e.t > 4000) return undefined;
+    if (e.type === 'firewall' && e.device === id && (e.verdict.by === 'rule' || e.verdict.by === 'implicit')) return { t: e.t, ...e.verdict };
   }
-  return -1;
+  return undefined;
 }

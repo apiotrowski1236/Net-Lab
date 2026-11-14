@@ -68,7 +68,7 @@ All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrou
 
 ## As built
 
-12 steps: case, trace, auth, ufw-log, web-log, command, fail2ban, keys, policy, write-up, submit, and an optional extra challenge (close remote desktop) after submit. 50 minutes.
+12 steps: case, trace, auth, ufw-log, web-log, command, fail2ban, keys, policy, write-up, submit, and an optional extra challenge (close remote desktop) after submit. 55 minutes.
 
 - **Step order changed.** The spec puts the policy change (step 7) before fail2ban and keys. Built order: command, fail2ban, keys, policy. Once SSH is office-only, the bot and botnet can't reach sshd, so the fail2ban and keys demos would show nothing. The policy fix comes last, and the rule numbers in its text account for the rules added earlier (fail2ban's ban at the top, the student's deny for .77).
 - **Five evidence sources became four.** The firewall rules, auth.log, ufw.log, and access.log (plus fail2ban.log once fail2ban is on). The tagline says "four kinds of evidence".

@@ -279,7 +279,7 @@ export function describeRow(file: LogFile, n: number): string | undefined {
 // ---------------------------------------------------------------------------
 
 export function buildCoop(): Sim {
-  const sim = new NetBuilder({ linkMs: 130, procMs: 40, l2Ms: 30, arpTimeoutMs: 1200, pingTimeoutMs: 1600, httpTimeoutMs: 8000 })
+  const sim = new NetBuilder({ linkMs: 130, procMs: 40, l2Ms: 30, arpTimeoutMs: 1200, pingTimeoutMs: 2200, httpTimeoutMs: 8000 })
     .host(WEB, {
       label: 'web01',
       icon: 'server',

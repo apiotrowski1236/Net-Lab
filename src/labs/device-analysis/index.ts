@@ -20,6 +20,7 @@ import {
   hostRuns,
   IP,
   joSignIn,
+  connVerdict,
   lastConn,
   lx,
   NET,
@@ -73,7 +74,10 @@ function connLines(sim: Sim, since: number, from: string, tag: string, who: stri
   const c = lastConn(sim, from, since, tag);
   if (!c) return [{ tone: 'wait', text: 'On its way…' }];
   const v = verdictWords(sim, c);
-  if (c.status === 'pending') return [{ tone: 'wait', text: v ? `${v}. Waiting for an answer…` : 'On its way…' }];
+  if (c.status === 'pending') {
+    if (connVerdict(sim, c)?.action === 'deny') return [{ tone: 'wait', text: `${v}. ${who} waits for an answer that never comes…` }];
+    return [{ tone: 'wait', text: v ? `${v}. Waiting for an answer…` : 'On its way…' }];
+  }
   if (c.status === 'open') return [{ tone: friend ? 'good' : 'bad', text: `${v ?? 'Allowed'}. ${answered(c.banner ?? '')}` }];
   return [{ tone: friend ? 'bad' : 'good', text: `${v ?? 'Blocked'}. ufw dropped it and wrote a line in ufw.log. ${who} got no answer.` }];
 }
@@ -125,7 +129,9 @@ function guessLines(sim: Sim, since: number, from: string, tag: string, n: numbe
   const done = cs.length === n && cs.every((c) => c.status !== 'pending');
   const reached = cs.filter((c) => c.status === 'open').length;
   const blocked = cs.filter((c) => c.status === 'no-answer').length;
-  return { done, reached, blocked, lines: done ? [] : [{ tone: 'wait', text: `Guessing… ${cs.filter((c) => c.status !== 'pending').length} of ${n} done. A blocked guess waits for an answer that never comes.` }] };
+  const dropped = cs.some((c) => connVerdict(sim, c)?.action === 'deny');
+  const why = dropped ? ' ufw dropped a guess, and the attacker waits for an answer that never comes.' : '';
+  return { done, reached, blocked, lines: done ? [] : [{ tone: 'wait', text: `Guessing… ${cs.filter((c) => c.status !== 'pending').length} of ${n} done.${why}` }] };
 }
 
 const spray: ActionDef = {
@@ -246,7 +252,7 @@ export const deviceAnalysisLab: LabDef = {
   unit: 3,
   codehs: ['3.18 The Story in the Logs', '3.19 Securing Networks Quiz', '3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
   ced: ['3.4.B', '3.4.D', '3.5.A', '3.5.E', '3.1.C', '3.2.A'],
-  minutes: 50,
+  minutes: 55,
   objectives: [
     "Trace a connection through a host-based firewall's numbered rules, and explain why the first rule that matches decides.",
     'Find a password spray in auth.log, a port scan in ufw.log, and directory traversal in an access log, citing the rows and the attacker’s address.',
@@ -279,7 +285,7 @@ export const deviceAnalysisLab: LabDef = {
 
         Next, see which programs are waiting for connections. A program that waits on a port is **listening**. The **Terminal** in the Toolkit is signed in to web01 as Jo. Type \`ss -tuln\` and press Enter. (\`-t\` means TCP, \`-u\` UDP, \`-l\` listening, \`-n\` numbers instead of names.) If the Terminal is too short to read, press **Bigger**.
 
-        ss shows more than the firewall table does. It also lists programs that listen only on 127.0.0.1, the server's address for talking to itself. Nothing outside the server can reach those.
+        ss shows more than the **Open ports** table in Inspect does. It also lists programs that listen only on 127.0.0.1, the server's address for talking to itself. Nothing outside the server can reach those.
       `,
       focus: [WEB],
       tools: [term(['ss', 'ufw'])],
@@ -314,7 +320,7 @@ export const deviceAnalysisLab: LabDef = {
       body: md`
         Before you test a rule, predict it. For each connection below, find the first rule that matches. The direction, the source address, and the port all have to fit. **Anywhere** fits every address.
 
-        Answer the two questions first. Then press each button and watch the matching row light up in [[web01]]'s rules.
+        Answer the two questions before you press the buttons, so you're predicting. Then press each button and watch the matching row light up in [[web01]]'s rules.
 
         - A customer at 198.19.7.44 opens the order page (HTTPS, port 443): [[button:customer]]
         - Jo signs in from the office with SSH (port 22): [[button:jo]]
@@ -377,7 +383,7 @@ export const deviceAnalysisLab: LabDef = {
         - \`Failed password for invalid user admin\` means someone guessed a password for an account that doesn't exist on this server.
         - \`Failed password for root\` has no "invalid user", because root is a real account: the administrator account on every Linux server.
 
-        A **brute-force attack** tries many passwords on one account. A **password spray** turns that around: it tries one or two common passwords on many usernames. Each account sees only one wrong guess, so a rule like "lock the account after 5 wrong passwords" never kicks in. Sprays also try usernames that might not exist here, which is why most of these lines say invalid user.
+        A **brute-force attack** tries many passwords on one account. A **password spray** turns that around: it tries one or two common passwords on many usernames. Each account sees only one wrong guess, so a rule like "lock the account after 5 wrong passwords" never kicks in. A spray usually aims at accounts that exist. This one also tried common default usernames that don't exist here, which is why most of its lines say invalid user.
 
         You can search from the Terminal too. \`grep\` prints the lines of a file that contain some text, and \`-n\` adds the row numbers:
 
@@ -491,7 +497,7 @@ export const deviceAnalysisLab: LabDef = {
 
         First, it asked for files that websites sometimes leave out by mistake: /.env (passwords and settings), /.git/config (the site's code history), /wp-login.php and /phpmyadmin/ (admin pages). Every answer was 404. Probing for weak spots like this is **reconnaissance**.
 
-        Then it tried something else. Look at the requests with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them climb out of the web folder to the top of the disk. There, /etc/passwd lists the server's accounts, and /etc/shadow holds their passwords in scrambled form. Using \`..\` to read files outside the web folder is **directory traversal**.
+        Then it tried something else. Look at the requests with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them climb out of the web folder to the top of the disk. There, /etc/passwd lists the server's accounts, and /etc/shadow holds their passwords as **hashes**, a one-way scrambled form. Only the administrator account can read /etc/shadow. Using \`..\` to read files outside the web folder is **directory traversal**.
       `,
       tools: [logs(['auth', 'ufw', 'access']), term(['grep', 'tail'])],
       questions: [
@@ -506,7 +512,7 @@ export const deviceAnalysisLab: LabDef = {
             { id: 'blocked', text: 'ufw blocked the requests', feedback: 'ufw let them through: they went to port 80 or 443, which the rules allow. The website itself answered, with 400.' },
           ],
           explain:
-            'The site refused all three, so the attack failed this time. A site with a bug in its download page might answer 200 and send /etc/passwd or /etc/shadow. **Input validation** closes that hole: the site works out the full location of every file a request names, and refuses any that land outside the web folder.',
+            'The site refused all three, so the attack failed this time. A site with a bug in its download page might answer 200 and send /etc/passwd. **Input validation** closes that hole: the site works out the full location of every file a request names, and refuses any that land outside the web folder.',
         },
         cite(
           'traversal-rows',
@@ -583,7 +589,7 @@ export const deviceAnalysisLab: LabDef = {
         2. Press [[button:bot]]. A new computer, [[bot]], starts guessing passwords.
         3. Read **fail2ban.log**, then **ufw.log**. Open the **Inspect** tab and scroll to web01's firewall rules to see the new rule at the top.
 
-        fail2ban.log calls each service it watches a **jail**. Here the jail is sshd. \`maxRetry: 5\` and \`findtime: 600\` mean 5 failures within 600 seconds, which is 10 minutes. \`banTime: 600\` means a ban lasts 10 minutes.
+        fail2ban.log calls each service it watches a **jail**. Here the jail is sshd. \`maxRetry: 5\` and \`findtime: 600\` mean 5 failures within 600 seconds, which is 10 minutes. \`banTime: 600\` means a ban lasts 10 minutes. When fail2ban starts, it also reads back through auth.log for failures from the last 10 minutes, so your own replays from step 6 can show up as Found lines.
 
         fail2ban can watch other logs too. It could watch access.log and ban any address that sends \`..\` requests, like 203.0.113.140 did.
       `,
@@ -594,7 +600,7 @@ export const deviceAnalysisLab: LabDef = {
         { id: 'on', label: 'Turn on fail2ban', check: ({ sim }) => lx(sim).f2b.on },
         {
           id: 'banned',
-          label: 'fail2ban bans the bot during its attack',
+          label: 'fail2ban bans the bot',
           hint: 'With fail2ban on, press the button and wait for all 8 guesses.',
           check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'config' && e.device === WEB && e.what === 'fail2ban-ban'),
         },
@@ -718,7 +724,7 @@ export const deviceAnalysisLab: LabDef = {
 
         Answer the prediction question before you test. Then test: [[button:jo]] [[button:vendor]]
 
-        If something broke, fix it with one more rule above the last rule, the DENY for everything else. Bayline Farms' network is 198.18.40.0/24.
+        If a test fails, fix it with one more rule above the last rule, the DENY for everything else.
       `,
       tools: [term(['ufw', 'ss', 'grep', 'tail']), logs(ALL_LOGS)],
       actions: [jo, vendor],
