@@ -53,8 +53,6 @@ export const CLINIC_SSH: FwRuleInput = {
   action: 'allow',
   note: 'Added by IT: Lakeside Clinic admins manage the web server',
 };
-/** Step 7: the hole a stateless firewall needs so replies from web servers get back in. */
-export const REPLIES_IN: FwRuleInput = { dir: 'in', proto: 'tcp', src: 'any', sport: 443, dst: 'any', dport: 'any', action: 'allow' };
 
 /** Step 6, Firewall B: staff computers may start conversations going out. */
 export const STAFF_OUT: FwRuleInput = { dir: 'out', proto: 'any', src: STAFF_NET, dst: 'any', dport: 'any', action: 'allow' };
@@ -293,16 +291,4 @@ export function probe(src: string, dst: string, dport: number, sport = 50000): I
 /** Index of the rule on Firewall A that decides this inbound packet, or -1. */
 export function ruleFor(sim: Sim, pkt: IpPacket): number {
   return firstMatch(sim.dev('fwA').firewall!.rules, pkt, 'in');
-}
-
-/** The attacker sends a reply that answers nothing anyone asked, from port 443. */
-export function fakeReply(sim: Sim, to: string): void {
-  sim.sendPacket('attacker', {
-    src: ATTACKER,
-    dst: to,
-    proto: 'tcp',
-    srcPort: 443,
-    dstPort: 51515,
-    app: { kind: 'svc', conn: 0, app: 'https', reply: true, text: 'fake reply' },
-  });
 }

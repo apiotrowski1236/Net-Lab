@@ -4058,6 +4058,20 @@ export class Sim {
       this.tcpSend(dev, s, 'client', { fin: true, ack: true });
     });
   }
+
+  // --- ngfw (firewall-types) ---
+  // Next-generation firewall features: rules that name an application, and
+  // intrusion prevention. The checks live in ngfw.ts and firewall.ts.
+  // -------------------------------------------------------------------------
+
+  /** Turn a firewall's intrusion prevention on or off. It only acts in next-generation mode. */
+  fwSetIps(devId: string, on: boolean): void {
+    const fw = this.dev(devId).firewall;
+    if (!fw) throw new Error(`${devId} has no firewall`);
+    fw.ips = on || undefined;
+    fw.changedAt = this.t;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'firewall-ips', on });
+  }
 }
 
 /** Time between one scan probe and the next. */

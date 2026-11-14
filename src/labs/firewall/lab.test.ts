@@ -9,10 +9,8 @@ import {
   CLINIC_SSH,
   DENY_IN_TCP,
   EDGE,
-  fakeReply,
   FILES,
   INNER,
-  NURSE,
   PLACEMENT,
   PORTAL_SITE,
   SERVER_NET,
@@ -91,48 +89,12 @@ describe('firewall lab network', () => {
     expect(connect(allow, 'attacker', WEB, 22).reason).toBe('firewall');
   });
 
-  it('lets a port-443 trick through a stateless rulebook, and stops it once stateful with no reply rule', () => {
-    const sim = placed();
-    sim.fwAddRule('fwB', STAFF_OUT);
-    step('fake').setup!(sim);
-    const strays = () => sim.events.filter((e) => e.type === 'stray-reply' && e.device === 'web').length;
-    fakeReply(sim, WEB);
-    sim.runUntilIdle();
-    expect(strays()).toBe(1);
-    expect(connect(sim, 'attacker', WEB, 22, { sport: 443 }).status).toBe('open');
-    sim.fwSetMode('fwA', 'stateful');
-    fakeReply(sim, WEB);
-    sim.runUntilIdle();
-    expect(strays()).toBe(1);
-    expect(connect(sim, 'attacker', WEB, 22, { sport: 443 }).status).toBe('open');
-    const hole = sim.dev('fwA').firewall!.rules.find((r) => r.sport === 443)!;
-    sim.fwDeleteRule('fwA', hole.id);
-    expect(connect(sim, 'attacker', WEB, 22, { sport: 443 }).reason).toBe('firewall');
-    sim.browse('nurse', `https://${PORTAL_SITE}/`);
-    sim.runUntilIdle();
-    expect(sim.dev('nurse').browser?.status).toBe('loaded');
-  });
-
-  it('catches the remote-control program only as a next-generation firewall', () => {
-    const sim = placed();
-    sim.fwAddRule('fwB', STAFF_OUT);
-    expect(connect(sim, 'nurse', ATTACKER, 443, { app: 'remote-control' }).status).toBe('open');
-    sim.fwSetMode('fwA', 'ngfw');
-    const c = connect(sim, 'nurse', ATTACKER, 443, { app: 'remote-control' });
-    expect(c.reason).toBe('firewall');
-    expect(c.at).toBe('fwA');
-    expect(sim.dev('fwA').logs.at(-1)?.fields).toMatchObject({ action: 'deny', src: NURSE, dst: ATTACKER, app: 'remote-control', expected: 'https' });
-  });
-
   it('shows the attacker only the web app after the lab', () => {
     const sim = placed();
-    for (const id of ['first-rule', 'order', 'inner', 'stateless', 'fake', 'ngfw', 'log']) step(id).setup?.(sim);
-    // What the student does: fix the coworker's order in step 5, close the reply hole in step 8.
+    for (const id of ['first-rule', 'order', 'inner', 'log']) step(id).setup?.(sim);
+    // What the student does: fix the coworker's order in step 5.
     const rules = () => sim.dev('fwA').firewall!.rules;
     sim.fwMoveRule('fwA', rules().find((r) => r.src === CLINIC_SSH.src)!.id, rules().findIndex((r) => r.action === 'deny'));
-    const hole = rules().find((r) => r.sport === 443);
-    if (hole) sim.fwDeleteRule('fwA', hole.id);
-    sim.fwSetMode('fwA', 'stateful');
     sim.scan('attacker', SERVER_NET);
     sim.scan('attacker', STAFF_NET);
     sim.runUntilIdle();

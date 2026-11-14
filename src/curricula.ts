@@ -89,6 +89,7 @@ export const CURRICULA: Curriculum[] = [
       'wireless',
       'segmentation',
       'firewall',
+      'firewall-types',
       'logs',
       'detect-methods',
       'capture-analysis',

@@ -2,30 +2,44 @@ import { useState } from 'preact/hooks';
 import type { ToolSpec } from '../../labs/types';
 import { checkRule, ruleDraft, type RuleDraft } from '../../runtime/firewallInput';
 import { MODE_NAME, portText, protoText, type FwMode, type FwRule } from '../../sim/firewall';
+import { APP_CHOICES, IPS_SIGNATURES, ruleAppName } from '../../sim/ngfw';
 import { appName } from '../../sim/services';
 import type { Sim } from '../../sim/sim';
 import type { Device } from '../../sim/types';
 import { Icon } from '../icons';
-import { recentlyChanged, ToolMsg, type Msg } from '../tools/parts';
+import { recentlyChanged, Toggle, ToolMsg, type Msg } from '../tools/parts';
 import type { InspectorSectionProps } from './registry';
 
 /** What the student may do to this firewall, from the 'firewall-rules' tools they have. */
-function powers(tools: ToolSpec[], devId: string): { edit: boolean; modes: FwMode[] } {
+function powers(tools: ToolSpec[], devId: string): { edit: boolean; modes: FwMode[]; ips: boolean } {
   let edit = false;
+  let ips = false;
   const modes = new Set<FwMode>();
   for (const t of tools) {
     if (t.kind !== 'firewall-rules' || !t.devices.includes(devId)) continue;
     edit = true;
+    if (t.ips) ips = true;
     for (const m of t.modes ?? []) modes.add(m);
   }
-  return { edit, modes: (['stateless', 'stateful', 'ngfw'] as FwMode[]).filter((m) => modes.has(m)) };
+  return { edit, modes: (['stateless', 'stateful', 'ngfw'] as FwMode[]).filter((m) => modes.has(m)), ips };
 }
 
 const MODE_BLURB: Record<FwMode, string> = {
   stateless: 'Checks every packet against the rules by itself, replies too. It remembers nothing.',
   stateful: 'Checks the first packet of each conversation against the rules, and remembers the conversations it allowed. Replies to those get through. Anything else that looks like a reply is denied.',
-  ngfw: 'Stateful, plus deep packet inspection: it looks inside each new conversation to see which program is talking, and blocks a program that doesn’t match its port.',
+  ngfw: 'Stateful, plus deep packet inspection: it looks inside each new conversation to see which program is talking, whatever the port. Rules can name a program, and it blocks a program that doesn’t match its port.',
 };
+
+/** The App column's cell: the program a rule names. Other modes skip such a rule. */
+function appCell(r: FwRule, mode: FwMode) {
+  if (!r.app || r.app === 'any') return <span>any</span>;
+  return (
+    <>
+      <span>{ruleAppName(r.app)}</span>
+      {mode !== 'ngfw' && <div class="muted small fw-note">Skipped: only a next-generation firewall can see programs</div>}
+    </>
+  );
+}
 
 function sourceText(r: FwRule): string {
   return r.sport !== undefined && r.sport !== 'any' ? `${r.src}, from port ${portText(r.sport, r.proto)}` : r.src;
@@ -57,7 +71,9 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
   if (!fw) return null;
   // "Added as rule 3" is true only until the rulebook changes again (a Reset, or a step's setup).
   const msg = said.msg?.tone === 'bad' || said.at === fw.changedAt ? said.msg : null;
-  const { edit: canEdit, modes } = powers(session.tools, dev.id);
+  const { edit: canEdit, modes, ips: canIps } = powers(session.tools, dev.id);
+  // The App column shows on a next-generation firewall, or when a rule names a program (firewall-types).
+  const showApp = fw.mode === 'ngfw' || fw.rules.some((r) => r.app && r.app !== 'any');
   const edit = canEdit && !replaying;
   const notPlaced = dev.kind === 'firewall' && !dev.ifaces.some((i) => i.linkId);
   const hit = (pred: (r: { ruleId?: string; by: string }) => boolean) =>
@@ -97,6 +113,11 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
           <Icon name="warn" size={14} /> Not placed yet. It isn't in any cable, so it checks nothing.
         </div>
       )}
+      {dev.kind === 'router' && (
+        <p class="small fw-router-note">
+          <Icon name="router" size={14} /> This firewall is software built into {dev.label}. It checks the packets the router passes between its ports.
+        </p>
+      )}
       <p class="small fw-dir-note">
         {outsideText(sim, dev)} Packets arriving from that side are going <strong>in</strong>. Packets from the other side are going <strong>out</strong>.
       </p>
@@ -115,6 +136,22 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
         )}
         <span class="muted small">{MODE_BLURB[fw.mode]}</span>
       </div>
+      {fw.mode === 'ngfw' && (canIps || fw.ips) && (
+        <div class="fw-ips">
+          {edit && canIps ? (
+            <Toggle on={!!fw.ips} label="Intrusion prevention" onChange={(on) => session.dispatch({ type: 'fw-ips', device: dev.id, on })} />
+          ) : (
+            <span class="small">
+              Intrusion prevention: <span class={`pill tiny ${fw.ips ? 'good' : 'muted'}`}>{fw.ips ? 'On' : 'Off'}</span>
+            </span>
+          )}
+          <span class="muted small">
+            {fw.ips
+              ? `Reads inside each allowed request and blocks known attacks: ${IPS_SIGNATURES.map((s) => s.name).join(', ')}.`
+              : 'Off: allowed requests pass without a look at what they carry.'}
+          </span>
+        </div>
+      )}
       <div class="fw-table-wrap">
         <table class="table fw-table">
           <thead>
@@ -125,6 +162,7 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
               <th>Source</th>
               <th>Destination</th>
               <th>Port</th>
+              {showApp && <th>Program</th>}
               <th>Action</th>
               {edit && <th />}
             </tr>
@@ -138,6 +176,7 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
                 <td class="mono">{sourceText(r)}</td>
                 <td class="mono">{r.dst}</td>
                 <td class="mono">{r.proto === 'icmp' ? '' : portText(r.dport, r.proto)}</td>
+                {showApp && <td>{appCell(r, fw.mode)}</td>}
                 <td>
                   <span class={`pill tiny ${r.action === 'allow' ? 'good' : 'bad'}`}>{r.action.toUpperCase()}</span>
                   {r.note && <div class="muted small fw-note">{r.note}</div>}
@@ -167,6 +206,7 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
               <td class="mono">any</td>
               <td class="mono">any</td>
               <td class="mono">any</td>
+              {showApp && <td>any</td>}
               <td>
                 <span class="pill tiny bad">DENY</span>
                 <div class="muted small fw-note">Implicit deny: anything no rule above allowed</div>
@@ -185,6 +225,7 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
         <RuleForm
           title={form.editing ? `Change rule ${rules.findIndex((r) => r.id === form.editing) + 1}` : 'New rule'}
           draft={form.draft}
+          apps={fw.mode === 'ngfw' || (!!form.draft.app && form.draft.app !== 'any')}
           bad={msg?.tone === 'bad' ? msg.field : undefined}
           onChange={(draft) => (setForm({ ...form, draft }), msg?.tone === 'bad' && setMsg({ msg: null }))}
           onSave={save}
@@ -201,13 +242,15 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
 function RuleForm(props: {
   title: string;
   draft: RuleDraft;
+  /** Offer the program choice (a next-generation firewall). */
+  apps?: boolean;
   bad?: string;
   onChange: (d: RuleDraft) => void;
   onSave: () => void;
   onCancel: () => void;
   saveLabel: string;
 }) {
-  const { title, draft: d, bad, onChange, onSave, onCancel, saveLabel } = props;
+  const { title, draft: d, apps, bad, onChange, onSave, onCancel, saveLabel } = props;
   const set = (k: keyof RuleDraft) => (e: Event) => onChange({ ...d, [k]: (e.target as HTMLInputElement | HTMLSelectElement).value });
   const text = (k: 'src' | 'dst' | 'dport' | 'sport', label: string, placeholder: string, size: number) => (
     <input
@@ -251,6 +294,19 @@ function RuleForm(props: {
         to {text('dst', 'Destination address', '10.0.1.10', 15)}
         {!icmp && <>port {text('dport', 'Destination port', '443', 5)}</>}
       </div>
+      {apps && (
+        <div class="sentence">
+          program{' '}
+          <select value={d.app ?? 'any'} onChange={set('app')} aria-label="Program" class={bad === 'app' ? 'invalid' : ''}>
+            <option value="any">any program</option>
+            {APP_CHOICES.map((a) => (
+              <option key={a} value={a}>
+                {ruleAppName(a)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div class="row gap-sm">
         <button class="btn" onClick={onSave}>
           {saveLabel}

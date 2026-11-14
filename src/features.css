@@ -7104,3 +7104,28 @@ button.pl-tile:active {
 .capfile-stats-table tr.capfile-pad:hover td {
   background: transparent;
 }
+
+/* firewall-types: router-hosted firewall note, intrusion prevention */
+.fw-router-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+.fw-router-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.fw-ips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: -2px 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.fw-ips > .muted {
+  flex-basis: 100%;
+}
