@@ -269,20 +269,22 @@ export const deviceAnalysisLab: LabDef = {
 
         **The co-op's server policy**
 
-        1. Only the website (ports 80 and 443) is open to the internet.
+        1. Only the website (ports 80 and 443) is open to everyone on the internet.
         2. Remote administration (SSH, remote desktop, screen sharing) is allowed only from the office network, 192.0.2.0/24.
-        3. Files move only over encrypted connections: SFTP, never FTP. Bayline Farms uploads the nightly order file this way.
+        3. Files move only over encrypted connections: SFTP, never FTP. Bayline Farms uploads the nightly order file this way, from its own network.
         4. Security updates are installed within 7 days.
         5. Someone reviews the server's logs every Monday.
 
-        Click [[web01]]. Scroll to **Firewall rules (ufw)**. This is a **host-based firewall**: a firewall that runs on the computer it protects and checks every packet that arrives for it. ufw checks the rules from the top, and the first rule that matches a packet decides. Rule 10 denies everything, so anything the rules above it don't allow is blocked.
+        Click **web01** on the map. Scroll to **Firewall rules (ufw)**. This is a **host-based firewall**: a firewall that runs on the computer it protects and checks every packet that arrives for it. ufw checks the rules from the top, and the first rule that matches a packet decides. Rule 10 denies everything, so anything the rules above it don't allow is blocked.
 
-        Next, see which programs are waiting for connections. A program that waits on a port is **listening**. The **Terminal** in the Toolkit is signed in to web01 as Jo. Type \`ss -tuln\` and press Enter. (\`-t\` means TCP, \`-u\` UDP, \`-l\` listening, \`-n\` numbers instead of names.)
+        Next, see which programs are waiting for connections. A program that waits on a port is **listening**. The **Terminal** in the Toolkit is signed in to web01 as Jo. Type \`ss -tuln\` and press Enter. (\`-t\` means TCP, \`-u\` UDP, \`-l\` listening, \`-n\` numbers instead of names.) If the Terminal is too short to read, press **Bigger**.
+
+        ss shows more than the firewall table does. It also lists programs that listen only on 127.0.0.1, the server's address for talking to itself. Nothing outside the server can reach those.
       `,
       focus: [WEB],
       tools: [term(['ss', 'ufw'])],
       goals: [
-        { id: 'inspect', label: 'Open [[web01]] and find its firewall rules', check: inspected(WEB) },
+        { id: 'inspect', label: 'Click web01 on the map and find its firewall rules', check: inspected(WEB) },
         {
           id: 'ss',
           label: 'List the listening ports with ss -tuln',
@@ -294,7 +296,7 @@ export const deviceAnalysisLab: LabDef = {
         {
           id: 'site-rule',
           kind: 'choice',
-          prompt: 'Customers order at https://shop.harborfood.example, which uses HTTPS on port 443. Which rule lets them in?',
+          prompt: 'Customers order on the co-op’s website, which uses HTTPS on port 443. Which rule lets them in?',
           options: [
             { id: 'r4', text: 'Rule 4: ALLOW 443/tcp from Anywhere', correct: true },
             { id: 'r3', text: 'Rule 3: ALLOW 80/tcp from Anywhere', feedback: 'Port 80 is HTTP, the unencrypted web. The order site uses HTTPS on 443.' },
@@ -367,12 +369,13 @@ export const deviceAnalysisLab: LabDef = {
       body: md`
         Linux servers keep **log files** in /var/log. Each line records one event, starting with the date and time. **/var/log/auth.log** records sign-ins: who, from which address, and whether it worked.
 
-        Open the **Log files** card in the Toolkit and pick **auth.log**. The number at the left of each line is its **row**. On the exam, you cite rows like these as evidence. (In this simulation, each sign-in attempt writes one line. A real server writes two or three.)
+        Open the **Log files** card in the Toolkit and pick **auth.log**. The number at the left of each line is its **row**. On the exam, you cite rows like these as evidence. (In this simulation, each failed sign-in writes one line. A real server writes two or three.)
 
         Two kinds of lines matter here:
 
         - \`Accepted publickey for bayline\` means Bayline Farms signed in with its **key**: a secret file on its computer that proves who it is, in place of a password.
         - \`Failed password for invalid user admin\` means someone guessed a password for an account that doesn't exist on this server.
+        - \`Failed password for root\` has no "invalid user", because root is a real account: the administrator account on every Linux server.
 
         A **brute-force attack** tries many passwords on one account. A **password spray** turns that around: it tries one or two common passwords on many usernames. Each account sees only one wrong guess, so a rule like "lock the account after 5 wrong passwords" never kicks in.
 
@@ -405,11 +408,11 @@ export const deviceAnalysisLab: LabDef = {
             { match: /198\.18\.40\.12/, text: 'That’s Bayline Farms. Its sign-ins worked, with a key.' },
             { match: /192\.0\.2\.15/, text: 'That’s Jo’s laptop at the office.' },
           ],
-          explain: 'Every Failed password line came from 203.0.113.77, a few seconds to a minute apart.',
+          explain: 'Every Failed password line came from 203.0.113.77, about half a minute apart.',
         },
         cite(
           'spray-rows',
-          'Which rows of auth.log show the spray? Cite every row.',
+          'Which rows of auth.log show the weekend’s spray? Cite every row.',
           'auth',
           ROWS.spray,
           'spray',
@@ -427,7 +430,7 @@ export const deviceAnalysisLab: LabDef = {
         | Part | What it means |
         |---|---|
         | [UFW BLOCK] | ufw dropped this packet |
-        | IN=eth0 | it came in on the network port eth0 |
+        | IN=eth0 | it came in on eth0, the server's **network interface** (its network card) |
         | SRC= | the address it came from |
         | DST= | the address it was going to: web01 |
         | SPT= and DPT= | the source port, and the destination port: the door it knocked on |
@@ -436,6 +439,8 @@ export const deviceAnalysisLab: LabDef = {
         Open **ufw.log**. Look for a burst of lines from one address that knock on many different ports in a second or two. That's a **port scan**: a program like nmap trying door after door to see which ones answer. A scan is often the first step of an attack, because it shows the attacker which services to go after.
 
         Some of the scan's knocks aren't in ufw.log at all. Ports the rules allow, like 80 and 443, answered, and ufw writes nothing when it allows a packet. To see this happen, replay the scan: [[button:rescan]]
+
+        The replay writes new lines at the bottom of ufw.log. Scroll down to see them. The questions ask about the weekend's lines, above them.
       `,
       tools: [logs(['auth', 'ufw']), term(['grep', 'tail'])],
       actions: [rescan],
@@ -458,7 +463,7 @@ export const deviceAnalysisLab: LabDef = {
         },
         cite(
           'scan-rows',
-          'Which rows of ufw.log show the port scan? Cite every row.',
+          'Which rows of ufw.log show the weekend’s port scan? Cite every row.',
           'ufw',
           ROWS.scan,
           'scan',
@@ -484,7 +489,7 @@ export const deviceAnalysisLab: LabDef = {
 
         First, it asked for files that websites sometimes leave out by mistake: /.env (passwords and settings), /.git/config (the site's code history), /wp-login.php and /phpmyadmin/ (admin pages). Every answer was 404. Probing for weak spots like this is **reconnaissance**.
 
-        Then it tried something else. Look at the requests with \`..\` in them. (\`%2f\` is how a web address writes \`/\`.)
+        Then it tried something else. Look at the requests with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them climb out of the web folder to the top of the disk. There, /etc/passwd lists the server's accounts, and /etc/shadow holds their passwords in scrambled form. Using \`..\` to read files outside the web folder is **directory traversal**.
       `,
       tools: [logs(['auth', 'ufw', 'access']), term(['grep', 'tail'])],
       questions: [
@@ -499,15 +504,15 @@ export const deviceAnalysisLab: LabDef = {
             { id: 'normal', text: 'Normal browsing that nginx didn’t understand', feedback: 'Browsers don’t ask for ../../../../etc/passwd. And the user agent is curl, not a browser.' },
           ],
           explain:
-            '`..` means "the folder above." Enough of them climb from the web folder to the top of the disk, and /etc/passwd lists the server’s accounts. nginx refused all three (400), so the attack failed this time. A site with a bug in its download page might not refuse.',
+            'The requests aimed at /etc/passwd, outside the web folder. The site refused all three (400), so the attack failed this time. A site with a bug in its download page might not refuse. **Input validation**, checking each request for things like `..` before using it, closes that hole.',
         },
         cite(
           'traversal-rows',
-          'Which rows of access.log show directory traversal? Cite every row.',
+          'Which rows of access.log show the directory traversal? Cite every row.',
           'access',
           ROWS.traversal,
           'directory traversal',
-          `Rows ${rowsText(ROWS.traversal)}: each asks for a path with .. in it, and nginx refused each one with 400.`,
+          `Rows ${rowsText(ROWS.traversal)}: each asks for a path with .. in it, and the site refused each one with 400.`,
         ),
       ],
     },
@@ -524,7 +529,7 @@ export const deviceAnalysisLab: LabDef = {
         2. Replay the spray: [[button:spray]]
         3. Read the result under the button. Did your rule stop it?
 
-        If the spray still got through, the problem is the order of the rules. \`ufw delete N\` deletes rule number N. \`ufw insert N\` followed by a rule puts it at position N, like \`ufw insert 1 deny from 203.0.113.77\`. Fix it, then replay the spray again.
+        If the spray still got through, the problem is the order of the rules. Delete your rule first: \`ufw delete N\` deletes rule number N. Then \`ufw insert N\` followed by a rule puts it at position N, like \`ufw insert 1 deny from 203.0.113.77\`. Replay the spray again.
       `,
       tools: [term(['ufw', 'grep', 'tail']), logs(['auth', 'ufw'])],
       actions: [spray],
@@ -551,6 +556,7 @@ export const deviceAnalysisLab: LabDef = {
         {
           id: 'order',
           kind: 'choice',
+          afterGoals: true,
           prompt: 'After only `ufw deny from 203.0.113.77`, the spray still gets through. Why?',
           options: [
             { id: 'order', text: 'ufw put the rule at the bottom, and the rule allowing 22/tcp from Anywhere matches first', correct: true },
@@ -567,13 +573,15 @@ export const deviceAnalysisLab: LabDef = {
       id: 'fail2ban',
       title: 'Stop it while it happens',
       body: md`
-        Blocking an address after the attack is over is slow, and attackers have many addresses. An **intrusion prevention system** (IPS) watches for an attack and stops it while it happens, with no person in the loop.
+        Blocking an address after the attack is over is slow, and attackers have many addresses. An **intrusion detection system** (IDS) watches for an attack and alerts a person, who then acts. An **intrusion prevention system** (IPS) goes further: it stops the attack while it happens, with no person in the loop.
 
         **fail2ban** is a small IPS for Linux servers. It reads auth.log as the lines are written. When one address fails to sign in 5 times within 10 minutes, fail2ban adds a ufw rule at the top that blocks that address.
 
         1. In the **Sign-in defenses** card, turn on **fail2ban**.
         2. Press [[button:bot]]. A new computer, [[bot]], starts guessing passwords.
         3. Read **fail2ban.log**, then **ufw.log**. Click [[web01]] to see the new rule at the top of its firewall rules.
+
+        fail2ban.log calls each service it watches a **jail**. Here the jail is sshd. \`maxRetry: 5\` and \`findtime: 600\` mean 5 failures within 600 seconds, which is 10 minutes.
 
         fail2ban can watch other logs too. It could watch access.log and ban any address that sends \`..\` requests, like 203.0.113.140 did.
       `,
@@ -627,10 +635,10 @@ export const deviceAnalysisLab: LabDef = {
         A **countermeasure** is anything that defends against an attack. The strongest one here takes away what the attack needs: passwords. Jo and Bayline Farms already sign in with keys, so nobody needs a password to reach this server.
 
         1. In the **Sign-in defenses** card, turn off **Allow password sign-in**.
-        2. Press [[button:botnet]] again. Read the new lines at the bottom of auth.log.
+        2. Press [[button:botnet]] again. Scroll to the bottom of auth.log and read the new lines.
         3. Check that Jo can still get in: [[button:jo]]
 
-        Two more countermeasures for SSH: **multi-factor authentication** (MFA), which asks for a code from a phone as well as a password, and a **VPN** (virtual private network), so SSH answers only computers that are inside the office network.
+        Two more countermeasures for SSH: **multi-factor authentication** (MFA), which asks for a second proof, like a code from a phone, as well as a password. And a **VPN** (virtual private network), an encrypted connection into the office network from outside: the firewall allows SSH only from office and VPN addresses.
       `,
       setup: (sim) => {
         ensureSprayBlocked(sim);
@@ -715,7 +723,7 @@ export const deviceAnalysisLab: LabDef = {
         {
           id: 'vendor',
           label: 'Bayline Farms’ upload works with the new rules',
-          hint: 'If the upload is blocked, insert an allow for 198.18.40.0/24 on port 22 above the final DENY. Then run the upload again.',
+          hint: 'If the upload is blocked, type ufw status numbered, then ufw insert N allow from 198.18.40.0/24 to any port 22 proto tcp, with N the number of the final DENY. Then run the upload again.',
           check: ({ sim, since }) => {
             const c = lastConn(sim, 'vendor', since, 'vendor');
             return sshOfficeOnly(sim) && !!c && c.status === 'open' && c.t >= (fw(sim).changedAt ?? 0);
@@ -747,7 +755,7 @@ export const deviceAnalysisLab: LabDef = {
             { id: 'customers', text: 'Customers ordering on the website', feedback: 'Customers use port 443. This change touches only port 22.' },
             { id: 'nobody', text: 'Nobody, since only attackers use SSH from outside', feedback: 'Read policy rule 3 again. Who else connects from outside the office?' },
           ],
-          explain: 'SFTP is file transfer over SSH, port 22. Closing SSH to the internet closed it for Bayline Farms too, until a rule allows their network.',
+          explain: 'SFTP is file transfer over SSH, port 22. Closing SSH to the internet closes it for Bayline Farms too, until a rule allows their network.',
         },
       ],
     },
@@ -757,6 +765,8 @@ export const deviceAnalysisLab: LabDef = {
       title: 'Write-up: the policy and the password attack',
       body: md`
         The exam's free-response question asks for answers like these. Write in full sentences. Cite rows and rule numbers where they help. Your teacher grades this part.
+
+        The parts use the exam's letters. This lab skips part C.
 
         The **Log files** card is open if you need to look back.
       `,
@@ -794,7 +804,7 @@ export const deviceAnalysisLab: LabDef = {
           kind: 'text',
           label: 'D',
           prompt:
-            'Pick one blocked connection in ufw.log. Cite its row, name the rule that blocked it, and explain how. Then describe a rule change that would allow it, and the impact of that change.',
+            'Pick one blocked connection in ufw.log. Cite its row, name the rule that blocked it (use the rule numbers from the weekend’s table in step 1), and explain how. Then describe a rule change that would allow it, and the impact of that change.',
           minWords: 25,
           lines: 4,
         },

@@ -255,7 +255,7 @@ describe('ss, grep, tail', () => {
       'tcp   LISTEN  0      511               0.0.0.0:443              0.0.0.0:*',
     ]);
     expect(r.meaning).toBe(
-      '3 ports are listening. 2 of them use 0.0.0.0, which means "every address this server has": anyone the firewall lets through can connect. 127.0.0.1 and 127.0.0.53 accept connections only from programs on this server.',
+      '3 sockets are listening (UDP ones show UNCONN). 2 of them use 0.0.0.0, which means "every address this server has": anyone the firewall lets through can connect. 127.0.0.1 and 127.0.0.53 accept connections only from programs on this server.',
     );
     expect(out(run(sim, 'ss -tp'))).toEqual([
       'Netid State   Recv-Q Send-Q     Local Address:Port      Peer Address:Port Process',

@@ -7213,8 +7213,7 @@ button.pl-tile:active {
 }
 .logf-row {
   display: flex;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   border: 0;
   padding: 0 10px 0 0;
   background: transparent;
@@ -7246,7 +7245,10 @@ button.pl-tile:active {
   user-select: none;
 }
 .logf-text {
-  white-space: pre;
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .logf-empty {
   padding: 8px 12px;

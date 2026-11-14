@@ -553,7 +553,7 @@ function ssRun(dev: Device, lx: LinuxState, c: Extract<HostCmd, { cmd: 'ss' }>):
       ? 'These are connections open right now. Add -l to list the ports where programs wait for new connections: ss -tuln.'
       : 'No connections open right now. Add -l to list the ports where programs wait for connections: ss -tuln.';
   } else {
-    meaning = `${listening.length} ports are listening. ${open.length} of them use 0.0.0.0, which means "every address this server has": anyone the firewall lets through can connect. 127.0.0.1 and 127.0.0.53 accept connections only from programs on this server.`;
+    meaning = `${listening.length} sockets are listening (UDP ones show UNCONN). ${open.length} of them use 0.0.0.0, which means "every address this server has": anyone the firewall lets through can connect. 127.0.0.1 and 127.0.0.53 accept connections only from programs on this server.`;
     if (!c.numeric) meaning += ' Add -n to see port numbers instead of names.';
   }
   return { out, meaning };

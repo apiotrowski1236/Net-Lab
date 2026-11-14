@@ -118,7 +118,7 @@ function prng(seed: number) {
 export const SPRAY_USERS = ['admin', 'test', 'user', 'ubuntu', 'oracle', 'postgres', 'root', 'ftpuser', 'guest', 'pi', 'deploy', 'support', 'git', 'backup'];
 
 /** Ports the Sunday night scan knocked on (in the order nmap sent them). */
-const SCAN_ORDER = [443, 3306, 23, 80, 8080, 21, 445, 25, 110, 5900, 22, 143, 3389, 53];
+export const SCAN_ORDER = [443, 3306, 23, 80, 8080, 21, 445, 25, 110, 5900, 22, 143, 3389, 53];
 
 /** The paths 203.0.113.140 asked for: first looking for weak spots, then trying to climb out of the web folder. */
 export const PROBE_PATHS = ['/.env', '/.git/config', '/wp-login.php', '/phpmyadmin/', '/admin/', '/backup.zip'];
@@ -289,13 +289,13 @@ export function buildCoop(): Sim {
       gateway: IP.webGw,
       services: [
         { port: 21, proto: 'tcp', app: 'ftp', banner: 'vsftpd 3.0.5', program: 'vsftpd' },
-        { port: 22, proto: 'tcp', app: 'ssh', banner: 'SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.10', program: 'sshd' },
-        { port: 80, proto: 'tcp', app: 'http', banner: 'nginx/1.18.0 (Ubuntu)', program: 'nginx' },
-        { port: 443, proto: 'tcp', app: 'https', banner: 'nginx/1.18.0 (Ubuntu)', program: 'nginx' },
+        { port: 22, proto: 'tcp', app: 'ssh', banner: 'OpenSSH 8.9p1 Ubuntu 3ubuntu0.10', program: 'sshd' },
+        { port: 80, proto: 'tcp', app: 'http', banner: 'nginx 1.18.0 (Ubuntu)', program: 'nginx' },
+        { port: 443, proto: 'tcp', app: 'https', banner: 'nginx 1.18.0 (Ubuntu)', program: 'nginx' },
         { port: 445, proto: 'tcp', app: 'smb', banner: 'Samba smbd 4.15.13-Ubuntu', program: 'smbd' },
-        { port: 3306, proto: 'tcp', app: 'mysql', banner: '8.0.40-0ubuntu0.22.04.1', program: 'mysqld' },
+        { port: 3306, proto: 'tcp', app: 'mysql', banner: 'MySQL 8.0.40-0ubuntu0.22.04.1', program: 'mysqld' },
         { port: 3389, proto: 'tcp', app: 'rdp', banner: 'xrdp 0.9.17', program: 'xrdp' },
-        { port: 5900, proto: 'tcp', app: 'vnc', banner: 'RFB 003.008', program: 'x11vnc' },
+        { port: 5900, proto: 'tcp', app: 'vnc', banner: 'x11vnc (VNC protocol 3.8)', program: 'x11vnc' },
       ],
       firewall: { mode: 'stateful', rules: RULES },
       linux: {
@@ -376,11 +376,11 @@ function guess(sim: Sim, from: string, users: string[], gap: number, tag: string
 
 /** The weekend's spray, again: four of its usernames from 203.0.113.77. */
 export const SPRAY_AGAIN = ['admin', 'ubuntu', 'oracle', 'root'];
-export const replaySpray = (sim: Sim) => guess(sim, 'sprayer', SPRAY_AGAIN, 700, 'spray');
+export const replaySpray = (sim: Sim) => guess(sim, 'sprayer', SPRAY_AGAIN, 250, 'spray');
 
 /** The bot's run of guesses: more than fail2ban's limit of 5. */
 export const BOT_USERS = ['admin', 'root', 'test', 'ubuntu', 'user', 'administrator', 'support', 'guest'];
-export const botAttack = (sim: Sim) => guess(sim, 'bot', BOT_USERS, 600, 'bot');
+export const botAttack = (sim: Sim) => guess(sim, 'bot', BOT_USERS, 300, 'bot');
 
 /**
  * Step 8: the bot is one of many. Each press comes from the next address,
@@ -390,12 +390,13 @@ export const BOTNET_USERS = ['admin', 'root', 'deploy'];
 export function botnetAttack(sim: Sim): void {
   const n = Number(botIp(sim).split('.')[3]);
   sim.setIp('bot', 'eth0', `203.0.113.${n + 1}`, 24);
-  guess(sim, 'bot', BOTNET_USERS, 600, 'botnet');
+  guess(sim, 'bot', BOTNET_USERS, 300, 'botnet');
 }
 export const botIp = (sim: Sim): Ip => sim.dev('bot').ifaces[0].ip ?? IP.bot;
 
 /** The Sunday night scan again, live: the ports nmap tries by default in this simulation. */
-export const RESCAN_PORTS = [21, 22, 23, 25, 53, 80, 443, 445, 3389];
+/** The replay knocks on the same ports as Sunday night's scan. */
+export const RESCAN_PORTS = SCAN_ORDER;
 export const replayScan = (sim: Sim) => sim.scan('scanner', IP.web, RESCAN_PORTS);
 
 // ---------------------------------------------------------------------------

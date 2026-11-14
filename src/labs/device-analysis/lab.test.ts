@@ -130,7 +130,7 @@ describe('device-analysis: the firewall table', () => {
     replayScan(sim);
     sim.runUntilIdle();
     const blocked = rowsSince(sim, 'ufw', t).map((e) => e.fields?.dport ?? 'icmp');
-    expect(blocked.sort()).toEqual([22, 23, 25, 445, 53, 'icmp'].sort());
+    expect(blocked.sort()).toEqual([3306, 23, 8080, 445, 25, 110, 5900, 22, 143, 53].sort());
   });
 });
 

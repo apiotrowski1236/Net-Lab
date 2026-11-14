@@ -337,6 +337,8 @@ export function ufwStatus(fw: FirewallState, policy: UfwPolicy, how: { numbered?
 
 /** The verdict, with the default policy deciding what no rule matches. Pure. */
 export function hostVerdict(fw: FirewallState, pkt: IpPacket, dir: FwDir, policy: UfwPolicy): FwVerdict {
+  // Ubuntu's ufw accepts incoming ping in before.rules, ahead of the user's rules.
+  if (dir === 'in' && pkt.proto === 'icmp') return { action: 'allow', by: 'implicit' };
   const i = firstMatch(fw.rules, pkt, dir);
   if (i < 0) return { action: policy[dir], by: 'implicit' };
   const r = fw.rules[i];
