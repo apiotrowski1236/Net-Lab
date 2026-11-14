@@ -399,6 +399,8 @@ export interface LabDef {
     addresses?: boolean | ((d: Device) => boolean);
     /** Shapes drawn behind the devices: a building's walls, a Wi-Fi signal's reach, a DMZ or VLAN. Recomputed as the network changes. */
     zones?: (sim: Sim) => MapZone[];
+    /** Devices to leave off the map for now (a radio nobody has turned on yet). Recomputed as the network changes. */
+    hide?: (sim: Sim) => string[];
   };
   /** Wall-clock time at the start of the lab ("09:00" by default). Log lines are stamped from it. */
   clock?: string;

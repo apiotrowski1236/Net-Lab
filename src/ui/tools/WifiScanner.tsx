@@ -43,7 +43,7 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
   const channels = rows && watch ? [...new Set([...rows.map((r) => r.channel), sim.dev(spec.watch!).wifi?.channel ?? 6])].sort((a, b) => a - b) : [];
 
   return (
-    <div class="tool-card">
+    <div class={`tool-card ${watch ? 'wifi-watch' : ''}`}>
       <div class="tool-title">
         <Icon name="target" /> Wi-Fi scanner
       </div>

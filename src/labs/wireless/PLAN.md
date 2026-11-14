@@ -40,7 +40,7 @@ Reach is distance on the map. Keep the radio model simple and say so: a device i
 
 - WAP state (`Device.wifi`): SSID, beacon broadcast, security mode (`open`, `wep`, `wpa`, `wpa2`, `wpa3`), passphrase strength, WPS, transmit power and direction, MAC filter, authentication (`psk` or `eap`), channel. Association: a wireless host joins if it's in range and passes security; hosts out of range drop off. Keep `on-path`'s café Wi-Fi (a hub or switch with wireless links) working unchanged.
 - The signal's reach as a `MapZone` that follows the power setting.
-- Wi-Fi scanner (SSID, BSSID, security, signal, channel by location), cracking with time estimates by mode and passphrase, rogue WAP, evil twin, jamming, and triangulation from readings. (The twin, jamming, and triangulation are still in the sim and the scenario; `watch-the-air` uses them.) Log lines from the WAP (`source: 'wifi'`): joins, rejected joins, new SSIDs seen.
+- Wi-Fi scanner (SSID, BSSID, security, signal, channel by location), cracking with time estimates by mode and passphrase, rogue WAP, evil twin, jamming, and triangulation from readings. (The twin, jamming, and triangulation are still in the sim; `watch-the-air` uses them. Version 2 took the unused twin radio off this lab's map.) Log lines from the WAP (`source: 'wifi'`): joins, rejected joins, new SSIDs seen.
 - Inspector section for WAP settings. Toolkit cards for the scanner, cracker, and triangulation.
 
 ## Acceptance

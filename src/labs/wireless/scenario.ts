@@ -16,7 +16,6 @@ export const SSID = 'Ridgeview-Shelter';
 export const BSSID = {
   wap: '02:ca:fe:5e:11:01',
   rogue: '02:17:0e:00:00:07',
-  twin: '02:ba:d0:00:00:08',
 };
 
 export const MAC = {
@@ -51,13 +50,6 @@ export const LOT = { x: 680, y: 270, w: 290, h: 260 };
 
 /** Where the WAP sits (the center of its signal circle). */
 export const WAP_POS = { x: 320, y: 300 };
-
-/** Three spots a technician can take a signal reading from (for triangulation). */
-export const SPOTS = [
-  { label: 'the north wall', x: 120, y: 190 },
-  { label: 'the south wall', x: 120, y: 510 },
-  { label: 'the east door', x: 580, y: 340 },
-];
 
 /** A family signs in to the shelter check-in page over plain HTTP. */
 export const LOGIN_BODY = 'user=rivera&pass=welcome123';
@@ -105,14 +97,6 @@ export function buildShelter(): Sim {
       x: 540,
       y: 500,
       wifi: { ssid: 'Shelter-Setup', bssid: BSSID.rogue, security: 'open', wps: false, auth: 'psk', beacon: true, power: 2, channel: 11, off: true, rogue: true },
-    })
-    .hub('twin', {
-      label: "Mallory's radio",
-      sublabel: 'parking lot',
-      icon: 'wifi',
-      x: 820,
-      y: 460,
-      wifi: { ssid: SSID, bssid: BSSID.twin, security: 'open', wps: false, auth: 'psk', beacon: true, power: 2, boost: 40, channel: 6, off: true, rogue: true },
     })
     .switch('lansw', { label: 'Wiring closet', icon: 'switch', x: 470, y: 110 })
     .router('sat', {

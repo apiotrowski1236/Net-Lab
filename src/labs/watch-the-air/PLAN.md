@@ -1,5 +1,7 @@
 # Spec: Watch the Air (`watch-the-air`)
 
+Status: built. The code is in `src/labs/watch-the-air/` (`index.ts`, `scenario.ts`, `solution.ts`, `lab.test.ts`). Follow `docs/unit3/ARCHITECTURE.md`. See "Built" at the end for what changed from this spec.
+
 Split from `wireless` (see `docs/unit3/SUITE-PLAN.md`). Slot 16 of 17, after The Story in the Capture.
 
 - **Title:** Watch the Air
@@ -50,3 +52,28 @@ Reuse: `src/sim/wifi.ts` (`signalAt`, `reach`, `triangulate`), `setWifiJam`, `wi
 ## Done means
 
 All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrough in light, dark, and small, click-through at 4× and 1×) for this lab and the trimmed wireless lab. Watch the map's height: the Wi-Fi reach circles grow it (see "Map layout gotchas"). `/avoid-ai-writing` run on the student text. PLAN.md in `src/labs/watch-the-air/`, set to "Status: built".
+
+## Built
+
+Shipped as 10 steps, 45 minutes, version 1: `tour`, `sweep`, `lookalike`, `find`, `evidence`, `jam`, `crowd`, `alarms`, `recommend` (the multi-select and the written impact; the reflection is folded in), `submit`. CED `3.5.E`, `3.1.B`, `3.5.D`. Registered in `src/labs/index.ts` and the cyber course in `src/curricula.ts`, after `logs`.
+
+Deltas from the outline:
+
+- **Network.** `buildWatch()` starts locked down (WPA3, EAP with server `radius.shelter`, beacons off, power 2), so the tour needs no setup. A second approved AP (`wap2`, the office, channel 1) makes the inventory a list. Staff devices carry the saved profile; Mr. Okafor's phone (`visitor`) has none.
+- **Sweep.** The rogue box went in last night: `seedRogue` backdates the switch's `%LINK-3-UPDOWN` and `%SW_MATM-6-MAC_NEW` lines on port 7 and the AP's "new network heard" line. The student marks each scan row **On the list** or **Not on it**, cites the switch line, and shuts port 7 in the switch's inspector.
+- **Lookalike.** The copy appears as `Shelter_WiFi`, then the **The radio copies the exact name** button renames it. Staff devices refuse it (profile mismatch, logged without a "denied" line), and the visitor joins it. The map keeps the copy hidden until it first comes on the air (`map.hide`), and the rogue box only shows while its radio is on.
+- **Evidence.** Deauthentication is not modeled. The three cited lines are "new network heard", the visitor "left Shelter-WiFi", and the visitor "seen talking to ... not on the approved list" (the stray line).
+- **Jam.** The jammer has no map device: `setJam` sets `sim.jam` on channel 6 and the AP logs noise 88. The student checks port 1 on the switch (up), scans (the AP still shows, noise by channel), and opens the newest noise line. The step text mentions no ping.
+- **Crowd.** Movie night is 140 devices (the noise formula needs more than 120 to clear 10): noise 17, everyone stays connected.
+- **Alarms.** Four rules and six noise levels (10 to 95) on the **Wireless alarms** card. Replay scores the 14-day `RECORD`: attacks caught, missed, false alarms. Levels 20 to 80 catch all three attacks with no movie-night alarm; every setting still flags the volunteer's laptop on day 5, which the step's question discusses.
+
+Shared APIs added (all additive):
+
+- `src/sim/wids.ts`: approved list, marks, rules, `noiseLevel`, `looksLike`, `alertsFor`, `replayRecord`, `RULE_TEXT`. `Device.wids`, SimEvents `wids` and `log-cite`.
+- `src/sim/wifi.ts`: `WifiProfile`, `WifiClient.profile`, `matchesProfile`, join reason `'profile'`, `WifiAp.server`.
+- `Sim` (section "wireless watch (watch-the-air)"): `configureWids`, `channelNoise`, `widsMark`, `widsSetRule`, `widsSetThreshold`, `widsReplay`, `setWifiCrowd`, `setWifiProfile`, `citeLog`, `logCites`.
+- SimActions `wids-mark`, `wids-rule`, `wids-threshold`, `wids-replay`, `log-cite`; answer-key move `{ citeLog, where }`; helper `citedLogs` in `src/labs/helpers.ts`.
+- ToolSpecs: `wifi-scan` gets `watch` (marks, channel column, noise line, no auto flags); `logs` gets `cite`; new `wids` card (`src/ui/tools/WidsCard.tsx`). Inspector section "Approved access points" (`ApprovedAps.tsx`). Log citation UI in `src/ui/LogCite.tsx` (kept apart from capture-analysis's packet citations).
+- `LabDef.map.hide` (`src/labs/types.ts`, `src/ui/NetworkCanvas.tsx`): devices to leave off the map for now.
+- Click-through drivers for Wi-Fi, alarms, ports, cables, and log lines in `.claude/skills/netlab-lab-authoring/drivers.mjs`; `EACH=1` also saves each step after its moves.
+

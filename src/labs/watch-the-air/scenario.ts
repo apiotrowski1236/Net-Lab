@@ -55,7 +55,7 @@ export const STAFF = ['desk', 'phone1', 'laptop1'] as const;
 export const GYM = { x: 60, y: 170, w: 600, h: 390 };
 
 /** Where the lookalike radio is hidden (behind the stacked bleachers). */
-export const TWIN_POS = { x: 590, y: 430 };
+export const TWIN_POS = { x: 600, y: 410 };
 
 /** Three spots to take a signal reading from (for triangulation). */
 export const SPOTS = [
@@ -107,7 +107,7 @@ export function buildWatch(): Sim {
     host('desk', 'Volunteer desk', 'laptop', 200, 250, 'desk', STAFF_PROFILE),
     host('phone1', 'Rivera phone', 'phone', 150, 480, 'rivera', STAFF_PROFILE),
     host('laptop1', 'Chen laptop', 'laptop', 430, 250, 'chen', STAFF_PROFILE),
-    host('visitor', 'Okafor phone', 'phone', 500, 500, 'okafor'),
+    host('visitor', 'Okafor phone', 'phone', 450, 500, 'okafor'),
   ];
   const net = new NetBuilder({ linkMs: 700 })
     .switch('wap', {

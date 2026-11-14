@@ -19,6 +19,7 @@ import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { moreMoves } from './drivers.mjs';
 
 const req = createRequire(join(process.cwd(), 'package.json'));
 const { chromium } = req('playwright-core');
@@ -316,7 +317,9 @@ async function doDemo(id, input) {
 }
 
 async function doMove(i, step, m) {
-  if ('inspect' in m) {
+  if (await moreMoves({ page, log, fail, tab, device, labels, model, vite }, i, step, m)) {
+    // drivers.mjs drove it.
+  } else if ('inspect' in m) {
     // Spotlighted devices pulse, so Playwright never sees them as stable.
     await device(m.inspect).locator('rect.device-card').first().click({ force: true });
     log(`  click ${labels[m.inspect]}`);
@@ -470,6 +473,10 @@ async function guided() {
     for (const m of sol[step.id]?.moves ?? []) {
       await doMove(i, step, m);
       playMove(model, m);
+    }
+    if (process.env.EACH) {
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: join(OUT, `step-${String(i + 1).padStart(2, '0')}-${step.id}-done.png`) });
     }
     const goals = step.goals?.length ?? 0;
     if (goals) {
