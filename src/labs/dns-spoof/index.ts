@@ -58,8 +58,8 @@ const cachesReal = (sim: Parameters<ActionDef['run']>[0]) => {
 export const dnsSpoofLab: LabDef = {
   id: 'dns-spoof',
   version: 1,
-  title: 'Wrong Directions',
-  tagline: "Poison a DNS server's memory and send a whole school to a fake sign-in page.",
+  title: 'DNS Cache Poisoning',
+  tagline: "Poison a DNS server's cache and send a whole school to a fake sign-in page, then make the attack harder.",
   unit: 3,
   codehs: ['3.3 Misdirected and Overwhelmed'],
   ced: ['3.1.A', '3.1.B', '3.1.C', '3.5.E'],

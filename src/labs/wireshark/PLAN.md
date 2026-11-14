@@ -1,4 +1,4 @@
-# Wireshark for Real (AP Cybersecurity lab 3)
+# Capturing Real Traffic with Wireshark (AP Cybersecurity lab 3)
 
 Status: built. Code: `index.ts` (steps), `answers.ts` (answer checks), `pictures.ts` (stage drawings), `solution.ts` (one real student's answers), `lab.test.ts`.
 

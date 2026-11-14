@@ -33,7 +33,7 @@ const pick: JsSpec = { kind: 'js', id: 'pick', title: 'A surprise song', files: 
 export const jsArraysLab: LabDef = {
   id: 'js-arrays',
   version: 2,
-  title: 'JavaScript Arrays: The Dance Playlist',
+  title: 'JavaScript Arrays',
   tagline: 'Run the music for the spring dance: build a playlist in an array, change it, search it, and write your own request line.',
   // Intro CS has no units, and the Guide prints none for unit 0.
   unit: 0,

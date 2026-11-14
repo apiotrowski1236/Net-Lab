@@ -5,11 +5,11 @@
 New capstone (see `docs/unit3/SUITE-PLAN.md`). Slot 17 of 17, the last lab of the unit. Top priority of the new labs.
 
 - **Title:** Device Security Analysis
-- **Tagline (draft):** One web server, five sources of evidence. Read its firewall rules and logs, find two attacks, change the rules, and stop the next attack while it happens.
+- **Tagline:** Read a web server's firewall rules and logs, find two attacks, change the rules, and stop the next attack while it happens.
 - **CodeHS:** 3.18 The Story in the Logs, 3.19 Securing Networks Quiz (review); also the firewall lessons 3.10 and 3.12 for rule tracing and writing
 - **CED:** 3.4.B.1 to B.3 and 3.4.D.1 to D.3 (a host firewall); 3.5.A.3 (automated prevention); 3.5.E.7 (scan, known source); 3.1.C.1 (CIA); 3.2.A.1 (disable unneeded services)
 - **Minutes:** 50. **Steps:** 11 or 12.
-- **Prerequisites:** the whole unit, especially Firewall Rulebook and Log Detective.
+- **Prerequisites:** the whole unit, especially Firewall Rules and Placement and Log Analysis and Intrusion Detection.
 
 ## Why this lab
 
@@ -74,7 +74,7 @@ All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrou
 - **The bot can always reach SSH in steps 6 and 7.** The bot and botnet share 203.0.113.0/24 with the sprayer. If a student's step 5 rule denies the whole network, or anything else keeps the bot from port 22, the fail2ban and keys setups narrow the deny to 203.0.113.77 and put back SSH from Anywhere (`ensureBotReachesSsh`).
 
 - **Step order changed.** The spec puts the policy change (step 7) before fail2ban and keys. Built order: command, fail2ban, keys, policy. Once SSH is office-only, the bot and botnet can't reach sshd, so the fail2ban and keys demos would show nothing. The policy fix comes last, and the rule numbers in its text account for the rules added earlier (fail2ban's ban at the top, the student's deny for .77).
-- **Five evidence sources became four.** The firewall rules, auth.log, ufw.log, and access.log (plus fail2ban.log once fail2ban is on). The tagline says "four kinds of evidence".
+- **Five evidence sources became four.** The firewall rules, auth.log, ufw.log, and access.log (plus fail2ban.log once fail2ban is on). The tagline names the firewall rules and logs instead of counting them.
 - **Botnet.** Each press of **The botnet tries again** moves Unknown C to the next address and makes 3 guesses, under fail2ban's maxretry of 5, so fail2ban never bans it. Only turning off password sign-in stops it.
 - **Log rows.** Every log line goes through `sim.log` with `fields.file`; row N is the Nth entry for that file. The weekend history is a pure generator (`weekend()`), so the row constants (`ROWS`) are fixed at module load and the tests check them.
 - **Typed rows.** `src/runtime/citeRows.ts` reads "11-24", "11 to 24", "11–24", "11, 12, 13" and explains a wrong citation ("Row 9 isn't part of the spray: ..."). capture-analysis and watch-the-air check citations too; the three could share this module.

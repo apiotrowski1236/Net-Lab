@@ -1,8 +1,8 @@
-# Flood the Switch (`mac-flood`)
+# MAC Flooding and Port Security (`mac-flood`)
 
 Status: built (wave 1). Follows `docs/unit3/ARCHITECTURE.md`. Code: `index.ts` (steps), `scenario.ts` (network), `solution.ts` (answer key), `lab.test.ts`.
 
-Tagline: Overflow a switch's memory so it repeats everyone's traffic to you, then lock its ports.
+Tagline: Overflow a switch's MAC table so it sends everyone's traffic to you, then lock its ports with port security.
 
 CodeHS: none confirmed (`codehs: []`). CED LOs: 3.1.A, 3.1.B, 3.2.A, 3.2.B, 3.3.B, 3.5.E.
 

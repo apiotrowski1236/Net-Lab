@@ -37,7 +37,7 @@ const onlyLowLeft = scanned((_f, e, sim) => {
 export const netAuditLab: LabDef = {
   id: 'net-audit',
   version: 1,
-  title: 'The Network Audit',
+  title: 'Vulnerability Scan and Risk Assessment',
   tagline: 'Scan a small office for weaknesses, rate each risk high, moderate, or low, and write the policies that fix them.',
   unit: 3,
   codehs: [],

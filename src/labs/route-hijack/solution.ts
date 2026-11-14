@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 import { BANK_PREFIX, MORE_SPECIFIC } from './scenario';
 
-/** Answer key for "Advertise a Bad Route". Choice answers come from the lab itself. */
+/** Answer key for "BGP Route Hijacking". Choice answers come from the lab itself. */
 export const routeHijackSolution: LabSolution = {
   map: { moves: [{ inspect: 'home' }] },
   path: { moves: [{ press: 'open' }] },

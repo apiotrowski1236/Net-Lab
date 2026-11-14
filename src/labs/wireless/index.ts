@@ -49,7 +49,7 @@ const scannedFrom = (device: string) => (sim: Sim, since: number) =>
 export const wirelessLab: LabDef = {
   id: 'wireless',
   version: 2,
-  title: 'Signals Past the Walls',
+  title: 'Wireless Security',
   tagline: "Secure an emergency shelter's Wi-Fi against snoopers in the parking lot and a rogue box on a wall jack.",
   unit: 3,
   codehs: ['3.7 Locking Down the Airwaves'],
@@ -323,7 +323,7 @@ export const wirelessLab: LabDef = {
         1. Scan the air from the [[desk]]. You will see a network you never set up, marked as not yours.
         2. It is wired into the hallway jack. Shut that jack: in the Toolkit, use **Cables** to unplug the [[rogue]].
 
-        > **Next: keeping watch.** A rogue box can show up long after setup is done. Two weeks later, in the lab Watch the Air, you keep watch over this shelter. You catch a lookalike network and a jammer, then choose the alarms that catch the next one.
+        > **Next: keeping watch.** A rogue box can show up long after setup is done. Two weeks later, in the Wireless Intrusion Detection lab, you keep watch over this shelter. You catch a lookalike network and a jammer, then choose the alarms that catch the next one.
       `,
       setup: (sim) => sim.setWifiOff('rogue', false),
       focus: ['rogue', 'desk', 'lansw'],

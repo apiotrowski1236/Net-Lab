@@ -1,4 +1,4 @@
-# Who Gets the Packet? (`home-network`): lesson script
+# Home Network: Switching, DHCP, and NAT (`home-network`): lesson script
 
 This is the full lesson as students see it: scenario, map, every step's body, buttons, tools, goals,
 questions, and the behaviors the simulator must have. `index.ts`, `scenario.ts`, `solution.ts`, and the

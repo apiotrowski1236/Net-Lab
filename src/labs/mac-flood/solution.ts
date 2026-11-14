@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 import { isAttendance, MAC, PORT } from './scenario';
 
-/** Answer key for "Flood the Switch". Choice answers come from the lab itself. */
+/** Answer key for "MAC Flooding and Port Security". Choice answers come from the lab itself. */
 export const macFloodSolution: LabSolution = {
   office: { moves: [{ inspect: 'sw' }, { inspect: 'mallory' }] },
   jack: {

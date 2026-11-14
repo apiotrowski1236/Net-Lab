@@ -179,7 +179,7 @@ const isPrint = (f: { ip?: { app: { kind: string; app?: string } } }) => f.ip?.a
 export const homeNetworkLab: LabDef = {
   id: 'home-network',
   version: 1,
-  title: 'Who Gets the Packet?',
+  title: 'Home Network: Switching, DHCP, and NAT',
   tagline: 'Set up a home Wi-Fi router, connect the family, and follow how it gets every packet to the right device.',
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves'],

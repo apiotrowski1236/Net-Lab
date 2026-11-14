@@ -1,4 +1,4 @@
-# Clues from the Command Line (`net-tools`)
+# Network Command-Line Tools (`net-tools`)
 
 Status: built. Lab 5 of AP Cybersecurity, after `build-network`. Code: `index.ts` (steps), `scenario.ts`
 (network, readers, buttons, setups), `solution.ts` (answer key), `lab.test.ts`.

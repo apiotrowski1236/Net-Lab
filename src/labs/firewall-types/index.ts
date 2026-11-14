@@ -381,8 +381,8 @@ function passed(sim: Sim, since: number, fws: ('fwA' | 'fwB')[]): boolean {
 export const firewallTypesLab: LabDef = {
   id: 'firewall-types',
   version: 1,
-  title: 'Smarter Firewalls',
-  tagline: 'Watch a stateless firewall get fooled, give it a memory, then teach it to recognize programs and attacks. Then pick the right firewall for each job at the hospital.',
+  title: 'Firewall Types: Stateless, Stateful, and Next-Gen',
+  tagline: "Fool a stateless firewall with fake replies, add a connection table, block programs by name and attacks by what's inside the packets, then choose a firewall type for each job at the hospital.",
   unit: 3,
   codehs: ['3.9 Guarding the Gate'],
   ced: ['3.4.A', '3.4.B', '3.4.D', '3.5.A'],
@@ -401,7 +401,7 @@ export const firewallTypesLab: LabDef = {
       id: 'tour',
       title: 'Back at the hospital',
       body: md`
-        A week has passed at Adams County Hospital. [[fwA]] and [[fwB]] are in place. Each one has a **rulebook**: its list of rules, written in the last lab, *Firewall Rulebook*. The hospital also opened a small **branch office**.
+        A week has passed at Adams County Hospital. [[fwA]] and [[fwB]] are in place. Each one has a **rulebook**: its list of rules, written in the last lab, *Firewall Rules and Placement*. The hospital also opened a small **branch office**.
 
         The IT director has a question for you: "Which kind of firewall should each of these be? A next-generation box costs three times as much as the others." Today you test each kind and then make the call.
 
@@ -531,7 +531,7 @@ export const firewallTypesLab: LabDef = {
       id: 'stateful',
       title: 'Give it a memory',
       body: md`
-        A **stateful** firewall keeps a **connection table**: a list of the conversations it allowed out. A packet that looks like a reply (its TCP flags say it answers something) gets in only if it also matches a conversation in the table: the same addresses and ports. Your home router did the same thing in an earlier lab, *Who Gets the Packet?*: it let in only the replies to what someone inside asked for.
+        A **stateful** firewall keeps a **connection table**: a list of the conversations it allowed out. A packet that looks like a reply (its TCP flags say it answers something) gets in only if it also matches a conversation in the table: the same addresses and ports. Your home router did the same thing in the home network lab: it let in only the replies to what someone inside asked for.
 
         1. Switch [[fwA]] back to **Stateful**.
         2. Press **Nurse station opens the clinic portal**, and find the conversation in Firewall A's **Connection table**.

@@ -42,8 +42,8 @@ function impostor(sim: Sim): void {
 export const routeHijackLab: LabDef = {
   id: 'route-hijack',
   version: 1,
-  title: 'Advertise a Bad Route',
-  tagline: "Hijack the internet's directions with one false announcement. Then see what it takes to stop it.",
+  title: 'BGP Route Hijacking',
+  tagline: "Send a bank's traffic to the wrong network with one false BGP announcement, then stop it with route origin validation.",
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves', '3.3 Misdirected and Overwhelmed'],
   ced: ['3.1.A', '3.1.B', '3.1.C'],

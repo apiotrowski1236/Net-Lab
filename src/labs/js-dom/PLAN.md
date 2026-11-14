@@ -1,4 +1,4 @@
-# Lab plan: Build a Page with JavaScript (js-dom)
+# Lab plan: Changing a Page with JavaScript (js-dom)
 
 Status: built. Code is in this folder and `src/dom/`.
 

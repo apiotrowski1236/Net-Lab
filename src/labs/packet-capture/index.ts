@@ -253,8 +253,8 @@ const filteredArp = filtered('laptop', (f) => !!f.arp);
 export const packetCaptureLab: LabDef = {
   id: 'packet-capture',
   version: 2,
-  title: "What's in a Packet?",
-  tagline: "Capture the family laptop's traffic, open packets layer by layer, learn the common kinds, and use filters to find the packets you want, so Wireshark feels familiar.",
+  title: 'Packet Capture Basics',
+  tagline: "Capture the family laptop's traffic, open packets layer by layer, learn the common kinds, and filter for the packets you want, to get ready for Wireshark.",
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves'],
   ced: ['3.1.A', '3.2.B'],

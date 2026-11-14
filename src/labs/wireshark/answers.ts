@@ -2,7 +2,7 @@ import type { AnswerLookup, TextQuestion } from '../types';
 import { PIC } from './pictures';
 
 /**
- * Answer checks for "Wireshark for Real". Students copy values out of their
+ * Answer checks for "Capturing Real Traffic with Wireshark". Students copy values out of their
  * own Wireshark, so no answer is known ahead of time. Each check does two
  * things instead:
  *  - `expect` matches Wireshark's own format (an Info line such as

@@ -3,7 +3,7 @@ import { BSSID, MAC, ROGUE_PORT, SPOTS } from './scenario';
 
 const measure = SPOTS.map((s) => ({ tool: { type: 'wifi-measure' as const, device: 'desk', bssid: BSSID.twin, x: s.x, y: s.y } }));
 
-/** Answer key for "Watch the Air". Choice answers come from the lab itself. */
+/** Answer key for "Wireless Intrusion Detection". Choice answers come from the lab itself. */
 export const watchTheAirSolution: LabSolution = {
   tour: { moves: [{ inspect: 'wap' }] },
 

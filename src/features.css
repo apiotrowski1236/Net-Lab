@@ -1454,7 +1454,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Firewall Rulebook (firewall): port scanner, firewall placement, rule editor
+   Firewall Rules and Placement (firewall): port scanner, firewall placement, rule editor
    --------------------------------------------------------------------------- */
 .scan-result {
   margin-top: 8px;
@@ -1870,7 +1870,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Log Detective (logs): IDS detection, SIEM incidents, AI threshold
+   Log Analysis and Intrusion Detection (logs): IDS detection, SIEM incidents, AI threshold
    --------------------------------------------------------------------------- */
 .ids-group {
   padding: 8px 0 10px;
@@ -3851,7 +3851,7 @@ button.pl-tile:active {
 }
 
 /* wireshark: drawings of Wireshark, a terminal, and settings windows on the
-   stage of "Wireshark for Real" (src/labs/wireshark/pictures.ts). They build
+   stage of "Capturing Real Traffic with Wireshark" (src/labs/wireshark/pictures.ts). They build
    on packet-capture's .ws-window and stay light in the dark theme, like a
    picture of a program. A ringed part (.ws-hi) carries a label (.ws-tag). */
 .ws-pic,
@@ -6517,7 +6517,7 @@ button.pl-tile:active {
 }
 
 /* ---------------------------------------------------------------------------
-   Pick Your Detector (detect-methods): detection bench, analyst queue, plan
+   Signature, Anomaly, and Hybrid Detection (detect-methods): detection bench, analyst queue, plan
    --------------------------------------------------------------------------- */
 .bench-card {
   grid-column: 1 / -1;

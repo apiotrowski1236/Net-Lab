@@ -111,8 +111,8 @@ function blockedAt(sim: Sim, since: number): number | undefined {
 export const macFloodLab: LabDef = {
   id: 'mac-flood',
   version: 1,
-  title: 'Flood the Switch',
-  tagline: "Overflow a switch's memory so it repeats everyone's traffic to you, then lock its ports.",
+  title: 'MAC Flooding and Port Security',
+  tagline: "Overflow a switch's MAC table so it sends everyone's traffic to you, then lock its ports with port security.",
   unit: 3,
   codehs: [],
   ced: ['3.1.A', '3.1.B', '3.2.A', '3.2.B', '3.3.B', '3.5.E'],

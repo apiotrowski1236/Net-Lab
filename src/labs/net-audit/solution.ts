@@ -27,7 +27,7 @@ const DESK_MACS: Record<string, string> = (() => {
   );
 })();
 
-/** Answer key for "The Network Audit". Choice answers come from the lab itself. */
+/** Answer key for "Vulnerability Scan and Risk Assessment". Choice answers come from the lab itself. */
 export const netAuditSolution: LabSolution = {
   engagement: { moves: [{ inspect: 'router' }, { inspect: 'fileserver' }, { inspect: 'wap' }] },
 

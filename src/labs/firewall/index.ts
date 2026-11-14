@@ -94,7 +94,7 @@ function coworkerRules(sim: Sim): void {
 export const firewallLab: LabDef = {
   id: 'firewall',
   version: 2,
-  title: 'Firewall Rulebook',
+  title: 'Firewall Rules and Placement',
   tagline: 'Place two firewalls in a hospital network and write the rules that let patients in and keep attackers out.',
   unit: 3,
   codehs: ['3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
@@ -533,7 +533,7 @@ export const firewallLab: LabDef = {
       body: md`
         Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
 
-        Next lab: *Smarter Firewalls*, where you decide what kind of firewall A and B should be.
+        Next lab: *Firewall Types: Stateless, Stateful, and Next-Gen*, where you decide what kind of firewall A and B should be.
       `,
     },
   ],

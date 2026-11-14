@@ -5,7 +5,7 @@ import type { GoalDef, LabDef } from '../types';
 import * as code from './code';
 
 /**
- * Draw with Code (Intro CS, p5.js). A lesson with no network: the stage holds
+ * p5.js: Shapes and Color (Intro CS, p5.js). A lesson with no network: the stage holds
  * a JavaScript editor whose code runs as a p5.js sketch, on a live canvas.
  * src/sketch is the p5.js the code runs against. Plan: PLAN.md.
  */
@@ -31,7 +31,7 @@ const editor = (id: string, files: JsFile[], checks: JsCheck[], more: Partial<Js
 export const p5DrawLab: LabDef = {
   id: 'p5-draw',
   version: 1,
-  title: 'Draw with Code',
+  title: 'p5.js: Shapes and Color',
   tagline: 'Place shapes on a canvas with p5.js, color them, and draw a picture of your own.',
   unit: 0,
   codehs: [],

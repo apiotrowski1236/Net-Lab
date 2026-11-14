@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 
 /**
- * Answer key for "Wireshark for Real": one student's real answers. Every
+ * Answer key for "Capturing Real Traffic with Wireshark": one student's real answers. Every
  * student's capture is different, so these are examples that pass the checks,
  * not the only right answers. The summaries are Copy > Summary as Text rows
  * (tabs between columns), in the formats TShark 4.4 writes.

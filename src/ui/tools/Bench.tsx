@@ -22,7 +22,7 @@ import {
 import { Icon } from '../icons';
 import type { ToolCardProps } from './registry';
 
-// Pick Your Detector (detect-methods): the detection bench, the analyst
+// Signature, Anomaly, and Hybrid Detection (detect-methods): the detection bench, the analyst
 // queue, and the plan. The model and its rules are in src/sim/bench.ts.
 
 const uses = (m: BenchMethod, part: 'signature' | 'anomaly') => m === 'hybrid' || m === part;

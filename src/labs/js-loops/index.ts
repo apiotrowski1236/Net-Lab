@@ -5,7 +5,7 @@ import type { GoalDef, LabDef } from '../types';
 import * as code from './code';
 
 /**
- * Loops at Arcade Night (Intro CS). A lesson with no network: the stage holds a
+ * JavaScript Loops (Intro CS). A lesson with no network: the stage holds a
  * JavaScript editor (src/demos/js.ts), and each step's checks live in code.ts.
  * Students come from a lecture on loops and the arrays lab. Plan: PLAN.md.
  */
@@ -33,7 +33,7 @@ export const WATCH_STEPS = 14;
 export const jsLoopsLab: LabDef = {
   id: 'js-loops',
   version: 3,
-  title: 'Loops at Arcade Night',
+  title: 'JavaScript Loops',
   tagline: 'Write the loops behind a school Arcade Night: a countdown, a door code, a guessing game, and a scoreboard. Then fix a report full of broken loops.',
   unit: 0,
   codehs: [],

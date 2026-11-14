@@ -1,4 +1,4 @@
-# Make a Game (p5-game)
+# p5.js: A Keyboard Game (p5-game)
 
 Status: built. Code: `index.ts`, `code.ts`, `solution.ts`, `lab.test.ts`. The engine is in `src/sketch/` (see p5-draw's plan).
 

@@ -56,8 +56,8 @@ const bensFixes = (n: number) => ({ sim }: { sim: Sim }) =>
 export const buildNetworkLab: LabDef = {
   id: 'build-network',
   version: 1,
-  title: 'From Cable to Web Page',
-  tagline: "Plug in the cables, hand out addresses, and teach the routers the way until Alice's browser loads the page.",
+  title: 'Build a Network: Addresses, Gateways, and Routes',
+  tagline: "Plug in the cables, give each device an IP address, set gateways, and add routes until Alice's browser loads the page.",
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves'],
   ced: ['3.1.A', '3.1.B'],

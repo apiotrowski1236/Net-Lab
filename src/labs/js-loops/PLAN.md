@@ -1,4 +1,4 @@
-# Loops at Arcade Night
+# JavaScript Loops
 
 Status: built. Code: `index.ts`, `code.ts`, `solution.ts`, `lab.test.ts`.
 

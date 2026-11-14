@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 import { DEFAULT_PASSWORD, DEFAULT_SSID } from './scenario';
 
-/** Answer key for "Who Gets the Packet?". Choice answers come from the lab itself. */
+/** Answer key for "Home Network: Switching, DHCP, and NAT". Choice answers come from the lab itself. */
 export const homeNetworkSolution: LabSolution = {
   tour: { moves: [{ inspect: 'router' }, { inspect: 'wifi' }, { inspect: 'laptop' }, { press: 'watch-packet' }] },
 

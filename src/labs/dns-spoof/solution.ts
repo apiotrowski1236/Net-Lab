@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 import { IP, SITE } from './scenario';
 
-/** Answer key for "Wrong Directions". Choice answers come from the lab itself. */
+/** Answer key for "DNS Cache Poisoning". Choice answers come from the lab itself. */
 export const dnsSpoofSolution: LabSolution = {
   names: { moves: [{ inspect: 'resolver' }, { inspect: 'ns' }] },
   lookup: { moves: [{ press: 'alice-open' }] },

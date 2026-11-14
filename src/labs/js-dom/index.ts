@@ -6,7 +6,7 @@ import type { GoalDef, LabDef } from '../types';
 import * as code from './code';
 
 /**
- * Build a Page with JavaScript (Intro CS). A lesson with no network: the stage
+ * Changing a Page with JavaScript (Intro CS). A lesson with no network: the stage
  * holds a JavaScript editor with three tabs and a live preview. src/dom gives
  * the code a page to act on, inside the pure model. Plan: PLAN.md.
  */
@@ -34,7 +34,7 @@ const editor = (id: string, html: string, script: string, checks: JsCheck[]): Js
 export const jsDomLab: LabDef = {
   id: 'js-dom',
   version: 2,
-  title: 'Build a Page with JavaScript',
+  title: 'Changing a Page with JavaScript',
   tagline: 'Find elements, change them, and let a loop build what would take hours to write by hand.',
   unit: 0,
   codehs: [],

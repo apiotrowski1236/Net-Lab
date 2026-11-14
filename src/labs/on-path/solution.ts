@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 import { IP, MAC } from './scenario';
 
-/** Answer key for "Traffic in the Wrong Hands". Choice answers come from the lab itself. */
+/** Answer key for "On-Path Attacks: Sniffing and ARP Poisoning". Choice answers come from the lab itself. */
 export const onPathSolution: LabSolution = {
   welcome: { moves: [{ inspect: 'alice' }, { inspect: 'mallory' }] },
   normal: { moves: [{ press: 'login' }] },

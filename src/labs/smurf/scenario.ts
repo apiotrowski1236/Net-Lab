@@ -4,7 +4,7 @@ import type { Sim } from '../../sim/sim';
 import type { IpPacket } from '../../sim/types';
 import type { MapZone } from '../types';
 
-// Echo Storm (smurf). Hilltop Tickets sells seats behind an edge router on one
+// Smurf Attacks and Amplification (smurf). Hilltop Tickets sells seats behind an edge router on one
 // capacity-limited uplink. Westfield College's router forwards directed
 // broadcasts, so Mallory can turn 30 campus computers into an amplifier and
 // forge the ticket server's address so every reply floods it. Fans at home are

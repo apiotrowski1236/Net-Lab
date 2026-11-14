@@ -5,7 +5,7 @@ import type { GoalDef, LabDef } from '../types';
 import * as code from './code';
 
 /**
- * Write Your First Class (AP CSA, Unit 3). A lesson with no network: the stage
+ * Writing a Java Class (AP CSA, Unit 3). A lesson with no network: the stage
  * holds a Java editor (src/demos/java.ts), and src/java compiles and runs the
  * code in the browser. Plan: PLAN.md.
  */
@@ -29,7 +29,7 @@ const songEditor: JavaSpec = { kind: 'java', id: 'song', title: 'Write the Song 
 export const javaClassesLab: LabDef = {
   id: 'java-classes',
   version: 2,
-  title: 'Write Your First Class',
+  title: 'Writing a Java Class',
   tagline: 'See why programs need classes, watch objects get built one line at a time, then write your own Song and BankAccount classes.',
   // AP CSA Unit 3, Class Creation: topics 3.3, 3.4, 3.5, 3.8, and 3.9.
   unit: 3,

@@ -1,10 +1,10 @@
-# Who Gets the Packet? (`home-network`)
+# Home Network: Switching, DHCP, and NAT (`home-network`)
 
 Status: built. Code: `index.ts` (steps), `scenario.ts` (network and buttons), `solution.ts` (answer key), `lab.test.ts`; script in `SCRIPT.md`.
 
 Tagline: Set up a family's Wi-Fi router, connect their devices, and watch the router deliver every message to the right one.
 
-The first lab in the series. It assumes no networking knowledge at all, and it is the foundation the later labs build on, so it teaches the core vocabulary and the interface from the ground up. It stays shallow on purpose: one clear idea per step, in basic terms, with an everyday comparison where it helps. `build-network` (From Cable to Web Page) moves to second place and goes deeper: typing addresses by hand, routes between networks, troubleshooting.
+The first lab in the series. It assumes no networking knowledge at all, and it is the foundation the later labs build on, so it teaches the core vocabulary and the interface from the ground up. It stays shallow on purpose: one clear idea per step, in basic terms, with an everyday comparison where it helps. `build-network` (Build a Network: Addresses, Gateways, and Routes) moves to second place and goes deeper: typing addresses by hand, routes between networks, troubleshooting.
 
 CodeHS: `3.1 How Network Traffic Moves`. CED: prerequisite networking, plus Wi-Fi passwords and WPA2/WPA3 (3.2) and inbound traffic nobody asked for (3.1.B). Check the CED pages in `docs/unit3/COVERAGE.md` and list only LOs the lab really touches.
 

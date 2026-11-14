@@ -12,7 +12,7 @@ const RECOMMEND =
 
 const policy = (from: ZoneId, to: ZoneId, value: PolicyValue): Move => ({ tool: { type: 'set-zone-policy', device: 'fw', from, to, value } });
 
-/** Answer key for "Walls Inside the Network". Choice answers come from the lab itself. */
+/** Answer key for "Network Segmentation: Zones, VLANs, and Subnets". Choice answers come from the lab itself. */
 export const segmentationSolution: LabSolution = {
   ship: { moves: [{ inspect: 'fire' }, { inspect: 'sw' }, { press: 'ping-fire' }] },
   worm: { moves: [{ press: 'install' }, { inspect: 'fire' }] },

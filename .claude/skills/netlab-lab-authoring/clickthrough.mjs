@@ -169,7 +169,7 @@ async function openLog(i, step, m) {
   log(`  open log line: ${hit.msg.slice(0, 80)}`);
 }
 
-/** Log Detective's controls in the inspector: the IDS sensor's switches and tolerance, SIEM triage, the AI threshold. */
+/** Log Analysis and Intrusion Detection's controls in the inspector: the IDS sensor's switches and tolerance, SIEM triage, the AI threshold. */
 async function doDetection(i, a) {
   await device(a.device).locator('rect.device-card').first().click({ force: true });
   await tab('Inspect');

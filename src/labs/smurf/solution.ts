@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 import { CAMPUS_BCAST, PC1, WEB } from './scenario';
 
-/** Answer key for "Echo Storm". Choice answers come from the lab itself. */
+/** Answer key for "Smurf Attacks and Amplification". Choice answers come from the lab itself. */
 export const smurfSolution: LabSolution = {
   echo: { moves: [{ press: 'fan-ping' }, { inspect: 'web' }, { inspect: 'campus' }] },
   everyone: { moves: [{ tool: { type: 'echo', device: 'mallory', target: CAMPUS_BCAST } }] },

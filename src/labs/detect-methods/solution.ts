@@ -3,7 +3,7 @@ import { BENCH, DISPATCH, DISPATCH_BASE, LEAK, LOCKDOWN, OCT, PLANT, PLANT_CLEAN
 
 const D = BENCH;
 
-/** Answer key for "Pick Your Detector". Choice answers come from the lab itself. */
+/** Answer key for "Signature, Anomaly, and Hybrid Detection". Choice answers come from the lab itself. */
 export const detectMethodsSolution: LabSolution = {
   clients: { moves: [{ inspect: 'sc-net' }, { inspect: 'rb-net' }, { inspect: 'cd-net' }, { inspect: BENCH }] },
   signatures: { moves: [{ tool: { type: 'bench-run', device: D, client: STREAM } }] },

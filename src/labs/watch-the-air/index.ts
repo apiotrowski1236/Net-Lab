@@ -167,8 +167,8 @@ function currentReplay(sim: Sim): WidsReplay | undefined {
 export const watchTheAirLab: LabDef = {
   id: 'watch-the-air',
   version: 1,
-  title: 'Watch the Air',
-  tagline: "Keep watch over the shelter's Wi-Fi: catch a rogue access point, a lookalike network, and a jammer, then choose the alarms that will catch the next one.",
+  title: 'Wireless Intrusion Detection',
+  tagline: "Monitor the shelter's Wi-Fi: find a rogue access point, a lookalike network, and a jammer, then choose alerts that catch the next one.",
   unit: 3,
   codehs: ['3.18.5 Locating a Rogue AP with Signal Triangulation', '3.14 The Automated Detectors', '3.4.2 Wireless Attacks'],
   ced: ['3.5.E', '3.1.B', '3.5.D'],
