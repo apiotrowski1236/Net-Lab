@@ -259,7 +259,7 @@ export const deviceAnalysisLab: LabDef = {
   unit: 3,
   codehs: ['3.18 The Story in the Logs', '3.19 Securing Networks Quiz', '3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
   ced: ['3.4.B', '3.4.D', '3.5.A', '3.5.E', '3.1.C', '3.2.A'],
-  minutes: 55,
+  minutes: 60,
   objectives: [
     "Trace a connection through a host-based firewall's numbered rules, and explain why the first rule that matches decides.",
     'Find a password spray in auth.log, a port scan in ufw.log, and directory traversal in an access log, citing the rows and the attacker’s address.',
