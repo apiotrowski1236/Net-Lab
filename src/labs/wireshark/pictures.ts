@@ -1,6 +1,6 @@
 /**
  * Drawings of Wireshark, a terminal, and settings windows for the stage of
- * "Wireshark for Real", one per step. Each is one line of HTML, so it can sit
+ * "Capturing Real Traffic with Wireshark", one per step. Each is one line of HTML, so it can sit
  * inside a note demo's markdown (a line break would end the HTML block).
  *
  * Every address in a drawing is a documentation address (192.0.2.x,

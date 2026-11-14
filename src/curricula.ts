@@ -72,7 +72,7 @@ export const CURRICULA: Curriculum[] = [
     short: 'AP Cyber',
     heading: 'Unit 3: Securing Networks',
     intro:
-      'Hands-on labs where you watch packets move, then play attacker and defender on a simulated network. Only one lab touches a real network: in Wireshark for Real, you capture your own computer\'s traffic, with your teacher\'s permission. Everything you do is saved on this computer as you go, even offline.',
+      'Hands-on labs where you watch packets move, then play attacker and defender on a simulated network. Only one lab touches a real network: in the Wireshark lab, you capture your own computer\'s traffic, with your teacher\'s permission. Everything you do is saved on this computer as you go, even offline.',
     noun: 'lab',
     labs: [
       'home-network',

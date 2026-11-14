@@ -19,7 +19,7 @@ import {
 } from '../firewall/scenario';
 import type { MapZone } from '../types';
 
-// Adams County Hospital a week after Firewall Rulebook: Firewalls A and B are
+// Adams County Hospital a week after Firewall Rules and Placement: Firewalls A and B are
 // in place with the rulebooks students wrote. New here: a branch office whose
 // router has a firewall built in. The patient at home is gone (the branch's
 // front desk uses the web app instead), which keeps the map short.
@@ -37,7 +37,7 @@ export const ODD_PORT = 47001;
 export const BOOK_PATH = '/appointments?id=7';
 export const EXPLOIT_PATH = "/appointments?id=7' OR '1'='1";
 
-/** Firewall A's rulebook as Firewall Rulebook left it. */
+/** Firewall A's rulebook as Firewall Rules and Placement left it. */
 export const A_RULES: FwRuleInput[] = [OUT_ANY, PATIENTS_IN, CLINIC_SSH, DENY_IN_TCP];
 /** Firewall B's. */
 export const B_RULES: FwRuleInput[] = [STAFF_OUT];

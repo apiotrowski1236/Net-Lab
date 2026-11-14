@@ -3,7 +3,7 @@ import type { FwRuleInput } from '../../sim/firewall';
 import { payloadLen } from '../../sim/tcp';
 import { BREAKROOM_PORT, file, firstNo, IP, isEchoRequest, isFloodFrame, isPoison, isRst, isSynAck, KIOSKS, TELNET_PASSWORD, toC2 } from './scenario';
 
-/** Answer key for "The Story in the Capture". Choice answers come from the lab itself. */
+/** Answer key for "Finding Attacks in Packet Captures". Choice answers come from the lab itself. */
 
 const DENY_C2: FwRuleInput = { dir: 'out', proto: 'any', src: 'any', dst: IP.c2, dport: 'any', action: 'deny' };
 const kiosks: string[] = KIOSKS.map((k) => IP[k]);

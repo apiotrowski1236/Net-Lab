@@ -101,8 +101,8 @@ const replayCheckinAction: ActionDef = {
 export const captureAnalysisLab: LabDef = {
   id: 'capture-analysis',
   version: 1,
-  title: 'The Story in the Capture',
-  tagline: 'Open a day of packet captures from a bus depot, tell the broken from the malicious, and cite the packets that prove each attack.',
+  title: 'Finding Attacks in Packet Captures',
+  tagline: 'Open a day of packet captures from a bus depot, tell attacks from an outage and a false alarm, and cite the packets that prove each attack.',
   unit: 3,
   codehs: ['3.18 The Story in the Logs'],
   ced: ['3.5.E', '3.5.D', '3.1.C'],

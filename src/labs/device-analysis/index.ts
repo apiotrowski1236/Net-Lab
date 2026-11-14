@@ -261,7 +261,7 @@ export const deviceAnalysisLab: LabDef = {
   id: 'device-analysis',
   version: 1,
   title: 'Device Security Analysis',
-  tagline: "One web server, four kinds of evidence. Read its firewall rules and logs, find two attacks, change the rules, and stop the next attack while it happens.",
+  tagline: "Read a web server's firewall rules and logs, find two attacks, change the rules, and stop the next attack while it happens.",
   unit: 3,
   codehs: ['3.18 The Story in the Logs', '3.19 Securing Networks Quiz', '3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
   ced: ['3.4.B', '3.4.D', '3.5.A', '3.5.E', '3.1.C', '3.2.A'],

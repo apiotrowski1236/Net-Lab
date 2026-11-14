@@ -83,7 +83,7 @@ const ALL = ['signature', 'anomaly', 'hybrid'] as const;
 export const detectMethodsLab: LabDef = {
   id: 'detect-methods',
   version: 1,
-  title: 'Pick Your Detector',
+  title: 'Signature, Anomaly, and Hybrid Detection',
   tagline: 'Run three detection methods against three very different networks, count what each one catches and misses, and recommend one for each client within budget.',
   unit: 3,
   codehs: ['3.16 Choosing Between Detection Methods', '3.17 Evaluating Detection Methods'],
@@ -151,7 +151,7 @@ export const detectMethodsLab: LabDef = {
       id: 'signatures',
       title: 'Signatures on StreamCo',
       body: md`
-        Start with the method you used in Log Detective. **Signature-based detection** compares traffic with a database of known **indicators of compromise** (IoCs): details that known attacks leave behind, such as a file's **hash** (a fingerprint computed from every byte of the file), a program name, or a web address. A match raises an alert.
+        Start with the method you used in the log analysis lab. **Signature-based detection** compares traffic with a database of known **indicators of compromise** (IoCs): details that known attacks leave behind, such as a file's **hash** (a fingerprint computed from every byte of the file), a program name, or a web address. A match raises an alert.
 
         StreamCo's sensor sees about 900,000 connections a minute. The [[bench]] has StreamCo's recording from Nov 12, a day with three attacks in it.
 

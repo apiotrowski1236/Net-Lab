@@ -68,8 +68,8 @@ function anomalyAtMedium(sim: Sim): void {
 export const logsLab: LabDef = {
   id: 'logs',
   version: 2,
-  title: 'Log Detective',
-  tagline: 'Read a night of logs and tune the detectors until the real attacks stand out from the noise.',
+  title: 'Log Analysis and Intrusion Detection',
+  tagline: 'Read a night of logs, turn on IDS signatures and anomaly detection, and tune them so real attacks stand out from false alarms.',
   unit: 3,
   codehs: ['3.18 The Story in the Logs'],
   ced: ['3.5.A', '3.5.B', '3.5.D', '3.5.E'],
@@ -564,7 +564,7 @@ export const logsLab: LabDef = {
       body: md`
         Write a short report for your shift lead.
 
-        **Next lab:** choosing a method for a network. In Pick Your Detector you test signature, anomaly, and hybrid detection on three very different clients and recommend one for each.
+        **Next lab:** choosing a method for a network. You test signature, anomaly, and hybrid detection on three very different clients and recommend one for each.
       `,
       questions: [
         {

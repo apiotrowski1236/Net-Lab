@@ -174,7 +174,7 @@ const scanned = ({ sim, since }: CheckCtx) => nmaps(sim, 'laptop', since).some(w
 export const netToolsLab: LabDef = {
   id: 'net-tools',
   version: 5,
-  title: 'Clues from the Command Line',
+  title: 'Network Command-Line Tools',
   tagline:
     'Solve three help desk tickets at a public library with ping, traceroute, nslookup, and netstat. Then, with written permission, map the network with nmap and find services that should be turned off.',
   unit: 3,

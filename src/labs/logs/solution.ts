@@ -2,7 +2,7 @@ import type { LabSolution } from '../solution';
 import { INCIDENT } from '.';
 import { BROADCAST, C2, SCANNER } from './scenario';
 
-/** Answer key for "Log Detective". Choice answers come from the lab itself. */
+/** Answer key for "Log Analysis and Intrusion Detection". Choice answers come from the lab itself. */
 export const logsSolution: LabSolution = {
   shift: {
     moves: [

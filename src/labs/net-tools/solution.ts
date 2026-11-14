@@ -3,7 +3,7 @@ import type { LabSolution, Move } from '../solution';
 const at = (device: string, line: string): Move => ({ tool: { type: 'term', device, line } });
 const pc1 = (line: string) => at('pc1', line);
 
-/** Answer key for "Clues from the Command Line". Choice answers come from the lab itself. */
+/** Answer key for "Network Command-Line Tools". Choice answers come from the lab itself. */
 export const netToolsSolution: LabSolution = {
   tour: { moves: [{ inspect: 'router' }, { inspect: 'catalog' }] },
 

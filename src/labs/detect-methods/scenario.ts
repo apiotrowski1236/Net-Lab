@@ -3,7 +3,7 @@ import type { BenchClient, BenchConfig, BenchDay, BenchRecord, BenchSignature } 
 import type { Sim } from '../../sim/sim';
 import type { MapZone } from '../types';
 
-// Pick Your Detector: a managed security company (the student's employer)
+// Signature, Anomaly, and Hybrid Detection: a managed security company (the student's employer)
 // chooses detection methods for three clients. Each client's network is a
 // small island on the map; the company's detection bench replays a recorded
 // day of each one's traffic. Nothing travels between the islands: the bench

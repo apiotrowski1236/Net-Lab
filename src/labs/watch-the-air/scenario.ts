@@ -4,7 +4,7 @@ import type { WifiProfile } from '../../sim/wifi';
 import type { AirRecord, ApprovedAp } from '../../sim/wids';
 
 /**
- * The Ridgeview High gym shelter from Signals Past the Walls, two weeks
+ * The Ridgeview High gym shelter from Wireless Security, two weeks
  * later. The Wi-Fi is locked down (WPA3, a login per person checked by the
  * shelter's sign-in server, beacons off, power lowered). The technician now
  * keeps watch: the access point runs a small wireless watch (src/sim/wids.ts)

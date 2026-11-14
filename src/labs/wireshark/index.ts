@@ -27,7 +27,7 @@ import {
 import { ABOUT, DETAIL_MENU, HANDSHAKE, PIC, ROW_MENU, settings, SPLIT, SPLIT_NUM, terminal, UNSAVED, WELCOME, wsWindow } from './pictures';
 
 /**
- * Wireshark for Real (AP Cybersecurity, lab 3). A lesson with no network:
+ * Capturing Real Traffic with Wireshark (AP Cybersecurity, lab 3). A lesson with no network:
  * students capture on their own computer with the real Wireshark, then paste
  * what it shows. The stage shows drawings of what to look for. Plan: PLAN.md.
  * Answer checks: answers.ts.
@@ -74,7 +74,7 @@ const checkToo = (a: AnswerLookup, id: 'total' | 'mine', v: string): string | un
 export const wiresharkLab: LabDef = {
   id: 'wireshark',
   version: 1,
-  title: 'Wireshark for Real',
+  title: 'Capturing Real Traffic with Wireshark',
   tagline: "Capture your own computer's traffic on the school Wi-Fi with Wireshark, and copy real DNS, web, TCP, and TLS packets out of it.",
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves'],

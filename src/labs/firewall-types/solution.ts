@@ -6,7 +6,7 @@ import { ATTACKER, BRANCH_REPLIES, NO_REMOTE, REPLIES_IN } from './scenario';
 // (replies from port 443), and step 4 deletes it. Step 6 adds r6 (no
 // remote-control). The branch router starts with r1 and step 8 adds r2.
 
-/** Answer key for "Smarter Firewalls". Choice answers come from the lab itself. */
+/** Answer key for "Firewall Types: Stateless, Stateful, and Next-Gen". Choice answers come from the lab itself. */
 export const firewallTypesSolution: LabSolution = {
   tour: { moves: [{ inspect: 'fwA' }, { inspect: 'fwB' }, { inspect: 'branch' }] },
   stateless: {

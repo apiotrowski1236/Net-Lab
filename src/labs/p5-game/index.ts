@@ -5,7 +5,7 @@ import type { GoalDef, LabDef } from '../types';
 import * as code from './code';
 
 /**
- * Make a Game (Intro CS, p5.js). A lesson with no network: a JavaScript editor
+ * p5.js: A Keyboard Game (Intro CS, p5.js). A lesson with no network: a JavaScript editor
  * whose code runs as a p5.js sketch on a live canvas that takes the keys.
  * Checks play the game in hidden runs. Plan: PLAN.md.
  */
@@ -31,7 +31,7 @@ const editor = (id: string, files: JsFile[], checks: JsCheck[], more: Partial<Js
 export const p5GameLab: LabDef = {
   id: 'p5-game',
   version: 1,
-  title: 'Make a Game',
+  title: 'p5.js: A Keyboard Game',
   tagline: 'Build a catch-the-target game in p5.js, with the arrow keys, a score, and a way to win.',
   unit: 0,
   codehs: [],

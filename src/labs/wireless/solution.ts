@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 import { MAC, STRONG_PASS, WEAK_PASS } from './scenario';
 
-/** Answer key for "Signals Past the Walls". Choice answers come from the lab itself. */
+/** Answer key for "Wireless Security". Choice answers come from the lab itself. */
 export const wirelessSolution: LabSolution = {
   tour: { moves: [{ inspect: 'wap' }] },
 

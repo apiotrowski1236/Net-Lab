@@ -164,14 +164,14 @@ try {
   if (page.url().includes('/lab/')) throw new Error('Clicking Lab guide also opened the lab');
 
   step('lab step 1: inspect devices and answer');
-  await page.click('.lab-card h2 >> text=Traffic in the Wrong Hands');
+  await page.click('.lab-card h2 >> text=On-Path Attacks: Sniffing and ARP Poisoning');
   await page.waitForSelector('.lesson');
   await expectHash('#/cyber/lab/on-path', 'Lab address');
   if ((await page.locator('.topbar a.brand').getAttribute('href')) !== '#/cyber') throw new Error('The lab’s NetLab link should go to its course home');
   await page.goto(`${url}#/`);
   await expectHash('#/cyber', '#/ for an AP Cybersecurity student');
   // Anywhere on the card opens the lab, not just the title.
-  const box = await page.locator('.lab-card', { hasText: 'Traffic in the Wrong Hands' }).locator('p').first().boundingBox();
+  const box = await page.locator('.lab-card', { hasText: 'On-Path Attacks: Sniffing and ARP Poisoning' }).locator('p').first().boundingBox();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForSelector('.lesson');
   await page.getByRole('button', { name: '4×' }).click();

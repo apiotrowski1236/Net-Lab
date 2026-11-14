@@ -39,8 +39,8 @@ function ensureInTheMiddle(sim: Sim): void {
 export const onPathLab: LabDef = {
   id: 'on-path',
   version: 1,
-  title: 'Traffic in the Wrong Hands',
-  tagline: 'Sniff a password on café Wi-Fi, then become the man in the middle. Then stop yourself.',
+  title: 'On-Path Attacks: Sniffing and ARP Poisoning',
+  tagline: 'Sniff a password on café Wi-Fi, put yourself between two devices with ARP poisoning, and see what WPA2, HTTPS, and static ARP entries stop.',
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves', '3.2 Traffic in the Wrong Hands', '3.7 Locking Down the Airwaves'],
   ced: ['3.1.A', '3.1.B', '3.2.B', '3.5.E'],

@@ -5,7 +5,7 @@ import type { GoalDef, LabDef } from '../types';
 import * as code from './code';
 
 /**
- * Make It Move (Intro CS, p5.js). A lesson with no network: a JavaScript
+ * p5.js: Animation (Intro CS, p5.js). A lesson with no network: a JavaScript
  * editor whose code runs as a p5.js sketch on a live canvas. Checks play the
  * sketch in hidden runs with their own mouse. Plan: PLAN.md.
  */
@@ -31,7 +31,7 @@ const editor = (id: string, files: JsFile[], checks: JsCheck[], more: Partial<Js
 export const p5MoveLab: LabDef = {
   id: 'p5-move',
   version: 1,
-  title: 'Make It Move',
+  title: 'p5.js: Animation',
   tagline: 'Animate shapes with p5.js: follow the mouse, slide, wrap around, and bounce off the walls.',
   unit: 0,
   codehs: [],
@@ -49,7 +49,7 @@ export const p5MoveLab: LabDef = {
       id: 'follow',
       title: 'Follow the mouse',
       body: md`
-        This lab uses **p5.js**, the drawing library from Draw with Code. p5.js runs your \`setup\` function once, when the sketch starts. Then it runs a second function, \`draw\`, again and again, about 60 times a second. Each run of \`draw\` makes one **frame**, like one page of a flip book.
+        This lab uses **p5.js**, the drawing library from the shapes and color lab. p5.js runs your \`setup\` function once, when the sketch starts. Then it runs a second function, \`draw\`, again and again, about 60 times a second. Each run of \`draw\` makes one **frame**, like one page of a flip book.
 
         p5.js keeps two variables up to date for you. \`mouseX\` and \`mouseY\` hold where the mouse is on the canvas.
 

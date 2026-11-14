@@ -1,7 +1,7 @@
 import type { LabSolution } from '../solution';
 import { ADDR, NET, WEB_IP } from './scenario';
 
-/** Answer key for "From Cable to Web Page". Choice answers come from the lab itself. */
+/** Answer key for "Build a Network: Addresses, Gateways, and Routes". Choice answers come from the lab itself. */
 export const buildNetworkSolution: LabSolution = {
   parts: { moves: [{ inspect: 'alice' }, { inspect: 'office' }] },
   cables: {

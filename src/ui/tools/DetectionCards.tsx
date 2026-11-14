@@ -4,7 +4,7 @@ import { TOLERANCE_NAME } from '../idsText';
 import { triageText } from '../inspector/SiemConsole';
 import type { ToolCardProps } from './registry';
 
-// Log Detective (logs): the detection settings live in the inspector. These
+// Log Analysis and Intrusion Detection (logs): the detection settings live in the inspector. These
 // cards say where, and show what's set.
 
 /** The IDS sensor's detection controls. */

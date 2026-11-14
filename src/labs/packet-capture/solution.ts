@@ -15,7 +15,7 @@ const stop = { tool: { type: 'capture', device: 'laptop', on: false } } as const
 const pingRouter = { tool: { type: 'ping', device: 'laptop', ip: IP.router } } as const;
 const filter = (text: string) => ({ filter: 'laptop', text });
 
-/** Answer key for "What's in a Packet?". Choice answers come from the lab itself. */
+/** Answer key for "Packet Capture Basics". Choice answers come from the lab itself. */
 export const packetCaptureSolution: LabSolution = {
   tour: { moves: [{ inspect: 'laptop' }, { inspect: 'dns' }] },
 

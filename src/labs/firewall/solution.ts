@@ -5,7 +5,7 @@ import { ATTACKER, FILES, PATIENTS_IN, SERVER_NET, STAFF_NET, STAFF_OUT } from '
 // Step 4 adds r2 (patients in). Step 5's setup adds r3 (clinic SSH) and r4
 // (the deny) above it.
 
-/** Answer key for "Firewall Rulebook". Choice answers come from the lab itself. */
+/** Answer key for "Firewall Rules and Placement". Choice answers come from the lab itself. */
 export const firewallSolution: LabSolution = {
   hospital: { moves: [{ inspect: 'web' }, { inspect: 'files' }] },
   open: {
