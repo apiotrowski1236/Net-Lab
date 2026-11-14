@@ -169,7 +169,7 @@ export const captureAnalysisLab: LabDef = {
       id: 'normal',
       title: 'What normal looks like',
       body: md`
-        Before you hunt for anything strange, learn what an ordinary hour looks like. This is the depot's **baseline**: what normal looks like, so anything new stands out later.
+        Before you hunt for anything strange, learn what an ordinary hour looks like. That hour is the depot's **baseline**: a record of normal traffic, so anything new stands out later.
 
         Wireshark's **Statistics** menu sums up a whole file. Use the Statistics buttons in the Capture tab:
 
@@ -333,7 +333,7 @@ export const captureAnalysisLab: LabDef = {
             },
           ],
           explain:
-            'This is a **smurf attack**. The attacker sends pings to a network’s broadcast address with the victim’s address as the source. Every computer replies to the victim, so one packet becomes nine. The depot was the amplifier, and its slow lunch was a side effect. It worked because the depot router has **directed broadcast** on, a setting that lets pings from outside reach the broadcast address. Modern routers turn it off by default, and most computers now ignore broadcast pings, but this old router didn’t.',
+            'This is a **smurf attack**. The attacker sends pings to a network’s broadcast address with the victim’s address as the source. Every computer replies to the victim, so one packet becomes nine. The depot was the amplifier, and its slow lunch was a side effect. It worked because the depot router has **directed broadcast** on, a setting that lets pings from outside reach the broadcast address. Modern routers turn it off by default, and most computers now ignore broadcast pings, but the depot’s old router has it on and its computers still answer.',
         },
       ],
     },
