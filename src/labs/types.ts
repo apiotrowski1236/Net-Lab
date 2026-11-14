@@ -372,6 +372,12 @@ export interface LabDef {
   /** Annotate MAC addresses with the owning device's name in the inspector. */
   labelMacs?: boolean;
   /**
+   * false hides the inspector's addressing tables (Addresses or Ports, ARP
+   * table, MAC address table) for labs where devices stand for whole
+   * networks and those tables only distract (detect-methods). Default true.
+   */
+  deviceTables?: boolean;
+  /**
    * For labs where students build the network: show port names where cables
    * meet routers and switches, and each device's current IP addresses under it.
    */

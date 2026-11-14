@@ -33,16 +33,16 @@ export const STREAM_BASE = 'nov5';
 export const PLANT_CLEAN = 'sep14';
 export const PLANT_INFECTED = 'nov9';
 export const DISPATCH_BASE = 'nov4';
-/** County 911's day replayed with the ransomware's file renamed (step "Get past the signatures"). */
+/** County 911's day replayed with the ransomware repacked so its hash changes (step "Get past the signatures"). */
 export const RENAMED = 'nov12-renamed';
 
 // Signature database versions.
 export const SEP = 'sep';
 export const OCT = 'oct';
 
-/** The ransomware's file name, and the name the attacker gives it to dodge the signature. */
-export const LOCKDOWN_FILE = 'lockdown.exe';
-export const RENAMED_FILE = 'dispatch_patch.exe';
+/** The ransomware file's hash, and the new hash after the attacker repacks it to dodge the signature. */
+export const LOCKDOWN_FILE = 'hash 7f3ca91e';
+export const RENAMED_FILE = 'hash 2b80d4c7';
 
 export const NAMES: Record<string, string> = {
   bench: 'Detection bench',
@@ -214,7 +214,7 @@ const CD = {
 const CD_STREAMS = Object.values(CD);
 
 const lockdown = (file: string): BenchRecord[] => [
-  // The download: an ordinary-sized file from the internet. Only its name gives it away.
+  // The download: an ordinary-sized file from the internet. Only its hash gives it away.
   { at: 10 * 60 + 38, host: 'cd-console', peer: '91.215.85.12', where: 'internet', port: 443, mb: 3, file, attack: LOCKDOWN },
   // Four minutes later it starts encrypting the dispatch server's shared files.
   { at: 10 * 60 + 42, host: 'cd-console', peer: 'Dispatch server', where: 'inside', port: 445, mb: 1_800, attack: LOCKDOWN },
@@ -232,7 +232,7 @@ const cdDevs = deviations(
 );
 const cdPins = { [pinKey(CD.web, 10)]: -0.05 };
 const dispatchToday = day(TODAY, 'Nov 12', CD_STREAMS, cdDevs, cdPins, [...lockdown(LOCKDOWN_FILE), radioLeak]);
-const dispatchRenamed = day(RENAMED, 'Nov 12 (file renamed)', CD_STREAMS, cdDevs, cdPins, [...lockdown(RENAMED_FILE), radioLeak]);
+const dispatchRenamed = day(RENAMED, 'Nov 12 (file repacked)', CD_STREAMS, cdDevs, cdPins, [...lockdown(RENAMED_FILE), radioLeak]);
 const dispatchBase = evenDay(DISPATCH_BASE, 'Nov 4', CD_STREAMS, 0.2, 4);
 
 export const CLIENTS: BenchClient[] = [
@@ -342,7 +342,7 @@ export function buildDetect(): Sim {
     })
     .switch('sc-net', {
       label: NAMES['sc-net'],
-      sublabel: 'sensor on mirror port',
+      sublabel: 'sensor records traffic',
       x: 420,
       y: TOP,
       notes: [
@@ -362,7 +362,7 @@ export function buildDetect(): Sim {
     })
     .switch('rb-net', {
       label: NAMES['rb-net'],
-      sublabel: 'sensor on mirror port',
+      sublabel: 'sensor records traffic',
       x: 860,
       y: TOP,
       notes: [
@@ -375,7 +375,7 @@ export function buildDetect(): Sim {
     .host('rb-hmi', { label: NAMES['rb-hmi'], icon: 'desktop', x: 990, y: ROW, ip: '10.2.0.20/24', notes: ['Where operators watch and steer the machines. Sends shift reports to the plant office.'] })
     .switch('cd-net', {
       label: NAMES['cd-net'],
-      sublabel: 'sensor on mirror port',
+      sublabel: 'sensor records traffic',
       x: 1300,
       y: TOP,
       notes: [

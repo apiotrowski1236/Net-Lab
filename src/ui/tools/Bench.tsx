@@ -193,6 +193,7 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
                   <th>Settings</th>
                   <th>Caught</th>
                   <th>False alarms</th>
+                  <th>Alerts</th>
                   <th>Cost</th>
                 </tr>
               </thead>
@@ -210,6 +211,7 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
                       </td>
                       <td>{res ? `${res.caught.length} of ${all}` : '…'}</td>
                       <td>{res ? res.falseAlarms : '…'}</td>
+                      <td>{res ? res.alerts.length : '…'}</td>
                       <td>{dollars(c.cost[r.method])}</td>
                     </tr>
                   );
@@ -238,6 +240,7 @@ function AnalystQueue({ session, devId, client }: { session: ToolCardProps['sess
   const b = dev.bench!;
   const c = clientOf(b, client);
   const run = lastRun(b, (r) => r.client === client);
+  const replaying = b.runs.find((r) => r.client === client && !r.result);
   const name = (id: string) => b.config.names?.[id] ?? sim.devices[id]?.label ?? id;
   const pick = (a: BenchAlert, i: number) => {
     setOpen(open === i ? null : i);
@@ -252,7 +255,9 @@ function AnalystQueue({ session, devId, client }: { session: ToolCardProps['sess
         <strong>Analyst queue.</strong> The analyst checks alerts in order, {MINUTES_PER_ALERT} minutes each. After {FATIGUE_AFTER} false alarms in a row, they stop
         looking and close the rest unread.
       </p>
-      {!run || !r || !q ? (
+      {replaying ? (
+        <p class="small muted">Run {replaying.no} is replaying the day. Its alerts land here when it finishes.</p>
+      ) : !run || !r || !q ? (
         <p class="small muted">No finished run on {c.name} yet. Run the bench, and its alerts land here.</p>
       ) : (
         <>
@@ -311,8 +316,9 @@ export function BenchPlanCard({ session, spec }: ToolCardProps<'bench-plan'>) {
         <Icon name="flag" /> Detection plan
       </div>
       <p class="tool-desc">Choose one method for each client. The total has to fit the monthly budget of {dollars(b.config.budget)}.</p>
+      <div class="bench-plan-rows">
       {b.config.clients.map((c) => (
-        <div class="tool-row bench-plan-row" key={c.id}>
+        <div class="bench-plan-row" key={c.id}>
           <span>{c.name}</span>
           <Seg
             label={`Method for ${c.name}`}
@@ -322,6 +328,7 @@ export function BenchPlanCard({ session, spec }: ToolCardProps<'bench-plan'>) {
           />
         </div>
       ))}
+      </div>
       <p class={`small bench-plan-total ${over ? 'bad-ink' : ''}`}>
         Total: <strong>{dollars(total)}</strong> of {dollars(b.config.budget)} a month
         {over ? '. Over budget.' : done ? '. Fits the budget.' : '.'}

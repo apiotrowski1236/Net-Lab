@@ -37,10 +37,6 @@ const caught = (r: BenchRun, attack: string) => !!r.result?.caught.some((c) => c
 const missed = (r: BenchRun, attack: string) => !!r.result?.missed.includes(attack);
 const usesAnomaly = (r: BenchRun) => r.method !== 'signature';
 
-/** The newest run of the client that matches `pred`, started this step. */
-const latestSince = (sim: Sim, since: number, client: string, pred: (r: BenchRun) => boolean) =>
-  [...bench(sim).runs].reverse().find((r) => r.client === client && r.startedAt >= since && !!r.result && pred(r));
-
 // ---------------------------------------------------------------------------
 // Setups: fill in what a step needs if the student skipped ahead, and keep
 // the student's own choices otherwise
@@ -72,11 +68,11 @@ function fatigueRun(sim: Sim): void {
 
 const renameFile: ActionDef = {
   id: 'rename',
-  label: 'Load the day with the file renamed',
+  label: 'Load the day with LockDown repacked',
   run: (sim) => sim.benchSetDay(BENCH, DISPATCH, RENAMED),
   outcome: (sim) =>
     bench(sim).settings[DISPATCH].day === RENAMED
-      ? [{ tone: 'good', text: `The bench now replays Nov 12 with LockDown’s file renamed to ${RENAMED_FILE}.` }]
+      ? [{ tone: 'good', text: `The bench now replays Nov 12 with LockDown repacked. Its file’s hash is now ${RENAMED_FILE.replace('hash ', '')}.` }]
       : [{ tone: 'wait', text: 'Loading…' }],
 };
 
@@ -99,6 +95,7 @@ export const detectMethodsLab: LabDef = {
   ],
   build: buildDetect,
   map: { zones, addresses: false },
+  deviceTables: false,
   steps: [
     {
       id: 'clients',
@@ -106,7 +103,7 @@ export const detectMethodsLab: LabDef = {
       body: md`
         You work at **Harbor Light Security**, a **managed security company**: other organizations pay it to watch their networks for attacks. Three new clients each need a detection plan, and your boss has **$5,400 a month** to run detection for all three.
 
-        Each client's network is on the map. A sensor on each network's switch gets a copy of its traffic, the same mirror-port setup as in Log Detective, and records whole days of it.
+        Each client's network is on the map. A sensor plugged into each network's switch gets a copy of all its traffic and records whole days of it.
 
         - [[sc-net]]: StreamCo streams shows to about 2 million viewers.
         - [[rb-net]]: Riverbend Bottling runs the machines on a bottling line.
@@ -116,7 +113,6 @@ export const detectMethodsLab: LabDef = {
 
         Click each client's network on the map and read its notes. Then click [[bench]].
       `,
-      open: { inspect: 'sc-net' },
       focus: ['sc-net', 'rb-net', 'cd-net', BENCH],
       goals: [
         { id: 'stream', label: 'Read about [[sc-net]]', check: inspected('sc-net') },
@@ -153,7 +149,7 @@ export const detectMethodsLab: LabDef = {
       id: 'signatures',
       title: 'Signatures on StreamCo',
       body: md`
-        Start with the method you used in Log Detective. **Signature-based detection** compares traffic with a database of known **indicators of compromise** (IoCs): file names, program names, and other details that known attacks leave behind. A match raises an alert.
+        Start with the method you used in Log Detective. **Signature-based detection** compares traffic with a database of known **indicators of compromise** (IoCs): details that known attacks leave behind, such as a file's **hash** (a fingerprint computed from every byte of the file), a program name, or a web address. A match raises an alert.
 
         StreamCo's sensor sees about 900,000 connections a minute. The [[bench]] has StreamCo's recording from Nov 12, a day with three attacks in it.
 
@@ -187,7 +183,7 @@ export const detectMethodsLab: LabDef = {
             { id: 'off', text: 'The bench turns off alerts on very busy networks.', feedback: 'Every alert counts. It caught StuffBot within seconds.' },
           ],
           explain:
-            'A signature matches one specific detail of a known attack, so ordinary traffic almost never sets it off. That makes signature detection quiet and fast, even at high volume.',
+            'A signature matches one specific detail of a known attack, so ordinary traffic almost never sets it off. (A badly written signature can still raise false alarms.) That makes signature detection quiet and fast, even at high volume.',
         },
       ],
     },
@@ -220,7 +216,7 @@ export const detectMethodsLab: LabDef = {
           id: 'zero-day',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'With the October update, the bench still missed the unreleased shows being copied to a cloud drive. Why can’t any signature catch this one yet?',
+          prompt: 'With the October update, the bench still missed the unreleased shows being copied out of the content library. Why can’t any signature catch this one yet?',
           options: [
             { id: 'new', text: 'Nobody has seen this attack before, so no signature describes it.', correct: true },
             {
@@ -229,10 +225,10 @@ export const detectMethodsLab: LabDef = {
               feedback: 'A signature is written after someone finds and studies an attack. No database has one for an attack nobody has seen.',
             },
             { id: 'slow', text: 'Signature detection is too slow for StreamCo’s traffic.', feedback: 'It caught the other two attacks in 6 seconds. Speed isn’t the problem.' },
-            { id: 'port', text: 'The copying used port 443, which signatures can’t check.', feedback: 'StuffBot and VidJack used port 443 too, and both were caught.' },
+            { id: 'night', text: 'The bench turns signatures off at night to save money.', feedback: 'Signatures run all day. StuffBot came in the morning and was caught within seconds.' },
           ],
           explain:
-            'An attack nobody has seen yet is called a **zero-day**. Signature detection can’t catch one, because a signature only exists after an attack is found. Updates help with last month’s attacks, not today’s new ones.',
+            'A signature only exists after someone finds and studies an attack, so a brand-new attack has none yet. The best-known case is a **zero-day**: an attack on a software flaw that nobody knew about until attackers used it. Updates help with last month’s attacks, not today’s new ones.',
         },
       ],
     },
@@ -241,13 +237,14 @@ export const detectMethodsLab: LabDef = {
       id: 'baseline',
       title: 'Learn normal at the plant',
       body: md`
-        **Anomaly-based detection** works the other way around. First it records a **baseline**: how much of each kind of traffic is normal, measured on a day when nothing was wrong. Then it alerts on traffic outside a **tolerance range** around normal, such as ±25%, and on any kind of traffic the baseline never saw.
+        **Anomaly-based detection** works the other way around. First it records a **baseline**: how much of each kind of traffic is normal, measured on a day when nothing was wrong.
+
+        Then it alerts on two things: any kind of traffic the baseline never saw, and traffic outside a **tolerance range** around normal. A tolerance of ±25% means up to 25% more or less than normal is fine.
 
         Riverbend's machines send the same messages all day. The [[bench]] has two older recordings of the plant, from Sep 14 and Nov 9.
 
         1. Under **Record a baseline from**, press **Sep 14**.
-        2. Leave the tolerance at ±25%.
-        3. Press **Run anomaly on Nov 12**.
+        2. Press **Run anomaly on Nov 12**. (The tolerance is set to ±25%.)
       `,
       setup: (sim) => anomalyOn(sim, PLANT),
       open: 'tools',
@@ -275,7 +272,7 @@ export const detectMethodsLab: LabDef = {
           prompt: 'No signature describes this attack, but anomaly detection caught the filler controller calling an outside server. What made it stand out?',
           options: [
             { id: 'new', text: 'On Sep 14 the controller never talked to the internet, so this traffic was new.', correct: true },
-            { id: 'big', text: 'It sent far more data than the controller usually sends.', feedback: 'It sent only 0.4 MB an hour. It stood out because it was new, not because it was big.' },
+            { id: 'big', text: 'It sent far more data than the controller usually sends.', feedback: 'Read the alert in the run: it says “new kind of traffic.” It stood out because it was new, not because it was big.' },
             { id: 'port', text: 'Port 4444 is on a list of ports that attackers use.', feedback: 'A list of known bad details is a signature. Anomaly detection has no list, only the baseline.' },
             { id: 'name', text: 'The outside server’s address matched a known attacker.', feedback: 'Matching a known address is how a signature works. Anomaly detection compared the day with the baseline.' },
           ],
@@ -287,13 +284,12 @@ export const detectMethodsLab: LabDef = {
 
     {
       id: 'bad-baseline',
-      title: 'A bad baseline',
+      title: 'A newer baseline',
       body: md`
-        A coworker says the **Nov 9** recording is newer, so it should make a better baseline. Try it.
+        A coworker says the **Nov 9** recording is newer, so it should make a better baseline. Before you decide, here's what Riverbend's IT team found later: the [[rb-filler]] was infected on **Nov 3**.
 
-        1. Record a baseline from **Nov 9** and run anomaly detection.
-        2. Read the result.
-        3. Record from **Sep 14** again and run once more.
+        1. Record a baseline from **Nov 9**.
+        2. Run anomaly detection and compare the result with your Sep 14 run.
       `,
       setup: (sim) => anomalyOn(sim, PLANT),
       open: 'tools',
@@ -305,15 +301,6 @@ export const detectMethodsLab: LabDef = {
           label: 'Run with the Nov 9 baseline',
           hint: 'Press Nov 9 under Record a baseline from, then run.',
           check: ({ sim, since }) => ranSince(sim, since, PLANT, (r) => r.baselineDay === PLANT_INFECTED),
-        },
-        {
-          id: 'sep14',
-          label: 'Run again with the Sep 14 baseline',
-          hint: 'Press Sep 14 under Record a baseline from, then run.',
-          check: ({ sim, since }) => {
-            const bad = latestSince(sim, since, PLANT, (r) => r.baselineDay === PLANT_INFECTED);
-            return !!bad && ranSince(sim, since, PLANT, (r) => r.no > bad.no && r.baselineDay === PLANT_CLEAN && caught(r, BEACON));
-          },
         },
       ],
       questions: [
@@ -344,7 +331,7 @@ export const detectMethodsLab: LabDef = {
         2. Record a baseline from **Nov 5**, a clean day.
         3. Set the tolerance to ±25% and run it.
 
-        Compare the new row in the table with your signature runs.
+        Compare the new row in the table with your signature runs. Anomaly detection has to add up each kind of traffic over time and compare the totals with the baseline before a change counts as unusual. Signatures check each connection as it passes.
       `,
       open: 'tools',
       focus: [BENCH, 'sc-net'],
@@ -352,7 +339,7 @@ export const detectMethodsLab: LabDef = {
       goals: [
         {
           id: 'run',
-          label: 'Run anomaly detection on StreamCo at ±50% or tighter',
+          label: 'Run anomaly detection on StreamCo with the Nov 5 baseline',
           hint: 'Choose Anomaly, record the Nov 5 baseline, pick ±25%, and run.',
           check: ({ sim, since }) => ranSince(sim, since, STREAM, (r) => r.method === 'anomaly' && r.tolerance <= 50 && r.baselineDay === STREAM_BASE),
         },
@@ -366,15 +353,15 @@ export const detectMethodsLab: LabDef = {
           options: [
             {
               id: 'work',
-              text: 'It has to add up huge amounts of traffic and compare them with the baseline.',
+              text: 'It has to add up traffic over time and compare the totals with the baseline.',
               correct: true,
             },
             { id: 'analyst', text: 'It waits for an analyst to approve each alert first.', feedback: 'Neither method waits for a person. The time is the computer’s work.' },
-            { id: 'hidden', text: 'The copied shows were hidden better than StuffBot was.', feedback: 'The copy was 3 GB, which stands out in the totals. The delay comes from the amount of traffic to measure.' },
+            { id: 'hidden', text: 'The copied shows were hidden better than StuffBot was.', feedback: 'The copy was large, so it showed up in the totals. The delay comes from adding up traffic before the totals look unusual.' },
             { id: 'old', text: 'Anomaly detection runs on older computers than signatures.', feedback: 'It runs on more expensive computers, not older ones, and it is still slower.' },
           ],
           explain:
-            'Checking a detail against a list is quick. Measuring every kind of traffic against a baseline takes much more work, and on a network as busy as StreamCo’s that work adds minutes. Signatures are faster, especially at high volume.',
+            'A signature check happens as each connection passes. Anomaly detection has to collect traffic for a while before a total looks unusual, and on a network as busy as StreamCo’s that adds minutes. Notice what it missed, too: StreamCo’s sign-in traffic swings so much that StuffBot’s extra logins stayed inside ±25%.',
         },
         {
           id: 'cost',
@@ -382,12 +369,12 @@ export const detectMethodsLab: LabDef = {
           afterGoals: true,
           prompt: 'Anomaly detection costs StreamCo $9,000 a month. Signatures cost $2,000. Why the difference?',
           options: [
-            { id: 'hardware', text: 'Measuring that much traffic against a baseline needs more powerful, costlier hardware.', correct: true },
+            { id: 'hardware', text: 'Measuring that much traffic against a baseline needs more powerful, costlier computers.', correct: true },
             { id: 'newer', text: 'Anomaly detection is newer, so companies charge more for it.', feedback: 'Both methods are decades old. The cost comes from the computing power it needs.' },
             { id: 'alerts', text: 'The client pays a fee for every false alarm.', feedback: 'False alarms cost analyst time, not a fee. The monthly price is for the hardware.' },
             { id: 'daily', text: 'The baseline has to be recorded again every single day.', feedback: 'A baseline is recorded once and reused. The price is the hardware that compares traffic with it.' },
           ],
-          explain: 'Anomaly detection needs more expensive hardware to keep up with a busy network. Running both methods (hybrid) costs the most of all.',
+          explain: 'On this bench, anomaly detection needs more powerful computers to keep up with StreamCo’s traffic, so it costs more. The busier the network, the bigger the gap.',
         },
       ],
     },
@@ -396,7 +383,7 @@ export const detectMethodsLab: LabDef = {
       id: 'fatigue',
       title: 'Alert fatigue',
       body: md`
-        Every alert goes to an analyst, who checks it before anyone acts. Checking one takes about 5 minutes. Most of StreamCo's alerts were **false positives**: normal swings in traffic that crossed the tolerance line.
+        Every alert goes to an analyst, who checks it before anyone acts. Checking one takes about 5 minutes. Most of StreamCo's alerts were **false positives**: normal swings in traffic that crossed the tolerance line. A **false negative** is the opposite: a real attack that raised no alert.
 
         The **Analyst queue** in the bench card shows what happened to your newest StreamCo run. After five false alarms in a row, the analyst started closing alerts without reading them. This is **alert fatigue**.
 
@@ -467,11 +454,12 @@ export const detectMethodsLab: LabDef = {
       id: 'hybrid',
       title: 'Both at once for 911',
       body: md`
-        County 911 can't afford to miss anything. Ransomware that locks the dispatch server would delay police, fire, and ambulances. **Hybrid detection** runs signature and anomaly detection together.
+        County 911 can't afford to miss anything. **Ransomware**, malware that locks a computer's files until someone pays, could lock the dispatch server and delay police, fire, and ambulances. **Hybrid detection** runs signature and anomaly detection together.
 
-        1. Record a baseline from **Nov 4**.
-        2. Run **Signature**, then **Anomaly**, then **Hybrid** on Nov 12.
-        3. Compare the three rows in the table.
+        1. Run **Signature** on Nov 12.
+        2. Choose **Anomaly**, record a baseline from **Nov 4**, and run.
+        3. Choose **Hybrid** and run.
+        4. Compare the three rows in the table.
       `,
       open: 'tools',
       focus: [BENCH, 'cd-net'],
@@ -480,7 +468,7 @@ export const detectMethodsLab: LabDef = {
         {
           id: 'baseline',
           label: 'Record County 911’s baseline from Nov 4',
-          hint: 'Choose Anomaly or Hybrid to see the baseline buttons.',
+          hint: 'Choose Anomaly to see the baseline buttons, then press Nov 4.',
           check: ({ sim }) => bench(sim).settings[DISPATCH].baseline?.day === DISPATCH_BASE,
         },
         ...ALL.map((m) => ({
@@ -504,7 +492,7 @@ export const detectMethodsLab: LabDef = {
             { id: 'quiet', text: 'The most per month, but the fewest alerts.', feedback: 'The cost is right. But hybrid raises every alert either method raises, so it has the most.' },
           ],
           explain:
-            'Hybrid combines the two: signatures catch known attacks in seconds, and anomaly detection catches new ones. It is the most expensive method and raises the most alerts, which suits a sensitive or critical network that can afford it.',
+            'Hybrid combines the two: signatures catch known attacks in seconds, and anomaly detection catches new ones. It raises every alert either method raises, so one attack can raise two alerts. It is the most expensive method and raises the most alerts, which suits a sensitive or critical network that can afford it.',
         },
       ],
     },
@@ -513,11 +501,13 @@ export const detectMethodsLab: LabDef = {
       id: 'bypass',
       title: 'Get past the signatures',
       body: md`
-        An attacker who knows about a signature can change the detail it looks for. Press **Load the day with the file renamed**: the same LockDown attack, but its file is now called ${RENAMED_FILE}.
+        An attacker who knows about a signature can change the detail it looks for. LockDown's signature matches its file's hash. Changing a few bytes and repacking the file gives it a new hash, even though the program does the same thing.
+
+        Press **Load the day with LockDown repacked**. Then:
 
         1. Run **Signature** on it.
         2. Run **Anomaly** or **Hybrid** on it.
-        3. Open the **Logs** tab and click the alert that caught LockDown.
+        3. Open the **Logs** tab, check **Alerts only**, and click the anomaly alert from the [[cd-console]] on port 445.
       `,
       setup: (sim) => baselineFrom(sim, DISPATCH, DISPATCH_BASE),
       actions: [renameFile],
@@ -530,20 +520,20 @@ export const detectMethodsLab: LabDef = {
       goals: [
         {
           id: 'renamed-sig',
-          label: 'Run signature detection on the renamed attack',
+          label: 'Run signature detection on the repacked attack',
           hint: 'Press the button in the lesson first, then choose Signature and run.',
           check: ({ sim, since }) => ranSince(sim, since, DISPATCH, (r) => r.day === RENAMED && r.method === 'signature'),
         },
         {
           id: 'renamed-anom',
-          label: 'Catch the renamed attack with anomaly or hybrid detection',
+          label: 'Catch the repacked attack with anomaly or hybrid detection',
           hint: 'Choose Anomaly or Hybrid and run.',
           check: ({ sim, since }) => ranSince(sim, since, DISPATCH, (r) => r.day === RENAMED && usesAnomaly(r) && caught(r, LOCKDOWN)),
         },
         {
           id: 'open',
           label: 'Open the alert that caught LockDown in the Logs tab',
-          hint: 'Check Alerts only, then click the ALERT line that names the Dispatcher console and port 445.',
+          hint: 'Check Alerts only, then click the newest anomaly alert that names the Dispatcher console and port 445.',
           check: openedLog((e) => e.device === BENCH && e.fields?.attack === LOCKDOWN && e.fields?.day === RENAMED),
         },
       ],
@@ -554,9 +544,9 @@ export const detectMethodsLab: LabDef = {
           afterGoals: true,
           prompt: 'Which method takes less work for an attacker to get past, and why?',
           options: [
-            { id: 'sig', text: 'Signature: changing one detail, like a file name, is enough.', correct: true },
-            { id: 'anom-rename', text: 'Anomaly: renaming a file makes the traffic look normal.', feedback: 'A new name didn’t change what the traffic did, so anomaly detection still caught it.' },
-            { id: 'sig-fast', text: 'Signature: it runs too fast to look at every file.', feedback: 'It looks at every file. It missed this one because no signature matches the new name.' },
+            { id: 'sig', text: 'Signature: changing one detail, like a few bytes of the file, is enough.', correct: true },
+            { id: 'anom-rename', text: 'Anomaly: repacking a file makes the traffic look normal.', feedback: 'A new hash didn’t change what the program did, so anomaly detection still caught it.' },
+            { id: 'sig-fast', text: 'Signature: it runs too fast to look at every file.', feedback: 'It looks at every file. It missed this one because no signature matches the new hash.' },
             { id: 'anom-tol', text: 'Anomaly: its tolerance lets most attacks through.', feedback: 'Tolerance lets normal swings through. The encrypting was traffic the baseline had never seen.' },
           ],
           explain:
@@ -565,9 +555,10 @@ export const detectMethodsLab: LabDef = {
         {
           id: 'when',
           kind: 'text',
-          prompt: 'In the alert you opened, at what time on Nov 12 did anomaly detection catch LockDown? (hh:mm)',
+          prompt: 'In the alert you opened, at what time on Nov 12 did anomaly detection catch LockDown? The time is in the message, after the word anomaly. (The Time column shows when the bench wrote the line, not the time on Nov 12.) Answer as hh:mm.',
+          afterGoals: true,
           expect: /^\D*10\s*[:.h ]?\s*42\b/i,
-          expectHint: 'Open the ALERT line for the Dispatcher console in the Logs tab. The time comes right after the word anomaly.',
+          expectHint: 'Open the anomaly alert for the Dispatcher console in the Logs tab. The time comes right after the word anomaly.',
           lines: 1,
         },
       ],
@@ -600,19 +591,19 @@ export const detectMethodsLab: LabDef = {
         },
         {
           id: 'stream',
-          label: 'StreamCo gets a method that keeps up with its traffic without flooding the analyst',
+          label: 'StreamCo’s method fits its traffic volume',
           hint: 'Compare StreamCo’s runs: false alarms, time to detect, and cost.',
           check: ({ sim }) => bench(sim).plan[STREAM] === 'signature',
         },
         {
           id: 'plant',
-          label: 'Riverbend gets a method that catches attacks nobody has a signature for',
+          label: 'Riverbend’s method fits how steady its traffic is',
           hint: 'Which method caught the filler controller calling out?',
           check: ({ sim }) => bench(sim).plan[PLANT] === 'anomaly' || bench(sim).plan[PLANT] === 'hybrid',
         },
         {
           id: 'dispatch',
-          label: 'County 911 gets a method that caught both its attacks fastest',
+          label: 'County 911’s method fits how critical it is',
           hint: 'Which method caught LockDown in a second and the radio leak too?',
           check: ({ sim }) => bench(sim).plan[DISPATCH] === 'hybrid',
         },
@@ -622,9 +613,9 @@ export const detectMethodsLab: LabDef = {
           id: 'writeup',
           kind: 'text',
           prompt:
-            'Write your recommendation. For each client, name the method you chose and give one reason, with a number from the bench: attacks caught or missed, false alarms, time to detect, or cost. Then name one risk your plan still leaves.',
-          minWords: 60,
-          lines: 8,
+            'Write your recommendation. For each client, name the method you chose and give one reason, with a number from the bench: attacks caught or missed, false alarms, time to detect, or cost.',
+          minWords: 45,
+          lines: 6,
         },
       ],
     },

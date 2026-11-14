@@ -17,8 +17,6 @@ export const detectMethodsSolution: LabSolution = {
     moves: [
       { tool: { type: 'bench-baseline', device: D, client: PLANT, day: PLANT_INFECTED } },
       { tool: { type: 'bench-run', device: D, client: PLANT } },
-      { tool: { type: 'bench-baseline', device: D, client: PLANT, day: PLANT_CLEAN } },
-      { tool: { type: 'bench-run', device: D, client: PLANT } },
     ],
   },
   'anomaly-stream': {
@@ -67,7 +65,7 @@ export const detectMethodsSolution: LabSolution = {
     ],
     text: {
       writeup:
-        'StreamCo should use signature detection. On its busy network signatures caught the two known attacks in 6 seconds with 0 false alarms for $2,000 a month, while anomaly raised 40 false alarms and took almost 8 minutes. Riverbend should use anomaly detection with the clean Sep 14 baseline, because its traffic is steady and it caught the new attack in 21 seconds with 0 false alarms for $800. County 911 should use hybrid: it caught both attacks, LockDown in 1 second, for $2,400. The total is $5,200. The risk is that StreamCo has no anomaly detection, so a new attack like the copied shows would be missed.',
+        'StreamCo should use signature detection. On its busy network signatures caught the two known attacks in 6 seconds with 0 false alarms for $2,000 a month, while anomaly raised 40 false alarms and took almost 8 minutes. Riverbend should use anomaly detection with the clean Sep 14 baseline, because its traffic is steady and it caught the new attack in 21 seconds with 0 false alarms for $800. County 911 should use hybrid: it caught both attacks, LockDown in 1 second, for $2,400.',
     },
   },
 };

@@ -6647,8 +6647,18 @@ button.pl-tile:active {
   padding: 0 8px 6px 58px;
   overflow-wrap: anywhere;
 }
+.tool-card.bench-plan {
+  grid-column: 1 / -1;
+}
+.bench-plan-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px 16px;
+}
 .bench-plan-row {
-  flex-wrap: wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .bench-plan-row .seg button {
   padding: 4px 7px;

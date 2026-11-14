@@ -339,7 +339,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
         at: bad ? bad.at : h * 60 + 30,
         host: rs[0].host,
         by: 'anomaly',
-        why: `${name(rs[0].host)} to ${rs[0].peer}, port ${rs[0].port}: ${amount(total)} in the hour starting ${clock(h * 60)}, usual ${amount(usual)} (${signedPct(dev)}, outside ±${input.tolerance}%)`,
+        why: `${name(rs[0].host)} to ${rs[0].peer}, port ${rs[0].port}: on pace for ${amount(total)} in the hour starting ${clock(h * 60)}, usual ${amount(usual)} (${signedPct(dev)}, outside ±${input.tolerance}%)`,
         attack: bad?.attack,
       });
     }
