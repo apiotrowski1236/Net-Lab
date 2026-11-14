@@ -180,7 +180,7 @@ export const detectMethodsLab: LabDef = {
               text: 'StreamCo’s traffic happened to stay normal all day on Nov 12.',
               feedback: 'Nov 12 had big swings in traffic. Signature detection doesn’t care how much traffic there is, only whether a detail matches.',
             },
-            { id: 'off', text: 'The bench turns off alerts on very busy networks.', feedback: 'Every alert counts. It caught StuffBot within seconds.' },
+            { id: 'off', text: 'The bench turns off alerts on very busy networks.', feedback: 'Alerts stay on however busy the network is. It caught StuffBot within seconds.' },
           ],
           explain:
             'A signature matches one specific detail of a known attack, so ordinary traffic almost never sets it off. (A badly written signature can still raise false alarms.) That makes signature detection quiet and fast, even at high volume.',
@@ -547,7 +547,7 @@ export const detectMethodsLab: LabDef = {
             { id: 'sig', text: 'Signature: changing one detail, like a few bytes of the file, is enough.', correct: true },
             { id: 'anom-rename', text: 'Anomaly: repacking a file makes the traffic look normal.', feedback: 'A new hash didn’t change what the program did, so anomaly detection still caught it.' },
             { id: 'sig-fast', text: 'Signature: it runs too fast to look at every file.', feedback: 'It looks at every file. It missed this one because no signature matches the new hash.' },
-            { id: 'anom-tol', text: 'Anomaly: its tolerance lets most attacks through.', feedback: 'Tolerance lets normal swings through. The encrypting was traffic the baseline had never seen.' },
+            { id: 'anom-tol', text: 'Anomaly: its tolerance lets most attacks through.', feedback: 'Tolerance lets normal swings through. LockDown’s traffic to the dispatch server was a kind the baseline had never seen.' },
           ],
           explain:
             'Signatures take less work to get past: an attacker changes the detail the signature looks for, and the attack becomes a false negative. Anomaly detection watches what the traffic does, which is harder to disguise.',
