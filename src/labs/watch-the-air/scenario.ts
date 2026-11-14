@@ -67,6 +67,14 @@ export const SPOTS = [
   { label: 'the east door', x: 640, y: 260 },
 ];
 
+/** Places in the gym the triangulation card can name. */
+export const PLACES = [
+  { label: 'behind the stacked bleachers', x: TWIN_POS.x, y: TWIN_POS.y },
+  { label: 'by the east door', x: 640, y: 260 },
+  { label: 'at center court', x: 330, y: 360 },
+  { label: 'by the north wall', x: 100, y: 200 },
+];
+
 /** The wiring closet port the rogue box is plugged into. */
 export const ROGUE_PORT = 'p7';
 
@@ -184,6 +192,16 @@ export function buildWatch(): Sim {
   for (const [mac, port] of Object.entries(sim.dev('lansw').macTable)) if (port === ROGUE_PORT) delete sim.dev('lansw').macTable[mac];
   // Staff and families are already connected when the lab opens.
   sim.recomputeWifi();
+  // Wi-Fi traffic isn't modeled on the wire, so give the switch what two weeks of it would leave:
+  // each access point's devices learned on its port, and frame counts on the busy ports.
+  const sw = sim.dev('lansw');
+  const apPort: Record<string, string> = { wap: 'p1', wap2: 'p2' };
+  for (const [ap, port] of Object.entries(apPort)) sw.macTable[sim.dev(ap).wifi!.bssid] = port;
+  for (const d of Object.values(sim.devices)) {
+    const port = apPort[d.wifiClient?.joinedAp ?? ''];
+    if (port) sw.macTable[d.ifaces[0].mac] = port;
+  }
+  for (const [port, n] of Object.entries({ p1: 48213, p2: 9377, p8: 61052 })) sw.switchSec!.ports[port] = { ...sw.switchSec!.ports[port], framesIn: n };
   sim.configureWids('wap', { approved: APPROVED, record: RECORD, usualCrowd: USUAL_CROWD });
   sim.events = [];
   return sim;
@@ -218,6 +236,8 @@ export function seedRogue(sim: Sim): void {
     w.heard[BSSID.rogue] = { t: lastNight('23:43'), ssid: ROGUE_SSID };
     // The switch learned the box's address, so its MAC table agrees with the log.
     sim.dev('lansw').macTable[BSSID.rogue] = ROGUE_PORT;
+    const p7 = sim.dev('lansw').switchSec!.ports;
+    p7[ROGUE_PORT] = { ...p7[ROGUE_PORT], framesIn: (p7[ROGUE_PORT]?.framesIn ?? 0) + 2318 };
   }
   // Its radio is on until the port is shut and a volunteer takes it down (removeRogue).
   if (sim.dev('rogue').wifi!.off && !sim.dev('lansw').switchSec?.ports[ROGUE_PORT]?.shutdown) sim.setWifiOff('rogue', false);

@@ -17,6 +17,7 @@ import {
   MOVIE_CROWD,
   onReal,
   removeRogue,
+  PLACES,
   ROGUE_PORT,
   ROGUE_SSID,
   seedRogue,
@@ -182,16 +183,13 @@ export const watchTheAirLab: LabDef = {
       body: md`
         The emergency shelter in the Ridgeview High gym has been open for two weeks. Its Wi-Fi is locked down: **WPA3** encryption scrambles everything sent over the air, each person signs in with their own login, and the signal is turned down so it doesn't reach far past the walls.
 
-        Your job is different now. You **keep watch**. Tonight, people report strange things on the Wi-Fi. You will check each report, collect evidence, and then choose alarms that catch the next problem for you.
-
-        The map shows a few of the gym's phones and laptops, not all of them.
+        Now you **keep watch**. Tonight, people report strange things on the Wi-Fi. You will check each report, collect evidence, and choose alarms that catch the next problem for you. (The map shows a few of the gym's phones and laptops, not all of them.)
 
         Start with what belongs here. Click [[wap]] and find **Approved access points**. This list is an **inventory**: every access point the shelter put up, with its name, its radio address (the **BSSID**), its channel, and where it hangs.
 
         > Everything in this lab happens inside a simulation. Setting up a fake access point or a jammer outside a lab like this one is illegal. The radio model is simple: the signal fades with distance, and walls don't block it.
       `,
       focus: ['wap', 'wap2'],
-      open: { inspect: 'wap' },
       goals: [{ id: 'look', label: 'Open [[wap]] and read its approved access points', check: inspected('wap') }],
       questions: [
         {
@@ -276,11 +274,11 @@ export const watchTheAirLab: LabDef = {
         A volunteer unplugged the box and locked it in the office. A few minutes later, a new network appears: **${LOOKALIKE}**. Look closely. The real one is **${SSID}**, with a dash. This one has an underscore and is open: no encryption and no sign-in. A network built to pass for yours is an **evil twin**.
 
         1. Scan from the [[desk]] again and mark the new network.
-        2. Press **The radio copies the name and the security**. Now the copy has the exact name, WPA3, and its own sign-in server. Scan again, and watch which devices move.
+        2. Press **The radio copies the name and the security**. Now the copy has the exact name, WPA3, and its own sign-in server. It also has a bigger antenna, so it's louder than the real network in parts of the gym. Scan again, and watch which devices move.
 
-        A phone hops to the louder of two radios with the same name and security. That's how it roams around a big building. What it can still check is the sign-in server, **${SERVER}**. The server proves who it is with a **certificate**, a digital ID card only the real server has.
+        A phone hops to the louder of two radios with the same name and security. That's how it roams around a big building. What it can still check is the sign-in server, **${SERVER}**, which proves who it is with a **certificate**: a digital ID card only the real server has.
 
-        Every device set up at the desk, for staff and families alike, has a **saved profile** that names the sign-in server. It checks the certificate before it sends a login. Mr. Okafor arrived this afternoon. A volunteer typed his login in by hand and skipped the profile, so his phone never checks.
+        Every device set up at the desk has a **saved profile** that names the sign-in server, so it checks the certificate before it sends a login. Mr. Okafor arrived this afternoon. A volunteer typed his login in by hand and skipped the profile, so his phone never checks.
       `,
       setup: setupLookalike,
       focus: ['twin', 'visitor', 'phone1', 'desk'],
@@ -310,7 +308,7 @@ export const watchTheAirLab: LabDef = {
           options: [
             { id: 'profile', text: `Their profile checks for ${SERVER}'s certificate.`, correct: true },
             { id: 'name', text: 'They noticed the underscore in the network name.', feedback: 'By then the copy used the exact name. Anyone can copy a name.' },
-            { id: 'louder', text: 'The real network was louder for every staff device.', feedback: 'Not for all of them. A staff device can hear the copy louder and still refuse it.' },
+            { id: 'louder', text: 'The real network was louder for every device with a profile.', feedback: 'Not for all of them. A device can hear the copy louder and still refuse it.' },
             { id: 'mac', text: 'The copy blocked their MAC addresses from joining.', feedback: 'The copy wants everyone to join. The devices turned it down themselves.' },
           ],
           explain: "Anyone can copy a name, the security type, and a strong signal. Nobody else can show the sign-in server's certificate. That's why the desk saves a profile on every device it sets up, including a newcomer's.",
@@ -322,7 +320,7 @@ export const watchTheAirLab: LabDef = {
       id: 'find',
       title: 'Find the radio',
       body: md`
-        The scan tells you the copy is out there, but not where. **Triangulation** finds it. Each signal reading tells you how far away the radio is, but not in which direction. So each reading puts the radio somewhere on a circle around the spot you measured from. Circles from three spots cross at one point. (Finding a place from distances is also called trilateration. Most people say triangulation.)
+        The scan tells you the copy is out there, but not where. **Triangulation** finds it. Each signal reading tells you how far away the radio is, but not in which direction, so it puts the radio somewhere on a circle around the spot you measured from. Circles from three spots cross at one point. (The card knows how loud the copy is. A real tool has to guess, so its answer is rougher.)
 
         1. In **Signal triangulation**, choose the network whose BSSID is not on the approved list.
         2. Measure it from all three spots.
@@ -334,7 +332,7 @@ export const watchTheAirLab: LabDef = {
       setup: setupCopied,
       focus: ['twin', 'desk'],
       open: 'tools',
-      tools: [{ kind: 'triangulate', scanner: 'desk', spots: SPOTS }, SCAN],
+      tools: [{ kind: 'triangulate', scanner: 'desk', spots: SPOTS, places: PLACES }, SCAN],
       actions: [unplug, saveProfile],
       goals: [
         {
@@ -477,8 +475,9 @@ export const watchTheAirLab: LabDef = {
           catchUp(sim, TONIGHT.jam);
           setJam(sim, true);
         }
-        catchUp(sim, TONIGHT.movie);
+        // The van drives off and the jam ends. Movie night starts half an hour later.
         setJam(sim, false);
+        catchUp(sim, TONIGHT.movie);
       },
       focus: ['wap', 'desk'],
       open: 'tools',
@@ -495,7 +494,7 @@ export const watchTheAirLab: LabDef = {
           kind: 'choice',
           multi: true,
           afterGoals: true,
-          prompt: 'Pick the two signs that show this is a crowd and not a jammer.',
+          prompt: 'Which signs show this is a crowd and not a jammer?',
           options: [
             { id: 'noise', text: 'The noise is a little above quiet, far below 88.', correct: true },
             { id: 'connected', text: 'Devices stay connected, and more are online.', correct: true },
@@ -557,7 +556,7 @@ export const watchTheAirLab: LabDef = {
             { id: 'ignore', text: 'Keep the rule, but ignore every alert from the switch.', feedback: 'An alert nobody reads is the same as no alarm.' },
             { id: 'ban', text: 'Ban volunteers from bringing their own laptops.', feedback: 'That costs the shelter help and still leaves the alarm with nothing to tell apart.' },
           ],
-          explain: 'Every alarm has a cost: someone has to check it. A rule that raises a few false alarms is worth keeping when it also catches real attacks. The rogue box showed up the same way the laptop did, as a new device on a switch port. Turning the rule off to stop the noise also stops it catching the next box.',
+          explain: 'Every alarm has a cost: someone has to check it. A rule that raises a few false alarms is worth keeping when it also catches real attacks. The rogue box showed up the same way the laptop did, as a new device on a switch port. Turning the rule off to stop the false alarms also stops it catching the next box.',
         },
       ],
     },
@@ -585,7 +584,7 @@ export const watchTheAirLab: LabDef = {
             { id: 'sites', text: 'A log of every website each family visits on the Wi-Fi.', feedback: 'That watches people, not the air. It costs families their privacy and would catch none of tonight\'s attacks.' },
             { id: 'off', text: 'Turn the Wi-Fi off each night so there is nothing to watch.', feedback: 'That is not detection, and families need the Wi-Fi at night.' },
           ],
-          explain: 'A good set of detective controls covers each attack you saw: an inventory and sweeps for rogue boxes, name and address rules for evil twins, a tuned noise alarm for jammers, and a person who reads the alerts. Controls that watch what people do cost privacy without adding protection. Even the alarms keep a little about people: which device joined and when.',
+          explain: 'A good set of detective controls covers each attack you saw: an inventory and sweeps for rogue boxes (the alarms only hear radios near the access points, and a sweep walks the whole building), name and address rules for evil twins, a tuned noise alarm for jammers, and a person who reads the alerts. Controls that watch what people do cost privacy without adding protection. Even the alarms keep a little about people: which device joined and when.',
         },
         {
           id: 'impact',

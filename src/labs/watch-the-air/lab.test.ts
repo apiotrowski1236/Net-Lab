@@ -88,6 +88,9 @@ describe('watch-the-air lab', () => {
     expect(lines.every((e) => e.t < 0)).toBe(true);
     // The switch's own MAC table agrees with its log line.
     expect(s.sim.dev('lansw').macTable[BSSID.rogue]).toBe(ROGUE_PORT);
+    // The access point's port shows the devices behind it, so it doesn't look dead next to the box.
+    expect(Object.values(s.sim.dev('lansw').macTable).filter((p) => p === 'p1').length).toBeGreaterThan(3);
+    expect(s.sim.dev('lansw').switchSec!.ports.p1.framesIn).toBeGreaterThan(0);
   });
 
   it('a copy with the exact name and security pulls in the visitor but no staff device, even one that hears it louder', () => {
@@ -141,6 +144,9 @@ describe('watch-the-air lab', () => {
     expect(Math.abs(heard.t - min('18:05'))).toBeLessThan(5 * 60 * 1000);
     expect(Math.abs(jam.t - min('19:30'))).toBeLessThan(5 * 60 * 1000);
     expect(Math.abs(movie.t - min('20:00'))).toBeLessThan(5 * 60 * 1000);
+    // The jam ends right after it starts, so movie night is "half an hour later".
+    const quiet = wap.slice(wap.indexOf(jam)).find((e) => e.fields?.action === 'noise' && Number(e.fields?.noise) <= 10)!;
+    expect(quiet.t).toBeLessThan(min('19:35'));
   });
 
   it('movie night raises the noise a little and keeps everyone connected', () => {

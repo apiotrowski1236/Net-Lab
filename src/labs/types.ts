@@ -191,7 +191,13 @@ export type ToolSpec =
   /** Try to break into a network the attacker can hear (wireless lab). */
   | { kind: 'wifi-crack'; attacker: string }
   /** Locate a hidden access point by taking signal readings from set spots (wireless lab). */
-  | { kind: 'triangulate'; scanner: string; spots: { x: number; y: number; label: string }[] }
+  | {
+      kind: 'triangulate';
+      scanner: string;
+      spots: { x: number; y: number; label: string }[];
+      /** Named places in the room. The result names the one nearest the answer ("behind the bleachers") as well as the device. */
+      places?: { x: number; y: number; label: string }[];
+    }
   /** Port scanner on `device`: ping sweep plus port scan of an address or network the student types, then connect to what's open. */
   | { kind: 'port-scan'; device: string }
   /**
