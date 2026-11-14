@@ -1,9 +1,9 @@
 import type { Sim } from '../../sim/sim';
-import { crack, reach, triangulate } from '../../sim/wifi';
+import { crack, reach } from '../../sim/wifi';
 import { capturedSince, happened, inspected, isPlainLogin } from '../helpers';
 import { md } from '../md';
 import type { ActionDef, LabDef, MapZone } from '../types';
-import { BSSID, buildShelter, FAMILIES, GYM, LOT, MAC, SPOTS, SSID, STRONG_PASS, LOGIN_BODY } from './scenario';
+import { buildShelter, FAMILIES, GYM, LOT, MAC, STRONG_PASS, LOGIN_BODY } from './scenario';
 
 // --- Step actions ---
 
@@ -48,18 +48,18 @@ const scannedFrom = (device: string) => (sim: Sim, since: number) =>
 
 export const wirelessLab: LabDef = {
   id: 'wireless',
-  version: 1,
+  version: 2,
   title: 'Signals Past the Walls',
-  tagline: "Secure an emergency shelter's Wi-Fi against snoopers in the parking lot, evil twins, and jammers.",
+  tagline: "Secure an emergency shelter's Wi-Fi against snoopers in the parking lot and a rogue box on a wall jack.",
   unit: 3,
   codehs: ['3.7 Locking Down the Airwaves'],
-  ced: ['3.1.B', '3.1.C', '3.2.A', '3.2.B', '3.5.E'],
-  minutes: 50,
+  ced: ['3.1.B', '3.1.C', '3.2.A', '3.2.B'],
+  minutes: 45,
   objectives: [
     'Explain why a wireless signal reaches past the walls of a building.',
     'Compare open, WEP, WPA2, and WPA3, and the role of WPS and passphrase strength.',
     'Explain why MAC filtering is weaker than per-user authentication.',
-    'Find a rogue access point and an evil twin, and recognize jamming.',
+    'Find a rogue access point with a Wi-Fi scan and cut it off the network.',
     'Write a wireless security policy for a shelter network.',
   ],
   build: buildShelter,
@@ -74,8 +74,6 @@ export const wirelessLab: LabDef = {
       ];
       const wap = sim.dev('wap').wifi;
       if (wap && !wap.off) zones.push({ id: 'reach', shape: { kind: 'circle', cx: sim.dev('wap').x, cy: sim.dev('wap').y, r: reach(wap) }, label: 'Wi-Fi reach', tone: 'info', dashed: true });
-      const twin = sim.dev('twin');
-      if (twin.wifi && !twin.wifi.off) zones.push({ id: 'twin', shape: { kind: 'circle', cx: twin.x, cy: twin.y, r: reach(twin.wifi) }, label: 'Evil twin', tone: 'bad', dashed: true });
       return zones;
     },
   },
@@ -324,6 +322,8 @@ export const wirelessLab: LabDef = {
 
         1. Scan the air from the [[desk]]. You will see a network you never set up, marked as not yours.
         2. It is wired into the hallway jack. Shut that jack: in the Toolkit, use **Cables** to unplug the [[rogue]].
+
+        > **Next: keeping watch.** A rogue box can show up long after setup is done. Two weeks later, in the lab Watch the Air, you keep watch over this shelter. You catch a lookalike network and a jammer, then choose the alarms that catch the next one.
       `,
       setup: (sim) => sim.setWifiOff('rogue', false),
       focus: ['rogue', 'desk', 'lansw'],
@@ -353,88 +353,6 @@ export const wirelessLab: LabDef = {
             { id: 'name', text: 'It copies your network name.', feedback: "That is an evil twin. A rogue here uses its own name but wires into your LAN." },
           ],
           explain: 'Every control you built lives on your access point. A rogue box offers its own door into the same wired network and honors none of them. Finding and removing rogues is a core part of wireless defense.',
-        },
-      ],
-    },
-
-    {
-      id: 'twin',
-      title: 'The twin',
-      body: md`
-        Now [[mallory]] sets up her own radio in the lot and gives it the **same name** as yours, "${SSID}", with a stronger signal. A phone near the lot-side wall prefers the louder signal and joins **her** instead of you. That is an **evil twin**.
-
-        A scan shows two radios answering to the same name. The real one is yours; the other is the twin. To find where the twin sits, measure its signal from three spots and let the math cross the circles.
-
-        1. Scan from the [[desk]] and notice the duplicate name.
-        2. Use **Signal triangulation**: pick the twin (the one whose radio address, the BSSID, you don't recognize) and take a reading from each of the three spots.
-      `,
-      setup: (sim) => sim.setWifiOff('twin', false),
-      focus: ['twin', 'phonelot', 'desk'],
-      open: 'tools',
-      tools: [
-        { kind: 'wifi-scan', devices: ['desk', 'mallory'] },
-        { kind: 'triangulate', scanner: 'desk', spots: SPOTS },
-      ],
-      goals: [
-        { id: 'scanned', label: 'Scan from the [[desk]] and spot the duplicate name', check: ({ sim, since }) => scannedFrom('desk')(sim, since) },
-        {
-          id: 'located',
-          label: 'Triangulate the twin to the parking lot',
-          hint: 'In the triangulation card, pick the twin and measure from all three spots.',
-          check: ({ sim }) => {
-            const loc = triangulate(sim.wifiReadings.filter((r) => r.bssid === BSSID.twin));
-            return !!loc && loc.x >= LOT.x && loc.x <= LOT.x + LOT.w && loc.y >= LOT.y && loc.y <= LOT.y + LOT.h;
-          },
-        },
-      ],
-      questions: [
-        {
-          id: 'tell-apart',
-          kind: 'choice',
-          prompt: 'Two radios answer to the name "' + SSID + '". How do you tell the twin from your real access point?',
-          options: [
-            { id: 'bssid', text: 'They share a name but have different radio addresses (BSSIDs). The twin is the unfamiliar BSSID, and its signal is strongest out in the lot.', correct: true },
-            { id: 'name', text: 'The names are spelled differently.', feedback: 'An evil twin copies the name exactly. You cannot tell them apart by name.' },
-            { id: 'speed', text: 'The twin is always slower.', feedback: 'Speed is not a reliable tell, and the twin is often stronger.' },
-            { id: 'channel', text: 'The twin uses no channel.', feedback: 'Both use a channel. The giveaways are the BSSID and where the signal is strongest.' },
-          ],
-          explain: 'Each radio has its own BSSID even when the SSID matches. A second BSSID for your network name, strongest from a place you did not put an access point, is the evil twin.',
-        },
-      ],
-    },
-
-    {
-      id: 'jam',
-      title: 'Nobody can connect',
-      body: md`
-        Suddenly every device near the desk drops off, and nothing can reconnect. [[mallory]] has switched on a **jammer**: a radio that blasts noise across the channel so no real signal gets through.
-
-        Scan from the [[desk]]. Instead of networks, you see heavy noise on the channel.
-      `,
-      setup: (sim) => sim.setWifiJam('mallory', true, 6),
-      focus: ['mallory', 'wap', 'desk'],
-      open: 'tools',
-      tools: [{ kind: 'wifi-scan', devices: ['desk', 'mallory'] }],
-      goals: [
-        {
-          id: 'detected',
-          label: 'Scan from the [[desk]] and find the noise',
-          hint: 'Run the Wi-Fi scanner from the desk while the air is jammed.',
-          check: ({ sim, since }) => scannedFrom('desk')(sim, since) && sim.jam.on,
-        },
-      ],
-      questions: [
-        {
-          id: 'jam-q',
-          kind: 'choice',
-          prompt: 'No device can connect and the channel is full of noise. What is happening, and what do you do?',
-          options: [
-            { id: 'jam', text: "It's jamming: a radio is drowning out the channel. Locate the source (the same triangulation trick) and remove it, or get help.", correct: true },
-            { id: 'broken', text: 'The access point is broken, so replace it.', feedback: 'A broken AP goes quiet. This channel is full of noise, which points to a jammer.' },
-            { id: 'reboot', text: 'Reboot every phone.', feedback: 'The phones are fine. The air itself is being flooded with noise.' },
-            { id: 'password', text: 'Change the Wi-Fi password.', feedback: 'A new password cannot cut through radio noise.' },
-          ],
-          explain: 'A broken access point falls silent; a jammer fills the air with noise. When no one can connect and a scan shows noise across the band, suspect jamming, find the source, and remove it.',
         },
       ],
     },

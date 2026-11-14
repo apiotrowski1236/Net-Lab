@@ -1,5 +1,5 @@
 import type { LabSolution } from '../solution';
-import { BSSID, MAC, SPOTS, STRONG_PASS, WEAK_PASS } from './scenario';
+import { MAC, STRONG_PASS, WEAK_PASS } from './scenario';
 
 /** Answer key for "Signals Past the Walls". Choice answers come from the lab itself. */
 export const wirelessSolution: LabSolution = {
@@ -46,25 +46,12 @@ export const wirelessSolution: LabSolution = {
     ],
   },
 
-  twin: {
-    moves: [
-      { tool: { type: 'wifi-scan', device: 'desk' } },
-      { tool: { type: 'wifi-measure', device: 'desk', bssid: BSSID.twin, x: SPOTS[0].x, y: SPOTS[0].y } },
-      { tool: { type: 'wifi-measure', device: 'desk', bssid: BSSID.twin, x: SPOTS[1].x, y: SPOTS[1].y } },
-      { tool: { type: 'wifi-measure', device: 'desk', bssid: BSSID.twin, x: SPOTS[2].x, y: SPOTS[2].y } },
-    ],
-  },
-
-  jam: {
-    moves: [{ tool: { type: 'wifi-scan', device: 'desk' } }],
-  },
-
   policy: {},
 
   reflect: {
     text: {
       summary:
-        'The shelter Wi-Fi uses WPA3 encryption with WPS turned off, so no one in range can read the traffic or guess the key, which stops the parking-lot eavesdropping and cracking. Each family signs in with a per-user login (EAP), so a copied MAC address or the shared password is not enough to join, which stops Mallory getting back on. The signal power is turned down to keep the coverage inside the gym, and the beacon is hidden as a small extra. We also removed the rogue access point from the hallway jack and located the evil twin in the lot.',
+        'The shelter Wi-Fi uses WPA3 encryption with WPS turned off, so no one in range can read the traffic or guess the key, which stops the parking-lot eavesdropping and cracking. Each family signs in with a per-user login (EAP), so a copied MAC address or the shared password is not enough to join, which stops Mallory getting back on. The signal power is turned down to keep the coverage inside the gym, and the beacon is hidden as a small extra. We also cut the rogue access point off the hallway jack.',
     },
   },
 

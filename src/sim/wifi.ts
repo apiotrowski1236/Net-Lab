@@ -52,6 +52,27 @@ export interface WifiAp {
   off?: boolean;
   /** Not an approved access point: a rogue box or an evil twin. Labels it in a scan. */
   rogue?: boolean;
+  /**
+   * The authentication server an EAP network's logins go to, by the name on its
+   * certificate (watch-the-air). A phone with a saved profile checks it, so a
+   * copy of the network can't pass for the real one without the server's key.
+   */
+  server?: string;
+}
+
+/**
+ * A network a device has saved, the way a phone remembers it (watch-the-air):
+ * its security, how people sign in, and for EAP the server that proves the
+ * network is the real one. A client with a profile joins only a network that
+ * matches it, so a louder copy with the same name but no encryption, or a
+ * different server, is refused. Missing: the device joins any network with
+ * the right name that its password or login gets into, as before.
+ */
+export interface WifiProfile {
+  security: WifiSecurity;
+  auth: WifiAuth;
+  /** For EAP: the server name the device expects (WifiAp.server). */
+  server?: string;
 }
 
 /** A device that joins Wi-Fi networks. Lives on `Device.wifiClient`. */
@@ -68,6 +89,8 @@ export interface WifiClient {
   joinedAp?: string;
   /** Not part of the household (a neighbor): never handed the network's password when it changes. */
   outsider?: boolean;
+  /** The saved settings for `ssid` (watch-the-air). See WifiProfile. */
+  profile?: WifiProfile;
 }
 
 /** One signal reading for triangulation: a point on the map and the distance it implies. */
@@ -175,12 +198,23 @@ export interface JoinAttempt {
   mac: Mac;
   passphrase?: string;
   user?: string;
+  /** The device's saved profile for this network name, if it has one (watch-the-air). */
+  profile?: WifiProfile;
 }
 
-export type JoinReason = 'wrong-key' | 'no-login' | 'mac-filtered';
+/** `profile`: the network doesn't match what the device saved for that name (watch-the-air). */
+export type JoinReason = 'wrong-key' | 'no-login' | 'mac-filtered' | 'profile';
+
+/** Whether an access point matches a saved profile: same security, same sign-in, and for EAP the same server. */
+export function matchesProfile(ap: WifiAp, profile: WifiProfile): boolean {
+  if (ap.security !== profile.security || ap.auth !== profile.auth) return false;
+  return profile.auth !== 'eap' || !profile.server || ap.server === profile.server;
+}
 
 /** Whether `who` passes an AP's security (not counting range). */
 export function clientPasses(ap: WifiAp, who: JoinAttempt): { ok: boolean; reason?: JoinReason } {
+  // A saved profile is checked first, on the device itself: it won't even try a network that doesn't match.
+  if (who.profile && !matchesProfile(ap, who.profile)) return { ok: false, reason: 'profile' };
   if (ap.security !== 'open' && ap.auth === 'psk') {
     if (!who.passphrase || who.passphrase !== ap.passphrase) return { ok: false, reason: 'wrong-key' };
   }

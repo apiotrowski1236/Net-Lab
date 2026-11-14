@@ -19,6 +19,7 @@ import { routerPanelSection } from './TrafficMeter';
 import { dhcpLeasesSection } from './DhcpLeases';
 import { natTableSection } from './NatTable';
 import { wifiSetupSection, wifiSetupSummary } from './WifiSetup';
+import { ApprovedAps } from './ApprovedAps';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -53,6 +54,8 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'vlans', slot: 'settings', Section: VlansSection, tools: ['vlan'] },
   // mac-flood
   { id: 'switch-ports', slot: 'settings', Section: SwitchPorts, tools: ['port-security'] },
+  // watch-the-air (before the Wi-Fi settings, so the inventory is the first thing under the access point)
+  { id: 'approved-aps', slot: 'settings', Section: ApprovedAps },
   // wireless
   { ...wifiSettingsSection, tools: ['wifi-config'] },
   // firewall

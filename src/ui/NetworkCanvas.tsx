@@ -574,7 +574,9 @@ interface Drag {
 }
 
 export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, since }: CanvasProps) {
-  const devices = Object.values(sim.devices);
+  // A lab can keep a device off the map until the story reaches it (LabDef.map.hide).
+  const hidden = new Set(opts?.hide?.(sim) ?? []);
+  const devices = Object.values(sim.devices).filter((d) => !hidden.has(d.id));
   // Labs where students build the network (port labels on) show what the switch learns.
   const markers = recentMarkers(sim, since, !!opts?.ports);
   const stackY = new Map<string, number>();
@@ -734,6 +736,7 @@ export function NetworkCanvas({ sim, selected, focus, onSelect, opts, cabling, s
         {zones.length > 0 && <Zones zones={zones} />}
 
         {Object.values(sim.links).map((l) => {
+          if (hidden.has(l.a.device) || hidden.has(l.b.device)) return null;
           const a = sim.devices[l.a.device];
           const b = sim.devices[l.b.device];
           const congested = l.capacityPps !== undefined && sim.linkPps(l.id) > l.capacityPps;

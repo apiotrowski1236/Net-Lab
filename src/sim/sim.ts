@@ -50,6 +50,21 @@ import {
   type WifiReading,
   type WifiSecurity,
 } from './wifi';
+import type { WifiProfile } from './wifi';
+import {
+  isApproved,
+  newWidsState,
+  noiseLevel,
+  NORMAL_NOISE_MAX,
+  QUIET_NOISE,
+  replayRecord,
+  WIDS_RULES,
+  type AirRecord,
+  type ApprovedAp,
+  type WidsMark,
+  type WidsReplay,
+  type WidsRule,
+} from './wids';
 import { dirOf, evaluate, logLine, track, type FwMode, type FwRuleInput } from './firewall';
 import { applyVlan, sameVlan } from './vlan';
 import type { ZoneLevel } from './zones';
@@ -1772,7 +1787,7 @@ export class Sim {
       if (this.jam.on && this.jam.channel === ap.wifi!.channel) continue;
       const sig = signalAt(ap.wifi!, ap, client, wc.antennaBoost ?? 0);
       if (sig < JOIN_THRESHOLD) continue;
-      if (!clientPasses(ap.wifi!, { mac: client.ifaces[0].mac, passphrase: wc.passphrase, user: wc.user }).ok) continue;
+      if (!clientPasses(ap.wifi!, { mac: client.ifaces[0].mac, passphrase: wc.passphrase, user: wc.user, profile: wc.profile }).ok) continue;
       if (sig > bestSig || (sig === bestSig && best && ap.wifi!.bssid < best.wifi!.bssid)) {
         best = ap;
         bestSig = sig;
@@ -1801,9 +1816,11 @@ export class Sim {
             mac: client.ifaces[0].mac,
             passphrase: client.wifiClient!.passphrase,
             user: client.wifiClient!.user,
+            profile: client.wifiClient!.profile,
           });
           const key = `blocked:${blocker.id}:${res.reason}`;
-          if (this.wifiLast.get(client.id) !== key) {
+          // A saved profile turns the network down on the device itself: the access point never hears a try.
+          if (res.reason !== 'profile' && this.wifiLast.get(client.id) !== key) {
             this.wifiLast.set(client.id, key);
             this.emit({ t: this.t, type: 'wifi', device: blocker.id, what: 'rejected', client: client.id, ssid: blocker.wifi!.ssid, bssid: blocker.wifi!.bssid, detail: res.reason });
             this.log(blocker.id, {
@@ -1818,6 +1835,7 @@ export class Sim {
         }
       }
     }
+    this.widsCheck();
   }
 
   private wifiSetAssociation(clientId: string, apId: string | undefined): void {
@@ -1933,7 +1951,12 @@ export class Sim {
   private shareWifiKey(ap: Device): void {
     if (!ap.wifi) return;
     for (const d of Object.values(this.devices)) {
-      if (d.wifiClient && !d.attacker && !d.wifiClient.outsider && d.wifiClient.ssid === ap.wifi.ssid) d.wifiClient.passphrase = ap.wifi.passphrase;
+      if (d.wifiClient && !d.attacker && !d.wifiClient.outsider && d.wifiClient.ssid === ap.wifi.ssid) {
+        d.wifiClient.passphrase = ap.wifi.passphrase;
+        // Staff re-save the network on devices that keep a profile (watch-the-air), but only from the access point
+        // the device is on. Another radio that copies the name (an evil twin) must not rewrite the profile.
+        if (d.wifiClient.profile && d.wifiClient.joinedAp === ap.id) d.wifiClient.profile = { security: ap.wifi.security, auth: ap.wifi.auth, server: ap.wifi.server };
+      }
     }
   }
 
@@ -3590,6 +3613,176 @@ export class Sim {
   private setBanner(devId: string, scanId: number, ip: Ip, port: number, text: string): void {
     const h = this.devices[devId]?.scans?.find((s) => s.id === scanId)?.hosts.find((x) => x.ip === ip);
     if (h) (h.banners ??= {})[port] = text;
+  }
+
+  // --- wireless watch (watch-the-air) ---
+  // An access point with Device.wids keeps watch over the air: it logs networks
+  // it hasn't heard before, shelter devices talking to a radio that isn't
+  // approved, and its channel's noise, and it replays its record through alarm
+  // rules. Log citations (citeLog) let a lesson ask for evidence rows. See src/sim/wids.ts.
+
+  /** Log lines cited as evidence, oldest first. `t` is when the citation was made (see citeLog). */
+  logCites: { device: string; no: number; t: number }[] = [];
+
+  /** Give access point `apId` a wireless watch with its approved list and a record to replay. */
+  configureWids(apId: string, opts: { approved: ApprovedAp[]; record?: AirRecord[]; noiseThreshold?: number; usualCrowd?: number }): void {
+    const ap = this.dev(apId);
+    if (!ap.wifi) throw new Error(`${apId} is not an access point`);
+    ap.wids = newWidsState(opts);
+    ap.wids.lastNoise = this.channelNoise(ap.wifi.channel);
+  }
+
+  /** Noise on a channel (0 to 100): near the top while jammed, a little higher with a crowd. */
+  channelNoise(channel: number): number {
+    const jammed = this.jam.on && this.jam.channel === channel;
+    let extra = 0;
+    for (const d of Object.values(this.devices)) {
+      if (d.wids && d.wifi?.channel === channel) extra += Math.max(0, d.wids.crowd - d.wids.usualCrowd);
+    }
+    return noiseLevel({ jammed, crowd: extra, usualCrowd: 0 });
+  }
+
+  /** Mark one network from a scan as approved or unknown, or clear the mark with null. */
+  widsMark(apId: string, bssid: Mac, mark: WidsMark | null): void {
+    const w = this.dev(apId).wids;
+    if (!w) return;
+    if (mark) w.marks[bssid] = mark;
+    else delete w.marks[bssid];
+    this.emit({ t: this.t, type: 'wids', device: apId, what: 'mark', bssid, detail: mark ?? 'clear' });
+  }
+
+  widsSetRule(apId: string, rule: WidsRule, on: boolean): void {
+    const w = this.dev(apId).wids;
+    if (!w || w.rules[rule] === on) return;
+    w.rules[rule] = on;
+    this.emit({ t: this.t, type: 'wids', device: apId, what: 'rule', detail: `${rule} ${on ? 'on' : 'off'}` });
+  }
+
+  widsSetThreshold(apId: string, level: number): void {
+    const w = this.dev(apId).wids;
+    if (!w || w.noiseThreshold === level) return;
+    w.noiseThreshold = level;
+    this.emit({ t: this.t, type: 'wids', device: apId, what: 'rule', detail: `noise threshold ${level}` });
+  }
+
+  /** Run the saved record through the alarm rules: one alert line per alarm, and a scored run on Device.wids.replays. */
+  widsReplay(apId: string): WidsReplay | undefined {
+    const ap = this.dev(apId);
+    const w = ap.wids;
+    if (!w) return undefined;
+    const run = replayRecord(w, this.t);
+    w.replays.push(run);
+    const on = WIDS_RULES.filter((r) => w.rules[r]);
+    const days = Math.max(0, ...w.record.map((r) => r.day));
+    // Each replay's lines carry its number, so repeated replays don't read as repeated alarms.
+    const n = `replay ${w.replays.length}`;
+    this.log(apId, {
+      source: 'wids',
+      level: 'info',
+      msg: `${n}: replaying ${days} days of records with ${on.length ? on.join(', ') : 'no rules'}${w.rules.noise ? `, noise alarm above ${w.noiseThreshold}` : ''}`,
+      fields: { action: 'replay', rules: on.join(' '), threshold: w.noiseThreshold },
+    });
+    for (const a of run.alerts) {
+      this.log(apId, {
+        source: 'wids',
+        level: 'alert',
+        msg: `${n} ${a.text}`,
+        fields: { rule: a.rule, day: a.record.day, time: a.record.time, ...('bssid' in a.record ? { bssid: a.record.bssid } : {}), ...('mac' in a.record ? { mac: a.record.mac } : {}) },
+      });
+    }
+    this.log(apId, {
+      source: 'wids',
+      level: 'info',
+      msg: `${n} done: ${run.alerts.length} alert${run.alerts.length === 1 ? '' : 's'}`,
+      fields: { action: 'replay-done', count: run.alerts.length },
+    });
+    this.emit({ t: this.t, type: 'wids', device: apId, what: 'replay', detail: run.settings });
+    return run;
+  }
+
+  /** How many devices are online near access point `apId` (a crowd). Raises its channel's noise a little. */
+  setWifiCrowd(apId: string, count: number): void {
+    const w = this.dev(apId).wids;
+    if (!w || w.crowd === count) return;
+    w.crowd = count;
+    this.emit({ t: this.t, type: 'wids', device: apId, what: 'crowd', detail: String(count) });
+    this.recomputeWifi();
+  }
+
+  /** Save (or forget, with null) a device's Wi-Fi profile, the way staff set up a phone. */
+  setWifiProfile(devId: string, profile: WifiProfile | null): void {
+    const wc = this.dev(devId).wifiClient;
+    if (!wc) return;
+    if (profile) wc.profile = profile;
+    else delete wc.profile;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'wifi-profile', detail: profile ? `${profile.security} ${profile.auth}` : 'none' });
+    this.recomputeWifi();
+  }
+
+  /** Cite a log line as evidence, or take the citation back. */
+  citeLog(devId: string, no: number, on: boolean): void {
+    const had = this.logCites.some((c) => c.device === devId && c.no === no);
+    if (had === on) return;
+    if (on) this.logCites.push({ device: devId, no, t: this.t });
+    else this.logCites = this.logCites.filter((c) => !(c.device === devId && c.no === no));
+    this.emit({ t: this.t, type: 'log-cite', device: devId, no, on });
+  }
+
+  /** Hook (end of recomputeWifi): each watching access point logs what changed in the air. */
+  private widsCheck(): void {
+    for (const ap of Object.values(this.devices)) {
+      const w = ap.wids;
+      if (!w || !ap.wifi) continue;
+      // Networks it can hear: new radio addresses, and a known one that changed its name.
+      for (const other of this.activeAps()) {
+        if (other.id === ap.id || signalAt(other.wifi!, other, ap) < 1) continue;
+        const o = other.wifi!;
+        const seen = w.heard[o.bssid];
+        if (seen && seen.ssid === o.ssid) continue;
+        w.heard[o.bssid] = { t: seen?.t ?? this.t, ssid: o.ssid };
+        const approved = isApproved(w, o.bssid);
+        const msg = seen
+          ? `network ${o.bssid} changed its name from "${seen.ssid}" to "${o.ssid}"`
+          : `new network heard: "${o.ssid}" ${o.bssid}, channel ${o.channel}, ${o.security === 'open' ? 'open' : o.security.toUpperCase()}`;
+        this.log(ap.id, { source: 'wids', level: approved ? 'info' : 'warn', msg, fields: { ssid: o.ssid, bssid: o.bssid, channel: o.channel, security: o.security, action: seen ? 'renamed' : 'heard' } });
+        this.emit({ t: this.t, type: 'wids', device: ap.id, what: 'heard', bssid: o.bssid, detail: o.ssid });
+      }
+      // Shelter devices now talking to a radio that isn't approved.
+      for (const c of Object.values(this.devices)) {
+        if (!c.wifiClient || c.attacker) continue;
+        const mac = c.ifaces[0].mac;
+        const joined = c.wifiClient.joinedAp ? this.devices[c.wifiClient.joinedAp]?.wifi : undefined;
+        const stray = joined && !isApproved(w, joined.bssid) ? joined.bssid : undefined;
+        if (stray === w.strays[mac]) continue;
+        if (!stray) {
+          delete w.strays[mac];
+          continue;
+        }
+        w.strays[mac] = stray;
+        this.log(ap.id, {
+          source: 'wids',
+          level: 'warn',
+          msg: `${c.label} (${mac}) seen talking to "${joined!.ssid}" ${stray}, which is not on the approved list`,
+          fields: { mac, bssid: stray, ssid: joined!.ssid, action: 'stray' },
+        });
+        this.emit({ t: this.t, type: 'wids', device: ap.id, what: 'stray', bssid: stray, detail: mac });
+      }
+      // The noise on its own channel, when it changes.
+      const noise = this.channelNoise(ap.wifi.channel);
+      if (noise !== w.lastNoise) {
+        w.lastNoise = noise;
+        const jammed = this.jam.on && this.jam.channel === ap.wifi.channel;
+        const joined = Object.values(this.devices).filter((d) => d.wifiClient?.joinedAp === ap.id).length;
+        const online = jammed ? joined : joined + w.crowd;
+        this.log(ap.id, {
+          source: 'wids',
+          level: noise > 50 ? 'warn' : noise > NORMAL_NOISE_MAX ? 'notice' : 'info',
+          msg: `channel ${ap.wifi.channel} noise level ${noise} (quiet is about ${QUIET_NOISE}), ${online} device${online === 1 ? '' : 's'} connected`,
+          fields: { channel: ap.wifi.channel, noise, devices: online, action: 'noise' },
+        });
+        this.emit({ t: this.t, type: 'wids', device: ap.id, what: 'noise', detail: String(noise) });
+      }
+    }
   }
 }
 
