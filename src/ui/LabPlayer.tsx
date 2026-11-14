@@ -260,7 +260,7 @@ function Dock({
   // its room back until it's done. After a button, a moment more, so its last packet and tag can be
   // seen landing. After a command, the output is what matters: the Terminal grows back at once.
   const sim = session.sim;
-  const termMax = tab === 'tools' && termBig.value && tools.some((t) => t.kind === 'terminal');
+  const termMax = tab === 'tools' && termBig.value && tools.some((t) => t.kind === 'terminal' || t.kind === 'log-files');
   const lastRuns = Object.values(sim.devices).flatMap((d) => (d.term?.length ? [d.term[d.term.length - 1]] : []));
   const cmdBusy = termMax && lastRuns.some((r) => r.doneAt === undefined);
   const pressed = session.lastRun.value;
@@ -342,7 +342,7 @@ function Dock({
   return (
     // A Wireshark-style lab (packet-capture) lives in the Capture tab: give its packet list more room.
     // So does a terminal in the Toolkit (net-tools): its output needs the lines.
-    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal')) ? 'dock-tall' : ''} ${termMax ? `dock-max ${held ? 'dock-busy' : ''}` : ''}`}>
+    <div class={`dock ${(lab.wireshark && tab === 'capture') || (tab === 'tools' && tools.some((t) => t.kind === 'terminal' || t.kind === 'log-files')) ? 'dock-tall' : ''} ${termMax ? `dock-max ${held ? 'dock-busy' : ''}` : ''}`}>
       <div class="dock-tabs" role="tablist">
         <button
           role="tab"

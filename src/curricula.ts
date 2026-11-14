@@ -94,6 +94,7 @@ export const CURRICULA: Curriculum[] = [
       'detect-methods',
       'capture-analysis',
       'watch-the-air',
+      'device-analysis',
       // Answer sheets for CYBER.ORG Range labs (LabDef.worksheet). The home page lists them in their own group.
       'hijacked-ssh-1',
     ],

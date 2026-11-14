@@ -7129,3 +7129,134 @@ button.pl-tile:active {
 .fw-ips > .muted {
   flex-basis: 100%;
 }
+
+/* ---------- device-analysis: host firewall, log files, sign-in defenses ---------- */
+.hostfw .fw-table tr.hostfw-new td {
+  background: var(--good-soft);
+}
+/* Log files: full width and as tall as the dock, like the Terminal. Beside it on a wide screen. */
+.toolkit:has(.logf-card) {
+  height: 100%;
+  grid-template-rows: minmax(250px, 1fr);
+}
+.logf-card {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+}
+@media (min-width: 1280px) {
+  .toolkit:has(.logf-card):has(.term-card) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .toolkit:has(.logf-card):has(.term-card) .logf-card,
+  .toolkit:has(.logf-card):has(.term-card) .term-card {
+    grid-column: auto;
+  }
+}
+.logf-head {
+  justify-content: space-between;
+  gap: 6px 14px;
+  flex-wrap: wrap;
+}
+.logf-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.logf-tabs {
+  flex-wrap: wrap;
+  align-self: flex-start;
+}
+.logf-tabs button {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.logf-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.logf-path {
+  font-size: 12.5px;
+}
+.logf-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 200px;
+  max-width: 340px;
+  color: var(--muted);
+}
+.logf-search input {
+  flex: 1;
+  min-width: 0;
+}
+.logf-screen {
+  flex: 1 1 auto;
+  min-height: 130px;
+  overflow: auto;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  font: 12.5px/1.5 var(--mono);
+  font-variant-ligatures: none;
+}
+.logf-row {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  border: 0;
+  padding: 0 10px 0 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.logf-row:hover {
+  background: var(--brand-soft);
+}
+.logf-row.on {
+  background: var(--brand-soft-2);
+}
+.logf-row.logf-new {
+  animation: flash 3s ease;
+}
+.logf-no {
+  position: sticky;
+  left: 0;
+  flex: none;
+  width: 4.5ch;
+  padding: 0 8px 0 4px;
+  margin-right: 8px;
+  text-align: right;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-right: 1px solid var(--line);
+  user-select: none;
+}
+.logf-text {
+  white-space: pre;
+}
+.logf-empty {
+  padding: 8px 12px;
+  font-family: var(--font, inherit);
+}
+.sshg-item + .sshg-item {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-2);
+}
+.sshg-item .tool-desc {
+  margin: 6px 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .logf-row.logf-new {
+    animation: none;
+  }
+}

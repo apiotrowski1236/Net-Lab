@@ -138,7 +138,10 @@ export type SimAction =
   /** Replay the client's day with its current settings and score it. */
   | { type: 'bench-run'; device: string; client: string }
   /** Recommend a method for a client in the plan (null clears it). */
-  | { type: 'bench-plan'; device: string; client: string; method: BenchMethod | null };
+  | { type: 'bench-plan'; device: string; client: string; method: BenchMethod | null }
+  // Device analysis
+  /** A Linux server's fail2ban (automatic bans) or SSH password sign-in, on or off. */
+  | { type: 'linux'; device: string; setting: 'fail2ban' | 'passwords'; on: boolean };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -290,6 +293,9 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'term':
       sim.runCommand(a.device, a.line);
+      return;
+    case 'linux':
+      sim.linuxSet(a.device, a.setting, a.on);
       return;
     case 'connect':
       sim.connectService(a.device, a.to, a.port, { app: a.app });

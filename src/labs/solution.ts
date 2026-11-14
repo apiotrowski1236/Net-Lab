@@ -236,6 +236,7 @@ const TOOL_FOR: Partial<Record<SimAction['type'], (t: ToolSpec, a: SimAction) =>
   'bench-db': (t, a) => t.kind === 'bench' && on(t, dev(a)) && t.controls.includes('db'),
   'bench-run': (t, a) => a.type === 'bench-run' && t.kind === 'bench' && on(t, dev(a)) && t.clients.includes(a.client),
   'bench-plan': (t, a) => t.kind === 'bench-plan' && on(t, dev(a)),
+  linux: (t, a) => t.kind === 'ssh-guard' && on(t, dev(a)) && a.type === 'linux' && t.controls.includes(a.setting),
 };
 
 const dev = (a: SimAction): string => ('device' in a ? a.device : '');

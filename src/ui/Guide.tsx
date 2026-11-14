@@ -51,6 +51,9 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'echo-tool': 'Echo tool',
   // net-tools
   terminal: 'Terminal',
+  // device-analysis
+  'log-files': 'Log files',
+  'ssh-guard': 'Sign-in defenses',
   'directed-broadcast': 'Directed-broadcast setting (in the inspector)',
   // capture-analysis
   'capture-file': 'Capture files: filters, Statistics, and Follow TCP Stream (in the Capture tab)',

@@ -21,6 +21,7 @@ import { natTableSection } from './NatTable';
 import { wifiSetupSection, wifiSetupSummary } from './WifiSetup';
 import { ApprovedAps } from './ApprovedAps';
 import { MirrorPortSection } from './MirrorPort';
+import { HostFirewallSection } from './HostFirewall';
 
 export interface InspectorSectionProps {
   session: LabSession;
@@ -79,4 +80,6 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   natTableSection,
   // capture-analysis
   { id: 'mirror-port', slot: 'settings', Section: MirrorPortSection },
+  // device-analysis
+  { id: 'host-firewall', slot: 'settings', Section: HostFirewallSection },
 ];
