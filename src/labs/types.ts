@@ -227,8 +227,9 @@ export type ToolSpec =
   /**
    * Edit these firewalls' rules in the inspector (the card lists them). `modes`
    * are the firewall types the student may switch between; without it, no switching.
+   * `ips` lets the student turn a next-generation firewall's intrusion prevention on and off (firewall-types).
    */
-  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[] }
+  | { kind: 'firewall-rules'; devices: string[]; modes?: FwMode[]; ips?: boolean }
   /** Put a switch's ports in VLANs, in its inspector (segmentation). `vlans` are the choices besides VLAN 1, with names. */
   | { kind: 'vlan'; device: string; vlans?: { id: number; name: string }[] }
   /** Plan zones: put each listed device in a zone and give each zone a security level (segmentation). */

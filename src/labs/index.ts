@@ -6,6 +6,7 @@ import { netToolsLab } from './net-tools';
 import { dnsSpoofLab } from './dns-spoof';
 import { macFloodLab } from './mac-flood';
 import { firewallLab } from './firewall';
+import { firewallTypesLab } from './firewall-types';
 import { onPathLab } from './on-path';
 import { smurfLab } from './smurf';
 import { routeHijackLab } from './route-hijack';
@@ -29,7 +30,7 @@ import { hijackedSsh1Lab } from './hijacked-ssh-1';
 import type { LabDef, LabStub } from './types';
 
 /** Every playable lab, in the order they appear on the home page. */
-export const LABS: LabDef[] = [homeNetworkLab, packetCaptureLab, wiresharkLab, buildNetworkLab, netToolsLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, logsLab, detectMethodsLab, captureAnalysisLab, watchTheAirLab, binaryNumbersLab, compressionLab, javaClassesLab, jsArraysLab, jsLoopsLab, jsDomLab, p5DrawLab, p5MoveLab, p5GameLab, hijackedSsh1Lab];
+export const LABS: LabDef[] = [homeNetworkLab, packetCaptureLab, wiresharkLab, buildNetworkLab, netToolsLab, onPathLab, macFloodLab, dnsSpoofLab, smurfLab, routeHijackLab, netAuditLab, wirelessLab, segmentationLab, firewallLab, firewallTypesLab, logsLab, detectMethodsLab, captureAnalysisLab, watchTheAirLab, binaryNumbersLab, compressionLab, javaClassesLab, jsArraysLab, jsLoopsLab, jsDomLab, p5DrawLab, p5MoveLab, p5GameLab, hijackedSsh1Lab];
 
 /**
  * Planned labs, shown on the home page as "coming soon", in the order of the

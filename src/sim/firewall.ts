@@ -1,5 +1,6 @@
 import { isIp, prefixContains, type Ip } from './addr';
 import { appForPort, appName, identifyApp, isReply, portLabel, type L4 } from './services';
+import { appMatches, ruleAppName, signatureName, signatureOf } from './ngfw';
 import type { IpPacket, LogEntry, LogLevel } from './types';
 
 /**
@@ -45,6 +46,10 @@ import type { IpPacket, LogEntry, LogLevel } from './types';
  *   - ngfw:      next-generation: stateful, plus deep packet inspection. It
  *     identifies the application inside a request (`identifyApp`) and denies
  *     one that doesn't match its well-known port (a remote-control tool on 443).
+ *     Rules may name an application (`FwRule.app`), matched whatever the port;
+ *     other modes skip those rules, since they can't see applications. With
+ *     `ips` on it also blocks requests that carry a known attack (verdict
+ *     'ips'). See ngfw.ts (firewall-types).
  *
  * WHAT IT REPORTS
  *   For every packet it checks, the sim emits a 'firewall' event with the
@@ -90,6 +95,12 @@ export interface FwRule {
   log?: boolean;
   /** What the rule is for, shown in the rule editor. */
   note?: string;
+  /**
+   * Next-gen only: the application the packet must carry ('web', 'ssh',
+   * 'remote-control', ...; see ngfw.ts), whatever its port. Left out or 'any'
+   * means any application. Other modes skip a rule that names one.
+   */
+  app?: string;
 }
 
 export type FwRuleInput = Omit<FwRule, 'id'>;
@@ -135,6 +146,8 @@ export interface FirewallState {
   changedAt?: number;
   /** On a router: also check requests from outside addressed to the router itself (a ping to its public address). */
   guardSelf?: boolean;
+  /** Next-gen only: intrusion prevention, which blocks requests carrying a known attack (ngfw.ts). */
+  ips?: boolean;
 }
 
 export type FwDecidedBy =
@@ -147,7 +160,9 @@ export type FwDecidedBy =
   /** Stateful: looked like a reply, but answers no conversation in the table. */
   | 'no-state'
   /** Next-gen: a rule allowed it, but the application inside doesn't match the port. */
-  | 'app';
+  | 'app'
+  /** Next-gen with intrusion prevention: a rule allowed it, but it carries a known attack (`signature`). */
+  | 'ips';
 
 export interface FwVerdict {
   action: FwAction;
@@ -158,6 +173,8 @@ export interface FwVerdict {
   /** Next-gen: the application found inside, and the one the port promises. */
   app?: string;
   expected?: string;
+  /** Intrusion prevention: the IPS_SIGNATURES id it matched (ngfw.ts). */
+  signature?: string;
 }
 
 /** Conversations a stateful firewall remembers. Entries don't time out in the simulation; the oldest go first. */
@@ -185,7 +202,12 @@ function portMatches(spec: number | 'any' | undefined, port: number | undefined)
   return port === spec;
 }
 
-export function ruleMatches(rule: FwRule | FwRuleInput, pkt: IpPacket, dir: FwDir): boolean {
+/**
+ * `seesApps`: the firewall can identify applications (next-gen; pass `fw.mode === 'ngfw'`).
+ * Without it, a rule that names one never matches, as in `evaluate`.
+ */
+export function ruleMatches(rule: FwRule | FwRuleInput, pkt: IpPacket, dir: FwDir, seesApps = false): boolean {
+  if (rule.app && rule.app !== 'any' && (!seesApps || !appMatches(rule.app, pkt))) return false;
   if (rule.dir !== dir) return false;
   if (rule.proto !== 'any' && rule.proto !== pkt.proto) return false;
   if (!addrMatches(rule.src, pkt.src) || !addrMatches(rule.dst, pkt.dst)) return false;
@@ -194,9 +216,9 @@ export function ruleMatches(rule: FwRule | FwRuleInput, pkt: IpPacket, dir: FwDi
   return true;
 }
 
-/** Index of the first rule that matches, or -1 (the implicit deny). */
-export function firstMatch(rules: (FwRule | FwRuleInput)[], pkt: IpPacket, dir: FwDir): number {
-  return rules.findIndex((r) => ruleMatches(r, pkt, dir));
+/** Index of the first rule that matches, or -1 (the implicit deny). `seesApps` as in `ruleMatches`. */
+export function firstMatch(rules: (FwRule | FwRuleInput)[], pkt: IpPacket, dir: FwDir, seesApps = false): number {
+  return rules.findIndex((r) => ruleMatches(r, pkt, dir, seesApps));
 }
 
 /** The conversation a packet starts, or would answer, as a table key. */
@@ -226,7 +248,7 @@ export function evaluate(fw: FirewallState, pkt: IpPacket, dir: FwDir): FwVerdic
     const key = replyKey(pkt);
     return fw.conns.some((c) => c.key === key) ? { action: 'allow', by: 'state' } : { action: 'deny', by: 'no-state' };
   }
-  const i = firstMatch(fw.rules, pkt, dir);
+  const i = firstMatch(fw.rules, pkt, dir, fw.mode === 'ngfw');
   if (i < 0) return { action: 'deny', by: 'implicit' };
   const rule = fw.rules[i];
   const v: FwVerdict = { action: rule.action, by: 'rule', ruleNo: i + 1, ruleId: rule.id };
@@ -234,6 +256,8 @@ export function evaluate(fw: FirewallState, pkt: IpPacket, dir: FwDir): FwVerdic
     const app = identifyApp(pkt);
     const expected = appForPort(pkt.proto, pkt.dstPort);
     if (app && expected && app !== expected) return { ...v, action: 'deny', by: 'app', app, expected };
+    const sig = fw.ips ? signatureOf(pkt) : undefined;
+    if (sig) return { ...v, action: 'deny', by: 'ips', signature: sig.id };
   }
   return v;
 }
@@ -297,7 +321,8 @@ export function portText(p: number | 'any' | undefined, proto: FwProto = 'tcp'):
 export function ruleText(r: FwRule | FwRuleInput): string {
   const from = r.sport !== undefined && r.sport !== 'any' ? `${r.src} port ${portText(r.sport, r.proto)}` : r.src;
   const to = r.proto === 'icmp' || r.dport === 'any' ? r.dst : `${r.dst} port ${portText(r.dport, r.proto)}`;
-  return `${r.action.toUpperCase()} ${r.dir} ${r.proto === 'any' ? 'any protocol' : protoText(r.proto)} from ${from} to ${to}`;
+  const app = r.app && r.app !== 'any' ? ` (program: ${ruleAppName(r.app)})` : '';
+  return `${r.action.toUpperCase()} ${r.dir} ${r.proto === 'any' ? 'any protocol' : protoText(r.proto)} from ${from} to ${to}${app}`;
 }
 
 /** Why a packet was allowed or denied, for students. Pass the rulebook to quote the rule. */
@@ -315,6 +340,8 @@ export function verdictText(v: FwVerdict, rules?: FwRule[]): string {
       return 'Denied: it looks like a reply, but it answers no conversation in the connection table';
     case 'app':
       return `Denied: rule ${v.ruleNo} allows port ${v.expected ? appName(v.expected) : ''}, but the program inside is ${appName(v.app ?? '?')}`;
+    case 'ips':
+      return `Denied: rule ${v.ruleNo} allows the port, but intrusion prevention found ${signatureName(v.signature)} inside`;
   }
 }
 
@@ -326,7 +353,8 @@ function endpoint(ip: Ip, port: number | undefined): string {
  * The line a firewall writes to its log, in the style of a real one:
  * "DENY in TCP 203.0.113.66:49200 -> 10.0.1.10:22 rule 3".
  * Fields: action, dir, proto, src, dst, sport, dport, rule (number, or
- * 'implicit', 'state', 'no-state'), and app/expected for next-gen denies.
+ * 'implicit', 'state', 'no-state'), and app/expected for next-gen denies,
+ * signature for intrusion prevention denies (level 'alert').
  */
 export function logLine(pkt: IpPacket, dir: FwDir, v: FwVerdict): Omit<LogEntry, 'no' | 't' | 'device'> {
   const proto = pkt.proto.toUpperCase();
@@ -340,16 +368,19 @@ export function logLine(pkt: IpPacket, dir: FwDir, v: FwVerdict): Omit<LogEntry,
           ? 'established'
           : v.by === 'no-state'
             ? 'no matching connection'
-            : `app ${v.app} on port ${pkt.dstPort} (expected ${v.expected}) rule ${v.ruleNo}`;
-  const level: LogLevel = v.by === 'app' ? 'warn' : v.action === 'deny' ? 'notice' : 'info';
+            : v.by === 'ips'
+              ? `ips signature ${v.signature} (rule ${v.ruleNo} allowed the port)`
+              : `app ${v.app} on port ${pkt.dstPort}, expected ${v.expected} (rule ${v.ruleNo} allowed the port)`;
+  const level: LogLevel = v.by === 'ips' ? 'alert' : v.by === 'app' ? 'warn' : v.action === 'deny' ? 'notice' : 'info';
   const fields: Record<string, string | number> = {
     action: v.action,
     dir,
     proto: pkt.proto,
     src: pkt.src,
     dst: pkt.dst,
-    rule: v.by === 'rule' || v.by === 'app' ? (v.ruleNo ?? 0) : v.by,
+    rule: v.by === 'rule' || v.by === 'app' || v.by === 'ips' ? (v.ruleNo ?? 0) : v.by,
   };
+  if (v.signature) fields.signature = v.signature;
   if (pkt.srcPort !== undefined) fields.sport = pkt.srcPort;
   if (pkt.dstPort !== undefined) fields.dport = pkt.dstPort;
   if (v.app) fields.app = v.app;

@@ -1,5 +1,6 @@
 import { isIp, isPrefix, normalizePrefix, prefixLen } from '../sim/addr';
 import { ruleText, type FwAction, type FwDir, type FwProto, type FwRule, type FwRuleInput } from '../sim/firewall';
+import { APP_CHOICES, APP_GROUPS, ruleAppName } from '../sim/ngfw';
 import { portForName } from '../sim/services';
 import type { Sim } from '../sim/sim';
 import type { Checked } from './toolInput';
@@ -18,6 +19,8 @@ export interface RuleDraft {
   sport: string;
   action: string;
   note?: string;
+  /** Next-gen only: the application ('any', 'web', 'remote-control', ...; see ngfw.ts). Left out means any. */
+  app?: string;
 }
 
 const ANY = /^(any|all|\*|)$/i;
@@ -37,7 +40,33 @@ export function ruleDraft(r?: FwRule | FwRuleInput): RuleDraft {
     sport: String(r.sport ?? 'any'),
     action: r.action,
     note: r.note,
+    app: r.app ?? 'any',
   };
+}
+
+/**
+ * The application a rule names (firewall-types): 'any', or one of APP_CHOICES,
+ * typed as an id or a name ("Web browsing", "https"). Only a next-generation
+ * firewall can see applications.
+ */
+export function checkRuleApp(sim: Sim, fwId: string, raw: string | undefined): Checked<{ value: string | undefined }> {
+  const s = (raw ?? '').trim().toLowerCase();
+  if (ANY.test(s)) return { ok: true, value: undefined };
+  const fw = sim.devices[fwId]?.firewall;
+  const label = sim.devices[fwId]?.label ?? fwId;
+  if (fw && fw.mode !== 'ngfw') {
+    return {
+      ok: false,
+      field: 'app',
+      msg: `Only a next-generation firewall can tell which program is talking. ${label} is ${fw.mode}, so set the program to any.`,
+      suggest: 'any',
+    };
+  }
+  const id = APP_CHOICES.find((a) => a === s || ruleAppName(a).toLowerCase() === s);
+  if (id) return { ok: true, value: id };
+  const group = Object.entries(APP_GROUPS).find(([, g]) => g.apps.includes(s));
+  if (group) return { ok: false, field: 'app', msg: `Pick ${group[1].name}: it covers both HTTP and HTTPS.`, suggest: group[0] };
+  return { ok: false, field: 'app', msg: `Pick a program from the list: ${APP_CHOICES.map(ruleAppName).join(', ')}, or any.` };
 }
 
 /** A source or destination: 'any', an address, or a network. */
@@ -99,7 +128,8 @@ function sameRule(a: FwRuleInput, b: FwRuleInput): boolean {
     a.dst === b.dst &&
     a.dport === b.dport &&
     (a.sport ?? 'any') === (b.sport ?? 'any') &&
-    a.action === b.action
+    a.action === b.action &&
+    (a.app ?? 'any') === (b.app ?? 'any')
   );
 }
 
@@ -121,6 +151,9 @@ export function checkRule(sim: Sim, fwId: string, d: RuleDraft, editing?: string
   if (!sport.ok) return sport;
   const rule: FwRuleInput = { dir, proto, src: src.value, dst: dst.value, dport: dport.value, action };
   if (sport.value !== 'any') rule.sport = sport.value;
+  const app = checkRuleApp(sim, fwId, d.app);
+  if (!app.ok) return app;
+  if (app.value) rule.app = app.value;
   if (d.note?.trim()) rule.note = d.note.trim();
   const fw = sim.devices[fwId]?.firewall;
   const twin = fw?.rules.findIndex((r) => r.id !== editing && sameRule(r, rule)) ?? -1;

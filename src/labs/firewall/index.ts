@@ -10,23 +10,17 @@ import {
   ATTACKER,
   bInside,
   buildHospital,
-  CLINIC,
   CLINIC_SSH,
   DENY_IN_TCP,
-  fakeReply,
   FILES,
   hospitalZones,
   HOSPITAL_SITE,
-  NURSE,
   PATIENT,
   PATIENTS_IN,
   PLACEMENT,
-  PORTAL_SITE,
   probe,
-  REPLIES_IN,
   SERVER_NET,
   STAFF_NET,
-  STAFF_OUT,
   WEB,
 } from './scenario';
 
@@ -45,18 +39,6 @@ const webToFiles: ActionDef = {
   run: (sim) => void sim.connectService('web', FILES, 445),
 };
 const nurseFiles: ActionDef = { id: 'nurse-files', label: 'Nurse station opens the records', run: (sim) => void sim.connectService('nurse', FILES, 445) };
-const nursePortal: ActionDef = { id: 'portal', label: 'Nurse station opens the clinic portal', run: (sim) => sim.browse('nurse', `https://${PORTAL_SITE}/`) };
-const fakeReplies: ActionDef = { id: 'fake', label: 'Attacker sends a fake reply', run: (sim) => fakeReply(sim, WEB) };
-const sneakySsh: ActionDef = {
-  id: 'sneak',
-  label: 'Attacker tries SSH from port 443',
-  run: (sim) => void sim.connectService('attacker', WEB, 22, { sport: 443 }),
-};
-const callHome: ActionDef = {
-  id: 'malware',
-  label: 'Remote-control program calls the attacker',
-  run: (sim) => void sim.connectService('nurse', ATTACKER, 443, { app: 'remote-control' }),
-};
 
 // ---------------------------------------------------------------------------
 // Goal checks
@@ -80,11 +62,6 @@ const connected = (sim: Sim, device: string, since: number, pred: (c: Conn) => b
 
 /** Would Firewall A let a patient's HTTPS request in right now? */
 const patientsAllowed = (sim: Sim) => evaluate(sim.dev('fwA').firewall!, probe(PATIENT, WEB, 443), 'in').action === 'allow';
-const mode = (sim: Sim, fw: string) => sim.dev(fw).firewall!.mode;
-
-/** The nurse station's page loaded, started after Firewall A's last change. */
-const portalLoaded = (sim: Sim, since: number) =>
-  pageSince(sim, 'nurse', afterChange(sim, since, 'fwA'), (b) => b.status === 'loaded' && b.host === PORTAL_SITE);
 
 // ---------------------------------------------------------------------------
 // Step setups. Each puts the network in the state its step needs if the
@@ -114,23 +91,9 @@ function coworkerRules(sim: Sim): void {
   }
 }
 
-function staffOut(sim: Sim): void {
-  if (evaluate(sim.dev('fwB').firewall!, probe(NURSE, CLINIC, 443), 'out').action !== 'allow') sim.fwAddRule('fwB', STAFF_OUT);
-}
-
-/** Step 8 starts where step 7 ends: Firewall A stateless, with a rule letting in anything from port 443. */
-function replyHole(sim: Sim): void {
-  const fw = sim.dev('fwA').firewall!;
-  if (fw.mode !== 'stateless') sim.fwSetMode('fwA', 'stateless');
-  if (!fw.rules.some((r) => r.dir === 'in' && r.action === 'allow' && r.sport === 443)) {
-    const deny = fw.rules.findIndex((r) => r.dir === 'in' && r.action === 'deny');
-    sim.fwAddRule('fwA', REPLIES_IN, deny < 0 ? undefined : deny);
-  }
-}
-
 export const firewallLab: LabDef = {
   id: 'firewall',
-  version: 1,
+  version: 2,
   title: 'Firewall Rulebook',
   tagline: 'Place two firewalls in a hospital network and write the rules that let patients in and keep attackers out.',
   unit: 3,
@@ -141,7 +104,7 @@ export const firewallLab: LabDef = {
     'Explain what ports are, and how a scan maps a network that has no firewall.',
     'Place firewalls at the internet edge and between segments to build a screened subnet (DMZ).',
     'Write an ordered rulebook, and predict how first match and the implicit deny decide each packet.',
-    'Compare stateless, stateful, and next-generation firewalls, and read a firewall log for signs of attack.',
+    'Read a firewall log for signs of attack, and explain what the firewalls still let through.',
   ],
   build: buildHospital,
   map: { zones: hospitalZones },
@@ -477,168 +440,6 @@ export const firewallLab: LabDef = {
     },
 
     {
-      id: 'stateless',
-      title: 'A firewall with no memory',
-      body: md`
-        Both firewalls are stateful. A **stateless** firewall remembers nothing. It checks every packet against the rules by itself, replies too. Some routers can only filter this way.
-
-        On [[fwA]], switch **Type** to **Stateless**. Press **Nurse station opens the clinic portal**. The request goes out, but read what happens to the reply.
-
-        A stateless firewall needs a rule for replies. Replies from a web server come **from port 443**. Add a rule: allow **in**, **TCP**, from **any**, from port **443**, to **any**, any port. Make sure it sits above the deny rule. Test again.
-      `,
-      setup: (sim) => {
-        placeBoth(sim);
-        staffOut(sim);
-      },
-      focus: ['fwA', 'nurse', 'clinic'],
-      open: { inspect: 'fwA' },
-      tools: [{ kind: 'firewall-rules', devices: ['fwA'], modes: ['stateless', 'stateful'] }],
-      actions: [nursePortal, patientBooks],
-      goals: [
-        {
-          id: 'stateless',
-          label: '[[fwA]] is stateless',
-          check: ({ sim }) => mode(sim, 'fwA') === 'stateless',
-        },
-        {
-          id: 'portal',
-          label: 'With Firewall A stateless, [[nurse]] opens the clinic portal (test after your last change)',
-          hint: 'Add ALLOW in TCP from any, from port 443, to any. Then move it above the DENY rule with the arrows.',
-          check: ({ sim, since }) => mode(sim, 'fwA') === 'stateless' && portalLoaded(sim, since),
-        },
-      ],
-      questions: [
-        {
-          id: 'why-patient',
-          kind: 'choice',
-          afterGoals: true,
-          prompt: 'With Firewall A stateless and no reply rule, patients could still book. Only the nurse’s page broke. Why?',
-          options: [
-            { id: 'direction', text: 'The patient’s replies go out, and rule 1 allows that. The nurse’s come in.', correct: true },
-            { id: 'outbound', text: 'Stateless firewalls check only packets coming in, never going out.', feedback: 'Rule 1 is an out rule, and the firewall checks it for every packet going out.' },
-            { id: 'port', text: 'The clinic portal uses a different port than the hospital’s site.', feedback: 'Both sites use HTTPS on port 443. What differs is who starts the conversation.' },
-            { id: 'b', text: 'Firewall B blocked the nurse’s reply.', feedback: 'Firewall B is still stateful. The result under the buttons names the firewall that blocked it.' },
-          ],
-          explain: 'A stateless firewall needs rules for both halves of every conversation. That rule for replies lets in anything that claims to come from port 443.',
-        },
-      ],
-    },
-
-    {
-      id: 'fake',
-      title: 'Fake replies',
-      body: md`
-        Your reply rule trusts the source port. The sender writes the source port, and an attacker can write anything.
-
-        Press **Attacker sends a fake reply** and **Attacker tries SSH from port 443**. Both get in. The SSH connection isn't a reply at all, but it comes from port 443.
-
-        Switch [[fwA]] back to **Stateful** and test both again. A stateful firewall keeps a **connection table** of the conversations it allowed. A reply that answers nothing in the table is denied.
-
-        One attack still gets in. Find the rule that lets it in and delete it. Then check that the clinic portal still works.
-      `,
-      setup: (sim) => {
-        placeBoth(sim);
-        staffOut(sim);
-        replyHole(sim);
-      },
-      focus: ['fwA', 'attacker'],
-      open: { inspect: 'fwA' },
-      tools: [{ kind: 'firewall-rules', devices: ['fwA'], modes: ['stateless', 'stateful'] }],
-      actions: [fakeReplies, sneakySsh, nursePortal],
-      goals: [
-        {
-          id: 'fake',
-          label: 'Firewall A blocks the fake reply',
-          hint: 'Switch Firewall A to **Stateful**, then press **Attacker sends a fake reply**.',
-          check: ({ sim, since }) => fwSaw(sim, afterChange(sim, since, 'fwA'), 'fwA', denied((e) => e.pkt.src === ATTACKER && e.verdict.by === 'no-state')),
-        },
-        {
-          id: 'sneak',
-          label: 'Firewall A blocks SSH from port 443 (test after your last change)',
-          hint: 'A stateful firewall doesn’t need the port 443 reply rule. Delete it, then test again.',
-          check: ({ sim, since }) =>
-            mode(sim, 'fwA') !== 'stateless' &&
-            fwSaw(sim, afterChange(sim, since, 'fwA'), 'fwA', denied((e) => e.pkt.src === ATTACKER && e.pkt.dstPort === 22 && e.pkt.srcPort === 443)),
-        },
-        {
-          id: 'portal',
-          label: '[[nurse]] still opens the clinic portal (test after your last change)',
-          hint: 'Press **Nurse station opens the clinic portal**.',
-          check: ({ sim, since }) => mode(sim, 'fwA') !== 'stateless' && portalLoaded(sim, since),
-        },
-      ],
-      questions: [
-        {
-          id: 'which-blocked',
-          kind: 'choice',
-          afterGoals: true,
-          prompt: 'After you switched to Stateful, why did the fake reply stop while SSH from port 443 still got in, until you deleted the rule?',
-          options: [
-            { id: 'new', text: 'The SSH connection was a new request, and the port 443 rule allowed it.', correct: true },
-            { id: 'ssh', text: 'Stateful firewalls don’t check SSH, only web traffic.', feedback: 'A stateful firewall checks every new conversation against the rules, whatever the port.' },
-            { id: 'encrypted', text: 'The fake reply was encrypted, and stateful firewalls block encryption.', feedback: 'Firewalls allow encrypted traffic all the time. HTTPS is encrypted.' },
-            { id: 'trusted', text: 'SSH came from a trusted address, and the fake reply didn’t.', feedback: 'Both came from 203.0.113.66, the attacker.' },
-          ],
-          explain: 'A stateful firewall checks the first packet of each conversation against the rules, and replies against its table. A loose rule still lets in whatever matches it.',
-        },
-      ],
-    },
-
-    {
-      id: 'ngfw',
-      title: 'Not really web traffic',
-      body: md`
-        A nurse opened an email attachment. It installed a **remote-control program** on [[nurse]]. It calls the attacker's computer on port 443, so its traffic looks like a web page.
-
-        Press **Remote-control program calls the attacker**. Both firewalls let it out. Rule 1 on Firewall A allows anything going out, and even a rule allowing only port 443 out would let it through.
-
-        A **next-generation firewall** (NGFW) is stateful and adds **deep packet inspection**: it looks inside each new conversation to see which program is talking. Many also block known attacks (intrusion prevention).
-
-        Switch [[fwA]] to **Next-generation** and test again. Make sure the clinic portal still works.
-
-        In the simulation, each packet names the program that sent it. A real NGFW recognizes programs from patterns in their traffic.
-      `,
-      setup: (sim) => {
-        placeBoth(sim);
-        staffOut(sim);
-        if (mode(sim, 'fwA') === 'stateless') sim.fwSetMode('fwA', 'stateful');
-      },
-      focus: ['nurse', 'fwA', 'attacker'],
-      open: { inspect: 'fwA' },
-      tools: [{ kind: 'firewall-rules', devices: ['fwA'], modes: ['stateless', 'stateful', 'ngfw'] }],
-      actions: [callHome, nursePortal],
-      goals: [
-        {
-          id: 'blocked',
-          label: 'Firewall A blocks the remote-control program',
-          hint: 'Switch Firewall A to **Next-generation**, then press **Remote-control program calls the attacker**.',
-          check: ({ sim, since }) => fwSaw(sim, since, 'fwA', denied((e) => e.pkt.src === NURSE && e.pkt.dst === ATTACKER && e.verdict.by === 'app')),
-        },
-        {
-          id: 'portal',
-          label: 'With Firewall A next-generation, [[nurse]] opens the clinic portal',
-          hint: 'Press **Nurse station opens the clinic portal**.',
-          check: ({ sim, since }) => mode(sim, 'fwA') === 'ngfw' && portalLoaded(sim, since),
-        },
-      ],
-      questions: [
-        {
-          id: 'giveaway',
-          kind: 'choice',
-          afterGoals: true,
-          prompt: 'The remote-control program used port 443, like every web page. What gave it away?',
-          options: [
-            { id: 'mismatch', text: 'The program inside didn’t match the port.', correct: true },
-            { id: 'port', text: 'It used an unusual port.', feedback: 'Port 443 is one of the most common ports there is. That’s why attackers pick it.' },
-            { id: 'inside', text: 'It came from outside the hospital.', feedback: 'It started on the nurse station, inside, and went out.' },
-            { id: 'size', text: 'Its packets were too big for web traffic.', feedback: 'Look at the result under the buttons: the firewall names the program, not the size.' },
-          ],
-          explain: 'A program that doesn’t match its port is an **indicator of compromise**: a sign a computer may be infected. The nurse station needs cleaning up.',
-        },
-      ],
-    },
-
-    {
       id: 'log',
       title: 'The firewall’s log',
       body: md`
@@ -731,6 +532,8 @@ export const firewallLab: LabDef = {
       kind: 'submit',
       body: md`
         Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+
+        Next lab: *Smarter Firewalls*, where you decide what kind of firewall A and B should be.
       `,
     },
   ],

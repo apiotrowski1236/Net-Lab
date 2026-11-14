@@ -1,9 +1,9 @@
 import type { LabSolution } from '../solution';
-import { ATTACKER, FILES, PATIENTS_IN, REPLIES_IN, SERVER_NET, STAFF_NET, STAFF_OUT } from './scenario';
+import { ATTACKER, FILES, PATIENTS_IN, SERVER_NET, STAFF_NET, STAFF_OUT } from './scenario';
 
 // Rule ids follow the path below. Firewall A starts with r1 (out to anywhere).
 // Step 4 adds r2 (patients in). Step 5's setup adds r3 (clinic SSH) and r4
-// (the deny) above it. Step 7 adds r5 (replies from port 443).
+// (the deny) above it.
 
 /** Answer key for "Firewall Rulebook". Choice answers come from the lab itself. */
 export const firewallSolution: LabSolution = {
@@ -45,30 +45,6 @@ export const firewallSolution: LabSolution = {
       { press: 'web-files' },
       { press: 'nurse-files' },
     ],
-  },
-  stateless: {
-    moves: [
-      { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateless' } },
-      { press: 'portal' },
-      { tool: { type: 'fw-add-rule', device: 'fwA', rule: REPLIES_IN } },
-      { tool: { type: 'fw-move-rule', device: 'fwA', id: 'r5', to: 3 } },
-      { press: 'portal' },
-    ],
-  },
-  fake: {
-    moves: [
-      { press: 'fake' },
-      { press: 'sneak' },
-      { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateful' } },
-      { press: 'fake' },
-      { press: 'sneak' },
-      { tool: { type: 'fw-delete-rule', device: 'fwA', id: 'r5' } },
-      { press: 'sneak' },
-      { press: 'portal' },
-    ],
-  },
-  ngfw: {
-    moves: [{ press: 'malware' }, { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } }, { press: 'malware' }, { press: 'portal' }],
   },
   log: {
     moves: [

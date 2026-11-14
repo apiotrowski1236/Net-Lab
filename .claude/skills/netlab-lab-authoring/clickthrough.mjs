@@ -65,6 +65,7 @@ const { isEncrypted, isPlainLogin, isTelnetLogin } = await vite.ssrLoadModule('/
 const { portName } = await vite.ssrLoadModule('/src/runtime/toolInput.ts');
 const { portLabel } = await vite.ssrLoadModule('/src/sim/switchsec.ts');
 const { pairName } = await vite.ssrLoadModule('/src/sim/zonePolicy.ts');
+const { MODE_NAME } = await vite.ssrLoadModule('/src/sim/firewall.ts');
 const mod = await vite.ssrLoadModule(`/src/labs/${LAB}/solution.ts`);
 const sol = Object.entries(mod).find(([n]) => n.endsWith('Solution'))?.[1];
 const lab = LABS.find((l) => l.id === LAB);
@@ -367,6 +368,65 @@ async function doCapfile(i, m) {
   }
 }
 
+/**
+ * Firewall rulebook edits (firewall, firewall-types), in the device's
+ * inspector the way a student makes them: the Type buttons, Add a rule and its
+ * form, the arrows, Delete, and the Intrusion prevention switch. The model
+ * session hasn't played this move yet, so it says where each rule sits now.
+ */
+async function doFirewall(i, a) {
+  await device(a.device).locator('rect.device-card').first().click({ force: true });
+  await tab('Inspect');
+  const sec = page.locator('.inspector .fw-section').first();
+  await sec.waitFor();
+  const name = labels[a.device];
+  const at = (id) => model.sim.dev(a.device).firewall.rules.findIndex((r) => r.id === id);
+  if (a.type === 'fw-mode') {
+    await sec.locator('.fw-mode .seg button', { hasText: new RegExp(`^${MODE_NAME[a.mode]}$`) }).click();
+    log(`  ${name}: type ${MODE_NAME[a.mode]}`);
+  } else if (a.type === 'fw-add-rule') {
+    const r = a.rule;
+    await sec.locator('.fw-add').click();
+    const form = sec.locator('.fw-form');
+    await form.locator('select[aria-label="Action"]').selectOption(r.action);
+    await form.locator('select[aria-label="Direction"]').selectOption(r.dir);
+    await form.locator('select[aria-label="Protocol"]').selectOption(r.proto);
+    await form.locator('input[aria-label="Source address"]').fill(String(r.src));
+    await form.locator('input[aria-label="Destination address"]').fill(String(r.dst));
+    if (r.proto !== 'icmp') {
+      await form.locator('input[aria-label="Source port"]').fill(String(r.sport ?? 'any'));
+      await form.locator('input[aria-label="Destination port"]').fill(String(r.dport));
+    }
+    if (r.app && r.app !== 'any') await form.locator('select[aria-label="Program"]').selectOption(r.app);
+    await form.getByRole('button', { name: 'Add rule', exact: true }).click();
+    await page.waitForTimeout(150);
+    if (await sec.locator('.fw-form').count()) await fail(i, `the rule form refused the answer key's rule: ${(await sec.innerText()).split('\n').slice(-3).join(' ')}`);
+    // Then the up arrows to reach `at`.
+    let n = await sec.locator('button[aria-label^="Move rule"][aria-label$=" up"]').count();
+    while (a.at !== undefined && n > a.at + 1) {
+      await sec.getByRole('button', { name: `Move rule ${n} up`, exact: true }).click();
+      n--;
+    }
+    log(`  ${name}: add rule ${r.action} ${r.dir} ${r.proto} ${r.src}${r.sport ? `:${r.sport}` : ''} -> ${r.dst}:${r.dport}${r.app ? ` (${r.app})` : ''}${a.at !== undefined ? `, moved to rule ${a.at + 1}` : ''}`);
+  } else if (a.type === 'fw-move-rule') {
+    let n = at(a.id);
+    if (n < 0) await fail(i, `no rule ${a.id} on ${name}`);
+    const from = n;
+    while (n > a.to) await sec.getByRole('button', { name: `Move rule ${n-- + 1} up`, exact: true }).click();
+    while (n < a.to) await sec.getByRole('button', { name: `Move rule ${n++ + 1} down`, exact: true }).click();
+    log(`  ${name}: move rule ${from + 1} to ${a.to + 1}`);
+  } else if (a.type === 'fw-delete-rule') {
+    const n = at(a.id);
+    if (n < 0) await fail(i, `no rule ${a.id} on ${name}`);
+    await sec.locator('.fw-table tbody tr').nth(n).getByRole('button', { name: 'Delete', exact: true }).click();
+    log(`  ${name}: delete rule ${n + 1}`);
+  } else if (a.type === 'fw-ips') {
+    const sw = sec.locator('.fw-ips [role="switch"]');
+    if ((await sw.getAttribute('aria-checked')) !== String(a.on)) await sw.click();
+    log(`  ${name}: intrusion prevention ${a.on ? 'on' : 'off'}`);
+  } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doFirewall.`);
+}
+
 async function doMove(i, step, m) {
   if (await moreMoves({ page, log, fail, tab, device, labels, model, vite }, i, step, m)) {
     // drivers.mjs drove it.
@@ -436,29 +496,6 @@ async function doMove(i, step, m) {
       }
       await ed.getByRole('button', { name: /^Save/ }).click();
       log(`  port security on ${labels[a.device]} ${name}: ${a.config ? `${a.config.maxMacs} MAC, ${a.config.violation}` : 'off'}`);
-    } else if (a.type === 'fw-add-rule') {
-      // The device's Firewall rules section: Add a rule, the sentence form, Add rule, then the up arrows to reach `at`.
-      await device(a.device).locator('rect.device-card').first().click({ force: true });
-      await tab('Inspect');
-      const sec = page.locator('section.fw-section');
-      await sec.getByRole('button', { name: 'Add a rule' }).click();
-      const form = sec.locator('.fw-form');
-      const r = a.rule;
-      await form.getByLabel('Action').selectOption(r.action);
-      await form.getByLabel('Direction').selectOption(r.dir);
-      await form.getByLabel('Protocol').selectOption(r.proto);
-      await form.getByLabel('Source address').fill(r.src);
-      if (await form.getByLabel('Source port').count()) await form.getByLabel('Source port').fill(String(r.sport ?? 'any'));
-      await form.getByLabel('Destination address').fill(r.dst);
-      if (await form.getByLabel('Destination port').count()) await form.getByLabel('Destination port').fill(String(r.dport));
-      await form.getByRole('button', { name: 'Add rule', exact: true }).click();
-      if (await form.count()) await fail(i, `the firewall turned the rule away: ${(await sec.innerText()).replace(/\s+/g, ' ').slice(-200)}`);
-      let n = await sec.locator('button[aria-label^="Move rule"][aria-label$=" up"]').count();
-      while (a.at !== undefined && n > a.at + 1) {
-        await sec.getByRole('button', { name: `Move rule ${n} up`, exact: true }).click();
-        n--;
-      }
-      log(`  firewall rule on ${labels[a.device]}: ${r.action} ${r.dir} ${r.proto} to ${r.dst}${a.at !== undefined ? `, moved to rule ${a.at + 1}` : ''}`);
     } else if (a.type === 'mac-flood') {
       await tab('Toolkit');
       const card = page.locator('.tool-card', { hasText: `MAC flooder (${labels[a.device]})` });
@@ -506,6 +543,29 @@ async function doMove(i, step, m) {
       const bad = await box.getAttribute('aria-invalid');
       if (bad === 'true') await fail(i, `${where} turned the value away`);
       log(`  ${where}: ${a.type === 'gateway' ? a.ip : a.cidr}`);
+    } else if (a.type.startsWith('fw-') && a.type !== 'fw-place' && a.type !== 'fw-unplace') {
+      await doFirewall(i, a);
+    } else if (a.type === 'fw-place') {
+      await tab('Toolkit');
+      const pick = page.locator(`select[aria-label="Cable for ${labels[a.device]}"]`);
+      const values = await pick.locator('option').evaluateAll((os) => os.map((o) => o.value));
+      const value = values.find((v) => v === `${a.a}~${a.b}` || v === `${a.b}~${a.a}`);
+      if (!value) await fail(i, `no cable ${labels[a.a]} to ${labels[a.b]} in the list for ${labels[a.device]}`);
+      await pick.selectOption(value);
+      await page.locator('.place-row', { has: pick }).getByRole('button', { name: 'Place', exact: true }).click();
+      log(`  place ${labels[a.device]} between ${labels[a.a]} and ${labels[a.b]}`);
+    } else if (a.type === 'scan') {
+      await tab('Toolkit');
+      const box = page.locator('input[aria-label="Address or network to scan"]');
+      await box.fill(a.target);
+      await box.press('Enter');
+      log(`  scan ${a.target}`);
+    } else if (a.type === 'connect') {
+      await tab('Toolkit');
+      const btn = page.locator(`button[title="Connect to ${a.to} port ${a.port}"]`).first();
+      if (!(await btn.count())) await fail(i, `no Connect button for ${a.to} port ${a.port} in the scan results`);
+      await btn.click();
+      log(`  connect to ${a.to} port ${a.port}`);
     } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doMove.`);
   } else if ('filter' in m) {
     await tab('Capture');

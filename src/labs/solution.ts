@@ -210,6 +210,7 @@ const TOOL_FOR: Partial<Record<SimAction['type'], (t: ToolSpec, a: SimAction) =>
   'fw-edit-rule': (t, a) => t.kind === 'firewall-rules' && on(t, dev(a)),
   'fw-move-rule': (t, a) => t.kind === 'firewall-rules' && on(t, dev(a)),
   'fw-mode': (t, a) => t.kind === 'firewall-rules' && on(t, dev(a)),
+  'fw-ips': (t, a) => t.kind === 'firewall-rules' && !!t.ips && on(t, dev(a)),
   'set-vlan': (t, a) => t.kind === 'vlan' && on(t, dev(a)),
   'set-zone': (t, a) => t.kind === 'zone-plan' && on(t, dev(a)),
   'set-zone-level': (t) => t.kind === 'zone-plan',

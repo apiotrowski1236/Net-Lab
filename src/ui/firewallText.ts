@@ -1,4 +1,5 @@
 import { ruleText, type FwRule, type FwVerdict } from '../sim/firewall';
+import { signatureName } from '../sim/ngfw';
 import { appForPort, appName, isReply, portLabel, type Conn } from '../sim/services';
 import type { Sim } from '../sim/sim';
 import type { IpPacket, SimEvent } from '../sim/types';
@@ -24,6 +25,8 @@ export function whyText(v: FwVerdict, rules: FwRule[] | undefined): string {
       return 'it looks like a reply, but it answers no conversation in the connection table';
     case 'app':
       return `rule ${v.ruleNo} allows that port, but the program inside is ${appName(v.app ?? '?')}, not ${appName(v.expected ?? '?')}`;
+    case 'ips':
+      return `rule ${v.ruleNo} allows that port, but intrusion prevention found ${signatureName(v.signature)} inside`;
   }
 }
 
@@ -73,7 +76,7 @@ export function fwDenyText(sim: Sim, fwId: string | undefined, t: number): strin
 /** Map marker on the firewall for one decision. */
 export function fwMarker(e: FwEvent): { device: string; text: string; tone: 'good' | 'bad' } {
   const v = e.verdict;
-  const tag = v.by === 'rule' ? `rule ${v.ruleNo}` : v.by === 'implicit' ? 'implicit deny' : v.by === 'state' ? 'reply' : v.by === 'no-state' ? 'no connection' : 'wrong program';
+  const tag = v.by === 'rule' ? `rule ${v.ruleNo}` : v.by === 'implicit' ? 'implicit deny' : v.by === 'state' ? 'reply' : v.by === 'no-state' ? 'no connection' : v.by === 'ips' ? 'attack blocked' : 'wrong program';
   return { device: e.device, text: `${v.action === 'allow' ? 'allowed' : 'denied'} (${tag})`, tone: v.action === 'allow' ? 'good' : 'bad' };
 }
 

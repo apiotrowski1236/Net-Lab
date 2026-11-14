@@ -100,6 +100,8 @@ export type SimAction =
   | { type: 'fw-delete-rule'; device: string; id: string }
   | { type: 'fw-move-rule'; device: string; id: string; to: number }
   | { type: 'fw-mode'; device: string; mode: FwMode }
+  /** Turn a next-generation firewall's intrusion prevention on or off (firewall-types). */
+  | { type: 'fw-ips'; device: string; on: boolean }
   // Segmentation
   /** Put a switch port in a VLAN (1 is the default). */
   | { type: 'set-vlan'; device: string; iface: string; vlan: number }
@@ -312,6 +314,9 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'fw-mode':
       sim.fwSetMode(a.device, a.mode);
+      return;
+    case 'fw-ips':
+      sim.fwSetIps(a.device, a.on);
       return;
     case 'set-vlan':
       sim.setVlan(a.device, a.iface, a.vlan);
