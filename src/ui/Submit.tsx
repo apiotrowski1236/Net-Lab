@@ -6,6 +6,7 @@ import { config, online, profile } from '../store/profile';
 import { buildReport, type Report } from '../store/report';
 import { checkCode, checkCodeHtml, htmlText, RESULTS_ID } from '../store/reportCheck';
 import { flushSaves } from '../store/storage';
+import { reportFileName } from './fileName';
 import { Icon } from './icons';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -127,13 +128,7 @@ ${backup ? backupScript(backup) : ''}
 </body></html>`;
 }
 
-/** The downloaded report's file name. */
-export function reportFileName(name: string, labTitle: string): string {
-  const who = name.replace(/[^\w -]+/g, '').trim() || 'student';
-  // Browsers swap characters a file name can't hold (like the ? in "What's in a Packet?") for _. Drop them, so the name shown is the name saved.
-  const what = labTitle.replace(/[<>:"/\\|?*]+/g, '').trim();
-  return `${who} - ${what}.html`;
-}
+export { reportFileName } from './fileName';
 
 /** Where the downloaded report goes, for "Then ___." (config.handInTo). */
 export function handInWhere(): string {
