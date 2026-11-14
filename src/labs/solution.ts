@@ -170,6 +170,18 @@ const TOOL_FOR: Partial<Record<SimAction['type'], (t: ToolSpec, a: SimAction) =>
   'ids-prevention': (t, a) => t.kind === 'ids' && on(t, dev(a)) && t.controls.includes('prevention'),
   'siem-triage': (t, a) => t.kind === 'siem' && on(t, dev(a)),
   'ai-threshold': (t, a) => t.kind === 'ai-threshold' && on(t, dev(a)),
+  // detect-methods: the bench card offers only the clients, methods, and controls the step lists.
+  'bench-set': (t, a) =>
+    a.type === 'bench-set' &&
+    t.kind === 'bench' &&
+    on(t, dev(a)) &&
+    t.clients.includes(a.client) &&
+    (a.method === undefined || t.methods.includes(a.method)) &&
+    (a.tolerance === undefined || t.controls.includes('tolerance')),
+  'bench-baseline': (t, a) => a.type === 'bench-baseline' && t.kind === 'bench' && on(t, dev(a)) && t.clients.includes(a.client) && t.controls.includes('baseline'),
+  'bench-db': (t, a) => t.kind === 'bench' && on(t, dev(a)) && t.controls.includes('db'),
+  'bench-run': (t, a) => a.type === 'bench-run' && t.kind === 'bench' && on(t, dev(a)) && t.clients.includes(a.client),
+  'bench-plan': (t, a) => t.kind === 'bench-plan' && on(t, dev(a)),
 };
 
 const dev = (a: SimAction): string => ('device' in a ? a.device : '');
@@ -281,6 +293,21 @@ function assertTypable(s: LabSession, a: SimAction): void {
       break;
     case 'vpn-config':
       r = sim.dev(a.device).vpn?.server ? { ok: true } : { ok: false, msg: `${a.device} is not a VPN server` };
+      break;
+    // detect-methods: picked from buttons, so only check they name real things.
+    case 'bench-baseline': {
+      const c = sim.dev(a.device).bench?.config.clients.find((x) => x.id === a.client);
+      r = c?.baselineDays.includes(a.day) ? { ok: true } : { ok: false, msg: `${a.client} has no baseline day ${a.day}` };
+      break;
+    }
+    case 'bench-run': {
+      // The Run button is greyed out until anomaly detection has a baseline.
+      const set = sim.dev(a.device).bench?.settings[a.client];
+      r = set && (set.method === 'signature' || set.baseline) ? { ok: true } : { ok: false, msg: `Record a baseline for ${a.client} first` };
+      break;
+    }
+    case 'bench-db':
+      r = sim.dev(a.device).bench?.config.versions.some((v) => v.id === a.version) ? { ok: true } : { ok: false, msg: `No database ${a.version}` };
       break;
     default:
       r = { ok: true };

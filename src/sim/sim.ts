@@ -93,6 +93,7 @@ import {
 import { canGrant, fromClient, grant, newDhcpClient, newDhcpServer, offer, pickAddress, type DhcpMessage } from './dhcp';
 import { addEntry, allocPort, endText, findIn, findOut, forwardFor, natPorts, newNat, type NatForward } from './nat';
 import { newCaptureRun } from './capture';
+import { BENCH_METHODS, clientOf, clock, dbSignatures, learnBaseline, METHOD_NAME, newBench, runBench, RUN_MS, runSettings, TOLERANCES_PCT, type BenchConfig, type BenchMethod, type BenchState, type TolerancePct } from './bench';
 import {
   inScope,
   MAX_RUNS,
@@ -3073,6 +3074,142 @@ export class Sim {
     const entry = { ...e, inside: { ...e.inside }, remote: { ...e.remote } };
     this.emit({ t: this.t, type: 'nat', device: dev.id, what: 'out', entry, publicIp: out.ip, who: this.deviceByIp(pkt.src)?.id, pkt: moved });
     return moved;
+  }
+
+  // --- detection bench (detect-methods) ---
+  // Replays a client's recorded day through signature, anomaly, or hybrid
+  // detection and scores it. Pure scoring lives in bench.ts; its header
+  // explains the model. Every setter emits a 'config' event so the UI redraws.
+  // -------------------------------------------------------------------------
+
+  private benchOf(devId: string): BenchState {
+    const b = this.dev(devId).bench;
+    if (!b) throw new Error(`${devId} is not a detection bench. Call sim.configureBench first.`);
+    return b;
+  }
+
+  /** Make a device a detection bench for these clients. */
+  configureBench(devId: string, config: BenchConfig): void {
+    this.dev(devId).bench = newBench(config);
+  }
+
+  /** Pick a client's detection method or anomaly tolerance for the next run. */
+  benchSet(devId: string, client: string, s: { method?: BenchMethod; tolerance?: TolerancePct }): void {
+    const b = this.benchOf(devId);
+    clientOf(b, client);
+    const cur = b.settings[client];
+    if (s.method && BENCH_METHODS.includes(s.method)) cur.method = s.method;
+    if (s.tolerance !== undefined && TOLERANCES_PCT.includes(s.tolerance)) cur.tolerance = s.tolerance;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'bench-set', detail: client });
+  }
+
+  /** Record a client's anomaly baseline from one of its recorded days. */
+  benchRecordBaseline(devId: string, client: string, day: string): void {
+    const b = this.benchOf(devId);
+    const c = clientOf(b, client);
+    if (!c.baselineDays.includes(day) || !c.days[day]) return;
+    b.settings[client].baseline = learnBaseline(c.days[day]);
+    this.log(devId, {
+      source: 'bench',
+      level: 'info',
+      msg: `baseline for ${c.name} recorded from ${c.days[day].label}`,
+      fields: { client, action: 'baseline', day },
+    });
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'bench-baseline', detail: client });
+  }
+
+  /** Install a signature database version (an update, or a roll back). */
+  benchInstallDb(devId: string, version: string): void {
+    const b = this.benchOf(devId);
+    const v = b.config.versions.find((x) => x.id === version);
+    if (!v || b.db === version) return;
+    b.db = version;
+    this.log(devId, {
+      source: 'bench',
+      level: 'info',
+      msg: `signature database ${v.label} installed (${dbSignatures(b.config, version).length} signatures)`,
+      fields: { action: 'db', db: version },
+    });
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'bench-db', detail: version });
+  }
+
+  /** Which recorded day a client's runs replay. */
+  benchSetDay(devId: string, client: string, day: string): void {
+    const b = this.benchOf(devId);
+    if (!clientOf(b, client).days[day]) return;
+    b.settings[client].day = day;
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'bench-day', detail: client });
+  }
+
+  /** Choose (or clear) the method recommended for a client. */
+  benchPlan(devId: string, client: string, method: BenchMethod | null): void {
+    const b = this.benchOf(devId);
+    clientOf(b, client);
+    if (method) b.plan[client] = method;
+    else delete b.plan[client];
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'bench-plan', detail: client });
+  }
+
+  /**
+   * Replay the client's day with its current settings. The result arrives
+   * RUN_MS later: a summary line and one ALERT line per alert on the bench,
+   * and a 'bench' event for each map device that alerted or was missed.
+   */
+  benchRun(devId: string, client: string): void {
+    const b = this.benchOf(devId);
+    const c = clientOf(b, client);
+    const set = b.settings[client];
+    const run = {
+      no: b.runs.length + 1,
+      client,
+      method: set.method,
+      db: b.db,
+      tolerance: set.tolerance,
+      baselineDay: set.baseline?.day,
+      day: set.day,
+      startedAt: this.t,
+    };
+    const baseline = set.baseline;
+    b.runs.push(run);
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'bench-run', detail: client });
+    this.schedule(RUN_MS, () => {
+      const r = runBench(b.config, c, { method: run.method, db: run.db, tolerance: run.tolerance, baseline, day: run.day });
+      const name = (id: string) => b.config.names?.[id] ?? id;
+      const found = r.caught.length;
+      const total = found + r.missed.length;
+      this.log(devId, {
+        source: 'bench',
+        level: 'notice',
+        msg: `RUN ${run.no} ${c.name} ${METHOD_NAME[run.method].toLowerCase()} (${runSettings(b, run)}), ${c.days[run.day].label}: ${found} of ${total} attacks caught, ${r.falseAlarms} false alarm${r.falseAlarms === 1 ? '' : 's'}`,
+        fields: { run: run.no, client, method: run.method, caught: found, missed: r.missed.length, falseAlarms: r.falseAlarms, alerts: r.alerts.length },
+      });
+      for (const a of r.alerts) {
+        const e = this.log(devId, {
+          source: 'bench',
+          level: 'alert',
+          msg: `ALERT run ${run.no} ${c.name} ${a.by} ${clock(a.at)} ${name(a.host)}: ${a.why}`,
+          fields: { run: run.no, client, day: run.day, by: a.by, host: a.host, at: clock(a.at), ...(a.attack ? { attack: a.attack } : {}), queue: a.queue ?? '' },
+        });
+        a.logNo = e.no;
+      }
+      Object.assign(run, { doneAt: this.t, result: r });
+      const per = new Map<string, { alerts: number; missed: number }>();
+      const bump = (host: string, k: 'alerts' | 'missed') => {
+        const v = per.get(host) ?? { alerts: 0, missed: 0 };
+        v[k]++;
+        per.set(host, v);
+      };
+      for (const a of r.alerts) bump(a.host, 'alerts');
+      const day = c.days[run.day];
+      for (const id of r.missed) {
+        const host = day.records.find((x) => x.attack === id)?.host;
+        if (host) bump(host, 'missed');
+      }
+      for (const [host, v] of per) {
+        if (v.alerts) this.emit({ t: this.t, type: 'bench', device: host, bench: devId, run: run.no, what: 'alerts', count: v.alerts });
+        if (v.missed) this.emit({ t: this.t, type: 'bench', device: host, bench: devId, run: run.no, what: 'missed', count: v.missed });
+      }
+    });
   }
 
   // --- capture runs (packet-capture) ---

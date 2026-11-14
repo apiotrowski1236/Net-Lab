@@ -67,18 +67,18 @@ function anomalyAtMedium(sim: Sim): void {
 
 export const logsLab: LabDef = {
   id: 'logs',
-  version: 1,
+  version: 2,
   title: 'Log Detective',
   tagline: 'Read a night of logs and tune the detectors until the real attacks stand out from the noise.',
   unit: 3,
   codehs: ['3.18 The Story in the Logs'],
-  ced: ['3.5.A', '3.5.B', '3.5.C', '3.5.D', '3.5.E'],
+  ced: ['3.5.A', '3.5.B', '3.5.D', '3.5.E'],
   minutes: 45,
   objectives: [
     'Explain what a NIDS, a NIPS, and a SIEM each do with network logs.',
     'Compare signature-based and anomaly-based detection, including what each one misses.',
-    'Judge a detector by false positives, false negatives, speed, and cost.',
-    'Find indicators of compromise in a night of logs and choose a detection method for an organization.',
+    'Judge a detector by its false positives and false negatives.',
+    'Find indicators of compromise in a night of logs and explain which detector would flag each one.',
   ],
   build: buildUtility,
   map: { zones },
@@ -559,79 +559,19 @@ export const logsLab: LabDef = {
     },
 
     {
-      id: 'pick-method',
-      title: 'Pick a method',
-      body: md`
-        You have seen both kinds of detection and their costs. Signature-based is fast and cheap and suits heavy traffic, but misses new attacks. Anomaly-based catches new attacks and suits steady traffic, but cries wolf. **Hybrid** runs both: the most coverage, the most cost.
-
-        Three organizations ask you which to use. Match each to a method.
-      `,
-      focus: [],
-      questions: [
-        {
-          id: 'org-stream',
-          kind: 'choice',
-          prompt: 'A video streaming service pushes enormous, ever-changing traffic and needs detection that keeps up. Which method?',
-          options: [
-            { id: 'signature', text: 'Signature-based', correct: true },
-            {
-              id: 'anomaly',
-              text: 'Anomaly-based',
-              feedback: 'A baseline on traffic this huge and this variable would flag normal spikes nonstop. The volume calls for speed.',
-            },
-            {
-              id: 'hybrid',
-              text: 'Hybrid',
-              feedback: 'Running both over that firehose costs the most, and here raw speed matters more than catching every novel attack.',
-            },
-          ],
-          explain: 'Signature detection is fast and scales to high volume, so it fits a service whose traffic is both massive and always shifting.',
-        },
-        {
-          id: 'org-factory',
-          kind: 'choice',
-          prompt: 'A small factory has steady, predictable traffic and worries about new attacks nobody has a signature for yet. Which method?',
-          options: [
-            { id: 'anomaly', text: 'Anomaly-based', correct: true },
-            {
-              id: 'signature',
-              text: 'Signature-based',
-              feedback: 'Signatures miss any attack that is new, which is exactly this factory’s worry. Its steady traffic makes odd behavior easy to spot.',
-            },
-            { id: 'hybrid', text: 'Hybrid', feedback: 'A small factory rarely needs the cost of both. Its consistent traffic is ideal for a baseline on its own.' },
-          ],
-          explain: 'Anomaly detection suits consistent traffic and catches novel attacks, so a quiet, predictable factory is a good fit.',
-        },
-        {
-          id: 'org-hospital',
-          kind: 'choice',
-          prompt: 'A hospital holds sensitive patient records, faces every kind of threat, and has the budget to protect them. Which method?',
-          options: [
-            { id: 'hybrid', text: 'Hybrid', correct: true },
-            {
-              id: 'signature',
-              text: 'Signature-based',
-              feedback: 'Signatures alone would miss a brand new attack aimed at patient records, which is too big a gap for a hospital.',
-            },
-            { id: 'anomaly', text: 'Anomaly-based', feedback: 'Anomaly alone would miss known attacks a signature catches instantly. Sensitive data deserves both.' },
-          ],
-          explain: 'Hybrid costs the most but gives the most coverage, which fits a sensitive, critical network that can afford it.',
-        },
-      ],
-    },
-
-    {
       id: 'reflect',
       title: 'Write it up',
       body: md`
         Write a short report for your shift lead.
+
+        **Next lab:** choosing a method for a network. In Pick Your Detector you test signature, anomaly, and hybrid detection on three very different clients and recommend one for each.
       `,
       questions: [
         {
           id: 'writeup',
           kind: 'text',
           prompt:
-            'Name one attack you found in the utility’s logs last night. Cite the exact log line or alert that shows it, with the address or MAC that gives it away. Then recommend a detection method for Riverbend Water Utility, and name one trade-off your choice brings.',
+            'Name one attack you found in the utility’s logs last night. Cite the exact log line or alert that shows it, with the address or MAC that gives it away. Then say which detector flagged it or would have, a signature or the anomaly baseline, and why.',
           minWords: 45,
           lines: 7,
         },

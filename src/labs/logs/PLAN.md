@@ -1,10 +1,10 @@
 # Log Detective (`logs`)
 
-Status: built (wave 2). 12 steps, registered in `src/labs/index.ts`. Follows `docs/unit3/ARCHITECTURE.md`. Full lesson in `SCRIPT.md` (its top section lists where the build departs from it). Code: `index.ts` (steps), `scenario.ts` (network and seeded history), `solution.ts` (answer key), `lab.test.ts`; detection engine in `src/sim/ids.ts`.
+Status: built (wave 2). 11 steps, registered in `src/labs/index.ts`. Follows `docs/unit3/ARCHITECTURE.md`. Full lesson in `SCRIPT.md` (its top section lists where the build departs from it). Code: `index.ts` (steps), `scenario.ts` (network and seeded history), `solution.ts` (answer key), `lab.test.ts`; detection engine in `src/sim/ids.ts`.
 
 Tagline: Tune detection tools and read the logs to find attacks hiding in normal traffic.
 
-CodeHS: `3.18 The Story in the Logs`. CED LOs: 3.5.A, 3.5.B, 3.5.C, 3.5.D, 3.5.E.
+CodeHS: `3.18 The Story in the Logs`. CED LOs: 3.5.A, 3.5.B, 3.5.D, 3.5.E. (3.5.C, choosing a method, and 3.5.D's speed and cost moved to Pick Your Detector when the Pick a method step came out. The lab still introduces signature and anomaly detection and assesses false positives and false negatives.)
 
 ## What students learn
 
@@ -30,9 +30,10 @@ Riverbend Water Utility's office network, a critical-infrastructure target: an e
 7. **Connect the dots**: the SIEM correlates a firewall deny, a port scan alert, and failed sign-ins from one address into one incident. Triage it: real or false, then escalate or close. Goal: incident triaged correctly.
 8. **Set the threshold**: an AI model scores the morning's events. Move the alert threshold: find a setting that catches all three real attacks with a workable number of false alerts. Goal: threshold in the good range. Question: what happens at each extreme.
 9. **IoC hunt**: find the line for each: a connection to a known malicious IP, an unauthorized scan, an ICMP spike to a broadcast address, and SSH running on port 443. Goal: open each.
-10. **Pick a method**: three organizations (a video streaming service with huge traffic, a small factory with steady traffic, a hospital network with patient data and a budget for it). Choose signature, anomaly, or hybrid for each. Questions with the CED's criteria.
-11. **Reflect**: written, FRQ style: name one attack you found, cite the log lines that show it, and recommend a detection method for the utility with one trade-off.
-12. **Submit**.
+10. **Reflect**: written, FRQ style: name one attack you found, cite the log lines that show it, and say which detector flagged it or would have (a signature or the anomaly baseline). Ends with "Next lab: choosing a method for a network."
+11. **Submit**.
+
+Choosing a method moved to its own lab: the old step 10, **Pick a method**, is now Pick Your Detector (`src/labs/detect-methods/`), where students test signature, anomaly, and hybrid detection on three clients and recommend one for each. The lab's `version` went to 2 when the step came out. `SCRIPT.md` still shows the old step 10 as it was first written.
 
 ## Core features this lab owns
 

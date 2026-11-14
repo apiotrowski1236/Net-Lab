@@ -4,6 +4,7 @@ import type { FwMode } from '../sim/firewall';
 import type { ZoneLevel } from '../sim/zones';
 import type { DemoFacts, DemoSpec } from '../demos/types';
 import type { TermCommand } from '../sim/terminal';
+import type { BenchMethod } from '../sim/bench';
 
 /** Things the student does in the interface (not in the network). Goals can listen for these too. */
 export type UiEvent =
@@ -229,12 +230,24 @@ export type ToolSpec =
   | { kind: 'siem'; device: string }
   /** The AI model's alert threshold on the SIEM `device`, with live counts, in the inspector. */
   | { kind: 'ai-threshold'; device: string }
+  /**
+   * The detection bench `device` (detect-methods): pick a client, a method,
+   * and settings, run it, and read the scoreboard. Only `clients` and
+   * `methods` are offered; `controls` reveals the database, baseline, and
+   * tolerance controls. `queue` shows the analyst queue for the newest run in
+   * place of the scoreboard: a tired analyst works through its alerts, and
+   * each row opens its ALERT line.
+   */
+  | { kind: 'bench'; device: string; clients: string[]; methods: BenchMethod[]; controls: BenchControl[]; queue?: boolean }
+  /** Recommend a method for each client on the bench `device`, within its budget. */
+  | { kind: 'bench-plan'; device: string }
   /** Echo tool (smurf): ping from `device`, with an optional forged source address. Its own Toolkit card. */
   | { kind: 'echo-tool'; device: string }
   /** Turn `device`'s directed-broadcast forwarding on or off, in the inspector (smurf). Not a Toolkit card. */
   | { kind: 'directed-broadcast'; device: string };
 
 export type IdsControl = 'signatures' | 'anomaly' | 'prevention';
+export type BenchControl = 'db' | 'baseline' | 'tolerance';
 
 /**
  * A cable the cable tool turns away (home-network). `between` names the two
@@ -358,6 +371,12 @@ export interface LabDef {
   wireshark?: boolean;
   /** Annotate MAC addresses with the owning device's name in the inspector. */
   labelMacs?: boolean;
+  /**
+   * false hides the inspector's addressing tables (Addresses or Ports, ARP
+   * table, MAC address table) for labs where devices stand for whole
+   * networks and those tables only distract (detect-methods). Default true.
+   */
+  deviceTables?: boolean;
   /**
    * For labs where students build the network: show port names where cables
    * meet routers and switches, and each device's current IP addresses under it.

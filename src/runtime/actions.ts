@@ -8,6 +8,7 @@ import type { RiskLevel } from '../sim/audit';
 import type { HardenSetting } from '../sim/hardening';
 import type { VpnAuth } from '../sim/vpn';
 import type { Tolerance, TriageAction, Verdict } from '../sim/ids';
+import type { BenchMethod, TolerancePct } from '../sim/bench';
 
 /**
  * Every change a student makes to the network is one of these. They are
@@ -113,7 +114,18 @@ export type SimAction =
   /** An analyst's call on a SIEM incident. */
   | { type: 'siem-triage'; device: string; incident: number; verdict: Verdict; action: TriageAction }
   /** The AI model's alert threshold on a SIEM, 0 to 1. */
-  | { type: 'ai-threshold'; device: string; value: number };
+  | { type: 'ai-threshold'; device: string; value: number }
+  // Detection bench (detect-methods)
+  /** Choose a client's method or anomaly tolerance on the bench. A part left out keeps its value. */
+  | { type: 'bench-set'; device: string; client: string; method?: BenchMethod; tolerance?: TolerancePct }
+  /** Record a client's baseline from one of its recorded days. */
+  | { type: 'bench-baseline'; device: string; client: string; day: string }
+  /** Install a signature database version on the bench. */
+  | { type: 'bench-db'; device: string; version: string }
+  /** Replay the client's day with its current settings and score it. */
+  | { type: 'bench-run'; device: string; client: string }
+  /** Recommend a method for a client in the plan (null clears it). */
+  | { type: 'bench-plan'; device: string; client: string; method: BenchMethod | null };
 
 export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
   switch (a.type) {
@@ -313,6 +325,21 @@ export function applyAction(lab: LabDef, sim: Sim, a: SimAction): void {
       return;
     case 'ai-threshold':
       sim.aiSetThreshold(a.device, a.value);
+      return;
+    case 'bench-set':
+      sim.benchSet(a.device, a.client, { method: a.method, tolerance: a.tolerance });
+      return;
+    case 'bench-baseline':
+      sim.benchRecordBaseline(a.device, a.client, a.day);
+      return;
+    case 'bench-db':
+      sim.benchInstallDb(a.device, a.version);
+      return;
+    case 'bench-run':
+      sim.benchRun(a.device, a.client);
+      return;
+    case 'bench-plan':
+      sim.benchPlan(a.device, a.client, a.method);
       return;
   }
 }

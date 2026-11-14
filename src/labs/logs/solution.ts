@@ -42,7 +42,7 @@ export const logsSolution: LabSolution = {
   reflect: {
     text: {
       writeup:
-        'The 3 a.m. upload was a real attack. The firewall logged ALLOW out TCP 10.10.20.22:52110 -> 45.77.12.9:8443 bytes=94371840, which is Raj’s PC sending 90 MB to an address the network never uses, at an hour when nobody was in the building. I would recommend hybrid detection for the utility. It is critical infrastructure, so it needs signatures to catch known attacks fast and anomaly detection to catch new ones like this upload. The trade-off is cost: hybrid runs two systems and produces more alerts, including false ones like the monthly backup, so the team has to tune it and spend time on triage.',
+        'The 3 a.m. upload was a real attack. The firewall logged ALLOW out TCP 10.10.20.22:52110 -> 45.77.12.9:8443 bytes=94371840, which is Raj’s PC sending 90 MB to an address the network never uses, at an hour when nobody was in the building. No signature describes it, because nothing about the upload matches a known attack. The anomaly baseline flagged it: the clean-week baseline never saw Raj’s PC send anything to that address, and 90 MB at 3 a.m. is far outside the normal range for that hour.',
     },
   },
 };

@@ -320,6 +320,7 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
   for (const [, e] of arpRows) macCount[e.mac] = (macCount[e.mac] ?? 0) + 1;
   const dupes = arpRows.filter(([, e]) => macCount[e.mac] > 1);
   const layer3 = dev.kind === 'host' || dev.kind === 'router';
+  const tables = lab.deviceTables ?? true;
   const cables = !!lab.map?.ports || tools.some((t) => t.kind === 'cable');
   const canIp = has('ip-config') && layer3;
   const canGateway = has('gateway') && dev.kind === 'host';
@@ -431,7 +432,7 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
         <p class="insp-note">{n}</p>
       ))}
 
-      {layer3 && ports}
+      {tables && layer3 && ports}
 
       {dev.kind === 'router' && routing}
 
@@ -443,7 +444,7 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 
       {sections('settings')}
 
-      {(dev.kind === 'host' || (dev.kind === 'router' && !dev.bgp)) && (
+      {tables && (dev.kind === 'host' || (dev.kind === 'router' && !dev.bgp)) && (
         <section>
           <h4>
             ARP table <span class="muted">which MAC address goes with each IP on this network</span>
@@ -489,7 +490,7 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
         </section>
       )}
 
-      {dev.kind === 'switch' && (
+      {tables && dev.kind === 'switch' && (
         <section>
           <h4>
             MAC address table <span class="muted">which port leads to each MAC</span>
@@ -525,7 +526,7 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
         </section>
       )}
 
-      {!layer3 && ports}
+      {tables && !layer3 && ports}
 
       {dev.kind === 'hub' && (
         <p class="insp-note">
