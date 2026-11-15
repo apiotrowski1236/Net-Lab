@@ -97,11 +97,19 @@ const floodAction = (sim: Sim, since: number) => {
   }
   return undefined;
 };
+/** Who had port 7 shut when the student last pressed Replay the 14:00 flood: the frames meet the port as it was then. */
+const shutAtPress = new WeakMap<Sim, { t: number; by: 'admin' | 'violation' | undefined }>();
+const port7Shut = (sim: Sim) => sim.dev('switch').switchSec?.ports[BREAKROOM_PORT]?.shutdown;
+/** Who shut port 7 for the replay since `since`: from the press, or (no press recorded, as in a direct test) from now. */
+const shutForReplay = (sim: Sim, since: number) => {
+  const at = shutAtPress.get(sim);
+  return at && at.t >= since ? at.by : port7Shut(sim);
+};
+const floodDroppedAtShutPort = (sim: Sim, since: number) =>
+  happened(sim, since, (e) => e.type === 'drop' && e.device === 'switch' && e.reason === 'port-shutdown' && !!e.frame?.burst);
 // A second replay finds port 7 already shut by port security: the frames drop at the port and port security
 // has nothing new to say. A port shut by hand doesn't count: that's not port security stopping the flood.
-const floodHitShutPort = (sim: Sim, since: number) =>
-  sim.dev('switch').switchSec?.ports[BREAKROOM_PORT]?.shutdown === 'violation' &&
-  happened(sim, since, (e) => e.type === 'drop' && e.device === 'switch' && e.reason === 'port-shutdown' && !!e.frame?.burst);
+const floodHitShutPort = (sim: Sim, since: number) => shutForReplay(sim, since) === 'violation' && floodDroppedAtShutPort(sim, since);
 const floodBlocked = (sim: Sim, since: number) => floodTripped(sim, since) || floodHitShutPort(sim, since);
 // Only a check-in stopped at its first SYN counts: a stateless firewall also denies the rest of one that
 // already got through when the rule moves up partway, and that check-in reached 192.0.2.44.
@@ -112,15 +120,20 @@ const checkinOpened = (sim: Sim, since: number) => happened(sim, since, (e) => e
 const replayFloodAction: ActionDef = {
   id: 'replay-flood',
   label: 'Replay the 14:00 flood',
-  run: replayFlood,
+  run: (sim) => {
+    shutAtPress.set(sim, { t: sim.t, by: port7Shut(sim) });
+    replayFlood(sim);
+  },
   outcome(sim, since): ActionLine[] {
     if (floodTripped(sim, since))
       return [
         floodAction(sim, since) === 'restrict'
-          ? { tone: 'good', text: 'Port security dropped the made-up MACs on port 7 and left the port up. The flood stopped at the switch.' }
+          ? { tone: 'good', text: 'Port security dropped the made-up MACs over its limit on port 7 and left the port up. The flood stopped at the switch.' }
           : { tone: 'good', text: 'Port security shut port 7 at the first made-up MAC. The flood stopped at the switch.' },
       ];
     if (floodHitShutPort(sim, since)) return [{ tone: 'good', text: 'Port 7 is still shut from your last replay, so the flood stopped at the switch again.' }];
+    if (floodDroppedAtShutPort(sim, since))
+      return [{ tone: 'bad', text: 'Port 7 was shut by hand, so the frames dropped at the port and port security never checked them. Open the Depot switch, press Turn port on for port 7, then replay it.' }];
     if (!sim.idle) return [{ tone: 'wait', text: 'The break-room PC is sending made-up MACs…' }];
     return [{ tone: 'bad', text: 'The made-up MACs went into the switch’s table. Turn on port security on port 7, then replay it.' }];
   },

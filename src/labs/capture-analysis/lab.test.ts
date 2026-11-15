@@ -280,9 +280,31 @@ describe('capture-analysis: fixing the live network', () => {
     sim.setPortShutdown('switch', BREAKROOM_PORT, true);
     const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
     const since = sim.t;
-    play(sim, replayFlood);
+    play(sim, act.run);
     expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(false);
-    expect(act.outcome!(sim, since)[0].text).not.toMatch(/still shut/);
+    const line = act.outcome!(sim, since)[0];
+    expect(line.text).toMatch(/shut by hand/);
+    expect(line.text).not.toMatch(/went into the switch/);
+  });
+
+  it('the result line keeps the port state from the replay, not from a later button press', () => {
+    const sim = build();
+    sim.setPortSecurity('switch', BREAKROOM_PORT, { maxMacs: 1, violation: 'shutdown' });
+    const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
+    play(sim, act.run);
+    const since = sim.t;
+    play(sim, act.run);
+    expect(act.outcome!(sim, since)[0].text).toMatch(/still shut/);
+    // Turning the port on and shutting it by hand after the replay doesn't rewrite what happened.
+    sim.setPortShutdown('switch', BREAKROOM_PORT, false);
+    sim.setPortShutdown('switch', BREAKROOM_PORT, true);
+    expect(act.outcome!(sim, since)[0].text).toMatch(/still shut/);
+    expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
+    // Shut by hand, then replayed: not port security's doing.
+    const since2 = sim.t;
+    play(sim, act.run);
+    expect(act.outcome!(sim, since2)[0].text).toMatch(/shut by hand/);
+    expect(check('fix', 'flood-blocked', undefined, sim, since2)).toBe(false);
   });
 
   it('with restrict, the flood line says port security dropped the MACs and left the port up', () => {
