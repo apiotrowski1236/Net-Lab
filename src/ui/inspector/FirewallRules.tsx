@@ -162,7 +162,7 @@ function Rulebook({ session, sim, dev, replaying }: InspectorSectionProps) {
               <th>Protocol</th>
               <th>Source</th>
               <th>Destination</th>
-              <th>Port</th>
+              <th>To port</th>
               {showApp && <th>Program</th>}
               <th>Action</th>
               {edit && <th />}

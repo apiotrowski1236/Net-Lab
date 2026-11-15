@@ -339,9 +339,9 @@ export function verdictText(v: FwVerdict, rules?: FwRule[]): string {
     case 'no-state':
       return 'Denied: it looks like a reply, but it answers no conversation in the connection table';
     case 'app':
-      return `Denied: rule ${v.ruleNo} allows port ${v.expected ? appName(v.expected) : ''}, but the program inside is ${appName(v.app ?? '?')}`;
+      return `Denied: rule ${v.ruleNo} would allow it, but the program inside is ${appName(v.app ?? '?')}, not ${appName(v.expected ?? '?')}`;
     case 'ips':
-      return `Denied: rule ${v.ruleNo} allows the port, but intrusion prevention found ${signatureName(v.signature)} inside`;
+      return `Denied: rule ${v.ruleNo} would allow it, but intrusion prevention found ${signatureName(v.signature)} inside`;
   }
 }
 
@@ -369,8 +369,8 @@ export function logLine(pkt: IpPacket, dir: FwDir, v: FwVerdict): Omit<LogEntry,
           : v.by === 'no-state'
             ? 'no matching connection'
             : v.by === 'ips'
-              ? `ips signature ${v.signature} (rule ${v.ruleNo} allowed the port)`
-              : `app ${v.app} on port ${pkt.dstPort}, expected ${v.expected} (rule ${v.ruleNo} allowed the port)`;
+              ? `ips signature ${v.signature} (rule ${v.ruleNo} would allow it)`
+              : `app ${v.app} on port ${pkt.dstPort}, expected ${v.expected} (rule ${v.ruleNo} would allow it)`;
   const level: LogLevel = v.by === 'ips' ? 'alert' : v.by === 'app' ? 'warn' : v.action === 'deny' ? 'notice' : 'info';
   const fields: Record<string, string | number> = {
     action: v.action,

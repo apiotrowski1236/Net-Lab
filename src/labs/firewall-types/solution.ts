@@ -4,7 +4,8 @@ import { ATTACKER, BRANCH_REPLIES, NO_REMOTE, REPLIES_IN } from './scenario';
 // Rule ids follow the path below. Firewall A starts with r1 to r4 (out to
 // anywhere, patients in, clinic SSH, deny inbound TCP). Step 2 adds r5
 // (replies from port 443), and step 4 deletes it. Step 6 adds r6 (no
-// remote-control). The branch router starts with r1 and step 8 adds r2.
+// remote-control). Step 9 adds r2 to the branch router for the tests, and the optional
+// branch step deletes it and adds r3.
 
 /** Answer key for "Firewall Types: Stateless, Stateful, and Next-Gen". Choice answers come from the lab itself. */
 export const firewallTypesSolution: LabSolution = {

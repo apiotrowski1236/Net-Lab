@@ -24,9 +24,9 @@ export function whyText(v: FwVerdict, rules: FwRule[] | undefined): string {
     case 'no-state':
       return 'it looks like a reply, but it answers no conversation in the connection table';
     case 'app':
-      return `rule ${v.ruleNo} allows that port, but the program inside is ${appName(v.app ?? '?')}, not ${appName(v.expected ?? '?')}`;
+      return `rule ${v.ruleNo} would allow it, but the program inside is ${appName(v.app ?? '?')}, not ${appName(v.expected ?? '?')}`;
     case 'ips':
-      return `rule ${v.ruleNo} allows that port, but intrusion prevention found ${signatureName(v.signature)} inside`;
+      return `rule ${v.ruleNo} would allow it, but intrusion prevention found ${signatureName(v.signature)} inside`;
   }
 }
 

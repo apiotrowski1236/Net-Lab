@@ -24,7 +24,7 @@ import type { MapZone } from '../types';
 // router has a firewall built in. The patient at home is gone (the branch's
 // front desk uses the web app instead), which keeps the map short.
 
-export { ATTACKER, CLINIC, FILES, HOSPITAL_SITE, NURSE, PORTAL_SITE, STAFF_NET, WEB };
+export { ATTACKER, CLINIC, FILES, HOSPITAL_SITE, NURSE, PATIENTS_IN, PORTAL_SITE, STAFF_NET, WEB };
 
 export const BRANCH_NET = '10.0.3.0/24';
 export const DESK = '10.0.3.10';
@@ -57,10 +57,12 @@ export const BRANCH_OUT: FwRuleInput = {
 export const REPLIES_IN: FwRuleInput = { dir: 'in', proto: 'tcp', src: 'any', sport: 443, dst: 'any', dport: 'any', action: 'allow' };
 /** Step 6: no remote-control program leaves the hospital, on any port. */
 export const NO_REMOTE: FwRuleInput = { dir: 'out', proto: 'any', src: 'any', dst: 'any', dport: 'any', app: 'remote-control', action: 'deny' };
-/** Step 8: the branch router lets in replies from the hospital web app, and nothing else. */
+/** The optional branch step: the branch router lets in replies from the hospital web app, and nothing else. */
 export const BRANCH_REPLIES: FwRuleInput = { dir: 'in', proto: 'tcp', src: WEB, sport: 443, dst: BRANCH_NET, dport: 'any', action: 'allow' };
+/** The note on the branch rule the lab adds for the hospital's tests (step 9). The optional branch step takes that rule out again, so the student writes their own. */
+export const BRANCH_LAB_NOTE = 'Added by the lab so the hospital’s tests can reach the front desk';
 
-/** What each type of firewall costs the hospital (step 10). A next-generation box costs three times a stateful one. */
+/** What each type of firewall costs the hospital (step 9). A next-generation box costs three times a stateful one. */
 export const PRICE: Record<FwMode, number> = { stateless: 4000, stateful: 10000, ngfw: 30000 };
 export const BUDGET = 40000;
 
