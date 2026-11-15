@@ -302,7 +302,7 @@ export const deviceAnalysisLab: LabDef = {
   unit: 3,
   codehs: ['3.18 The Story in the Logs', '3.19 Securing Networks Quiz', '3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
   ced: ['3.4.B', '3.4.D', '3.5.A', '3.5.E', '3.1.C', '3.2.A'],
-  minutes: 60,
+  minutes: 65,
   objectives: [
     "Trace a connection through a host-based firewall's numbered rules, and explain why the first rule that matches decides.",
     'Find a password spray in auth.log and a port scan in ufw.log, citing the rows and the attacker’s address.',
@@ -894,9 +894,9 @@ export const deviceAnalysisLab: LabDef = {
 
         Open **access.log**. Most lines are customers using web browsers. Then find the lines from 203.0.113.140, the address from ufw.log. Its user agent is curl, a command-line tool, not a browser.
 
-        First, it asked for files that websites sometimes show to everyone by mistake: /.env (passwords and settings), /.git/config (the site's code history), and admin pages. Every answer was 404. Looking for weak spots like this is **reconnaissance**.
+        First, it asked for files that websites sometimes show to everyone by mistake: /.env (passwords and settings), /.git/config (a settings file that shows the site's code history can be downloaded), and admin pages. Every answer was 404. Looking for weak spots like this is **reconnaissance**.
 
-        Then it asked for paths with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them lead out of the web folder to the top of the disk, where /etc/passwd lists the server's accounts and /etc/shadow holds their scrambled passwords. Using \`..\` to read files outside the web folder is **directory traversal**.
+        Then it asked for paths with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them lead out of the web folder to the top of the disk, where /etc/passwd lists the server's accounts and /etc/shadow holds their password hashes: passwords scrambled one way, so they can't be turned back. Using \`..\` to read files outside the web folder is **directory traversal**.
 
         This challenge earns no points. Hand in your work again when you're done so your teacher sees it.
       `,

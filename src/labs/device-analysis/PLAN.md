@@ -8,7 +8,7 @@ New capstone (see `docs/unit3/SUITE-PLAN.md`). Slot 17 of 17, the last lab of th
 - **Tagline:** Read a web server's firewall rules and logs, find two attacks, change the rules, and stop the next attack while it happens.
 - **CodeHS:** 3.18 The Story in the Logs, 3.19 Securing Networks Quiz (review); also the firewall lessons 3.10 and 3.12 for rule tracing and writing
 - **CED:** 3.4.B.1 to B.3 and 3.4.D.1 to D.3 (a host firewall); 3.5.A.3 (automated prevention); 3.5.E.7 (scan, known source); 3.1.C.1 (CIA); 3.2.A.1 (disable unneeded services)
-- **Minutes:** 60 (was 50; see Version 2). **Steps:** 11 or 12.
+- **Minutes:** 65 (was 50; see Version 2). **Steps:** 11 or 12.
 - **Prerequisites:** the whole unit, especially Firewall Rules and Placement and Log Analysis and Intrusion Detection.
 
 ## Why this lab
@@ -93,4 +93,4 @@ All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrou
 - **fail2ban read-back:** the step no longer promises fewer than 5 Found lines for 203.0.113.77 (extra step 5 replays can reach 5). Its settings are a small table. The note about a student's /24 rule being narrowed is a goal hint, since it applies to few students.
 - **Step 7** Jo's goal waits for the laptop to get the answer, so it checks off with the result line.
 - **fail2ban turned on mid-attack** counts: a read-back ban that then blocks guesses of the same run is a ban while the attack happens (`stoppedByBan`). A read-back ban after the attack ended still doesn't count, because the next press moves the bot first.
-- **Minutes** 60: the panel's median for the required steps ran 56 to 65 after trimming. The write-up can go home if a period runs short.
+- **Minutes** 65: the panel's median for the required steps ran 56.5 to 65 over rounds 2 to 4, after trimming. The write-up can go home if a period runs short.
