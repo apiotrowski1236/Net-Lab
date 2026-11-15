@@ -1,4 +1,4 @@
-import { entryRating, type FindingId } from '../../sim/audit';
+import { entryRating, type FindingId, type RiskLevel } from '../../sim/audit';
 import type { Sim } from '../../sim/sim';
 import type { Frame, SimEvent } from '../../sim/types';
 import { crack, reach } from '../../sim/wifi';
@@ -38,6 +38,14 @@ const without = (...ids: FindingId[]) => scanned((f) => ids.every((id) => !f.inc
 
 const rating = (sim: Sim, id: FindingId) => entryRating(sim.dev('auditor').audit?.register[id]);
 
+/** A register row has exactly this likelihood and impact. */
+const ratedAs =
+  (id: FindingId, likelihood: RiskLevel, impact: RiskLevel) =>
+  ({ sim }: CheckCtx): boolean => {
+    const e = sim.dev('auditor').audit?.register[id];
+    return e?.likelihood === likelihood && e.impact === impact;
+  };
+
 /** The scan's report lists nothing high or moderate, by the scanner's severity or the auditor's own rating. */
 const onlyLowLeft = scanned((_f, e, sim) => {
   const a = sim.dev('auditor').audit;
@@ -47,13 +55,13 @@ const onlyLowLeft = scanned((_f, e, sim) => {
 
 export const netAuditLab: LabDef = {
   id: 'net-audit',
-  version: 3,
+  version: 4,
   title: 'Vulnerability Scan and Risk Assessment',
   tagline: 'Scan a small office for weaknesses, rate each risk high, moderate, or low, and write the policies that fix them.',
   unit: 3,
   codehs: [],
   ced: ['3.1.B', '3.1.C', '3.2.A'],
-  minutes: 60,
+  minutes: 55,
   objectives: [
     'Run an automated vulnerability scanner and read its report of findings, severity, and fixes.',
     'Rate each risk by likelihood and impact, using exploit difficulty and the CIA triad.',
@@ -193,7 +201,7 @@ export const netAuditLab: LabDef = {
           kind: 'choice',
           prompt: 'You read the admin password straight out of the Telnet capture. SSH showed only scrambled text. Why should the router turn Telnet off?',
           options: [
-            { id: 'plain', text: 'Telnet sends the login in plaintext, so anyone on the path can read the password.', correct: true },
+            { id: 'plain', text: 'Telnet sends the login as plain text, so anyone on the path can read the password.', correct: true },
             { id: 'slow', text: 'Telnet is slower than SSH.', feedback: 'Speed is not the issue. Compare what you could read in each capture.' },
             { id: 'port', text: 'Telnet uses the wrong port number.', feedback: 'A port number is not a weakness. What crossed the wire in the clear?' },
             { id: 'hide', text: 'SSH hides the router from scanners.', feedback: 'SSH still shows as an open port. It protects the contents, not the fact that the service exists.' },
@@ -250,14 +258,14 @@ export const netAuditLab: LabDef = {
         {
           id: 'combine',
           kind: 'choice',
-          prompt: 'A finding takes little skill to exploit, but using it barely hurts the food bank. How should that shape its rating?',
+          prompt: 'A finding takes little skill to exploit, but using it hurts the food bank only a little. How should that shape its rating?',
           options: [
             { id: 'middle', text: 'High likelihood, low impact, so a moderate risk.', correct: true },
             { id: 'always', text: 'Anything that takes little skill is always a high risk.', feedback: 'Likelihood is only half of it. A harmless weakness is still low impact.' },
             { id: 'zero', text: 'Low impact means the risk is zero.', feedback: 'Low is not zero. You still record it.' },
             { id: 'only', text: 'Once you know the likelihood, impact stops mattering.', feedback: 'Risk needs both. The register combines them.' },
           ],
-          explain: 'Risk combines likelihood and impact. In the table, high likelihood and low impact give a moderate risk. The open-ping finding is this case.',
+          explain: 'Risk combines likelihood and impact. In the table, high likelihood and low impact give a moderate risk. The router answering pings (small "are you there?" messages) from the internet is this case. You rate it in the next step.',
         },
       ],
     },
@@ -280,10 +288,22 @@ export const netAuditLab: LabDef = {
       tools: [{ kind: 'risk-register', device: 'auditor' }],
       goals: [
         {
-          id: 'anchors',
-          label: 'Rate the three course examples high, moderate, and low',
-          hint: 'Each example above says its likelihood and its impact. Set both on each row, then check the rating against the table.',
-          check: ({ sim }) => rating(sim, 'wifi-weak') === 'high' && rating(sim, 'edge-icmp') === 'moderate' && rating(sim, 'wifi-beacon') === 'low',
+          id: 'wep',
+          label: 'Rate **Weak Wi-Fi encryption**: high likelihood, high impact',
+          hint: 'A free tool cracks WEP, so likelihood is high. The donor server is on the same network, so impact is high.',
+          check: ratedAs('wifi-weak', 'high', 'high'),
+        },
+        {
+          id: 'pings',
+          label: 'Rate **Answers pings from the internet**: high likelihood, low impact',
+          hint: 'Pings take no skill, so likelihood is high. They only show that the office is there, so impact is low.',
+          check: ratedAs('edge-icmp', 'high', 'low'),
+        },
+        {
+          id: 'beacon',
+          label: 'Rate **Wi-Fi beacon broadcast**: low likelihood, low impact',
+          hint: 'A name alone is not a way in, so likelihood is low. Impact is low too.',
+          check: ratedAs('wifi-beacon', 'low', 'low'),
         },
         {
           id: 'all-rated',
@@ -409,9 +429,9 @@ export const netAuditLab: LabDef = {
             { id: 'layer', text: 'It raises the effort and blocks casual devices, as one layer among several.', correct: true },
             { id: 'cannot', text: 'A MAC address cannot actually be copied.', feedback: 'It can. It is sent as readable text and can be changed in a few clicks, which is why filtering is not enough on its own.' },
             { id: 'encrypt', text: 'MAC filtering encrypts the network.', feedback: 'It decides who may connect. It does not encrypt anything.' },
-            { id: 'only', text: 'It is the only control a switch needs.', feedback: 'On its own it is weak. Port security and authentication back it up.' },
+            { id: 'only', text: 'It is the only control a switch needs.', feedback: 'On its own it is weak. Port security and shut ports back it up.' },
           ],
-          explain: 'No single control is enough. MAC filtering stops casual devices and adds a layer. Port security and the authentication server cover what it misses.',
+          explain: 'No single control is enough. MAC filtering stops casual devices and adds a layer. Port security and shutting unused ports cover what it misses.',
         },
       ],
     },
@@ -420,7 +440,7 @@ export const netAuditLab: LabDef = {
       id: 'wifi',
       title: 'Close the Wi-Fi',
       body: md`
-        The highest-rated finding is the Wi-Fi. [[wap]] uses **WEP**, an old encryption that a free tool cracks in under a minute. Its signal reaches the parking lot. The office is one flat network, so once someone is on the Wi-Fi they can reach [[fileserver]] and its donor records.
+        Next is the Wi-Fi, the course's high example. [[wap]] uses **WEP**, an old encryption that a free tool cracks in under a minute. Its signal reaches the parking lot. The office is one flat network, so once someone is on the Wi-Fi they can reach [[fileserver]] and its donor records.
 
         1. Click [[wap]] and change its security from WEP to **WPA3**, the strongest setting.
         2. Re-scan.

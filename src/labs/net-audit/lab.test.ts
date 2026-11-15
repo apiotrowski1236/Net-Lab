@@ -114,6 +114,21 @@ describe('net-audit: the risk register', () => {
     expect(riskRating('low', 'low')).toBe('low');
   });
 
+  it('checks each course example by its likelihood and impact, not only its rating', () => {
+    const sim = buildOffice();
+    scan(sim);
+    const goal = (id: string) => netAuditLab.steps.find((x) => x.id === 'register')!.goals!.find((g) => g.id === id)!;
+    const ok = (id: string) => goal(id).check({ sim, since: 0 } as Parameters<ReturnType<typeof goal>['check']>[0]);
+    sim.rateRisk('auditor', 'edge-icmp', 'moderate', 'moderate');
+    expect(riskRating('moderate', 'moderate')).toBe('moderate');
+    expect(ok('pings')).toBe(false);
+    sim.rateRisk('auditor', 'edge-icmp', 'high', 'low');
+    expect(ok('pings')).toBe(true);
+    sim.rateRisk('auditor', 'wifi-weak', 'high', 'high');
+    sim.rateRisk('auditor', 'wifi-beacon', 'low', 'low');
+    expect(ok('wep') && ok('beacon')).toBe(true);
+  });
+
   it('keeps a part left out when only one dropdown changes', () => {
     const sim = buildOffice();
     sim.rateRisk('auditor', 'telnet', 'high');

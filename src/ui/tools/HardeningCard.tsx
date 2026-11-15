@@ -24,7 +24,7 @@ export function HardeningCard({ session, spec, onSelect }: ToolCardProps<'harden
   }
   if (h) items.push(['Logins', h.authServer ? 'authentication server' : 'local account']);
   const vpn = d.vpn?.server;
-  if (vpn) items.push(['VPN split tunneling', vpn.splitTunneling ? 'allowed' : 'off'], ['VPN sign-in', VPN_AUTH_LABEL[vpn.auth].toLowerCase()]);
+  if (vpn) items.push(['VPN split tunneling', vpn.splitTunneling ? 'on' : 'off'], ['VPN sign-in', VPN_AUTH_LABEL[vpn.auth].toLowerCase()]);
   return (
     <div class="tool-card defend">
       <div class="tool-title">
