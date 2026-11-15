@@ -40,7 +40,7 @@ export const ATTENDANCE_URL = `http://${SITE}/attendance?period=3&absent=Jordan+
 export const isAttendance = (f: Frame): boolean => f.ip?.app.kind === 'http-req' && f.ip.app.path.startsWith('/attendance');
 
 export function buildOffice(): Sim {
-  const sim = new NetBuilder({ linkMs: 850 })
+  const sim = new NetBuilder({ linkMs: 450 })
     .router('router', {
       label: 'District router',
       icon: 'router',

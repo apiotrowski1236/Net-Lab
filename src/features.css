@@ -7306,3 +7306,10 @@ button.pl-tile:active {
 .tool-msg {
   scroll-margin-bottom: 44px;
 }
+
+/* mac-flood (student panel): the port-security toggle gets its own line, so Save never sits beside it */
+.port-edit > .toggle {
+  display: flex;
+  width: fit-content;
+  margin-bottom: 8px;
+}
