@@ -441,6 +441,17 @@ describe('firewall-types steps', () => {
     expect(lines(s, 'desk')[0]).toMatch(/^bad: Branch router blocked the reply/);
   });
 
+  it('"Choose A and B": when Firewall B stops the remote-control program first, the line doesn\'t say Firewall A blocked it', () => {
+    const s = openAt('choose');
+    play(s, { tool: { type: 'fw-add-rule', device: 'fwB', rule: { dir: 'out', proto: 'any', src: 'any', dst: ATTACKER, dport: 'any', action: 'deny' } } });
+    play(s, { tool: { type: 'fw-move-rule', device: 'fwB', id: s.sim.dev('fwB').firewall!.rules.at(-1)!.id, to: 0 } });
+    play(s, { press: 'tests' });
+    expect(lines(s, 'tests')).toContain(
+      'bad: Fail (Firewall A): The remote-control program was stopped before it reached Firewall A, so this test can’t check Firewall A. Firewall A has to block the program itself, whatever address or port it uses.',
+    );
+    expect(done(s, 'a')).toBe(false);
+  });
+
   it('"Choose A and B": rules that block the attacker\'s address don\'t pass a stateful Firewall A', () => {
     const s = openAt('choose');
     const top = (rule: Parameters<Sim['fwAddRule']>[1]) => {
@@ -506,7 +517,7 @@ describe('firewall-types steps', () => {
     play(s, { press: 'tests' });
     const out = lines(s, 'tests');
     expect(out).toContain(
-      'bad: Fail (Branch router): The branch front desk couldn’t open the web app. The branch router blocked the reply, so this test can’t check Firewall A. To fix the branch router, finish the optional step at the end of the lab.',
+      'bad: Fail (Branch router): The branch front desk couldn’t open the web app. The branch router blocked its traffic, so this test can’t check Firewall A. To fix the branch router, check its rules in the optional step at the end of the lab.',
     );
     expect(out.filter((l) => l.startsWith('bad: Fail (Firewall A)'))).toEqual([]);
     expect(out.filter((l) => l.includes('earlier run'))).toEqual([]);

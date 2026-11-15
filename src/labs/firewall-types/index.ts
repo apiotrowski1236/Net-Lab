@@ -381,7 +381,9 @@ function testResults(sim: Sim, since: number): TestResult[] {
       pass: remoteStopped && !far.remote ? false : remoteStopped,
       text: `The remote-control program on port ${ODD_PORT} is blocked`,
       fail: remoteStopped
-        ? 'Firewall A blocked the remote-control program by its header (address or port), not by naming the program. The program can switch to a new address or port, so Firewall A has to block the program itself'
+        ? remoteAtA === 'deny'
+          ? 'Firewall A blocked the remote-control program by its header (address or port), not by naming the program. The program can switch to a new address or port, so Firewall A has to block the program itself'
+          : 'The remote-control program was stopped before it reached Firewall A, so this test can’t check Firewall A. Firewall A has to block the program itself, whatever address or port it uses'
         : `Firewall A let the remote-control program out on port ${ODD_PORT}. It should be blocked there`,
     },
     {
@@ -399,7 +401,7 @@ function testResults(sim: Sim, since: number): TestResult[] {
       ...(deskAtBranch
         ? {
             blame: 'branch' as const,
-            fail: 'The branch front desk couldn’t open the web app. The branch router blocked the reply, so this test can’t check Firewall A. To fix the branch router, finish the optional step at the end of the lab',
+            fail: 'The branch front desk couldn’t open the web app. The branch router blocked its traffic, so this test can’t check Firewall A. To fix the branch router, check its rules in the optional step at the end of the lab',
           }
         : { fail: 'The branch front desk couldn’t open the web app' }),
     },
