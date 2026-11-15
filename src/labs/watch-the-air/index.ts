@@ -41,6 +41,9 @@ const CITE: ToolSpec = { kind: 'logs', devices: ['wap', 'lansw'], cite: true };
 
 const label = (sim: Sim, id: string) => sim.dev(id).label;
 
+/** "A", "A and B", or "A, B, and C". */
+const listOf = (names: string[]) => (names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`);
+
 /** Whether the copy now matches the real network: same name, WPA3, a per-person login. */
 const copied = (sim: Sim) => {
   const w = sim.dev('twin').wifi!;
@@ -58,12 +61,13 @@ const copyName: ActionDef = {
   },
   outcome: (sim): ActionLine[] => {
     if (!copied(sim)) return [{ tone: 'wait', text: 'Press the button and watch which devices move.' }];
+    const stayed = STAFF.filter((id) => onReal(sim, id)).map((id) => label(sim, id));
     return [
-      ...STAFF.map((id): ActionLine =>
-        onReal(sim, id)
-          ? { tone: 'good', text: `${label(sim, id)} checked the louder copy before moving to it. Its profile asked for proof that the copy is ${SERVER}, got none, so it stayed on the real network and sent no login.` }
-          : { tone: 'bad', text: `${label(sim, id)} is not on the real network.` },
-      ),
+      // One line for every device whose profile turned the copy down, so the same sentence isn't read three times.
+      ...(stayed.length
+        ? [{ tone: 'good', text: `${listOf(stayed)} asked the copy to prove it is ${SERVER}. They got no proof, so they sent no login and stayed on the real network.` } satisfies ActionLine]
+        : []),
+      ...STAFF.filter((id) => !onReal(sim, id)).map((id): ActionLine => ({ tone: 'bad', text: `${label(sim, id)} is not on the real network.` })),
       sim.dev('visitor').wifiClient?.joinedAp === 'twin'
         ? { tone: 'bad', text: `${label(sim, 'visitor')} moved to the copy, which is louder where he sits. His phone never checks the certificate, so it sent his login to the copy's sign-in server.` }
         : { tone: 'wait', text: `${label(sim, 'visitor')} is still on the real network.` },
@@ -188,7 +192,7 @@ function currentReplay(sim: Sim): WidsReplay | undefined {
 
 export const watchTheAirLab: LabDef = {
   id: 'watch-the-air',
-  version: 2,
+  version: 3,
   title: 'Wireless Intrusion Detection',
   tagline: "Monitor the shelter's Wi-Fi: find a rogue access point, a lookalike network, and a jammer, then choose alerts that catch the next one.",
   unit: 3,
@@ -214,7 +218,7 @@ export const watchTheAirLab: LabDef = {
       id: 'tour',
       title: 'Two weeks later',
       body: md`
-        The emergency shelter in the Ridgeview High gym has been open for two weeks. Its Wi-Fi is well protected: **WPA3** encryption scrambles what people send over the air, each person signs in with their own login, and the signal is turned down so it doesn't reach far past the building.
+        The emergency shelter in the Ridgeview High gym has been open for two weeks. Its Wi-Fi is well protected. **WPA3** encryption scrambles what people send over the air. Each person signs in with their own login. The signal is turned down so it doesn't reach far past the building.
 
         Now you **keep watch**. Tonight, people report strange things on the Wi-Fi. Check each report, collect evidence, and choose alarms that catch the next problem. (The map shows a few of the gym's phones and laptops, not all of them.)
 
@@ -251,10 +255,10 @@ export const watchTheAirLab: LabDef = {
 
         A network that isn't on the list could be a **rogue access point**: a box someone plugged into the shelter's wired network. Anyone can join an open box without a password. (The map shows the box on its wall jack because this is a simulation. On a real network you only have the scan and the switch log.)
 
-        3. Open the **Logs** tab and choose [[lansw]]. Click the line that shows the box on its port, then press **Cite this line as evidence**.
-           - A **LINK** line says a port came up.
+        3. Open the **Logs** tab and choose [[lansw]]. Click the line that names the box and its port, then press **Cite this line as evidence**.
+           - A **LINK** line says a port came up. It doesn't say what was plugged in.
            - A **MAC_NEW** line names a new device and its port. On the wire, a device's address is called its **MAC**. In this lab the box's MAC matches its BSSID.
-        4. Click [[lansw]], press **Edit** on that port, then press **Shut port down**. It takes effect at once.
+        4. Click [[lansw]], press **Edit** on that port, then press **Shut port down**. It takes effect at once, so you don't need to press Save.
       `,
       setup: seedRogue,
       focus: ['desk', 'rogue', 'lansw'],
@@ -272,9 +276,10 @@ export const watchTheAirLab: LabDef = {
         },
         {
           id: 'cited',
-          label: 'Cite the switch line that shows the box on its port',
+          label: 'Cite the switch line that names the box on its port',
           hint: "In the Logs tab, choose Wiring closet. The MAC_NEW line names the box's address and its port. (On real gear the MAC and the BSSID are usually close, not the same.)",
-          check: ({ sim, since }) => citedLogs(sim, since, (e) => e.device === 'lansw' && e.fields?.port === ROGUE_PORT).length > 0,
+          // The MAC_NEW line, not the LINK line: only it names the box, so only it proves what is on the port.
+          check: ({ sim, since }) => citedLogs(sim, since, (e) => e.device === 'lansw' && e.fields?.action === 'new-mac' && e.fields?.port === ROGUE_PORT).length > 0,
         },
         {
           id: 'shut',
@@ -304,14 +309,14 @@ export const watchTheAirLab: LabDef = {
       id: 'lookalike',
       title: "A name that's almost right",
       body: md`
-        A volunteer unplugged the box and locked it in the office. A few minutes later, a new network appears: **${LOOKALIKE}**. The real one is **${SSID}**, with a dash. This one has an underscore and is open: no encryption and no sign-in. A network made to look like yours is an **evil twin**.
+        A volunteer unplugged the box and locked it in the office. A few minutes later, a new network appears: **${LOOKALIKE}**. The real one is **${SSID}**, with a dash. This one has an underscore and is open: no encryption and no sign-in. A network made to look like yours is an **evil twin**. The map calls it Lookalike radio.
 
         1. Scan from the [[desk]] again and mark the new network.
-        2. Press **The radio copies the name and the security**. Now the copy has the exact name and WPA3, and it is louder than the real network in parts of the gym. Read the lines under the button and watch the map.
+        2. Press **The radio copies the name and the security**. Now the copy has the exact name and WPA3. Its radio is stronger, so in parts of the gym it is louder than the real network. Read the lines under the button and watch the map. Scan again to see the copy.
 
         A device moves to the louder of two radios with the same name and security. That is how it stays connected as you walk around a big building. Before it sends a login, it can check the shelter's sign-in server, named **${SERVER}**. The real server shows a **certificate**, a digital ID card. Anyone can copy the card, but only the real server has the secret key that proves the card is its own.
 
-        Every device set up at the desk has a **saved profile** that names that server, so it checks the certificate first. Mr. Okafor arrived this afternoon. A volunteer typed his login in by hand and skipped the profile, so his phone never checks.
+        Every device set up at the desk has a **saved profile** that names that server, so it checks the certificate first. Mr. Okafor arrived this afternoon. A volunteer typed his login in by hand and skipped the profile, so his phone never checks. (A real device joins the copy for a moment to ask for proof, then comes back. The simulation skips that short visit.)
       `,
       setup: setupLookalike,
       focus: ['twin', 'visitor', 'phone1', 'desk'],
@@ -428,14 +433,14 @@ export const watchTheAirLab: LabDef = {
           id: 'battery',
           kind: 'choice',
           afterGoals: true,
-          prompt: "If Mr. Okafor's battery had died, his phone would have dropped off the Wi-Fi too. Which of your two lines would a dead battery also leave in the log?",
+          prompt: "If Mr. Okafor's battery had died, his phone would have left the Wi-Fi too. Which of your two lines would a dead battery also leave in the log?",
           options: [
             { id: 'left', text: 'The line that says his phone left the real network.', correct: true },
             { id: 'stray', text: 'The line that shows his phone on a radio not on the list.', feedback: 'A dead phone talks to no radio at all. Only a phone on the copy leaves this line, which is why it is the proof.' },
             { id: 'both', text: 'Both lines. A dead phone would leave each of them.', feedback: 'A dead phone stops talking. It would not show up on a second radio.' },
             { id: 'neither', text: 'Neither line. A dead battery leaves nothing in the log.', feedback: 'The access point notices when a phone goes quiet, and it logs that the phone left.' },
           ],
-          explain: "Good evidence shows the claim directly. \"Left\" only shows his phone dropped off, and a dead battery would log the same line. The line about a radio that isn't approved proves his phone was on the copy.",
+          explain: "Good evidence shows the claim directly. \"Left\" only shows his phone went away, and a dead battery would log the same line. The line about a radio that isn't approved proves his phone was on the copy.",
         },
       ],
     },
@@ -444,7 +449,7 @@ export const watchTheAirLab: LabDef = {
       id: 'jam',
       title: 'Nobody can connect',
       body: md`
-        Later that evening, every device in the gym drops off the Wi-Fi at once, and none can get back on. Families are waiting at the desk. Is the access point broken? Collect evidence before you decide.
+        Later that evening, every device in the gym loses the Wi-Fi at once, and none can get back on. Is the access point broken? Collect evidence before you decide.
 
         **Noise** is radio energy on a channel that isn't a Wi-Fi message, like static on a car radio. A quiet channel reads about 5 on a scale of 0 to 100. A **jammer** is a radio that fills a channel with noise, so other radios can't be heard.
 
@@ -452,7 +457,7 @@ export const watchTheAirLab: LabDef = {
         2. Scan from the [[desk]] and read the noise on each channel.
         3. Open the **Logs** tab and click the newest noise line from Shelter Wi-Fi.
 
-        (The scan can still list Shelter-WiFi, because a scanner only needs to catch one beacon now and then. Staying connected needs every message to get through.)
+        (The scan can still list Shelter-WiFi, because a scanner only needs to hear the access point once in a while. Staying connected needs most messages to get through.)
       `,
       setup: (sim) => {
         setupAfterTwin(sim);
@@ -488,13 +493,13 @@ export const watchTheAirLab: LabDef = {
       id: 'crowd',
       title: 'Jammer or a crowd?',
       body: md`
-        The noise stopped as suddenly as it started. A van drove out of the parking lot at the same moment, and every device reconnected.
+        The noise stopped when a van drove out of the parking lot, and every device reconnected.
 
         Twenty minutes later, movie night starts, and many families get online at once. Someone at the desk asks, "It's slow again. Is the jammer back?"
 
         1. Press **Movie night starts**.
         2. Scan from the [[desk]] and read the noise.
-        3. Open the newest noise line from Shelter Wi-Fi in the Logs tab. It is a notice, so turn off **Warnings and alerts only**. Compare it with the line from the jamming.
+        3. Open the newest noise line from Shelter Wi-Fi in the Logs tab. It is a notice, so make sure **Warnings and alerts only** is off. Compare it with the line from the jamming.
 
         (Real Wi-Fi tools show a crowd as a busy channel, not as noise. This lab shows a crowd and a jammer on one noise scale to keep it simple.)
       `,
@@ -517,7 +522,7 @@ export const watchTheAirLab: LabDef = {
       goals: [
         { id: 'busy', label: 'Start movie night', check: ({ sim }) => (sim.dev('wap').wids?.crowd ?? 0) >= MOVIE_CROWD },
         { id: 'scan', label: 'Scan from the [[desk]] during movie night', check: ({ sim, since }) => scannedInMovieNight(sim, since) },
-        { id: 'log', label: 'Open the noise line from movie night', hint: 'Search the log for "noise" and pick the newest line. It is a notice, so uncheck **Warnings and alerts only**.', check: openedLog((e) => noiseLine(e) && Number(e.fields?.noise) > 10 && Number(e.fields?.noise) <= 50) },
+        { id: 'log', label: 'Open the noise line from movie night', hint: 'Search the log for "noise" and pick the newest line. It is a notice, so make sure **Warnings and alerts only** is unchecked.', check: openedLog((e) => noiseLine(e) && Number(e.fields?.noise) > 10 && Number(e.fields?.noise) <= 50) },
       ],
       questions: [
         {
@@ -530,9 +535,9 @@ export const watchTheAirLab: LabDef = {
             { id: 'noise', text: 'The noise is a little above quiet, far below 88.', correct: true },
             { id: 'connected', text: 'Devices stay connected, and more are online.', correct: true },
             { id: 'slow', text: 'Pages load slowly for everyone in the gym tonight.', feedback: "Slow pages have many causes, so slowness alone can't tell a crowd from a jammer." },
-            { id: 'evening', text: "It's evening, when most families are back in the gym.", feedback: 'The jammer struck in the evening too.' },
+            { id: 'evening', text: "It's evening, when most families are back in the gym.", feedback: 'The jammer came in the evening too.' },
           ],
-          explain: 'A jammer pushes the noise near the top, and every device drops off. A crowd raises the reading a little (a real tool would show a busier channel) and keeps everyone on. An alarm that raises an alert whenever the Wi-Fi is slow would raise one every movie night. That is a **false alarm**.',
+          explain: 'A jammer pushes the noise near the top, and every device loses its connection. A crowd raises the reading a little (a real tool would show a busier channel) and keeps everyone on. An alarm that raises an alert whenever the Wi-Fi is slow would raise one every movie night. That is a **false alarm**.',
         },
       ],
     },
@@ -601,7 +606,7 @@ export const watchTheAirLab: LabDef = {
         Then describe the impact of your plan: the work it gives the staff and what it changes for the people there. Some facts to use:
 
         - The alarms only hear radios near the access points. A weekly sweep walks the whole building with a scanner, and it takes about 20 minutes.
-        - With the alarms tuned, a normal week brings about 2 alerts. Reading and checking one alert takes a volunteer about 5 minutes.
+        - With the alarms tuned, a normal week brings about 2 alerts. Looking at the alert list on a day with none takes almost no time. Reading and checking one alert takes about 5 minutes.
         - Some controls watch the air. Others watch what people do, and that costs them privacy.
       `,
       questions: [
@@ -614,7 +619,7 @@ export const watchTheAirLab: LabDef = {
             { id: 'sweep', text: 'A weekly scan of the air, compared with the approved list.', correct: true, missed: 'The alarms only hear radios near the access points. What covers the rest of the building?' },
             { id: 'rules', text: 'Alarms for unknown radios, lookalikes, and new devices on ports.', correct: true },
             { id: 'noise', text: 'A noise alarm set between movie night and the jammer.', correct: true },
-            { id: 'review', text: 'Someone reads the alerts every day and notes what each was.', correct: true, missed: 'Who looks at the alerts once they appear?' },
+            { id: 'review', text: 'Someone checks for alerts every day and notes what each was.', correct: true, missed: 'Who looks at the alerts once they appear?' },
             { id: 'low', text: 'A noise alarm at 10, so it catches even a small change.', feedback: 'It would raise an alert every movie night, and staff would learn to ignore it.' },
             { id: 'sites', text: 'A log of every website each family visits on the Wi-Fi.', feedback: 'That watches people, not the air. It costs families their privacy and would catch none of tonight\'s attacks.' },
             { id: 'off', text: 'Turn the Wi-Fi off each night so there is nothing to watch.', feedback: 'That is not detection, and families need the Wi-Fi at night.' },

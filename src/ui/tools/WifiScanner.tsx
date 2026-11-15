@@ -66,6 +66,18 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
           <Icon name="warn" size={14} /> Heavy noise on channel {sim.jam.channel}. The air is being jammed.
         </p>
       )}
+      {/* Noise first, above the table, so a jammer's reading is in view right after a scan. */}
+      {rows && watch && (
+        <p class="small wifi-noise">
+          Noise by channel, on a scale of 0 to 100 (quiet is about 5):{' '}
+          {channels.map((c, i) => (
+            <span key={c}>
+              {i > 0 && ', '}
+              channel {c}: <strong class={sim.channelNoise(c) > 50 ? 'noise-high' : ''}>{sim.channelNoise(c)}</strong>
+            </span>
+          ))}
+        </p>
+      )}
       {rows && (
         <table class="table wifi-scan">
           <thead>
@@ -127,17 +139,6 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
             ))}
           </tbody>
         </table>
-      )}
-      {rows && watch && (
-        <p class="small wifi-noise">
-          Noise by channel, on a scale of 0 to 100 (quiet is about 5):{' '}
-          {channels.map((c, i) => (
-            <span key={c}>
-              {i > 0 && ', '}
-              channel {c}: <strong class={sim.channelNoise(c) > 50 ? 'noise-high' : ''}>{sim.channelNoise(c)}</strong>
-            </span>
-          ))}
-        </p>
       )}
     </div>
   );

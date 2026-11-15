@@ -245,7 +245,7 @@ describe('watch-the-air lab', () => {
     const look = enter('lookalike');
     expect(tones(look, 'copy-name')).toEqual(['wait']);
     look.runStepAction('copy-name');
-    expect(tones(look, 'copy-name')).toEqual([...STAFF.map(() => 'good'), 'bad']);
+    expect(tones(look, 'copy-name')).toEqual(['good', 'bad']);
 
     const find = enter('find');
     expect(tones(find, 'unplug')).toEqual(['wait']);
@@ -323,10 +323,20 @@ describe('watch-the-air lab', () => {
     expect(zones(s)).toEqual([]);
   });
 
-  it('says a device with a profile checked the copy for the certificate and sent no login', () => {
+  it('says in one line that the devices with a profile asked the copy for proof and sent no login', () => {
     const s = playThrough('lookalike');
     const lines = watchTheAirLab.steps.find((st) => st.id === 'lookalike')!.actions![0].outcome!(s.sim, 0);
-    expect(lines[0].text).toBe('Volunteer desk checked the louder copy before moving to it. Its profile asked for proof that the copy is radius.shelter, got none, so it stayed on the real network and sent no login.');
+    expect(lines[0].text).toBe('Volunteer desk, Rivera phone, and Chen laptop asked the copy to prove it is radius.shelter. They got no proof, so they sent no login and stayed on the real network.');
+    expect(lines).toHaveLength(2);
+  });
+
+  it('counts only the MAC_NEW line as the switch evidence, not the LINK line', () => {
+    const s = enter('sweep');
+    const cite = (action: string) => playMove(s, { citeLog: 'lansw', where: (e) => e.fields?.port === ROGUE_PORT && (action === 'link' ? e.source === 'link' : e.fields?.action === action) });
+    cite('link');
+    expect(s.goalDone('sweep', 'cited')).toBe(false);
+    cite('new-mac');
+    expect(s.goalDone('sweep', 'cited')).toBe(true);
   });
 
   it('replays the same network and citations after a reload', () => {

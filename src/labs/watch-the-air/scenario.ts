@@ -59,7 +59,7 @@ export const STAFF = ['desk', 'phone1', 'laptop1'] as const;
 /** The gym, in map coordinates. */
 export const GYM = { x: 60, y: 170, w: 600, h: 390 };
 
-/** Where the lookalike radio is hidden (behind the stacked bleachers). */
+/** Where the lookalike radio is hidden (behind the folded-up gym seats). */
 export const TWIN_POS = { x: 600, y: 410 };
 
 /** Three spots to take a signal reading from (for triangulation). */
@@ -71,7 +71,7 @@ export const SPOTS = [
 
 /** Places in the gym the triangulation card can name. */
 export const PLACES = [
-  { label: 'behind the stacked bleacher seats', x: TWIN_POS.x, y: TWIN_POS.y },
+  { label: 'behind the folded-up gym seats', x: TWIN_POS.x, y: TWIN_POS.y },
   { label: 'by the east door', x: 640, y: 260 },
   { label: 'at center court', x: 330, y: 360 },
   { label: 'by the north wall', x: 100, y: 200 },
