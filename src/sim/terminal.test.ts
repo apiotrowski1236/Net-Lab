@@ -26,6 +26,9 @@ describe('parseCommand', () => {
     expect(ok('nmap -sV --script vuln 10.0.0.0/24')).toEqual({ cmd: 'nmap', target: '10.0.0.0/24', versions: true, vuln: true });
     expect(ok('nmap --script=vuln 10.0.0.20')).toEqual({ cmd: 'nmap', target: '10.0.0.20', versions: true, vuln: true });
     expect(ok('cls')).toEqual({ cmd: 'clear' });
+    // A tablet keyboard turns -- into one long dash.
+    expect(ok('nmap -sV —script vuln 10.0.0.20')).toEqual({ cmd: 'nmap', target: '10.0.0.20', versions: true, vuln: true });
+    expect(ok('nmap -sV –script vuln 10.0.0.20')).toEqual({ cmd: 'nmap', target: '10.0.0.20', versions: true, vuln: true });
   });
 
   it('explains mistakes in words a student can act on', () => {

@@ -276,7 +276,7 @@ export function runMeaning(sim: Sim, devId: string, run: TermRun): string | unde
         return `${named}No device answered at ${run.target}. To scan a whole network, add a slash and its size, like ${run.target}/24.`;
       }
       const tail = run.vuln ? ` The vuln check matched ${bad} known problem${bad === 1 ? '' : 's'}.` : '';
-      return `${named}${found.length} device${found.length === 1 ? '' : 's'} answered, with ${open} open port${open === 1 ? '' : 's'} between them. Each open port is a program that accepts connections from anyone who can reach it.${tail}`;
+      return `${named}${found.length} device${found.length === 1 ? '' : 's'} answered, with ${open} open port${open === 1 ? '' : 's'}${found.length === 1 ? '' : ' between them'}. Each open port is a program that accepts connections from anyone who can reach it.${tail}`;
     }
   }
 }
