@@ -475,7 +475,7 @@ export const netToolsLab: LabDef = {
             'The last stop to answer was the internet provider. Past it, nothing answered, so the break is beyond the library. The library can’t fix that; the provider can. Next, if you haven’t yet, press the Call the internet provider button.',
         },
         {
-          id: 'routers',
+          id: 'routers-7',
           kind: 'choice',
           prompt: 'A finished trace to a different site prints 7 numbered lines. How many routers are on that path?',
           options: [

@@ -79,7 +79,7 @@ export function buildLibrary(): Sim {
       web: { name: NAME.catalog, title: 'Lakeside Library catalog', https: true, page: 'Search 48,000 books, movies, and games. Type a title or an author.' },
       services: [
         { port: 21, proto: 'tcp', app: 'ftp', banner: 'vsftpd 2.3.4', program: 'vsftpd' },
-        { port: 22, proto: 'tcp', app: 'ssh', banner: 'OpenSSH 9.9p2', program: 'sshd' },
+        { port: 22, proto: 'tcp', app: 'ssh', banner: 'OpenSSH 10.0p2', program: 'sshd' },
         { port: 80, proto: 'tcp', app: 'http', banner: 'nginx 1.26.3', program: 'nginx' },
         { port: 443, proto: 'tcp', app: 'https', banner: 'nginx 1.26.3', program: 'nginx' },
       ],
