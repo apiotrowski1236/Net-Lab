@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scanFindings } from '../../sim/services';
+import { fwDenyText } from '../../ui/firewallText';
 import type { Sim } from '../../sim/sim';
 import { firewallLab } from '.';
 import {
@@ -68,7 +69,7 @@ describe('firewall lab network', () => {
       const sim = placed(b);
       expect(bothPlaced(sim)).toBe(true);
       sim.fwAddRule('fwB', STAFF_OUT);
-      expect(connect(sim, 'nurse', WEB, 22).status, `nurse SSH, B on ${b}`).toBe('open');
+      expect(connect(sim, 'nurse', WEB, 443).status, `nurse web app, B on ${b}`).toBe('open');
       expect(connect(sim, 'web', FILES, 445).reason, `web to files, B on ${b}`).toBe('firewall');
       expect(connect(sim, 'nurse', FILES, 445).status).toBe('open');
       sim.browse('nurse', `https://${PORTAL_SITE}/`);
@@ -135,5 +136,48 @@ describe('firewall lab step setups', () => {
     sim.browse('patient', 'https://achospital.example/');
     sim.runUntilIdle();
     expect(sim.dev('patient').browser?.status).toBe('loaded');
+  });
+});
+
+describe('firewall lab feedback', () => {
+  it('says when a rule on Firewall B points the wrong way', () => {
+    const sim = placed();
+    sim.fwAddRule('fwB', { ...STAFF_OUT, dir: 'in', proto: 'tcp' });
+    const t = sim.t;
+    expect(connect(sim, 'nurse', WEB, 443).reason).toBe('firewall');
+    expect(fwDenyText(sim, 'fwB', sim.events.find((e) => e.type === 'firewall' && e.t >= t)!.t)).toBe(
+      'Firewall B blocked it: no rule matched (the implicit deny). Rule 1 would match it, but rule 1 is for packets going in, and this one is going out.',
+    );
+  });
+
+  it('says nothing extra for an implicit deny that no rule would turn around', () => {
+    const sim = placed();
+    const t = sim.t;
+    sim.ping('attacker', WEB);
+    sim.runUntilIdle();
+    expect(fwDenyText(sim, 'fwA', sim.events.find((e) => e.type === 'firewall' && e.t >= t)!.t)).toBe(
+      'Firewall A blocked it: no rule matched (the implicit deny).',
+    );
+  });
+
+  it('tags the firewall, not every cable end, when it is placed', () => {
+    const sim = buildHospital();
+    const n = sim.events.length;
+    sim.placeFirewall('fwA', ...EDGE, 'inet');
+    const loud = sim.events.slice(n).filter((e) => !e.quiet);
+    expect(loud.map((e) => e.type === 'config' && e.what)).toEqual(['firewall-placed']);
+  });
+});
+
+describe('firewall lab goals', () => {
+  it('counts the clinic in step 5 only while the coworker’s deny rule is still there', () => {
+    const goal = step('order').goals!.find((g) => g.id === 'clinic')!;
+    const sim = buildHospital();
+    step('order').setup!(sim);
+    const since = sim.t;
+    const deny = sim.dev('fwA').firewall!.rules.find((r) => r.action === 'deny')!;
+    sim.fwDeleteRule('fwA', deny.id);
+    expect(connect(sim, 'clinic', WEB, 22).status).toBe('open');
+    expect(goal.check({ sim, since })).toBe(false);
   });
 });

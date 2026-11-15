@@ -196,6 +196,7 @@ function markerFor(
       return e.reason === 'timeout' ? { device: e.device, text: 'no reply', tone: 'bad' } : null;
     case 'config':
       if (e.what === 'cable') return { device: e.device, text: e.on ? 'plugged in' : 'unplugged', tone: e.on ? 'info' : 'warn' };
+      if (e.what === 'firewall-placed') return { device: e.device, text: e.on ? 'placed in the cable' : 'taken out', tone: 'info' };
       if (e.what === 'ip' || e.what === 'gateway') {
         const what = e.what === 'ip' ? 'address' : 'gateway';
         if (!e.on) return { device: e.device, text: `${what} removed`, tone: 'warn', merge: { key: 'addr-off', many: () => 'address and gateway removed' } };

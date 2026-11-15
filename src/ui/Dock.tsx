@@ -42,7 +42,7 @@ function deviceKindText(dev: Device): string {
   if (dev.wifi) return 'Wi-Fi access point';
   if (dev.ids?.sensor) return 'Network sensor (IDS)';
   if (dev.ids?.siem) return 'SIEM server';
-  if (dev.web && dev.kind === 'host') return 'Server';
+  if ((dev.web || dev.icon === 'server') && dev.kind === 'host') return 'Server';
   return KIND_TEXT[dev.kind];
 }
 

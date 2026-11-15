@@ -1,4 +1,4 @@
-import { ruleText, type FwRule, type FwVerdict } from '../sim/firewall';
+import { ruleMatches, ruleText, type FwRule, type FwVerdict } from '../sim/firewall';
 import { signatureName } from '../sim/ngfw';
 import { appForPort, appName, isReply, portLabel, type Conn } from '../sim/services';
 import type { Sim } from '../sim/sim';
@@ -51,6 +51,21 @@ export function zoneWhyText(sim: Sim, fwId: string, v: FwVerdict): string | unde
   return port === undefined ? `its zone policy denies ${pairName(zp, pair.from, pair.to)}` : `its zone policy allows only ${only}`;
 }
 
+/**
+ * After an implicit deny: a rule that names an address and would have matched
+ * the packet in the other direction, so a student who wrote "in" for traffic
+ * going out sees why the rule did nothing. Empty when there is none.
+ */
+export function wrongWayText(sim: Sim, e: FwEvent): string {
+  if (e.verdict.by !== 'implicit' || isReply(e.pkt)) return '';
+  const rules = sim.devices[e.device]?.firewall?.rules ?? [];
+  const other = e.dir === 'in' ? 'out' : 'in';
+  // A rule for any address to any address (like "out, anything") would match
+  // every packet turned around, so it says nothing about this one.
+  const i = rules.findIndex((r) => r.dir === other && (r.src !== 'any' || r.dst !== 'any') && ruleMatches({ ...r, dir: e.dir }, e.pkt, e.dir));
+  return i < 0 ? '' : ` Rule ${i + 1} would match it, but rule ${i + 1} is for packets going ${other}, and this one is going ${e.dir}.`;
+}
+
 /** "Firewall A let the request in: rule 2, ALLOW in TCP ..." */
 export function fwEventText(sim: Sim, e: FwEvent): string {
   const label = sim.devices[e.device]?.label ?? e.device;
@@ -58,7 +73,7 @@ export function fwEventText(sim: Sim, e: FwEvent): string {
   const allowed = e.verdict.action === 'allow';
   const zoned = !!sim.devices[e.device]?.zonePolicy;
   const verb = allowed ? `let the ${what} ${zoned ? 'through' : e.dir === 'in' ? 'in' : 'out'}` : `blocked the ${what}`;
-  return `${label} ${verb}: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.`;
+  return `${label} ${verb}: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.${wrongWayText(sim, e)}`;
 }
 
 /** For a packet a firewall dropped at time `t`: which firewall, and why. */
@@ -67,7 +82,7 @@ export function fwDenyText(sim: Sim, fwId: string | undefined, t: number): strin
   for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= t - 1; i--) {
     const e = sim.events[i];
     if (e.type === 'firewall' && e.device === fwId && e.verdict.action === 'deny' && e.t <= t) {
-      return `${label} blocked it: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.`;
+      return `${label} blocked it: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.${wrongWayText(sim, e)}`;
     }
   }
   return `${label} blocked it.`;

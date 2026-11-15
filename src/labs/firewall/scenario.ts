@@ -41,7 +41,7 @@ export const DENY_IN_TCP: FwRuleInput = {
   dst: 'any',
   dport: 'any',
   action: 'deny',
-  note: 'Added by IT: block all other inbound TCP',
+  note: 'Added by a coworker: block all other inbound TCP',
 };
 /** Step 5: the clinic's IT staff may log in to the web server with SSH. */
 export const CLINIC_SSH: FwRuleInput = {
@@ -51,7 +51,7 @@ export const CLINIC_SSH: FwRuleInput = {
   dst: WEB,
   dport: 22,
   action: 'allow',
-  note: 'Added by IT: Lakeside Clinic admins manage the web server',
+  note: 'Added by a coworker: Lakeside Clinic admins manage the web server',
 };
 
 /** Step 6, Firewall B: staff computers may start conversations going out. */
@@ -65,7 +65,7 @@ export const INNER: [string, string][] = [
 ];
 
 export function buildHospital(): Sim {
-  const sim = new NetBuilder({ linkMs: 260, procMs: 80, httpTimeoutMs: 10000, pingTimeoutMs: 7000, autoArp: true })
+  const sim = new NetBuilder({ linkMs: 200, procMs: 60, httpTimeoutMs: 5000, pingTimeoutMs: 4500, autoArp: true })
     .host('patient', {
       label: 'Patient at home',
       sublabel: PATIENT,
@@ -106,9 +106,9 @@ export function buildHospital(): Sim {
         { id: 'home', ip: '192.0.2.1/24' },
         { id: 'clinic', ip: '198.51.100.1/24' },
         { id: 'att', ip: '203.0.113.1/24' },
-        { id: 'hosp', ip: '10.0.1.1/24' },
+        { id: 'hospital', ip: '10.0.1.1/24' },
       ],
-      routes: [{ prefix: STAFF_NET, via: '10.0.1.2', iface: 'hosp' }],
+      routes: [{ prefix: STAFF_NET, via: '10.0.1.2', iface: 'hospital' }],
     })
     .switch('serversw', { label: 'Server switch', x: 470, y: 300 })
     .host('web', {
@@ -162,7 +162,7 @@ export function buildHospital(): Sim {
     .link('patient', ['inet', 'home'])
     .link('clinic', ['inet', 'clinic'])
     .link('attacker', ['inet', 'att'])
-    .link(['inet', 'hosp'], 'serversw')
+    .link(['inet', 'hospital'], 'serversw')
     .link('serversw', 'web')
     .link('serversw', ['hrouter', 'servers'])
     .link(['hrouter', 'staff'], 'staffsw')
