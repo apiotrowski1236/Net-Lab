@@ -112,7 +112,7 @@ export const segmentationLab: LabDef = {
 
         [[fw]] is the ship's door to [[shore]], a satellite link that works only when the sub is near the surface. [[personal]] belongs to a sailor. It isn't plugged in.
 
-        1. Click [[fire]]. Its **Open ports** list shows the **port numbers** it answers on. A port number names one service on a computer. Port 445 is **file sharing**, which lets other computers copy files to and from this one. A port number is not a switch port. A switch port is a socket for a cable. (In the **Addresses** table, \`eth0\` is the computer's own cable socket.)
+        1. Click [[fire]]. Its **Open ports** list shows the **port numbers** it answers on. A port number names one service on a computer. Port 445 is **file sharing** (the map tags it **SMB**), which lets other computers copy files to and from this one. A port number is not a switch port. A switch port is a socket for a cable. (In the **Addresses** table, \`eth0\` is the computer's own cable socket.)
         2. Click [[sw]]. Find which device each port leads to.
         3. Press **Crew laptop 1 pings Fire control**. Watch the path the ping takes. A gray **not for me** tag means a device heard a message meant for someone else and ignored it. (The switch hasn't learned where Fire control is yet, so it sends the first message out every port.)
 
@@ -274,7 +274,7 @@ export const segmentationLab: LabDef = {
           prompt: 'What is network segmentation for?',
           options: [
             { id: 'contain', text: 'Keeping a break-in inside one segment', correct: true },
-            { id: 'fast', text: 'Making the network faster for everyone', feedback: 'Smaller segments do cut down broadcast traffic. But speed isn’t why the captain wants walls.' },
+            { id: 'fast', text: 'Making every computer on the ship run faster', feedback: 'Walls don’t make a computer faster. Smaller segments do cut down broadcast traffic, but speed isn’t why the captain wants them.' },
             { id: 'outside', text: 'Hiding the ship’s network from the shore link', feedback: 'The shore link is one door. Segmentation is about walls inside, between the ship’s own zones.' },
             { id: 'passwords', text: 'Giving every computer its own password', feedback: 'Passwords protect accounts. Segmentation decides which devices can reach each other at all.' },
           ],
@@ -298,15 +298,15 @@ export const segmentationLab: LabDef = {
 
         A VLAN is a group of switch ports that act like a switch of their own. A message that comes in a port in VLAN 30 leaves only through other ports in VLAN 30. This is called separating devices **logically**: by settings, not cables. Every port starts in VLAN 1, so the whole ship is one network.
 
-        To send to an address on its own network, a computer first needs that device's **MAC address**, the ID built into its network card. It asks with an **ARP request**: "Who has 10.0.0.11?" The request is a **broadcast**, sent to every device that can hear it. Everyone has forgotten the MAC addresses they learned, so you'll see the ARP request on the map.
+        To send to an address on its own network, a computer first needs that device's **MAC address**, the ID built into its network card. To learn it, the computer asks everyone: "Who has 10.0.0.11?" That question is an **ARP request**. A message sent to every device that can hear it is a **broadcast**. Only the device with that address answers. Everyone has forgotten the MAC addresses they learned, so you'll see the ARP request on the map.
 
         1. Click [[sw]]. In its **VLANs** table, put each port in its zone's VLAN:
            - Weapons, ports 1, 2, and 3: VLAN 10. Port 3 is a spare **jack** (a wall socket for a network cable) in the weapons compartment with nothing plugged in.
            - Operations, ports 4, 5, and 6: VLAN 20.
            - Crew, ports 7, 8, and 9: VLAN 30.
         2. Leave port 10, the firewall's cable, in VLAN 1 for now.
-        3. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes. A ping takes about 15 seconds at 1×.
-        4. When that ping's result shows, press **Crew laptop 1 pings the media server**.
+        3. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes. At 1×, a ping takes 15 to 30 seconds. One that gets no answer takes the longest.
+        4. When that ping's result shows, press **Crew laptop 1 pings the media server**. Only the latest result stays under the buttons.
       `,
       focus: ['sw', 'crew1'],
       open: { inspect: 'sw' },
@@ -414,7 +414,7 @@ export const segmentationLab: LabDef = {
         1. Click [[sw]]. Put switch port 12 in VLAN 30.
         2. Click [[fw]]. Give firewall port 3 the address \`10.0.30.1/24\`.
         3. Click [[crew1]]. Change its address to \`10.0.30.31/24\` and its default gateway to \`10.0.30.1\`.
-        4. Press **Crew laptop 1 opens the movie list**. Then press **Crew laptop 1 pings Command**. Wait for each result before you press the next button. The ping to Command can take half a minute at 1×.
+        4. Press **Crew laptop 1 opens the movie list**. Then press **Crew laptop 1 pings Command**. Wait for each result before you press the next button. At 1×, each one can take half a minute.
 
         (Big networks often carry every VLAN over one cable, called a **trunk**. This lab uses one cable per VLAN.)
       `,
@@ -526,7 +526,7 @@ export const segmentationLab: LabDef = {
 
         Click [[fw]] and find its **Zone policy**. Each row is the zone a connection starts from. Each column is the zone it goes to. Set all six cells. A reply to an allowed connection always gets back.
 
-        Then press each test button. If the firewall stops a packet, a red tag on the map shows where. Wait for each test's result before you press the next one, since only the latest result shows under the buttons. At 1×, an allowed test takes 15 to 20 seconds.
+        Then press each test button. Watch the map right after you press: if the firewall stops a packet, a red tag shows where. Wait for each test's result before you press the next one, since only the latest result shows under the buttons. At 1×, a test can take half a minute.
 
         Here one firewall guards every zone, with its own port and its own rules for each. You'll write firewall rules by hand in the Firewall Rules and Placement lab.
       `,
@@ -601,7 +601,7 @@ export const segmentationLab: LabDef = {
       body: md`
         Months later, the sub comes near the surface again. The same sailor downloads the same game onto [[crew1]].
 
-        The malware hasn't changed. It tries port 445 at every address nearby: its own subnet first, then the subnets next to it.
+        The malware hasn't changed. It tries port 445 at every address nearby: its own subnet first, then the other subnets.
 
         1. Press **Crew laptop 1 installs the game**. Watch where the probes go.
         2. When the map stops moving, open the **Logs** tab. Click one of the malware's blocked probes in the log of [[fw]].
@@ -682,7 +682,7 @@ export const segmentationLab: LabDef = {
       body: md`
         Remember port 3, the spare jack in the weapons compartment? Nothing is plugged into it, but it's in VLAN 10. Anything plugged in there ends up inside the weapons zone. Its traffic to Fire control goes through the switch and never passes the firewall.
 
-        1. Press **A sailor plugs a laptop into the spare jack**. Watch the weapons zone on the map. The test takes about 15 seconds at 1×.
+        1. Press **A sailor plugs a laptop into the spare jack**. Watch the weapons zone on the map. At 1×, the test can take half a minute.
         2. Click [[sw]]. In **Ports and port security**, choose **Edit** on port 3, then **Shut port down**. It takes effect right away.
         3. Press **A sailor plugs a laptop into the spare jack** again.
 
@@ -724,12 +724,12 @@ export const segmentationLab: LabDef = {
             {
               id: 'flood',
               text: 'Port security only stops floods of fake MAC addresses',
-              feedback: 'MAC flooding fills the switch’s MAC address table with fake addresses, and port security does stop it. It also limits which devices may use a port. But a limit of one still lets one device in, and nobody should use this port at all.',
+              feedback: 'Port security also limits which devices may use a port. But a limit of one still lets one device in, and nobody should use this port at all.',
             },
             { id: 'vlan', text: 'Port security would move the port out of VLAN 10', feedback: 'Port security doesn’t change the VLAN. It counts and checks MAC addresses on the port.' },
             { id: 'slow', text: 'Port security slows down the whole switch', feedback: 'Checking MAC addresses is quick work for a switch. The problem is what a limit of one still allows.' },
           ],
-          explain: 'An unused port has no device that belongs on it, so the safe setting is off. Shutting unused ports is a standard step in securing a switch.',
+          explain: 'A limit of one still accepts the first laptop someone plugs in. An unused port has no device that belongs on it, so the safe setting is off. Shutting unused ports is a standard step in securing a switch.',
         },
         {
           id: 'swap',
@@ -752,9 +752,9 @@ export const segmentationLab: LabDef = {
       id: 'dmz',
       title: 'A door to the outside',
       body: md`
-        When the sub is near the surface, email for the crew arrives over [[shore]]. A **mail relay** is a server that accepts mail from outside and holds it until the crew picks it up. It talks to the outside world all day, so it's the server most likely to be attacked.
+        When the sub is near the surface, email for the crew arrives over [[shore]]. The ship's **mail server** takes in mail from outside and holds it until the crew picks it up. It also sends the crew's mail out to shore. It talks to the outside world all day, so it's the server most likely to be attacked.
 
-        A **screened subnet**, also called a **DMZ**, is a zone for servers like this. Firewall rules guard it on both sides, from the outside and from the inside. The outside can reach only those servers, and those servers can reach only a little of the inside. If an attacker gets control of the mail relay, they're stuck in the screened subnet, with only the few doors its rules allow.
+        A **screened subnet**, also called a **DMZ**, is a zone for servers like this. Firewall rules guard it on both sides, from the outside and from the inside. The outside can reach only those servers, and those servers can reach only a little of the inside. If an attacker gets control of the mail server, they're stuck in the screened subnet, with only the few doors its rules allow.
 
         [[fw]] also guards [[shore]], the ship's only door to the outside. Every place a network meets the outside world needs a firewall. Every segment needs its own firewall rules. On this ship, one firewall holds them all:
 
@@ -762,7 +762,7 @@ export const segmentationLab: LabDef = {
         Shore link
             │
         Core firewall
-            ├── Screened subnet (mail relay)
+            ├── Screened subnet (mail server)
             ├── Weapons
             ├── Operations
             └── Crew
@@ -773,12 +773,12 @@ export const segmentationLab: LabDef = {
         {
           id: 'where',
           kind: 'choice',
-          prompt: 'Where should the ship’s mail relay go?',
+          prompt: 'Where should the ship’s mail server go?',
           options: [
             { id: 'dmz', text: 'In a screened subnet of its own', correct: true },
-            { id: 'crew', text: 'In the crew zone, next to the media server', feedback: 'Mail from outside can carry malware. A hacked relay in the crew zone could reach every crew laptop without passing the firewall.' },
+            { id: 'crew', text: 'In the crew zone, next to the media server', feedback: 'Mail from outside can carry malware. A hacked mail server in the crew zone could reach every crew laptop without passing the firewall.' },
             { id: 'weapons', text: 'In the weapons zone, the best-guarded zone', feedback: 'Then the shore link would need a door straight into Weapons. Servers that face the outside go where a break-in hurts least.' },
-            { id: 'outside', text: 'On the shore side, outside the firewall', feedback: 'Then nothing would guard the relay at all. In a screened subnet, the firewall guards it too.' },
+            { id: 'outside', text: 'On the shore side, outside the firewall', feedback: 'Then nothing would guard the mail server at all. In a screened subnet, the firewall guards it too.' },
           ],
           explain: 'A screened subnet holds the servers that face the outside, on their own firewall port with their own rules. A break-in there stays there, except through the few doors its rules allow.',
         },
@@ -788,9 +788,9 @@ export const segmentationLab: LabDef = {
           prompt: 'The screened subnet gets its own row and column in the zone policy. Which of these cells should be Deny?',
           options: [
             { id: 'dmz-wpn', text: 'Screened subnet to Weapons', correct: true },
-            { id: 'shore-dmz', text: 'Shore link to screened subnet', feedback: 'Then no mail could arrive. Allow only mail from the shore link to the relay.' },
+            { id: 'shore-dmz', text: 'Shore link to screened subnet', feedback: 'Then no mail could arrive. Allow only mail from the shore link to the mail server.' },
             { id: 'crew-dmz', text: 'Crew to screened subnet', feedback: 'The crew picks up their mail there. Allow only mail.' },
-            { id: 'ops-dmz', text: 'Operations to screened subnet', feedback: 'Command sends its reports to shore through the relay. Allow only mail.' },
+            { id: 'ops-dmz', text: 'Operations to screened subnet', feedback: 'Command sends its reports to shore through the mail server. Allow only mail.' },
           ],
           explain: 'Outsiders can reach the screened subnet, so it’s the zone an attacker is most likely to get into. It gets no door into the zones that matter most.',
         },
