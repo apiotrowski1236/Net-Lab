@@ -49,7 +49,7 @@ export const routeHijackLab: LabDef = {
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves', '3.3 Misdirected and Overwhelmed'],
   ced: ['3.1.A', '3.1.B', '3.1.C'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
     'Read a routing table and an AS path.',
     'Explain how BGP announcements spread between networks.',
@@ -69,9 +69,9 @@ export const routeHijackLab: LabDef = {
         - [[west]] and [[east]] are **transit** networks. They carry traffic between other networks.
         - [[shady]] is a small network connected to Transit West. Later, you will play Shady Net.
 
-        Each network owns blocks of addresses called **prefixes**. \`203.0.113.0/24\` means every address that starts with 203.0.113. An address has four numbers, and each number is 8 bits, so the /24 says the first 24 bits, the first three numbers, are fixed.
+        Each network owns blocks of addresses called **prefixes**. \`203.0.113.0/24\` means every address that starts with 203.0.113. An address has four numbers, and each number is 8 bits. So /24 means the first 24 bits, the first three numbers, are fixed.
 
-        Click [[home]]. In the Inspect panel, scroll down past **Addresses** to the **Routing table**. Each row says where to send packets for one prefix. **Send to** names the neighbor that gets them. The **AS path** lists the networks on the way there, and the last number is the network that owns the prefix. Step 3 shows where the path comes from.
+        Click [[home]]. In the Inspect panel, scroll down past **Addresses** to the **Routing table**. Each row says where to send packets for one prefix. **Send to** names the neighbor that gets them. The **AS path** lists the networks on the way there, and the last number is the network that owns the prefix. (The row for 198.51.100.0/24 is Shady Net's own block.) Step 3 shows where the path comes from.
 
         > Everything in this lab happens inside a simulation. Claiming addresses you don't own on the real internet disrupts service for many people and can be a crime.
       `,
@@ -132,14 +132,16 @@ export const routeHijackLab: LabDef = {
       body: md`
         How did HomeNet learn that path? [[bankhost]] owns the bank's prefix. It sends a **route announcement** to its neighbors: "I can reach 203.0.113.0/24. Path: 400."
 
-        A network that accepts the announcement saves the path in its routing table. When it passes the announcement on, it adds its own AS number to the front. If AS7 hears "8 9" and passes it on, its neighbor hears "7 8 9". So a network never lists itself in its own table. The protocol that carries these announcements is the **Border Gateway Protocol** (BGP).
+        A network that accepts the announcement saves the path in its routing table. When it passes the announcement on, it adds its own AS number to the front. If AS7 hears "8 9" and passes it on, its neighbor hears "7 8 9".
 
-        Two rules keep BGP working:
+        A network adds its number only when it sends the route out. Its own table never shows its own number. The protocol that carries these announcements is the **Border Gateway Protocol** (BGP).
+
+        Two rules decide which path a router keeps:
 
         - A router that hears two paths to the same prefix picks the **shortest AS path**. (Real networks can set their own preferences first. In this lab, none do.)
         - A router that finds its own AS number already in a path throws that announcement away. This stops **loops**: routes that go around in circles.
 
-        Press the button and watch the ROUTE packets spread. Then open [[west]] and scroll to its Routing table.
+        Press the button and watch the ROUTE packets spread. (At 4× they finish in about a second. Try 1× to watch them.) Then open [[west]] and scroll to its Routing table.
       `,
       focus: ['bankhost', 'east', 'west', 'home'],
       actions: [
@@ -173,7 +175,7 @@ export const routeHijackLab: LabDef = {
           kind: 'choice',
           prompt: 'Why does each network add its own AS number to the path before passing it on?',
           options: [
-            { id: 'length', text: 'So every network can see how far away the prefix is, and spot loops', correct: true },
+            { id: 'length', text: 'So every network can count how many networks away the prefix is, and spot loops', correct: true },
             {
               id: 'sign',
               text: 'To sign the announcement so nobody can fake it',
@@ -183,7 +185,7 @@ export const routeHijackLab: LabDef = {
             { id: 'bill', text: 'So networks can bill each other', feedback: 'Billing happens in contracts, not in BGP.' },
           ],
           explain:
-            'The length of the path tells a router how far away the prefix is, so it can pick the shortest one. A network that finds its own number already in a path rejects it, which stops loops.',
+            'The length of the path tells a router how many networks away the prefix is, so it can pick the shortest path. A network that finds its own number already in a path rejects it, which stops loops.',
         },
       ],
     },
@@ -194,9 +196,9 @@ export const routeHijackLab: LabDef = {
       body: md`
         Now you play [[shady]]. BGP routers believe what their neighbors tell them. Nothing in the protocol checks whether Shady Net owns the prefixes it announces.
 
-        Click [[shady]] to open its **route announcer** in the Toolkit. Type the bank's prefix, \`203.0.113.0/24\`, and announce it. Then open [[west]] and [[home]] and read their routes to the bank.
+        Shady Net's **route announcer** is open in the Toolkit. Type the bank's prefix, \`203.0.113.0/24\`, and announce it. Then open [[west]] and [[home]] and read their routes to the bank.
 
-        Transit West now hears two paths to the bank. HomeNet has only one neighbor, so its **Send to** stays Transit West. Look at where its AS path ends.
+        Transit West now hears two paths to the bank. Its table shows only the one it picked. HomeNet has only one neighbor, so its **Send to** stays Transit West. Look at where its AS path ends.
 
         Announcing someone else's prefix to pull in their traffic is a **BGP hijack**.
       `,
@@ -207,7 +209,7 @@ export const routeHijackLab: LabDef = {
         { id: 'announce', label: 'Announce 203.0.113.0/24 from [[shady]]', check: ({ sim }) => announcing(sim, BANK_PREFIX) },
         {
           id: 'home',
-          label: "Open [[home]]: its route to the bank now ends at Shady Net (666)",
+          label: "Open [[home]] after the announcement and see where its route to the bank ends",
           hint: 'Wait for the ROUTE packets to reach HomeNet, then open it.',
           check: (ctx) => routesToShady(ctx.sim, 'home') && inspected('home')(ctx),
         },
@@ -237,7 +239,7 @@ export const routeHijackLab: LabDef = {
 
         Then open [[east]] and check its route to the bank.
 
-        When a network attracts traffic and then drops it, the traffic has fallen into a **black hole**. To Alice, the bank looks like it is down.
+        When a network pulls in traffic and then drops it, the traffic has fallen into a **black hole**. To Alice, the bank looks like it is down.
       `,
       setup: equalPrefixHijackOnly,
       focus: ['alice', 'shady', 'east'],
@@ -257,8 +259,8 @@ export const routeHijackLab: LabDef = {
           multi: true,
           prompt: "Whose route to the bank now ends at Shady Net (666)? Pick every one.",
           options: [
-            { id: 'home', text: 'HomeNet', correct: true },
-            { id: 'west', text: 'Transit West', correct: true },
+            { id: 'home', text: 'HomeNet', correct: true, missed: "Open HomeNet again. Where does its AS path end?" },
+            { id: 'west', text: 'Transit West', correct: true, missed: 'Open Transit West again. Where does its AS path end?' },
             { id: 'east', text: 'Transit East', feedback: "Open Transit East. Its path is 400, one network long. That's shorter than 200 666." },
             { id: 'bankhost', text: 'BankHost', feedback: 'BankHost owns the prefix. It never prefers a path through someone else.' },
           ],
@@ -272,9 +274,9 @@ export const routeHijackLab: LabDef = {
       id: 'specific',
       title: 'A more specific lie',
       body: md`
-        Shady Net fooled only part of the internet. Routers have one rule that beats path length: **longest prefix match**. A router always picks the most specific route that contains the destination. "Longest" means the most fixed bits: a /25 fixes 25 bits, one more than a /24.
+        Shady Net fooled only part of the internet. Routers have one rule that beats path length: **longest prefix match**. The /24 and a /25 are two different routes. When a packet arrives, the router uses the most specific route that contains the destination. "Longest" means the most fixed bits: a /25 fixes 25 bits, one more than a /24.
 
-        Each extra fixed bit cuts the block in half. A /24 holds 256 addresses, so a /25 holds 128:
+        Each extra fixed bit cuts the block in half. A /24 holds 256 addresses (0 to 255 is 256 numbers, because 0 counts), so a /25 holds 128:
 
         | Prefix | Addresses | Has the bank, 203.0.113.10? |
         | --- | --- | --- |
@@ -284,7 +286,9 @@ export const routeHijackLab: LabDef = {
 
         Announce \`203.0.113.0/25\` from Shady Net. Then open [[east]] again.
 
-        > Most real networks ignore announcements longer than /24, so a real hijacker announces a /24 inside a bigger block. (This lab's bank owns only a /24, so you use a /25.) In February 2008, Pakistan Telecom tried to block YouTube inside Pakistan by announcing a /24 inside YouTube's /22. The announcement spread past Pakistan to the rest of the internet. For about two hours, much of the world's YouTube traffic went to Pakistan and was dropped.
+        > On the real internet, most networks ignore announcements more specific than /24, like a /25. So a real hijacker picks a victim with a bigger block and announces a /24 piece of it. This lab's bank owns only a /24, so you use a /25.
+
+        > In February 2008, Pakistan Telecom tried to block YouTube inside Pakistan. It announced a /24 piece of YouTube's bigger block. The announcement spread to the rest of the internet. For about two hours, much of the world's YouTube traffic went to Pakistan and was dropped.
       `,
       focus: ['shady', 'east'],
       open: 'tools',
@@ -319,10 +323,10 @@ export const routeHijackLab: LabDef = {
       body: md`
         People notice a black hole fast. A smarter attacker answers the traffic instead. Shady Net now runs a copy of the bank's sign-in page.
 
-        1. Press **Alice signs in (HTTP)**. Her page looks normal. Then scroll down [[shady]]'s Inspect panel to **Stolen passwords**.
-        2. Press **Alice signs in (HTTPS)**. Watch what her browser shows this time.
+        1. Press [[button:http]]. Her page looks normal. Then scroll down in [[shady]]'s Inspect panel until you see **Stolen passwords**.
+        2. Press [[button:https]]. Watch what her browser shows this time.
 
-        An HTTPS site proves who it is with a **certificate**: a file, signed by a company that browsers trust, that proves the site really is bank.example. Shady Net can copy the page, but it can't get a real certificate for bank.example.
+        An HTTPS site proves who it is with a **certificate**: a file, signed by a company that browsers trust, that proves the site really is bank.example. Shady Net can copy the page, but it has no real certificate for bank.example.
 
         > In April 2018, attackers used a BGP hijack to take over part of Amazon's DNS service, which turns site names into addresses. Visitors to MyEtherWallet, a cryptocurrency site, were sent to a fake copy. The fake site had no valid certificate, so browsers showed a warning. Users who clicked past it lost about $150,000.
       `,
@@ -365,9 +369,9 @@ export const routeHijackLab: LabDef = {
       id: 'rov',
       title: 'Check who owns what',
       body: md`
-        Now defend. BankHost has published a signed record that says: only AS400 may announce 203.0.113.0/24, or any smaller block inside it. This record is a **ROA** (Route Origin Authorization). ROAs are kept in the **RPKI**, a public registry of who owns which addresses.
+        Now defend. The **origin** of a route is the last AS number in its path: the network that started the announcement.
 
-        A router that turns on **route origin validation** checks each announcement against the ROAs. The **origin** is the last AS number in the path: the network that started the announcement. If the origin isn't allowed, the router rejects the announcement.
+        BankHost has published a signed record that says: only AS400 may be the origin for 203.0.113.0/24, or any smaller block inside it. A router that turns on **route origin validation** checks each announcement against records like this one. If the origin isn't allowed, the router rejects the announcement. (The records are called ROAs, and they are kept in a public registry called the RPKI.)
 
         1. In the Toolkit, turn on validation for one network. Then press [[button:open-https]] and see if Alice reaches the real bank.
         2. If she doesn't, turn that network off and try another. Find the one network that protects everyone.
