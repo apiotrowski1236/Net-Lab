@@ -158,6 +158,16 @@ describe('logs lab: the replays', () => {
     expect(lines(sim, 'fw', (e) => e.t >= t && e.fields?.action === 'deny' && e.fields?.src === IP.backup)).not.toHaveLength(0);
   });
 
+  it('lets the known-c2 and SSH-on-443 connections out through rule 3, the HTTPS rule (step 9 says so)', () => {
+    const sim = buildUtility();
+    const c2 = lines(sim, 'fw', (e) => e.fields?.dst === C2 && e.fields?.threat === 'known-c2');
+    const ssh = lines(sim, 'fw', (e) => e.fields?.app === 'ssh' && e.fields?.dport === 443);
+    expect(c2).toHaveLength(1);
+    expect(ssh).toHaveLength(1);
+    for (const e of [...c2, ...ssh]) expect(e.msg).toMatch(/ALLOW out .* rule 3\b/);
+    expect(sim.dev('fw').firewall!.rules[2]).toMatchObject({ dir: 'out', dport: 443, action: 'allow' });
+  });
+
   it('puts the prevention block at the top of the firewall list, as rule 1 (step 6 says so)', () => {
     const sim = withAnomaly('medium');
     sim.idsSetPrevention('nids', true);

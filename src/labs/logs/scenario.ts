@@ -89,7 +89,7 @@ export const BASELINE: Baseline = {
 
 /** What the AI model scores when the analyst presses "Score the night's events". */
 export const AI_EVENTS: AiEvent[] = [
-  { id: 'arp', label: 'Forged ARP replies for the gateway, from the unknown laptop', when: '02:30', score: 0.95, truth: 'attack' },
+  { id: 'arp', label: 'Fake ARP replies for the gateway, from the unknown laptop', when: '02:30', score: 0.95, truth: 'attack' },
   { id: 'upload', label: "Raj's PC uploads 90 MB to 45.77.12.9", when: '03:12', score: 0.9, truth: 'attack' },
   { id: 'scan', label: 'Port scan from 203.0.113.66', when: '01:02', score: 0.75, truth: 'attack' },
   { id: 'dana', label: 'Dana signs in early for maintenance', when: '07:40', score: 0.7, truth: 'false-alarm' },
@@ -116,7 +116,7 @@ export function at(h: number, m: number, s = 0): number {
 export function buildUtility(): Sim {
   const host = (ip: string) => ({ ip: `${ip}/24`, gateway: IP.gateway, dns: DNS });
   // Short links: a replay's connection answers in a few seconds, not fifteen.
-  const sim = new NetBuilder({ linkMs: 450, procMs: 100 })
+  const sim = new NetBuilder({ linkMs: 300, procMs: 80 })
     .router('internet', {
       label: 'Internet',
       icon: 'cloud',

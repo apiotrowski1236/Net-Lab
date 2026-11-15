@@ -146,7 +146,7 @@ export const logsLab: LabDef = {
             { id: 'block', text: 'So the SIEM can block attacks the firewall misses.', feedback: 'A SIEM collects and connects logs. Blocking is a different job, and you will meet it later in this lab.' },
           ],
           explain:
-            'A SIEM pulls logs from many sources into one searchable place. One attack often touches the firewall, a server, and the sensor, and you only see the whole thing when their logs sit side by side.',
+            'A SIEM pulls logs from many sources into one searchable place. One attack often touches the firewall, a server, and the sensor, and you only see the whole thing when their logs sit side by side. The copies also survive if an attacker deletes the log on a device they broke into.',
         },
       ],
     },
@@ -261,7 +261,7 @@ export const logsLab: LabDef = {
       goals: [
         {
           id: 'missed',
-          label: 'The upload replays and no signature fires',
+          label: 'The upload replays and no signature matches',
           hint: 'Keep the signature set on, press Replay the 3 a.m. upload, and watch the sensor’s alerts. Nothing new should appear.',
           check: ({ sim, since }) =>
             sensor(sim).signatures && loggedSince(sim, 'fw', since, (e) => e.fields?.dst === EXFIL) && !sensorLogged(sim, since, (e) => e.level === 'alert'),
@@ -296,7 +296,7 @@ export const logsLab: LabDef = {
         3. Turn on **anomaly detection** there too.
         4. Press **Replay the 3 a.m. upload** again, then **Replay the 2 a.m. backup**.
 
-        The backup is normal work. Every afternoon [[backup]] sends a small copy of the records to a backup site outside the utility. Once a month, at 2 a.m., it sends the full 40 MB. Watch which replays raise an alert.
+        The backup is normal work. Every afternoon [[backup]] sends a small copy of the records to a backup site outside the utility, so that address is already in the baseline. Once a month, at 2 a.m., it sends the full 40 MB. Watch which replays raise an alert.
       `,
       setup: signaturesOn,
       open: { inspect: 'nids' },
@@ -363,8 +363,8 @@ export const logsLab: LabDef = {
         { id: 'prevent-on', label: 'Turn on prevention mode on [[nids]]', hint: 'Find Prevention mode under Detection in the sensor’s inspector.', check: ({ sim }) => sensor(sim).prevention },
         {
           id: 'port-shut',
-          label: 'The NIPS shuts the flooded port',
-          hint: 'Turn on prevention, then replay the MAC flood.',
+          label: 'Replay the MAC flood with prevention on',
+          hint: 'Turn on prevention, then press Replay the MAC flood and watch what the sensor does to the laptop’s port.',
           check: ({ sim, since }) =>
             !!sim.dev('sw').switchSec?.ports[PORT.mal]?.shutdown && sensorLogged(sim, since, (e) => e.source === 'ips' && e.fields?.port === PORT.mal),
         },
@@ -388,7 +388,7 @@ export const logsLab: LabDef = {
             { id: 'mac-only', text: 'It can block MAC addresses but never IP addresses.', feedback: 'A NIPS can block IPs, MACs, and ports. It blocked the backup server’s IP a moment ago.' },
           ],
           explain:
-            'Blocking automatically is fast and needs no analyst, which is its strength against a flood in the middle of the night. The cost is that a false positive now causes an outage instead of a wasted click. Teams tune a NIPS carefully and often let it block only the attacks it is most sure of.',
+            'Blocking automatically is fast and needs no analyst, which is its strength against a flood in the middle of the night. The cost is that a false positive now shuts off a working system instead of wasting a click. Teams tune a NIPS carefully and often let it block only the attacks it is most sure of.',
         },
       ],
     },
@@ -397,7 +397,7 @@ export const logsLab: LabDef = {
       id: 'correlate',
       title: 'Connect the dots',
       body: md`
-        The SIEM's real power is tying lines together. On their own, a blocked packet, a port scan, and a few failed sign-ins each look minor. The SIEM noticed all three came from one address, \`${SCANNER}\`, within twenty minutes, and opened a single **incident**.
+        The SIEM's real power is tying lines together. On their own, a blocked packet, a port scan, and a few failed sign-ins each look minor. The SIEM noticed all three came from one address, \`${SCANNER}\`, within twenty minutes, and opened a single **incident**. Tying lines together like this is called **correlation**.
 
         Open incident **${INCIDENT}** on [[siem]]: filter the Logs tab to the SIEM server, search for \`${INCIDENT}\`, and click the \`INCIDENT ${INCIDENT}\` line. Read its three parts: the firewall denies, the port-scan alert, and the failed sign-ins on [[files]] you found earlier.
 
@@ -467,7 +467,7 @@ export const logsLab: LabDef = {
         1. Press **Score the night's events**. The scores appear in [[siem]]'s inspector.
         2. Drag the threshold slider to **1.00** and watch the two counters: real attacks caught, and false alerts.
         3. Drag it to **0.00** and watch again.
-        4. Find a threshold that catches all three real attacks in the score table with at most one false alert, and leave it there.
+        4. Set a threshold that catches all three real attacks in the score table with at most one false alert.
       `,
       open: { inspect: 'siem' },
       focus: ['siem'],
@@ -489,7 +489,7 @@ export const logsLab: LabDef = {
         },
         {
           id: 'good-threshold',
-          label: 'Leave the threshold where it catches all three attacks with at most one false alert',
+          label: 'Set a threshold that catches all three attacks with at most one false alert',
           hint: 'Try both ends first. Then look at the scores of the three real attacks and the harmless events right below them. Try between 0.70 and 0.75.',
           check: ({ sim, since }) => {
             const q = siem(sim);
@@ -525,7 +525,7 @@ export const logsLab: LabDef = {
             { id: 'blocks', text: 'It blocked the whole network.', feedback: 'The threshold raises alerts; it does not block. A low bar means far too many alerts.' },
           ],
           explain:
-            'A low threshold alerts on everything, so the team gets buried in false positives and misses the few that matter. The organization picks the threshold to balance the two. On a critical network like a water utility, a missed attack costs much more than a false alert.',
+            'A low threshold alerts on everything, so the team has too many false positives to check and misses the few that matter. The organization picks the threshold to balance the two. On a critical network like a water utility, a missed attack costs much more than a false alert.',
         },
       ],
     },
@@ -534,16 +534,16 @@ export const logsLab: LabDef = {
       id: 'ioc-hunt',
       title: 'IoC hunt',
       body: md`
-        An **indicator of compromise**, or IoC, is a clue an attack leaves in the logs. Two of these clues come from [[pc2]], which points to malware on Raj's PC.
+        An **indicator of compromise**, or IoC, is a clue an attack leaves in the logs. Two of these clues, the known-c2 connection and the SSH line, come from [[pc2]]. That points to malware on Raj's PC.
 
         Clear your filters, then search for one line of each IoC and open it:
 
-        1. A connection to a **known malicious IP**. A **threat feed** is a shared list of bad addresses. [[fw]] tags a match \`threat-feed\` but still lets it through. This one is \`known-c2\`, a server that sends orders to computers an attacker controls.
+        1. A connection to a **known malicious IP**. A **threat feed** is a shared list of bad addresses. [[fw]] tags a match \`threat-feed\`, but its rule 3 lets all traffic out to port 443, so the connection still went through. This one is \`known-c2\`, a server that sends orders to computers an attacker controls.
         2. An **unauthorized scan**: one outside address trying many ports in a row.
         3. Pings sent to the **broadcast address** \`${BROADCAST}\`, which reaches every device on the network. Ping uses the **ICMP** protocol.
         4. **SSH** on port **443**. Port 443 is the usual port for HTTPS, secure web traffic.
 
-        Signatures have a rule for the first three. The fourth takes a firewall that checks which program is really talking, not only the port number. An attack with no known pattern, like Raj's 3 a.m. upload, needs the anomaly baseline.
+        Signatures have a rule for the first three. For the fourth, [[fw]] already labels the program \`app=ssh\`, but rule 3 only checks the port. Stopping it takes a rule that checks the program too. An attack with no known pattern, like Raj's 3 a.m. upload, needs the anomaly baseline.
       `,
       open: 'logs',
       focus: ['fw', 'pc2'],
@@ -593,7 +593,7 @@ export const logsLab: LabDef = {
             },
           ],
           explain:
-            'A port number is only a label. Attackers put tools on port 443 because basic firewalls let HTTPS through. A mismatch between the port and the real program is a classic IoC. A firewall that looks inside the traffic to see which program is talking catches it.',
+            'A port number is only a label. Attackers put tools on port 443 because basic firewalls let HTTPS through. A mismatch between the port and the real program is a classic IoC. A firewall rule that checks the program, not only the port, stops it.',
         },
         {
           id: 'which-detector',
@@ -626,7 +626,7 @@ export const logsLab: LabDef = {
         Write a short report for your supervisor about one attack from last night. Cover three things:
 
         1. Which attack it was.
-        2. The log line or alert that shows it, copied from the Logs tab or a replay's result, with the address or MAC that points to the attacker. An alert from one of this morning's replays counts.
+        2. The log line or alert that shows it, copied from the Logs tab or from **Latest alerts** in [[nids]]'s inspector, with the address or MAC that points to the attacker. An alert from one of this morning's replays counts.
         3. Which detector flagged it, or would have, a signature or the anomaly baseline, and why.
       `,
       open: 'logs',
