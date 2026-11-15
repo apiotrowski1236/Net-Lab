@@ -43,7 +43,7 @@ export const DENY_IN_TCP: FwRuleInput = {
   dst: 'any',
   dport: 'any',
   action: 'deny',
-  note: 'Added by a coworker: block all other inbound TCP',
+  note: 'Added by a coworker: block all other TCP coming in',
 };
 /** Step 5: the clinic's IT staff may log in to the web server with SSH. */
 export const CLINIC_SSH: FwRuleInput = {
@@ -67,7 +67,7 @@ export const INNER: [string, string][] = [
 ];
 
 export function buildHospital(): Sim {
-  const sim = new NetBuilder({ linkMs: 120, procMs: 40, httpTimeoutMs: 2500, pingTimeoutMs: 2000, autoArp: true })
+  const sim = new NetBuilder({ linkMs: 120, procMs: 40, httpTimeoutMs: 2500, pingTimeoutMs: 2800, autoArp: true })
     .host('patient', {
       label: 'Patient at home',
       sublabel: PATIENT,

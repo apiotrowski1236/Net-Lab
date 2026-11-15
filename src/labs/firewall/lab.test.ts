@@ -223,6 +223,9 @@ describe('firewall lab goals', () => {
       sim.runUntilIdle();
       expect(connected(sim, 'nurse', WEB, 443), proto).toBe(true);
       expect(ping.check({ sim, since }), proto).toBe(want);
+      // The nurse's ping crosses both firewalls, the slowest round trip in the
+      // lab. A working rule must get its reply before the ping gives up.
+      if (want) expect(sim.events.some((e) => e.t >= since && e.type === 'ping-fail' && e.device === 'nurse'), 'timed out').toBe(false);
     }
   });
 });

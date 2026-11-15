@@ -167,7 +167,7 @@ export const firewallLab: LabDef = {
         2. Scan the staff network: \`${STAFF_NET}\`.
         3. The file server has port 445 open for file sharing. Press **Connect** next to it.
 
-        The scan also finds routers. 10.0.1.1 is the internet provider's router. 10.0.1.2 and 10.0.2.1 are both the hospital's own router: a router has an address on each network it joins. (The scanner skips addresses no computer uses. A real hospital would also hide these addresses from the internet, which this lab skips.)
+        The scan also finds routers. 10.0.1.1 belongs to the hospital's **ISP** (internet service provider), the company that connects it to the internet. 10.0.1.2 and 10.0.2.1 are both the hospital's own router: a router has an address on each network it joins. (The scanner skips addresses no computer uses. A real hospital would also hide these addresses from the internet, which this lab skips.)
       `,
       focus: ['attacker'],
       open: 'tools',
@@ -233,7 +233,7 @@ export const firewallLab: LabDef = {
         - [[fwA]] goes at the **internet edge**, where every packet between the internet and the hospital passes.
         - [[fwB]] goes between the web server's network and the staff network.
 
-        Use **Place firewalls** to put each one into a cable. The tool says what each choice protects. Try a few.
+        Use **Place firewalls** in the Toolkit to put each one into a cable. After each try, the tool says what that spot protects. Try a few.
 
         Each firewall has two sides. Its **outside** faces the internet. A packet arriving from outside is going **in**. A packet from the other side is going **out**.
       `,
@@ -260,7 +260,7 @@ export const firewallLab: LabDef = {
           kind: 'choice',
           afterGoals: true,
           prompt:
-            'The web server now sits between the two firewalls, in a **screened subnet** (also called a DMZ). Why not put it on the staff network, behind both?',
+            'The web server now sits between the two firewalls, in a **screened subnet**: a small network of its own for the servers the public must reach. It’s also called a DMZ (demilitarized zone). Why not put it on the staff network, behind both?',
           options: [
             { id: 'risk', text: 'Anyone can reach it, so it’s the most exposed. Keep it apart.', correct: true },
             { id: 'speed', text: 'Each firewall slows packets down, so the server runs faster.', feedback: 'Speed isn’t the reason. Patients’ packets still cross Firewall A either way.' },
@@ -336,7 +336,7 @@ export const firewallLab: LabDef = {
 
         Overnight, a coworker added two rules to [[fwA]], at the bottom:
 
-        - DENY in TCP from any to any: block every other inbound TCP connection.
+        - DENY in TCP from any to any: block every other TCP connection coming in.
         - ALLOW in TCP from 198.51.100.0/24 to ${WEB} port 22: the clinic's SSH.
 
         Press **Clinic admin logs in with SSH**. It fails. The line under the buttons says which rule blocked it.
@@ -443,7 +443,7 @@ export const firewallLab: LabDef = {
           prompt: 'Press **Nurse station opens the records**. It works, and Firewall B never sees it. Why?',
           options: [
             { id: 'switch', text: 'Both are on the staff switch, so the traffic never crosses Firewall B.', correct: true },
-            { id: 'rule', text: 'Your rule allows staff computers to go out.', feedback: 'Your rule would allow it, but look at the map. The packets never reached Firewall B at all.' },
+            { id: 'rule', text: 'Your rule allows staff computers to go out.', feedback: 'Your rule is for packets that cross Firewall B. Look at the map: these packets never reached it.' },
             { id: 'port', text: 'Firewalls don’t check port 445.', feedback: 'Firewall B checked port 445 when the web server tried it, and blocked it.' },
           ],
           explain: 'A firewall only protects traffic that crosses it. To guard the file server from staff computers too, it would need a firewall in front of it, or a firewall program running on the file server itself.',
@@ -457,9 +457,9 @@ export const firewallLab: LabDef = {
       body: md`
         These firewalls write a **log**: a line for each packet they deny. Defenders read logs to spot attacks.
 
-        Use [[attacker]]'s **Port scanner** again. Scan \`${SERVER_NET}\` and \`${STAFF_NET}\` again. In step 2 these scans found every computer, and port 445 on the file server. See what they find now. (10.0.1.1 still answers. It's the internet provider's router, outside Firewall A.)
+        Use [[attacker]]'s **Port scanner** again. Scan \`${SERVER_NET}\` and \`${STAFF_NET}\` again. In step 2 these scans found every computer, and port 445 on the file server. See what they find now. (10.0.1.1 still answers. It's the ISP's router, outside Firewall A.)
 
-        Then open the **Logs** tab and click a DENY line from the attacker, ${ATTACKER}, in Firewall A's log. The number after an address, like :49236, is the port the packet came from.
+        Then open the **Logs** tab and click a DENY line from the attacker, ${ATTACKER}, in Firewall A's log. In a line's details, **src** is where the packet came from and **dst** is where it was going. **sport** and **dport** are the ports at each end. The number after an address, like :49236, is the port it came from.
       `,
       setup: (sim) => placeBoth(sim),
       focus: ['attacker', 'fwA'],
