@@ -102,10 +102,10 @@ export const firewallLab: LabDef = {
   unit: 3,
   codehs: ['3.10 The Rules of the Firewall', '3.12 Writing the Rulebooks'],
   ced: ['3.1.B', '3.1.C', '3.3.A', '3.4.A', '3.4.B', '3.4.C', '3.4.D'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
     'Explain what ports are, and how a scan maps a network that has no firewall.',
-    'Place firewalls at the internet edge and between segments to build a screened subnet (DMZ).',
+    'Place firewalls at the internet edge and between parts of the network to build a screened subnet (DMZ).',
     'Write an ordered rulebook, and predict how first match and the implicit deny decide each packet.',
     'Read a firewall log for signs of attack, and explain what the firewalls still let through.',
   ],
@@ -160,7 +160,7 @@ export const firewallLab: LabDef = {
         2. Scan the staff network: \`${STAFF_NET}\`.
         3. The file server has port 445 open for file sharing. Press **Connect** next to it.
 
-        The scan also finds 10.0.1.1. That's the internet provider's router, where its cable plugs into the hospital. (In this lab the internet reaches the hospital's addresses directly, and the scanner skips addresses no computer uses, to keep the map clear.)
+        The scan also finds two routers. 10.0.1.1 is the internet provider's router, where its cable plugs into the hospital. 10.0.1.2 is the hospital's own router. (The scanner skips addresses no computer uses, to keep the map clear.)
       `,
       focus: ['attacker'],
       open: 'tools',
@@ -210,7 +210,7 @@ export const firewallLab: LabDef = {
             { id: 'harmless', text: 'It’s not really a risk, because ping only says hello.', feedback: 'Your scan used those hellos to find every computer in the hospital. That’s useful to an attacker.' },
             { id: 'encrypted', text: 'Ping is encrypted, so attackers can’t read the replies.', feedback: 'Ping isn’t encrypted. Anyone can read a reply, and the reply itself is the clue.' },
           ],
-          explain: 'A ping sweep is often an attacker’s first step. Blocking pings from outside at the internet edge takes that map away.',
+          explain: 'Attackers often ping every address first, to find where the computers are. Blocking pings from the internet makes that map harder to draw.',
         },
       ],
     },
@@ -272,7 +272,7 @@ export const firewallLab: LabDef = {
       body: md`
         Click [[fwA]] and read its rulebook. Rule 1 lets hospital computers start conversations going out. No rule lets anything in. Press **Patient books an appointment** and watch it stop at Firewall A.
 
-        The firewall reads its rules from the top. The **first rule that matches** a packet decides. A packet that matches no rule is denied: that's the **implicit deny**, the last row of every rulebook. A list of rules like this is an **access control list** (ACL).
+        The firewall reads its rules from the top. The **first rule that matches** a packet decides. A packet that matches no rule is denied. That's the **implicit deny**: an unwritten last rule at the bottom of every rulebook. A list of rules like this is an **access control list** (ACL).
 
         Press **Add a rule** and make it: **ALLOW**, **in**, **TCP**, from **any**, to **${WEB}**, port **443**. Put 443 in the port box after "to", and leave the port after "from" as **any**. Then test all three buttons.
 
@@ -309,12 +309,12 @@ export const firewallLab: LabDef = {
           id: 'implicit',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'No rule on Firewall A mentions ping. Why was the attacker’s ping blocked?',
+          prompt: 'No rule on Firewall A allows pings coming in. Why was the attacker’s ping blocked?',
           options: [
             { id: 'implicit', text: 'No rule matched it, so the implicit deny blocked it.', correct: true },
             { id: 'rule2', text: 'Your rule allows only TCP, so it denies everything else.', feedback: 'A rule decides only the packets it matches. Your rule didn’t match the ping, so the firewall kept reading.' },
             { id: 'server', text: 'The web server stopped answering pings.', feedback: 'The web server answered pings in the scan. Look where the ping stopped on the map.' },
-            { id: 'icmp', text: 'Firewalls always block ping, whatever the rules say.', feedback: 'A rule can allow ping (protocol ICMP). Nothing on Firewall A does.' },
+            { id: 'icmp', text: 'Firewalls always block ping, whatever the rules say.', feedback: 'A rule can allow ping (protocol ICMP). Nothing on Firewall A allows it coming in.' },
           ],
           explain: 'Allow what you need, and let the implicit deny block the rest. You don’t need a rule for every attack.',
         },
@@ -387,7 +387,7 @@ export const firewallLab: LabDef = {
         1. Staff computers (\`${STAFF_NET}\`) may start conversations going out, with any protocol.
         2. Nothing may start a conversation into the staff network. Not the internet, and not the web server.
 
-        Firewall B's outside faces the web server, so a packet from the nurse station crosses it going **out**. Write the rule for requirement 1. Requirement 2 needs no rule: the implicit deny covers it. Firewall B is stateful too, so replies come back in.
+        Firewall B's outside is the side toward the web server and the internet. So a packet from the nurse station crosses it going **out**. Write the rule for requirement 1. Requirement 2 needs no rule: the implicit deny covers it. Firewall B is stateful too, so replies come back in.
       `,
       setup: (sim) => placeBoth(sim),
       focus: ['fwB', 'nurse', 'files'],
@@ -416,7 +416,7 @@ export const firewallLab: LabDef = {
           kind: 'choice',
           prompt: 'The hospital owns the web server too. Why keep it away from the file server?',
           options: [
-            { id: 'hacked', text: 'An attacker who takes over the web server can’t use it to reach the records.', correct: true },
+            { id: 'hacked', text: 'So a hacked web server can’t be used to reach the records.', correct: true },
             { id: 'bandwidth', text: 'Web traffic would fill the staff network and slow the nurses down.', feedback: 'The block is about trust, not traffic. The web server is the part of the hospital the internet can reach.' },
             { id: 'patients', text: 'Patients would see other patients’ records in the web app.', feedback: 'The web app shows what it was built to show. The danger is an attacker who takes over the server and goes looking.' },
           ],
@@ -444,13 +444,13 @@ export const firewallLab: LabDef = {
       body: md`
         These firewalls write a **log**: a line for each packet they deny. Defenders read logs to spot attacks.
 
-        Play [[attacker]] one more time. Scan \`${SERVER_NET}\` and \`${STAFF_NET}\` again. In step 2 these scans found every computer, and port 445 on the file server. See what they find now. (10.0.1.1 still answers. It's the internet provider's router, outside Firewall A.)
+        Use [[attacker]]'s **Port scanner** again. Scan \`${SERVER_NET}\` and \`${STAFF_NET}\` again. In step 2 these scans found every computer, and port 445 on the file server. See what they find now. (10.0.1.1 still answers. It's the internet provider's router, outside Firewall A.)
 
         Then open the **Logs** tab and click a DENY line from the attacker, ${ATTACKER}, in Firewall A's log. The number after an address, like :49236, is the port the packet came from.
       `,
       setup: (sim) => placeBoth(sim),
       focus: ['attacker', 'fwA'],
-      open: 'logs',
+      open: 'tools',
       tools: [{ kind: 'logs', devices: ['fwA', 'fwB'] }, { kind: 'port-scan', device: 'attacker' }],
       goals: [
         {
@@ -482,7 +482,6 @@ export const firewallLab: LabDef = {
         {
           id: 'what-left',
           kind: 'choice',
-          afterGoals: true,
           prompt: 'What could the attacker’s new scan still find?',
           options: [
             { id: '443', text: 'Port 443 on the web server, and nothing on the staff network.', correct: true },
@@ -518,7 +517,7 @@ export const firewallLab: LabDef = {
           id: 'justify',
           kind: 'text',
           prompt:
-            'Write to the board. First, say where you put Firewall A and Firewall B, and what each one protects. Second, find the coworker’s two rules from step 5 in Firewall A’s rulebook (click Firewall A on the map). Name them by number, and say what would go wrong if they were swapped.',
+            'Write to the board in two parts.\n\n1. Where did you put Firewall A and Firewall B, and what does each one protect?\n2. Click Firewall A on the map and find the coworker’s two rules from step 5. Name them by number. Say what would go wrong if the deny rule sat above the clinic’s rule.',
           minWords: 40,
           lines: 6,
         },
