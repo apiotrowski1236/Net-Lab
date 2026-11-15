@@ -33,20 +33,25 @@ PLAN.md is updated for items 1 and 4.
 11. **Malware section.** Patient zero's sentence comes from `sim.infect(id, how)`. The source address is the one it had when the copy came (`Infection.fromIp`). The time reads `Arrived at 12.34s on the network clock.`
 12. **Outbreak result line** says `The malware is running on Crew laptop 1.`, then `It is spreading…`, then `The malware stopped. Infected: 3 of 8 computers.` (The line under the button doesn't know about the game.)
 13. **Zone plan card** also says `Cleared. {Label} isn't in a zone.` when a select goes back to its prompt.
+14. **Student panel, six rounds.** Simulated students worked through the lab six times, and most steps were reworded after each round. The step sections below now hold the current text. Among the changes: step 1 explains /24, names SMB, the **not for me** tag, and the speed buttons; step 2 is titled "A game with malware inside" and says "tries" and "probes" instead of "knocks"; step 3's `strictest` question asks which zone needs the most protection; step 4 explains LAN, MAC address, ARP request, and broadcast, lists every port, and gives the ping time; step 5 splits the gateway paragraph in three and adds a cabling table; step 6 names least privilege and bolds the two Crew denies; step 7 explains a DENY line and its port 49177; step 8 names the **Ports and port security** controls; step 9 says mail server instead of mail relay and draws the firewall diagram; step 10's prompt lists the features; "breach" became "break-in" in student text. The media server's movie page and step 10's sample answer were reworded too.
+15. **Steps 5 and 6 prewarm ARP.** Both setups now end with `warmArp(sim)`, and `warmArp` now prewarms the firewall too (`sim.prewarmArp(['fw', ...INSIDE])`). At `linkMs` 500, an ARP wait costs seconds at 1×, and only the latest result shows under the buttons, so a student could miss a slow first test's result. Lab test 9 checks the timing.
+16. **An open Logs tab redraws.** `src/ui/LogsView.tsx` now reads `session.simRev`, so new log lines show while the tab is open, for example during step 7's outbreak.
+17. **Step 7's log goal counts only lines written after the step began** (`ev.entry.t >= since`), so step 6's `crew-share` test line, which looks like a probe, doesn't count. The body and hint point students to probes from Crew laptop 2 (10.0.30.32) or the media server (10.0.30.33), which never ran a test. Lab test 10 checks it.
+18. **Minutes and version.** `minutes` went from 45 to 50, 55, and then 60 over the panel rounds, and `version` went from 1 to 2.
 
 ## Lab definition
 
 | Field | Value |
 |---|---|
 | `id` | `segmentation` |
-| `version` | `1` |
+| `version` | `2` |
 | `title` | `Network Segmentation: Zones, VLANs, and Subnets` |
 | `tagline` | `Split a submarine’s flat network into zones with VLANs, subnets, and firewall rules, and watch the same malware stop at the zone boundary.` |
 | `unit` | `3` |
 | `codehs` | `['3.8 Network Segmentation']` |
 | `ced` | `['3.1.B', '3.1.C', '3.3.A', '3.3.B', '3.4.C']` |
-| `minutes` | `45` |
-| `objectives` | `'Explain how malware moves laterally across a flat network.'`, `'Divide a network into zones with VLANs and subnets.'`, `'Set a different policy for each zone, and test it.'`, `'Explain what segmentation contains, and what it cannot.'` |
+| `minutes` | `60` |
+| `objectives` | `'Explain how malware moves laterally across a flat network.'`, `'Divide a network into zones with VLANs and subnets.'`, `'Set a different policy for each zone, and test it.'`, `'Explain what segmentation keeps from spreading, and what it cannot.'` |
 | `build` | `buildSub` (scenario.ts) |
 | `map` | `{ ports: false, addresses: true, zones: subZones }` |
 | `labelMacs` | `true` |
@@ -86,7 +91,7 @@ All positions are on the 1000 x 600 canvas. The closest pairs are 140 apart.
 The media server's movie list uses the existing `web` field, so the existing browser loads it:
 
 ```ts
-web: { name: 'Media server', title: 'Crew movie list', https: false, page: 'Tonight in the crew mess: a double feature at 2000. Requests go to the morale officer.' }
+web: { name: 'Media server', title: 'Crew movie list', https: false, page: 'Tonight in the crew lounge: two movies, starting at 8 p.m. Send movie requests to the crew office.' }
 ```
 
 The firewall engine (from `firewall`) is on `fw` from the start, stateful. Its zone policy (behavior S9) starts as Allow all between every pair of inside zones. Zones are tied to firewall ports: p1 Weapons, p2 Operations, p3 Crew, p4 Shore.
@@ -166,7 +171,7 @@ Reset network replays only the setups, so each step's setup rebuilds everything 
 | Helper | Does |
 |---|---|
 | `ensureClean(sim)` | `sim.cleanMalware()`: no device infected, no scan pending. |
-| `warmArp(sim)` | `sim.prewarmArp([...INSIDE])`, so malware probes don't each start with an ARP broadcast. |
+| `warmArp(sim)` | `sim.prewarmArp(['fw', ...INSIDE])`, so malware probes and the step tests don't each start with an ARP broadcast (at `linkMs` 500, one costs seconds at 1×). Steps 1, 2, 5, 6, and 7 call it last in their setup. |
 | `ensurePlan(sim)` | Every inside device's planned zone is `ZONE_OF[id]` (fixes wrong ones). Each zone's level: keep the student's; if unset, use Weapons High, Operations Medium, Crew Low. |
 | `ensureVlans(sim)` | Ports in `SW_PORTS` get their zone's VLAN. Other ports untouched. |
 | `ensureSubnets(sim, full)` | Cable `fw` p2 to `sw` p11 and `fw` p3 to `sw` p12 if missing. VLAN p10 = 10, p11 = 20. `fw` p1 = 10.0.10.1/24, p2 = 10.0.20.1/24. Every inside host except `crew1` gets its segmented address and gateway. With `full`, also: p12 = VLAN 30, `fw` p3 = 10.0.30.1/24, `crew1` = 10.0.30.31/24 with gateway 10.0.30.1. Then clear all hosts' ARP tables (old entries point at old addresses). |
@@ -189,18 +194,18 @@ A navy submarine runs on three groups of computers:
 
 - **Weapons**: [[fire]] and [[torpedo]] aim and launch the torpedoes.
 - **Operations**: [[command]], [[nav]], and [[chart]] run the ship and plot its course.
-- **Crew recreation**: [[crew1]], [[crew2]], and [[media]] are for the crew's time off: games, email, and movies.
+- **Crew**: [[crew1]], [[crew2]], and [[media]] are for the crew's time off: games, email, and movies.
 
-All of them plug into one switch, [[sw]], and share one network, `10.0.0.0/24`. A network with no walls inside it is called a **flat network**.
+All of them plug into one switch, [[sw]], and share one network, `10.0.0.0/24`. (The /24 means every address on it starts with `10.0.0`.) A network with no walls inside it is called a **flat network**.
 
 [[fw]] is the ship's door to [[shore]], a satellite link that works only when the sub is near the surface. [[personal]] belongs to a sailor. It isn't plugged in.
 
-1. Click [[fire]]. Its **Services** list shows the **port numbers** it answers on. A port number names one service on a computer. Port 445 is **file sharing**, which lets other computers copy files to and from this one. A port number is not a switch port. A switch port is a socket for a cable.
+1. Click [[fire]]. Its **Open ports** list shows the **port numbers** it answers on. A port number names one service on a computer. Port 445 is **file sharing** (the map tags it **SMB**), which lets other computers copy files to and from this one. A port number is not a switch port. A switch port is a socket for a cable. (In the **Addresses** table, `eth0` is the computer's own cable socket.)
 2. Click [[sw]]. Find which device each port leads to.
-3. Press **Crew laptop 1 pings Fire control**. Watch the path the ping takes.
-```
+3. Press **Crew laptop 1 pings Fire control**. Watch the path the ping takes. A gray **not for me** tag means a device heard a message meant for someone else and ignored it. (The switch hasn't learned where Fire control is yet, so it sends the first message out every port.)
 
-If the firewall lab names the services section something other than "Services", change the bold word to match.
+Packets take a few seconds to cross the map. The speed buttons above the map (`1×`, `2×`, `4×`) make them faster. Use `1×` when you want to watch the tags.
+```
 
 **Actions**
 
@@ -212,7 +217,7 @@ If the firewall lab names the services section something other than "Services", 
 
 | id | Label | Hint | Done when |
 |---|---|---|---|
-| `fire` | Open [[fire]] and read its services | | `inspected('fire')` |
+| `fire` | Open [[fire]] and read its open ports | | `inspected('fire')` |
 | `sw` | Open [[sw]] | | `inspected('sw')` |
 | `ping` | [[crew1]] gets a reply from [[fire]] | Press **Crew laptop 1 pings Fire control**. | a `ping-reply` on `crew1` from `ipOf('fire')` since the step started |
 
@@ -227,7 +232,7 @@ Prompt: Crew laptop 1 reached Fire control directly. Why is that a problem?
 | `launch` | Crew laptop 1 can now launch a torpedo | | Reaching a computer isn't the same as controlling it. But it's the first thing an attacker needs. |
 | `fw` | It isn't. The core firewall checks every packet. | | Watch the ping again. It went from the switch straight to Fire control and never passed the firewall. |
 
-Explain: On a flat network, nothing stands between a crew laptop and a weapons console. Whatever takes over one device can reach all the others.
+Explain: On a flat network, nothing stands between a crew laptop and a weapons console. Malware that controls one device can reach all the others.
 
 **Answer key**
 
@@ -237,7 +242,7 @@ ship: { moves: [{ inspect: 'fire' }, { inspect: 'sw' }, { press: 'ping-fire' }] 
 
 ---
 
-### Step 2 `worm`: A game with a passenger
+### Step 2 `worm`: A game with malware inside
 
 CED: 3.1.B.2 (lateral movement), 3.1.C.1 (CIA impact).
 
@@ -250,21 +255,21 @@ CED: 3.1.B.2 (lateral movement), 3.1.C.1 (CIA impact).
 ```md
 Last night the sub came near the surface, and a sailor downloaded a free game onto [[crew1]] over the shore link. The game hides **malware**: software written to do harm. This kind is a **worm**, malware that spreads across a network on its own. Nobody has to click anything.
 
-Once it runs, it knocks on port 445 at every address nearby. Every computer with file sharing open gets a copy, and each copy starts knocking too. Spreading from the first device that's taken over to other devices on the same network is called **lateral movement**.
+Once it runs, it tries port 445 at every address nearby. Every computer with file sharing open gets a copy, and each copy starts trying too. Spreading from the first infected device to other devices on the same network is called **lateral movement**.
 
-Infected computers turn red, and so do the malware's probes. Real networks don't color anything. This simulator does so you can follow along. It also skips addresses where no device lives, so you don't have to wait.
+Infected computers turn red, and so do the malware's **probes**, its tries at port 445. Real networks don't color anything. This simulator does so you can follow along. It also skips addresses where no device lives, so you don't have to wait.
 
 > Everything in this lab happens inside a simulation. Releasing malware on a real network without permission is illegal.
 
 1. Press **Crew laptop 1 installs a game**. Watch the map.
-2. When the map goes quiet, click [[fire]]. Find where its copy came from.
+2. When the map stops moving, click [[fire]]. Find where its copy came from.
 ```
 
 **Actions**
 
 | id | Label | Does |
 |---|---|---|
-| `install` | Crew laptop 1 installs a game | `sim.infect('crew1')`. Does nothing if `crew1` is already infected. |
+| `install` | Crew laptop 1 installs a game | `sim.infect('crew1', 'The game a sailor installed carried it.')`. Does nothing if `crew1` is already infected. |
 
 **Goals**
 
@@ -291,13 +296,13 @@ Explain: The worm used Crew laptop 1 as a base and reached every computer it cou
 
 **Question `cia`** (choice, `multi`, `afterGoals`)
 
-Prompt: The malware now runs on Fire control. What could an adversary who controls it do?
+Prompt: The malware now runs on Fire control. What could an adversary (an attacker) who controls it do?
 
 | id | Option | Correct | Feedback |
 |---|---|---|---|
 | `read` | Read the targeting data | yes | |
 | `change` | Change the targeting data | yes | |
-| `freeze` | Freeze the console during a drill | yes | |
+| `freeze` | Freeze the console so nobody can use it | yes | |
 | `wait` | Nothing until someone on board clicks on it | | A worm needs no clicks. Nobody touched Fire control, and the malware got in anyway. |
 
 Explain: Those are the three goals of security: confidentiality (keep data secret), integrity (keep it correct), and availability (keep it working). Lateral movement puts all three at risk on every device it reaches.
@@ -317,16 +322,16 @@ CED: 3.3.B.1, 3.3.B.2, 3.3.B.3 (segmentation, different policies per zone).
 - **Setup:** `ensureClean(sim)`.
 - **Focus:** none.
 - **Open:** `'tools'`
-- **Tools:** `{ kind: 'zone-plan', devices: INSIDE }` (new, behavior S4).
+- **Tools:** `{ kind: 'zone-plan', devices: INSIDE, zones: ZONES.map((z) => ({ id: z, label: ZONE_NAME[z] })), fit: PLAN_FIT, levelNotes: LEVEL_NOTES }` (new, behavior S4). `PLAN_FIT` gives each device its zone and job; `LEVEL_NOTES` holds the two level notes in the table below.
 
 **Body**
 
 ```md
-The crew wiped every computer and restored it from backups. Before the game comes back, plan some walls.
+The crew erased every computer and restored it from backups. Before the game comes back, plan some walls.
 
-**Network segmentation** divides one network into smaller **segments** and keeps them apart, so an attack on one segment can't reach the others. Each segment here is a **zone**: a group of devices that do the same kind of job and follow the same rules.
+**Network segmentation** divides one network into smaller **segments** and keeps them apart, so an attack on one segment can reach the others only through paths you allow. Each segment here is a **zone**: a group of devices that do the same kind of job and follow the same rules.
 
-Each zone also gets a **security level**: how much is at stake if an attacker takes it over, and so how closely to guard it.
+Each zone also gets a **security level**: how much harm an attacker could do with control of it, and so how closely to guard it. Two zones can share a level.
 
 - **High**: let in only the traffic it needs.
 - **Medium**: trusted, but still guarded.
@@ -334,7 +339,7 @@ Each zone also gets a **security level**: how much is at stake if an attacker ta
 
 Open the **Zone plan** in the Toolkit tab.
 
-1. Put each computer in the zone that matches its job. The map draws each zone as you fill it in.
+1. Put each computer in the zone that matches its job. The map draws each zone as you fill it in. ([[personal]] isn't plugged in, so it isn't in the plan.)
 2. Give each zone a security level.
 ```
 
@@ -356,19 +361,21 @@ The levels are the student's choice. Nothing later depends on them except labels
 | Weapons set to Medium or Low | info | `Saved. Think about what an attacker could do from Fire control.` |
 | Crew set to High | info | `Saved. Crew laptops run games and downloads. Would you trust them as much as Fire control?` |
 | Any other level | good | `Saved. Operations is Medium.` |
+| Device's select set back to its prompt | info | `Cleared. {Label} isn't in a zone.` |
+| Zone's level set back to its prompt | info | `Cleared. {Zone} has no level.` |
 
 **Question `strictest`** (choice)
 
-Prompt: Which zone needs the strictest policy?
+Prompt: Which zone needs the most protection?
 
 | id | Option | Correct | Feedback |
 |---|---|---|---|
-| `weapons` | Weapons, because a takeover there does the most harm | yes | |
+| `weapons` | Weapons, because an attacker there could do the most harm | yes | |
 | `crew` | Crew, because it's where malware is most likely to get in | | Crew is the least trusted zone, so the other zones guard themselves against it. The zone that needs the closest guard is the one with the most at stake. |
 | `ops` | Operations, because the captain works there | | Who uses a zone doesn't set its level. Ask what an attacker could do with each zone. |
-| `same` (`last`) | All three, equally strict | | Then movie night would face the same rules as a torpedo launch. Different zones get different levels, so each one can do its job. |
+| `same` (`last`) | All three, the same level | | Then movie night would face the same rules as a torpedo launch. Different zones get different levels, so each one can do its job. |
 
-Explain: A breach in Weapons could cost lives, so it gets the highest level. Segmentation lets each zone have its own policy, so Weapons can be strict without making movie night impossible.
+Explain: A break-in at Weapons could cost lives, so it gets the highest level. Segmentation lets each zone have its own rules, so Weapons can be strict without making movie night impossible.
 
 **Question `purpose`** (choice)
 
@@ -377,11 +384,11 @@ Prompt: What is network segmentation for?
 | id | Option | Correct | Feedback |
 |---|---|---|---|
 | `contain` | Keeping a break-in inside one segment | yes | |
-| `fast` | Making the network faster for everyone | | Smaller segments do cut down broadcast traffic. But speed isn't why the captain wants walls. |
+| `fast` | Making every computer on the ship run faster | | Walls don't make a computer faster. Smaller segments do cut down broadcast traffic, but speed isn't why the captain wants them. |
 | `outside` | Hiding the ship's network from the shore link | | The shore link is one door. Segmentation is about walls inside, between the ship's own zones. |
 | `passwords` | Giving every computer its own password | | Passwords protect accounts. Segmentation decides which devices can reach each other at all. |
 
-Explain: Segmentation isolates traffic. A break-in in one segment stays there, and each segment can get the policy it needs.
+Explain: Segmentation isolates traffic. A break-in in one segment stays there unless the rules let it out, and each segment can get the rules it needs.
 
 **Answer key**
 
@@ -405,28 +412,24 @@ CED: 3.3.A.3 (VLANs logically separate devices on shared switches).
 - **Setup:** `ensureClean(sim); ensurePlan(sim);` then clear every host's ARP table (`sim.clearArp`) and the switch's MAC table (`sim.dev('sw').macTable = {}`), so the ARP request shows on the map.
 - **Focus:** `['sw', 'crew1']`
 - **Open:** `{ inspect: 'sw' }`
-- **Tools:** `{ kind: 'vlan', device: 'sw' }` (new, behavior S2), `{ kind: 'ping' }`.
+- **Tools:** `{ kind: 'vlan', device: 'sw', vlans: ZONES.map((z) => ({ id: VLAN[z], name: ZONE_NAME[z] })) }` (new, behavior S2), `{ kind: 'ping' }`.
 
 **Body**
 
 ```md
-Your plan needs walls between the zones. New switches and new cables would take weeks to install on a submarine. A **VLAN** (virtual LAN) builds the walls with settings instead.
+Your plan needs walls between the zones. A **VLAN** (virtual LAN) builds them with switch settings instead of new cables. A **LAN**, or local area network, is the devices joined by the switches in one place, like this ship.
 
-A VLAN is a group of switch ports that act like a switch of their own. A frame that comes in a port in VLAN 30 leaves only through other ports in VLAN 30. Broadcasts too. VLANs separate devices **logically**: by the switch's settings, not by its cables.
+A VLAN is a group of switch ports that act like a switch of their own. A message that comes in a port in VLAN 30 leaves only through other ports in VLAN 30. This is called separating devices **logically**: by settings, not cables. Every port starts in VLAN 1, so the whole ship is one network.
 
-Every port starts in VLAN 1. That's why the whole ship is one network.
-
-The computers and the switch have forgotten everything they learned so far.
+To send to an address on its own network, a computer first needs that device's **MAC address**, the ID built into its network card. To learn it, the computer asks everyone: "Who has 10.0.0.11?" That question is an **ARP request**. A message sent to every device that can hear it is a **broadcast**. Only the device with that address answers. Everyone has forgotten the MAC addresses they learned, so you'll see the ARP request on the map.
 
 1. Click [[sw]]. In its **VLANs** table, put each port in its zone's VLAN:
-   - Weapons: VLAN 10. Include port 3, a spare jack in the weapons compartment with nothing plugged in.
-   - Operations: VLAN 20.
-   - Crew: VLAN 30.
+   - Weapons, ports 1, 2, and 3: VLAN 10. Port 3 is a spare **jack** (a wall socket for a network cable) in the weapons compartment with nothing plugged in.
+   - Operations, ports 4, 5, and 6: VLAN 20.
+   - Crew, ports 7, 8, and 9: VLAN 30.
 2. Leave port 10, the firewall's cable, in VLAN 1 for now.
-3. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes.
-4. Press **Crew laptop 1 pings the media server**.
-
-Try other pairs with the **Ping** tool in the Toolkit tab.
+3. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes. At 1×, a ping takes 15 to 30 seconds. One that gets no answer takes the longest.
+4. When that ping's result shows, press **Crew laptop 1 pings the media server**. Only the latest result stays under the buttons.
 ```
 
 **Actions**
@@ -494,7 +497,7 @@ vlans: {
 
 CED: 3.3.A.2 (subnetting contains a breach), 3.4.C (a firewall for each segment).
 
-- **Setup:** `ensureClean(sim); ensurePlan(sim); ensureVlans(sim); ensureSubnets(sim, false);`
+- **Setup:** `ensureClean(sim); ensurePlan(sim); ensureVlans(sim); ensureSubnets(sim, false); warmArp(sim);` The last call means the two tests don't start with an ARP wait. (`ensureSubnets` clears every host's ARP table, so `warmArp` has to come after it.)
 - **Focus:** `['sw', 'fw', 'crew1']`
 - **Open:** `{ inspect: 'sw' }`
 - **Tools:**
@@ -502,24 +505,38 @@ CED: 3.3.A.2 (subnetting contains a breach), 3.4.C (a firewall for each segment)
     - `FW_PIN = { device: 'fw', iface: 'p3', cidr: '10.0.30.1/24', why: 'Crew laptop 2 and the media server already use 10.0.30.1 as their gateway. Type 10.0.30.1/24.' }`
     - `CREW1_PIN = { device: 'crew1', cidr: '10.0.30.31/24', why: "The ship's address plan keeps each device's last number and makes the third number match its VLAN. Type 10.0.30.31/24." }`
   - `{ kind: 'gateway' }`
+  - `{ kind: 'vlan', device: 'sw', vlans: ZONES.map((z) => ({ id: VLAN[z], name: ZONE_NAME[z] })) }`
+  - `{ kind: 'ping' }`
 
 **Body**
 
 ```md
 The VLANs worked. Now no zone can reach any other, and some have to. Command has to send target data to Fire control.
 
-The fix is to give each VLAN its own **subnet**: its own IP network, like `10.0.30.0/24`. Devices on different subnets can't talk directly. They hand everything for another subnet to their default gateway. Every zone's gateway is [[fw]], so traffic between zones has to pass through one place, where it can be checked.
+The fix is to give each VLAN its own **subnet**: its own IP network, like `10.0.30.0/24`. Devices on different subnets can't talk directly.
+
+A device sends everything for another subnet to its **default gateway**, a **router** on its own subnet that passes traffic between networks. [[fw]] is a router with a firewall built in, and it's every zone's gateway.
+
+So traffic between zones has to pass through one place, the firewall, where it can be checked. For now its zone policy, the rules for traffic between zones, allows everything.
 
 The ship's address plan: the third number matches the VLAN, and each device keeps its last number. Fire control's `10.0.0.11` becomes `10.0.10.11`.
 
-The ship's IT chief did most of the work. [[fw]] now has a cable into the switch for each zone: its port 1 goes to switch port 10, port 2 to port 11, and port 3 to port 12. Weapons, Operations, [[crew2]], and [[media]] already have their new addresses. Finish the crew zone:
+The ship's IT chief ran one cable from [[fw]] to the switch for each zone, put switch ports 10 and 11 in their VLANs, and moved most devices to their new addresses:
 
-1. Click [[sw]]. Put port 12 in VLAN 30.
-2. Click [[fw]]. Give its port 3 the address `10.0.30.1/24`.
+| Zone | Firewall port | Switch port | Gateway address |
+|---|---|---|---|
+| Weapons | 1 | 10 | 10.0.10.1 |
+| Operations | 2 | 11 | 10.0.20.1 |
+| Crew | 3 | 12 | 10.0.30.1 (you set it) |
+
+Finish the crew zone:
+
+1. Click [[sw]]. Put switch port 12 in VLAN 30.
+2. Click [[fw]]. Give firewall port 3 the address `10.0.30.1/24`.
 3. Click [[crew1]]. Change its address to `10.0.30.31/24` and its default gateway to `10.0.30.1`.
-4. Press **Crew laptop 1 opens the movie list**. Then press **Crew laptop 1 pings Command**.
+4. Press **Crew laptop 1 opens the movie list**. Then press **Crew laptop 1 pings Command**. Wait for each result before you press the next button. At 1×, each one can take half a minute.
 
-Bigger networks often carry every VLAN over one cable, called a **trunk**. This lab uses one cable per VLAN to keep things simple.
+(Big networks often carry every VLAN over one cable, called a **trunk**. This lab uses one cable per VLAN.)
 ```
 
 **Actions**
@@ -546,11 +563,11 @@ Prompt: The VLANs already keep the zones apart. What do separate subnets add?
 | id | Option | Correct | Feedback |
 |---|---|---|---|
 | `router` | A router can pass chosen traffic between zones | yes | |
-| `space` | Room for many more addresses in each zone | | One /24 network already had room for 254 devices. The ship has eight. |
+| `space` | Room for many more addresses in each zone | | One /24 network already had room for hundreds of devices. The ship has eight. |
 | `encrypt` | Encryption for everything that crosses between zones | | Subnets don't encrypt anything. They decide which traffic has to go through a router. |
 | `novlan` | They make the VLANs unnecessary | | Without VLANs, every device would still hear every broadcast. A laptop could change its own address and reach Fire control directly, never touching the firewall. |
 
-Explain: Subnetting puts a router between the zones. Traffic that has to cross goes through it, so a breach in one subnet can be stopped there instead of spreading.
+Explain: Subnetting puts a router between the zones. Traffic that has to cross goes through it, so a break-in in one subnet can be stopped there instead of spreading.
 
 **Question `predict`** (choice, `afterGoals`)
 
@@ -588,7 +605,7 @@ subnets: {
 
 CED: 3.3.B.3 (different policies per zone), 3.4.C.1 and 3.4.C.2 (a firewall for each segment).
 
-- **Setup:** `ensureClean(sim); ensurePlan(sim); ensureVlans(sim); ensureSubnets(sim, true);`
+- **Setup:** `ensureClean(sim); ensurePlan(sim); ensureVlans(sim); ensureSubnets(sim, true); warmArp(sim);` The last call means the four tests don't start with an ARP wait, so each one answers in about 15 seconds at 1×.
 - **Focus:** `['fw']`
 - **Open:** `{ inspect: 'fw' }`
 - **Tools:** `{ kind: 'zone-policy', device: 'fw' }` (new, behavior S9).
@@ -596,22 +613,22 @@ CED: 3.3.B.3 (different policies per zone), 3.4.C.1 and 3.4.C.2 (a firewall for 
 **Body**
 
 ```md
-Every packet between zones now passes through [[fw]]. Tell it what to allow with a **zone policy**: a table of which zone may start a connection to which other zone, and for what.
+Every packet between zones now passes through [[fw]]. Tell it what to allow with a **zone policy**: a table of which zone may start a connection to which other zone, and on which port.
 
 The captain's orders:
 
 1. Crew devices may not start a connection to Weapons or Operations.
 2. Operations may send target data to Weapons, on port 5001. Nothing else.
 3. Weapons may send status reports to Operations, on port 5002. Nothing else.
-4. Anything these orders don't list is denied.
+4. Anything these orders don't list is denied. **That includes Weapons to Crew and Operations to Crew.**
 
-Ports 5001 and 5002 belong to the ship's own software.
+Allowing each zone only what it needs is called **least privilege**. Ports 5001 and 5002 belong to the ship's own software.
 
-Click [[fw]] and find its **Zone policy**. Each row is the zone a connection starts from. Each column is the zone it goes to. Your security levels from the plan show in the headings. A reply to an allowed connection always gets back.
+Click [[fw]] and find its **Zone policy**. Each row is the zone a connection starts from. Each column is the zone it goes to. Set all six cells. A reply to an allowed connection always gets back.
 
-Then press each test button. If the firewall stops a packet, a red tag on the map shows where.
+Then press each test button. Watch the map right after you press: if the firewall stops a packet, a red tag shows where. Wait for each test's result before you press the next one, since only the latest result shows under the buttons. At 1×, a test can take half a minute.
 
-Many networks put a separate firewall in front of each segment. Here one firewall does that job, with its own port and its own rules for each zone. The zone policy writes the firewall's rules for you. You'll write rules by hand in the Firewall Rules and Placement lab.
+Here one firewall guards every zone, with its own port and its own rules for each. You'll write firewall rules by hand in the Firewall Rules and Placement lab.
 ```
 
 **The captain's orders as cells** (From row, To column)
@@ -685,24 +702,28 @@ CED: 3.3.A.2 (subnetting contains a breach), 3.3.B.1, 3.1.B.2.
 
 - **Setup:** `ensureClean(sim); ensurePlan(sim); ensureVlans(sim); ensureSubnets(sim, true); ensurePolicy(sim); warmArp(sim);`
 - **Focus:** `['crew1', 'fw']`
-- **Tools:** `{ kind: 'logs', devices: ['fw'] }`
+- **Tools:** `{ kind: 'logs', devices: ['fw'] }`, `{ kind: 'zone-policy', device: 'fw' }`
 
 **Body**
 
 ```md
 Months later, the sub comes near the surface again. The same sailor downloads the same game onto [[crew1]].
 
-The malware hasn't changed. It knocks on port 445 at every address nearby: its own subnet first, then the subnets next to it.
+The malware hasn't changed. It tries port 445 at every address nearby: its own subnet first, then the other subnets.
 
 1. Press **Crew laptop 1 installs the game**. Watch where the probes go.
-2. When the map goes quiet, open the **Logs** tab. Click a line in [[fw]]'s log that shows a blocked probe.
+2. When the map stops moving, open the **Logs** tab. Click one of the malware's blocked probes in the log of [[fw]].
+
+A DENY line with `10.0.30.32:49177 -> 10.0.20.21:445` means the firewall blocked Crew laptop 2 (`10.0.30.32`) from reaching port 445 on Command (`10.0.20.21`). The `49177` is a port number the laptop picked for its own end. You can ignore it.
+
+Your tests from the last step are in the log too, and they look the same. To be sure you pick a probe, choose a line from Crew laptop 2 (`10.0.30.32`) or the media server (`10.0.30.33`). You never ran a test from those.
 ```
 
 **Actions**
 
 | id | Label | Does |
 |---|---|---|
-| `install` | Crew laptop 1 installs the game | `sim.infect('crew1')`. Does nothing if `crew1` is already infected. |
+| `install` | Crew laptop 1 installs the game | `sim.infect('crew1', 'The game a sailor installed carried it.')`. Does nothing if `crew1` is already infected. |
 
 What happens: Crew laptop 1 infects Crew laptop 2 and the media server through the switch. Its probes to 10.0.10.11, 10.0.10.12, 10.0.20.21, 10.0.20.22, and 10.0.20.23 go to the firewall and are denied. Crew laptop 2 and the media server then probe the same five addresses and are denied too: about 15 deny lines.
 
@@ -711,9 +732,9 @@ What happens: Crew laptop 1 infects Crew laptop 2 and the media server through t
 | id | Label | Hint | Done when |
 |---|---|---|---|
 | `crew` | The malware spreads to [[crew2]] | Press **Crew laptop 1 installs the game**. | a `malware-infected` event for `crew2` since the step started |
-| `blocked` | [[fw]] turns away the malware's probes | | `loggedSince(sim, 'fw', since, e => deny && dport === 445 && src in 10.0.30.0/24)` |
+| `blocked` | [[fw]] blocks the malware's probes | | `loggedSince(sim, 'fw', since, e => deny && dport === 445 && src in 10.0.30.0/24)` |
 | `clean` | Weapons and Operations stay clean | Wait for the malware to stop. If it got past the firewall, check the zone policy, then press **Reset network**. | a `malware-done` event since the step started, and none of `fire`, `torpedo`, `command`, `nav`, `chart` is infected |
-| `log` | Open a blocked probe in [[fw]]'s log | In the **Logs** tab, click a DENY line with port 445. | `openedLog(e => e.device === 'fw' && deny && dport === 445 && src in 10.0.30.0/24)` |
+| `log` | Open one of the malware's blocked probes in [[fw]]'s log | In the **Logs** tab, click a DENY line to port 445 from Crew laptop 2 (10.0.30.32) or the media server (10.0.30.33). | `ev` is `ui:open-log` of an `fw` entry written since the step started (`entry.t >= since`), with deny, dport 445, and src in 10.0.30.0/24. Step 6's `crew-share` test line (from 10.0.30.31) is older, so it doesn't count. |
 
 **Question `contained`** (choice, `afterGoals`)
 
@@ -721,12 +742,12 @@ Prompt: Why did the malware stop at the edge of the crew zone?
 
 | id | Option | Correct | Feedback |
 |---|---|---|---|
-| `policy` | The firewall denied every probe from Crew | yes | |
+| `policy` | The firewall denied every probe leaving Crew | yes | |
 | `own` | It only tries addresses on its own subnet | | Read the firewall's log. It tried 10.0.10.11 and 10.0.20.21 too. |
 | `vlan` | The VLANs blocked it, with no help from the firewall | | The VLANs sent its probes to the firewall instead of straight to Fire control. The firewall's zone policy turned them away. |
-| `patched` | The weapons consoles were patched after last time | | Nobody changed Fire control. It still has file sharing open on port 445. |
+| `patched` | The weapons consoles got security updates after last time | | Nobody changed Fire control. It still has file sharing open on port 445. |
 
-Explain: The VLANs and subnets forced every probe through the firewall, and the zone policy denied them. Each layer did part of the job. That's how subnetting contains a breach.
+Explain: The VLANs and subnets forced every probe through the firewall, and the zone policy denied them. Each layer did part of the job. That's how segmentation keeps a break-in inside one segment.
 
 **Question `inside`** (choice, `afterGoals`)
 
@@ -737,9 +758,9 @@ Prompt: Crew laptop 2 and the media server were infected anyway. Why didn't the 
 | `same` | Traffic inside a zone never passes the firewall | yes | |
 | `low` | The crew zone's security level was set too low | | The level is part of your plan. It doesn't change where packets go. Did the probes to Crew laptop 2 pass the firewall? |
 | `cell` | The crew-to-crew cell was set to Allow | | There is no crew-to-crew cell in the zone policy. Why is that square greyed out? |
-| `failed` | Segmentation failed, so the whole crew zone fell | | Segmentation did its job: it kept the damage to one zone. It was never meant to guard devices from others in the same zone. |
+| `failed` | Segmentation failed, so every crew device got infected | | Segmentation did its job: it kept the damage to one zone. It was never meant to guard devices from others in the same zone. |
 
-Explain: Segmentation contains a breach to one segment. It can't protect devices from each other inside that segment. For that, the crew could turn off file sharing they don't use and keep their laptops updated.
+Explain: Segmentation keeps a break-in inside one segment. It can't protect devices from each other inside that segment. For that, the crew could turn off file sharing they don't use and keep their laptops updated.
 
 **Answer key**
 
@@ -749,7 +770,7 @@ contain: {
     { press: 'install' },
     {
       openLog: 'fw',
-      where: (e) => e.fields?.action === 'deny' && e.fields?.dport === 445 && String(e.fields?.src).startsWith('10.0.30.'),
+      where: (e) => e.fields?.action === 'deny' && e.fields?.dport === 445 && prefixContains(NET.crew, String(e.fields?.src ?? '')),
     },
   ],
 },
@@ -764,18 +785,18 @@ CED: 3.3.B.4 (port security), 3.1.B.3 (an open data port).
 - **Setup:** `ensureClean(sim); ensurePlan(sim); ensureVlans(sim); ensureSubnets(sim, true); ensurePolicy(sim);` The crew zone comes back clean.
 - **Focus:** `['sw', 'personal']`
 - **Open:** `{ inspect: 'sw' }`
-- **Tools:** mac-flood's switch port control on `sw` (shut down and turn on a port; behavior M1). Use whatever `ToolSpec` kind mac-flood defines.
+- **Tools:** `PORT_TOOL = { kind: 'port-security', device: 'sw' }`: mac-flood's **Ports and port security** section on `sw`, which shuts down and turns on a port (behavior M1).
 
 **Body**
 
 ```md
-Remember port 3, the spare jack in the weapons compartment? Nothing is plugged into it, but it's in VLAN 10. Anything plugged in there lands inside the weapons zone. Its traffic to Fire control goes through the switch and never passes the firewall.
+Remember port 3, the spare jack in the weapons compartment? Nothing is plugged into it, but it's in VLAN 10. Anything plugged in there ends up inside the weapons zone. Its traffic to Fire control goes through the switch and never passes the firewall.
 
-1. Press **A sailor plugs a laptop into the spare jack**. Watch the weapons zone on the map.
-2. Click [[sw]]. Shut down port 3.
+1. Press **A sailor plugs a laptop into the spare jack**. Watch the weapons zone on the map. At 1×, the test can take half a minute.
+2. Click [[sw]]. In **Ports and port security**, choose **Edit** on port 3, then **Shut port down**. It takes effect right away.
 3. Press **A sailor plugs a laptop into the spare jack** again.
 
-Like most laptops, [[personal]] gets an address automatically from the network it joins. Here it gets one on the weapons subnet.
+[[personal]] gets an address on the weapons subnet when it plugs in. (On a real network, a server would hand it out. The simulator skips that part.)
 
 A switch has a second tool for ports that are in use. **Port security** limits how many MAC addresses a port accepts, and can name which ones. The questions compare the two.
 ```
@@ -791,7 +812,7 @@ A switch has a second tool for ports that are in use. **Port security** limits h
 | id | Label | Hint | Done when |
 |---|---|---|---|
 | `in` | [[personal]] opens a file share on [[fire]] | Press the button before you shut the port. If you already shut it, turn port 3 back on, press the button, then shut it again. | a successful connection from `personal` to `ipOf('fire')` port 445 since the step started |
-| `shut` | Shut down switch port 3 | Click the switch and find port 3 in its port settings. | `sw` p3 is shut down by an admin (mac-flood's port state) |
+| `shut` | Shut down switch port 3 | Click the switch. In **Ports and port security**, choose **Edit** on port 3, then **Shut port down**. | `sw` p3 is shut down by an admin (mac-flood's port state) |
 | `out` | [[personal]] can't reach [[fire]] anymore | Shut port 3 first. Then press **A sailor plugs a laptop into the spare jack** again. | `ev` is a failed connection (any reason) from `personal` to `ipOf('fire')` port 445, and at that moment p3 is shut down |
 
 **Question `why-shut`** (choice)
@@ -801,11 +822,11 @@ Prompt: Why shut the spare port, instead of turning on port security with a limi
 | id | Option | Correct | Feedback |
 |---|---|---|---|
 | `first` | A limit of one still lets the first device in | yes | |
-| `flood` | Port security works only against MAC flooding | | Port security also limits which devices may use a port. But a limit of one still lets one device in, and nobody should use this port at all. |
+| `flood` | Port security only stops floods of fake MAC addresses | | Port security also limits which devices may use a port. But a limit of one still lets one device in, and nobody should use this port at all. |
 | `vlan` | Port security would move the port out of VLAN 10 | | Port security doesn't change the VLAN. It counts and checks MAC addresses on the port. |
 | `slow` | Port security slows down the whole switch | | Checking MAC addresses is quick work for a switch. The problem is what a limit of one still allows. |
 
-Explain: An unused port has no device that belongs on it, so the safe setting is off. Shutting unused ports is part of most switch security policies.
+Explain: A limit of one still accepts the first laptop someone plugs in. An unused port has no device that belongs on it, so the safe setting is off. Shutting unused ports is a standard step in securing a switch.
 
 **Question `swap`** (choice, `afterGoals`)
 
@@ -818,7 +839,7 @@ Prompt: The Torpedo room console's port is in use, so it can't be shut. What sto
 | `vlan` | Move the port to VLAN 30, the crew VLAN | | That would put the Torpedo room console in the crew zone. |
 | `rule` | A firewall rule that blocks the laptop | | The laptop would be inside the weapons VLAN. Its traffic to Fire control goes through the switch and never reaches the firewall. |
 
-Explain: Port security limits how many MAC addresses a port accepts, and can name which ones. A swapped-in laptop has a different MAC, so the switch shuts the port and logs it. The same limit stops MAC flooding. A skilled attacker can copy the console's MAC address, so the ship also keeps the compartment locked.
+Explain: Port security limits how many MAC addresses a port accepts, and can name which ones. A swapped-in laptop has a different MAC, so the switch shuts the port and logs it. A skilled attacker can copy the console's MAC address, so the ship also keeps the compartment locked.
 
 **Answer key**
 
@@ -826,7 +847,7 @@ Explain: Port security limits how many MAC addresses a port accepts, and can nam
 jack: {
   moves: [
     { press: 'plug' },
-    { tool: { type: '<mac-flood port shutdown>', device: 'sw', iface: 'p3' /* shut down */ } },
+    { tool: { type: 'port-shutdown', device: 'sw', port: 'p3', shut: true } },
     { press: 'plug' },
   ],
 },
@@ -844,26 +865,36 @@ CED: 3.3.A.1 (screened subnet), 3.4.C (firewalls at each ingress and egress poin
 
 **Body**
 
-```md
-When the sub is near the surface, email for the crew arrives over [[shore]]. A **mail relay** is a server that accepts mail from outside and passes it on. It talks to the outside world all day, so it's the server most likely to be attacked.
+````md
+When the sub is near the surface, email for the crew arrives over [[shore]]. The ship's **mail server** takes in mail from outside and holds it until the crew picks it up. It also sends the crew's mail out to shore. It talks to the outside world all day, so it's the server most likely to be attacked.
 
-A **screened subnet**, also called a **DMZ**, is a zone for servers like this. Firewall rules screen it from both sides. The outside can reach only those servers, and those servers can reach only a little of the inside. If an attacker takes over the mail relay, they're stuck in the screened subnet.
+A **screened subnet**, also called a **DMZ**, is a zone for servers like this. Firewall rules guard it on both sides, from the outside and from the inside. The outside can reach only those servers, and those servers can reach only a little of the inside. If an attacker gets control of the mail server, they're stuck in the screened subnet, with only the few doors its rules allow.
 
-[[fw]] also guards [[shore]], the ship's only door to the outside. A network needs a firewall at every point where it meets the outside world, and one for each segment.
+[[fw]] also guards [[shore]], the ship's only door to the outside. Every place a network meets the outside world needs a firewall. Every segment needs its own firewall rules. On this ship, one firewall holds them all:
+
 ```
+Shore link
+    │
+Core firewall
+    ├── Screened subnet (mail server)
+    ├── Weapons
+    ├── Operations
+    └── Crew
+```
+````
 
 **Question `where`** (choice)
 
-Prompt: Where should the ship's mail relay go?
+Prompt: Where should the ship's mail server go?
 
 | id | Option | Correct | Feedback |
 |---|---|---|---|
 | `dmz` | In a screened subnet of its own | yes | |
-| `crew` | In the crew zone, next to the media server | | Mail from outside can carry malware. A hacked relay in the crew zone could reach every crew laptop without passing the firewall. |
+| `crew` | In the crew zone, next to the media server | | Mail from outside can carry malware. A hacked mail server in the crew zone could reach every crew laptop without passing the firewall. |
 | `weapons` | In the weapons zone, the best-guarded zone | | Then the shore link would need a door straight into Weapons. Servers that face the outside go where a break-in hurts least. |
-| `outside` | On the shore side, outside the firewall | | Then nothing would guard the relay at all. In a screened subnet, the firewall guards it too. |
+| `outside` | On the shore side, outside the firewall | | Then nothing would guard the mail server at all. In a screened subnet, the firewall guards it too. |
 
-Explain: A screened subnet holds the servers that face the outside, on their own firewall port with their own rules. A break-in there stays there.
+Explain: A screened subnet holds the servers that face the outside, on their own firewall port with their own rules. A break-in there stays there, except through the few doors its rules allow.
 
 **Question `deny`** (choice)
 
@@ -872,11 +903,11 @@ Prompt: The screened subnet gets its own row and column in the zone policy. Whic
 | id | Option | Correct | Feedback |
 |---|---|---|---|
 | `dmz-wpn` | Screened subnet to Weapons | yes | |
-| `shore-dmz` | Shore link to screened subnet | | Then no mail could arrive. Allow only mail from the shore link to the relay. |
+| `shore-dmz` | Shore link to screened subnet | | Then no mail could arrive. Allow only mail from the shore link to the mail server. |
 | `crew-dmz` | Crew to screened subnet | | The crew picks up their mail there. Allow only mail. |
-| `ops-dmz` | Operations to screened subnet | | Command sends its reports to shore through the relay. Allow only mail. |
+| `ops-dmz` | Operations to screened subnet | | Command sends its reports to shore through the mail server. Allow only mail. |
 
-Explain: Outsiders can reach the screened subnet, so it's the zone most likely to be taken over. It gets no door into the zones that matter most.
+Explain: Outsiders can reach the screened subnet, so it's the zone an attacker is most likely to get into. It gets no door into the zones that matter most.
 
 **Answer key**
 
@@ -906,11 +937,11 @@ You split a flat network into zones and watched the same malware stop at a wall.
 
 **Question `recommend`** (text, teacher-graded, `minWords: 45`, `lines: 8`)
 
-Prompt: The captain asks for your recommendation. For each of the three LANs (weapons, operations, and crew recreation), give a security level and at least two security features, and explain why that LAN needs them.
+Prompt: The captain asks for your recommendation. For each zone (weapons, operations, and crew), write three things: a security level, at least two security features, and why that zone needs them. Features include VLANs, subnets, a zone policy, shutting unused ports, port security, and a screened subnet.
 
 Sample answer (for `solution.ts`):
 
-> Weapons should be High. Keep it in its own VLAN and subnet and let in only target data from Operations, because a hacked weapons console could change or block targeting. Shut unused jacks like port 3 and turn on port security on the ports in use. Operations should be High or Medium. It gets its own VLAN and subnet, with only status reports coming in from Weapons and nothing from Crew, because it runs and steers the ship. Crew recreation should be Low. It gets its own VLAN and subnet with no connections into the other zones, because personal laptops and downloaded games are the most likely way malware gets aboard. Mail from shore should go through a relay in a screened subnet.
+> Weapons should be High. Keep it in its own VLAN and subnet and let in only target data from Operations, because a hacked weapons console could change or block targeting. Shut unused jacks like port 3 and turn on port security on the ports in use. Operations should be High or Medium. It gets its own VLAN and subnet, with only status reports coming in from Weapons and nothing from Crew, because it runs and steers the ship. Crew recreation should be Low. It gets its own VLAN and subnet with no connections into the other zones, because personal laptops and downloaded games are the most likely way malware gets aboard. Mail from shore should go through a mail server in a screened subnet.
 
 **Answer key**
 
@@ -922,10 +953,10 @@ reflect: { text: { recommend: '<the sample answer above>' } },
 
 ### Step 11 `submit`: Review and submit
 
-`kind: 'submit'`. Copy build-network's body:
+`kind: 'submit'`.
 
 ```md
-Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+Look over your summary. You can go back to any step and change an answer, then hand in your work again.
 ```
 
 ## Simulator and interface behaviors
@@ -1053,6 +1084,8 @@ The script relies on these. "This lab" means `segmentation` builds it (put logic
 6. Step 8: Personal laptop reaches Fire control on 445 with port 3 up, and fails with port 3 shut.
 7. Address check: with Weapons on 10.0.10.0/24, setting Crew laptop 1 to 10.0.30.31/24 gives no "shares this local network" note (S3). The `fw` p3 pin rejects 10.0.30.5/24, and `fw` p1 accepts 10.0.10.1/24 without the pin message (S10).
 8. Reset network in step 7, then `install`, still gives the result in test 5.
+9. Step 6's tests answer quickly: from step 6's setup, each of `target`, `share`, `status`, and `crew-share` ends (open, or no answer for the two denied ones) within 5 s of sim time after the press, so there is no ARP wait in front and one test finishes before the next is pressed.
+10. Step 7's log goal ignores step 6's test lines: opening the `crew-share` deny line from step 6 (written before the step began) leaves `log` undone. After `install`, opening a probe's deny line completes it.
 
 ## Concerns
 
@@ -1061,6 +1094,6 @@ The script relies on these. "This lab" means `segmentation` builds it (put logic
 - **Gateway message in step 5.** If a student sets Crew laptop 1's gateway before giving the firewall's port 3 its address, `checkGateway` says "No router has an address on 10.0.30.0/24 ... Check Crew laptop 1's IP address first." Here the fix is the firewall's port. The body orders the steps to avoid this, and the `crew1` goal hint says so. A clause like "or give a router a port on that network" in `checkGateway` would fix it for every lab.
 - **Levels after a reset.** Reset drops the student's step 3 choices, and later setups fill in Weapons High, Operations Medium, Crew Low. The map labels may change after a reset in step 4 or later. Answers and goals are unaffected.
 - **Step 8 order.** The `in` goal needs the laptop to connect before the port is shut. A student who shuts it first has to turn it back on. The hint says so.
-- **Busy steps.** Step 5 (four settings, two tests) and step 6 (six cells, four tests, five goals) are the longest, about six minutes each. The whole lab should run 40 to 45 minutes.
+- **Busy steps.** Step 5 (four settings, two tests) and step 6 (six cells, four tests, five goals) are the longest, about six minutes each. The student panel put the whole lab at about 60 minutes, so `minutes` is 60.
 - **Map crowding.** About ten cables meet at the switch, which is why port tags are off. Check the 1366 x 768 window. If the zone labels overflow their rectangles, widen the padding before shortening the labels.
 - **CED source.** Facts are checked against the paraphrases in COVERAGE.md and the plan, not the CED text itself. Scenario 3C details (the three LANs and the deliverable) come from the plan.
