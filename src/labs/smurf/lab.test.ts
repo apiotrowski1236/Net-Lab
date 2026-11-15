@@ -290,6 +290,53 @@ describe('smurf lab', () => {
     expect(botnet.outcome!(s.sim, 0).at(-1)?.text).toMatch(/drops the pings/);
   });
 
+  it('step 5: a storm pressed in step 4 just before Continue does not finish step 5', () => {
+    const s = playTo('return-to-sender');
+    expect(s.step.id).toBe('the-storm');
+    playStep(s, sol['the-storm']);
+    s.sim.runUntilIdle();
+    s.runStepAction('storm');
+    s.goTo(index('many-attackers'));
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'the old storm stays stopped').toBe(0);
+    expect(s.goalDone('many-attackers', 'ddos')).toBe(false);
+    playMove(s, { press: 'fan-buy' });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('many-attackers', 'fan-fails')).toBe(false);
+  });
+
+  it('step 6: a botnet press just before Continue does not carry into step 6', () => {
+    const s = playTo('the-storm');
+    playStep(s, sol['many-attackers']);
+    s.sim.runUntilIdle();
+    s.sim.clearFloods();
+    s.runStepAction('botnet');
+    s.goTo(index('read-the-spike'));
+    s.sim.runUntilIdle();
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'only the smurf flood').toBe(SMURF_RATE);
+  });
+
+  it('step 8: a purchase that failed before the rule existed does not count', () => {
+    const s = playTo('silence-the-amplifier');
+    expect(s.step.id).toBe('guard-your-edge');
+    playMove(s, { press: 'botnet' });
+    s.sim.runUntilIdle();
+    playMove(s, { press: 'fan-buy' });
+    s.sim.runUntilIdle();
+    playMove(s, sol['guard-your-edge'].moves![0]);
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('guard-your-edge', 'rule')).toBe(true);
+    expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(false);
+    // Buying again with the rule in place finishes it.
+    playMove(s, { press: 'fan-buy' });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(true);
+  });
+
   it('rebuilds identical device state after a reload mid-storm', () => {
     const s = playTo('the-storm');
     const again = new LabSession(lab, JSON.parse(JSON.stringify(s.progress)) as LabProgress);

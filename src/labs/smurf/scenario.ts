@@ -55,8 +55,27 @@ export function startSmurfFlood(sim: Sim): void {
  */
 export function startSmurfFloodAsItArrives(sim: Sim): void {
   const hop = sim.opts.linkMs + sim.opts.procMs;
-  sim.schedule(2 * hop, () => sim.setLinkFlood(campusLinkId(sim), 'smurf', SMURF_RATE));
-  sim.schedule(3 * hop, () => sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE));
+  scheduleFlood(sim, 2 * hop, () => sim.setLinkFlood(campusLinkId(sim), 'smurf', SMURF_RATE));
+  scheduleFlood(sim, 3 * hop, () => sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE));
+}
+
+/** Bumped by stopFloods, so a flood scheduled before a step began never starts inside it. */
+const floodEpoch = new WeakMap<Sim, number>();
+
+/** Run `start` after `ms`, unless a step setup calls stopFloods first. */
+export function scheduleFlood(sim: Sim, ms: number, start: () => void): void {
+  const epoch = floodEpoch.get(sim) ?? 0;
+  sim.schedule(ms, () => {
+    if ((floodEpoch.get(sim) ?? 0) === epoch) start();
+  });
+}
+
+/**
+ * Cancel floods that a button scheduled but that haven't reached the uplink yet. Step setups call
+ * this, so a button pressed just before Continue can't flood the next step.
+ */
+export function cancelPendingFloods(sim: Sim): void {
+  floodEpoch.set(sim, (floodEpoch.get(sim) ?? 0) + 1);
 }
 
 // --- edge firewall (created when step 8 starts) ---------------------------

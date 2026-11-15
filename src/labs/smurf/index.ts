@@ -12,6 +12,8 @@ import {
   LAN_HOSTS,
   PC1,
   smurfZones,
+  cancelPendingFloods,
+  scheduleFlood,
   startSmurfFlood,
   startSmurfFloodAsItArrives,
   STORM_COUNT,
@@ -24,7 +26,6 @@ import {
 /** The uplink carries only so many packets per second; a flood past that drops the fan's purchase. */
 const BOTNET_RATE = 300;
 
-/** The fan's purchase was dropped because a flood filled Hilltop's uplink. */
 /** The fan's request, or the page coming back to her, was dropped on a full link. */
 const fanTrafficJammed = (e: SimEvent): boolean =>
   e.type === 'drop' &&
@@ -32,6 +33,15 @@ const fanTrafficJammed = (e: SimEvent): boolean =>
   ((e.pkt?.app.kind === 'http-req' && e.pkt.src === FAN) || (e.pkt?.app.kind === 'http-res' && e.pkt.dst === FAN));
 
 const fanFloodFailed = ({ sim, since }: CheckCtx): boolean => happened(sim, since, fanTrafficJammed);
+
+/** When `device`'s firewall rules last changed, or 0 if they never did. */
+function lastRuleChange(sim: Sim, device: string): number {
+  for (let i = sim.events.length - 1; i >= 0; i--) {
+    const e = sim.events[i];
+    if (e.type === 'config' && e.what === 'firewall-rules' && e.device === device) return e.t;
+  }
+  return 0;
+}
 
 type Reply = Extract<SimEvent, { type: 'ping-reply' }>;
 
@@ -85,7 +95,9 @@ const botnetFlood = {
     // Once the ISP filters pings, the bots' pings no longer reach the uplink. Otherwise they get
     // there one hop after they leave, so the meter climbs then.
     const hop = sim.opts.linkMs + sim.opts.procMs;
-    if (!sim.dev('isp').firewall) sim.schedule(hop, () => sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE));
+    scheduleFlood(sim, hop, () => {
+      if (!sim.dev('isp').firewall) sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE);
+    });
     // One aggregated burst stands for hundreds of bots, each pinging the server from its own real address.
     sim.echo('botnet', WEB, { burst: { count: BOTNET_RATE } });
   },
@@ -278,6 +290,7 @@ it).`,
       open: 'tools',
       tools: [{ kind: 'traffic-meter', device: 'edge' }],
       setup: (sim) => {
+        cancelPendingFloods(sim);
         sim.clearFloods();
         sim.setDirectedBroadcast('campus', true);
       },
@@ -362,7 +375,10 @@ but the flood comes from thirty campus computers tricked into sending it, like a
       focus: ['botnet', 'isp', 'edge', 'web', 'fan'],
       open: 'tools',
       tools: [{ kind: 'traffic-meter', device: 'edge' }],
-      setup: (sim) => sim.clearFloods(),
+      setup: (sim) => {
+        cancelPendingFloods(sim);
+        sim.clearFloods();
+      },
       actions: [botnetFlood, buyTicket],
       goals: [
         {
@@ -420,6 +436,7 @@ happened. No one got into Hilltop's computers here. The signs point to an attack
       setup: (sim) => {
         // Only the smurf flood runs here, so the meter reads all replies. The restarted storm
         // writes a fresh forged line, so the newest line is this step's attack.
+        cancelPendingFloods(sim);
         sim.clearLinkFlood('botnet');
         sim.setDirectedBroadcast('campus', true);
         startSmurfFlood(sim);
@@ -470,6 +487,7 @@ network at once. Modern routers don't, unless someone turns it on.
       tools: [{ kind: 'directed-broadcast', device: 'campus' }],
       setup: (sim) => {
         // Enter with the amplifier on and a flood running, so turning the setting off is what stops it.
+        cancelPendingFloods(sim);
         sim.clearLinkFlood('botnet');
         sim.setDirectedBroadcast('campus', true);
         startSmurfFlood(sim);
@@ -546,6 +564,7 @@ and keep the other ICMP messages a network needs.)`,
         { kind: 'traffic-meter', device: 'edge' },
       ],
       setup: (sim) => {
+        cancelPendingFloods(sim);
         sim.clearFloods();
         // The edge firewall ships open to ping (the weakness); the student adds the deny above it.
         ensureEdgeFirewall(sim);
@@ -578,7 +597,13 @@ and keep the other ICMP messages a network needs.)`,
           id: 'still-fails',
           label: 'With your rule in place, a fan tries to buy a ticket',
           hint: 'Press **Botnet attacks**, then **Fan buys a ticket**.',
-          check: (c) => deniesInboundIcmp(c.sim, 'edge') && fanFloodFailed(c),
+          // Only a purchase started after the latest rule change counts, so the rule was in place for it.
+          check: ({ sim, since }) => {
+            if (!deniesInboundIcmp(sim, 'edge')) return false;
+            const ruleAt = Math.max(since, lastRuleChange(sim, 'edge'));
+            const b = sim.dev('fan').browser;
+            return !!b && b.startedAt >= ruleAt && happened(sim, ruleAt, fanTrafficJammed);
+          },
         },
       ],
     },
@@ -600,6 +625,7 @@ pings.
         ensureEdgeFirewall(sim);
         sim.setDirectedBroadcast('campus', false);
         // The botnet is still flooding, unless the ISP already filters it.
+        cancelPendingFloods(sim);
         if (!sim.dev('isp').firewall) sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE);
       },
       actions: [
