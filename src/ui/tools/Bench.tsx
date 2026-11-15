@@ -88,7 +88,7 @@ function RunDetail({ b, run, queue }: { b: BenchState; run: BenchRun; queue?: bo
               )}
               {also && (
                 <span class="small muted bench-why">
-                  <span class="mono">{clock(also.at)}</span> {also.by} also flagged it ({also.why})
+                  <span class="mono">{clock(also.at)}</span> {also.by} also flagged it. {also.why.charAt(0).toUpperCase() + also.why.slice(1)}
                 </span>
               )}
               {quiet && (
@@ -307,7 +307,13 @@ function AnalystQueue({ session, devId, client }: { session: ToolCardProps['sess
       ) : (
         <>
           <p class="small">
-            Run {run.no}: {r.alerts.length} alert{r.alerts.length === 1 ? '' : 's'}. Checked {q.checked}, with {q.falseMinutes} minutes spent on false alarms.
+            {r.alerts.length === 0 ? (
+              <>Run {run.no}: no alerts to check.</>
+            ) : (
+              <>
+                Run {run.no}: {r.alerts.length} alert{r.alerts.length === 1 ? '' : 's'}. Checked {q.checked}, with {q.falseMinutes} minutes spent on false alarms.
+              </>
+            )}
             {q.closed > 0 && (
               <>
                 {' '}

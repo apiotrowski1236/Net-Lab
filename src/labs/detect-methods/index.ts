@@ -74,7 +74,7 @@ const renameFile: ActionDef = {
   run: (sim) => sim.benchSetDay(BENCH, DISPATCH, RENAMED),
   outcome: (sim) =>
     bench(sim).settings[DISPATCH].day === RENAMED
-      ? [{ tone: 'good', text: `The bench now replays Nov 12 with LockDown repacked. Its file’s hash now starts with ${shortHash(RENAMED_FILE)} instead of ${shortHash(LOCKDOWN_FILE)}. (A full hash is 64 characters long. These are the first 8.)` }]
+      ? [{ tone: 'good', text: `The bench now replays Nov 12 with LockDown repacked. Its file’s hash now starts with ${shortHash(RENAMED_FILE)} instead of ${shortHash(LOCKDOWN_FILE)}. (A full SHA-256 hash is 64 characters long. These are the first 8.)` }]
       : [{ tone: 'wait', text: 'Loading…' }],
 };
 
@@ -247,7 +247,7 @@ export const detectMethodsLab: LabDef = {
       id: 'baseline',
       title: 'Learn normal at the plant',
       body: md`
-        **Anomaly-based detection** works differently. First it records a **baseline**: how much of each kind of traffic is normal, measured on a **clean** day, one with no attack in it.
+        **Anomaly-based detection** works differently. An **anomaly** is something unusual. First it records a **baseline**: how much of each kind of traffic is normal, measured on a **clean** day, one with no attack in it.
 
         Then it alerts on two things: a kind of traffic the baseline never saw, and traffic outside a **tolerance range** around normal. At ±25%, an hour that is normally 100 MB is fine anywhere from 75 to 125 MB.
 
@@ -300,7 +300,7 @@ export const detectMethodsLab: LabDef = {
 
         1. In the [[bench]], record a baseline from **Nov 9**.
         2. Run anomaly detection, and compare the result with your Sep 14 run. (Only runs made in this step count.)
-        3. Record the **Sep 14** baseline again before you go on.
+        3. Record the **Sep 14** baseline again, so the plant is left with a clean one.
       `,
       setup: (sim) => anomalyOn(sim, PLANT),
       open: 'tools',
@@ -348,7 +348,8 @@ export const detectMethodsLab: LabDef = {
         1. In the [[bench]], choose **Anomaly**.
         2. Record a baseline from **Nov 5**, a clean day.
         3. Keep the tolerance at ±25% and run it.
-        4. Compare the new row in the table with your signature runs: what each caught, false alarms, and cost. Click a row to see that run's result again, with how long each catch took.
+        4. Compare the new row in the table with your signature runs: what each caught, false alarms, and cost.
+        5. Click a row to see that run's result again, with how long each catch took.
 
         The cost pays for the computers that run the method. On this bench (real tools vary), comparing StreamCo's huge traffic with a baseline takes far more computing power than matching signatures.
       `,
@@ -407,7 +408,7 @@ export const detectMethodsLab: LabDef = {
         The **Analyst queue** in the bench card shows your newest StreamCo run. After five false alarms in a row, the analyst stopped reading and closed every later alert unread. This is **alert fatigue**. (The bench gives the whole day to one analyst, to keep it simple.)
 
         1. In the [[bench]] queue, click the 14:20 **Content library** alert marked **closed unread**.
-        2. Change the tolerance and run again until the analyst finds the stolen shows. Their hour was +150%, so compare each tolerance with that number.
+        2. Change the tolerance and run again until the analyst finds the stolen shows. Their hour was +150%, so compare each tolerance with that number. A wider tolerance also raises fewer false alarms.
         3. Then try ±200%.
       `,
       setup: fatigueRun,
@@ -514,10 +515,9 @@ export const detectMethodsLab: LabDef = {
       body: md`
         An attacker who knows about a signature can change the detail it looks for. LockDown's signature matches its file's hash. Changing a few bytes and **repacking** the file (wrapping the same program in a new package, a bit like zipping it again) gives it a new hash, and the program still does the same thing.
 
-        Press **Load the day with LockDown repacked**. Then:
-
-        1. In the [[bench]], run **Signature** on it.
-        2. Run **Anomaly** or **Hybrid** on it. In the result, read the line under LockDown: when it was caught, and what the **Dispatcher console** was doing. (Port 445 is how computers open each other's shared files.)
+        1. Press **Load the day with LockDown repacked**, below.
+        2. In the [[bench]], run **Signature** on it.
+        3. Run **Anomaly** or **Hybrid** on it. In the result, read the line under LockDown: when it was caught, and what the **Dispatcher console** was doing. (Port 445 is how computers open each other's shared files.)
       `,
       setup: (sim) => baselineFrom(sim, DISPATCH, DISPATCH_BASE),
       actions: [renameFile],
@@ -551,7 +551,7 @@ export const detectMethodsLab: LabDef = {
             { id: 'anom-tol', text: 'Anomaly: its tolerance lets most attacks through.', feedback: 'Tolerance lets normal swings through. LockDown’s traffic to the dispatch server was a kind the baseline had never seen.' },
           ],
           explain:
-            'Signatures take less work to get past: an attacker changes the detail the signature looks for, and the attack becomes a false negative. Anomaly detection watches what the traffic does, which is harder to disguise.',
+            'Signatures take less work to get past: an attacker changes the detail the signature looks for, and the attack becomes a false negative. Anomaly detection watches what the traffic does, which is harder to disguise, though an attack that stays inside the tolerance, like VidJack, still gets through.',
         },
         {
           id: 'late',
@@ -588,7 +588,7 @@ export const detectMethodsLab: LabDef = {
       body: md`
         Time to choose. Click [[bench]] to find the **Detection plan** card at the top of the Toolkit, and pick one method for each client. The total has to fit the $5,400 budget.
 
-        Use what the bench showed you. Think about each network's traffic: how much there is, how steady it is, and how bad a missed attack would be. No plan within the budget catches every attack, so decide where a miss would hurt most. The bench card has every run you made if you want to look again.
+        For each network, think about how much traffic it has, how steady it is, and how bad a miss would be. No plan in the budget catches every attack. The bench card below has every run you made.
 
         Then write your recommendation for your boss.
       `,

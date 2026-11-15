@@ -166,15 +166,15 @@ describe('detect-methods: steps', () => {
   it('the run card’s reason lines say what the questions ask about', () => {
     // Step 4: the beacon stands out as new traffic, port 4444 included.
     const plant = run(PLANT, 'anomaly', { baseline: PLANT_CLEAN });
-    expect(plant.alerts.find((a) => a.attack === BEACON)!.why).toBe('new kind of traffic (not in the baseline): Filler controller to 198.51.100.4 on the internet, port 4444 (no common service)');
+    expect(plant.alerts.find((a) => a.attack === BEACON)!.why).toBe('new kind of traffic, not in the baseline: Filler controller to 198.51.100.4 on the internet, port 4444 (no common service)');
     // Step 9: signatures caught the original at the 10:38 download; anomaly catches the repack at 10:42, locking files.
     const orig = run(DISPATCH, 'signature').alerts.find((a) => a.attack === LOCKDOWN)!;
     expect([orig.at, orig.why]).toEqual([10 * 60 + 38, 'matched the "LockDown ransomware" signature (file hash 313e2d61…)']);
     const repack = run(DISPATCH, 'hybrid', { baseline: DISPATCH_BASE, day: RENAMED }).alerts.find((a) => a.attack === LOCKDOWN)!;
-    expect([repack.at, repack.why]).toEqual([10 * 60 + 42, 'new kind of traffic (not in the baseline): Dispatcher console to Dispatch server, port 445 (file sharing)']);
+    expect([repack.at, repack.why]).toEqual([10 * 60 + 42, 'new kind of traffic, not in the baseline: Dispatcher console to Dispatch server, port 445 (file sharing)']);
     // Step 7: the volume alert spells out how much more than usual.
     const leak = run(STREAM, 'anomaly', { baseline: STREAM_BASE }).alerts.find((a) => a.attack === LEAK)!;
-    expect(leak.why).toBe('Content library to partner studios, port 443 (secure web): would reach 5.0 GB in the hour starting 14:00, usual 2.0 GB (3.0 GB more, +150%, outside ±25%)');
+    expect(leak.why).toBe('Content library to partner studios, port 443 (secure web): at this rate, 14:00 to 15:00 adds up to 5.0 GB, usual 2.0 GB (3.0 GB more, +150%, outside ±25%)');
   });
 
   it('the 911 step lists its goals in the order the steps say', () => {

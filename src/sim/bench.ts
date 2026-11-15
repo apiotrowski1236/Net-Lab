@@ -326,7 +326,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
           at: r.at,
           host: r.host,
           by: 'anomaly',
-          why: `new kind of traffic (not in the baseline): ${name(r.host)} to ${r.peer}${r.where === 'internet' ? ' on the internet' : ''}, ${port(r.port)}`,
+          why: `new kind of traffic, not in the baseline: ${name(r.host)} to ${r.peer}${r.where === 'internet' ? ' on the internet' : ''}, ${port(r.port)}`,
           attack: r.attack,
         });
         continue;
@@ -346,7 +346,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
         at: bad ? bad.at : h * 60 + 30,
         host: rs[0].host,
         by: 'anomaly',
-        why: `${name(rs[0].host)} to ${rs[0].peer}, ${port(rs[0].port)}: would reach ${amount(total)} in the hour starting ${clock(h * 60)}, usual ${amount(usual)} (${amount(Math.abs(total - usual))} ${total >= usual ? 'more' : 'less'}, ${signedPct(dev)}, outside ±${input.tolerance}%)`,
+        why: `${name(rs[0].host)} to ${rs[0].peer}, ${port(rs[0].port)}: at this rate, ${clock(h * 60)} to ${clock(h * 60 + 60)} adds up to ${amount(total)}, usual ${amount(usual)} (${amount(Math.abs(total - usual))} ${total >= usual ? 'more' : 'less'}, ${signedPct(dev)}, outside ±${input.tolerance}%)`,
         attack: bad?.attack,
       });
     }
