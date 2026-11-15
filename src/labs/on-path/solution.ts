@@ -9,13 +9,7 @@ export const onPathSolution: LabSolution = {
     moves: [{ tool: { type: 'sniff', device: 'mallory', on: true } }, { press: 'login' }, { openFrame: 'mallory', match: 'login' }],
     text: { password: 'pumpkinspice' },
   },
-  why: {
-    text: {
-      unnoticed:
-        'Mallory only listened. She never sent anything or changed any packet, so the page loaded the same way it always does and nothing looked different to Alice.',
-    },
-  },
-  wpa2: { moves: [{ press: 'login' }, { inspect: 'wifi' }] },
+  wpa2: { moves: [{ press: 'login' }, { openFrame: 'mallory', match: (f) => !!f.sealed }] },
   arp: { moves: [{ inspect: 'alice' }] },
   poison: {
     moves: [
@@ -28,7 +22,7 @@ export const onPathSolution: LabSolution = {
     moves: [{ tool: { type: 'forward', device: 'mallory', on: true } }, { press: 'login' }],
     text: {
       compare:
-        'In step 3 Mallory only listened because open Wi-Fi sent her every frame. With WPA2 she had to send forged ARP replies so Alice and the router delivered their frames to her, and she had to forward them so the connection kept working and Alice would not notice.',
+        'In step 3 Mallory only listened. With WPA2 she could not read the frames, so she sent forged ARP replies to make Alice and the router send them to her, and she forwarded them so Alice would not notice.',
     },
   },
   https: { moves: [{ press: 'login-https' }, { openFrame: 'mallory', match: 'encrypted' }] },

@@ -112,7 +112,7 @@ async function seeded(progress, who = {}) {
   const now = Date.now();
   const full = {
     labId: 'on-path',
-    labVersion: 1,
+    labVersion: 4,
     studentId: 'e2e',
     startedAt: now,
     updatedAt: now,
@@ -215,7 +215,7 @@ try {
   await page.locator('.capture-table tr', { hasText: 'POST' }).first().click();
   await goalsDone(3);
   await page.locator('.qcard textarea').fill('pumpkinspice');
-  await page.getByRole('button', { name: 'Check', exact: true }).click();
+  await page.getByRole('button', { name: 'Check', exact: true }).first().click(); // the password question; the second asks why Alice couldn't tell
   await page.waitForSelector('.qcard.correct');
   await shot('capture');
 
@@ -249,7 +249,7 @@ try {
   await expectHash('#/cyber/lab/on-path', 'Guide’s Open the lab link');
   await page.goto(`${url}#/cyber/guide/on-path`);
   await page.waitForSelector('.guide-step');
-  await expectCount('.guide-step', 12, 'Guide steps');
+  await expectCount('.guide-step', 11, 'Guide steps');
   await shot('guide');
   await page.emulateMedia({ media: 'print' });
   await shot('guide-print');
@@ -257,7 +257,7 @@ try {
 
   step('typed tool input: the ARP spoofer checks what the student types');
   {
-    const { ctx, pg } = await seeded({ step: 6, maxStep: 6 });
+    const { ctx, pg } = await seeded({ step: 5, maxStep: 5 });
     const p = page;
     page = pg;
     // An old address: redirects to the lab's course.
@@ -305,7 +305,7 @@ try {
   step('summary page: submit and download');
   {
     const answers = { 'welcome/which-changes': { value: 'ip', attempts: 1, correct: true, updatedAt: Date.now() } };
-    const { ctx, pg } = await seeded({ step: 12, maxStep: 12, answers, overrides: { broken: { at: Date.now(), note: 'Packets never arrived' } } });
+    const { ctx, pg } = await seeded({ step: 11, maxStep: 11, answers, overrides: { broken: { at: Date.now(), note: 'Packets never arrived' } } });
     const p = page;
     page = pg;
     await page.goto(`${url}#/cyber/lab/on-path`);

@@ -10,7 +10,7 @@ import { PROTO_COLOR, endpoints, fmtTime, infoOf, layersOf, nameForMac, pingFail
 import { Icon } from './icons';
 import { INSPECTOR_SECTIONS, type InspectorSectionProps } from './inspector/registry';
 import { TOOL_CARDS, type ToolCardProps } from './tools/registry';
-import { recentlyChanged, Toggle, ToolMsg, useDraft, type Msg } from './tools/parts';
+import { recentlyChanged, Toggle, ToolMsg, useDraft, useKept, type Msg } from './tools/parts';
 import {
   checkAddress,
   checkCable,
@@ -20,6 +20,7 @@ import {
   checkRoute,
   checkSpoofClaim,
   checkStaticArp,
+  staticArpIpError,
   covers,
   portName,
 } from '../runtime/toolInput';
@@ -672,7 +673,8 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
   if (!dev) return null;
   // A packet the filter hides isn't open any more.
   const sel = rows.find((r) => r.no === selected) ?? (lab.wireshark ? undefined : dev.capture.find((r) => r.no === selected));
-  const time = (c: Captured) => (dev.captureRun ? captureSeconds(dev, c).toFixed(3) : fmtTime(c.t));
+  // Wireshark-style labs print bare seconds like Wireshark. Elsewhere a restarted list (on-path) keeps the "s".
+  const time = (c: Captured) => (dev.captureRun ? (lab.wireshark ? captureSeconds(dev, c).toFixed(3) : fmtTime(c.t - dev.captureRun.start)) : fmtTime(c.t));
   const stopped = tool
     ? 'Press Start to capture.'
     : lab.wireshark
@@ -939,15 +941,23 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
 function ArpSpoofTool({ session, spec }: { session: LabSession; spec: Extract<ToolSpec, { kind: 'arp-spoof' }> }) {
   const sim = session.sim;
   const [victim, setVictim] = useState(spec.victims[0]);
-  const [claim, setClaim] = useState('');
+  const [claim, setClaim] = useKept(session, `${session.step.id}/arp-spoof/${spec.device}/claim`);
   const [msg, setMsg] = useState<Msg>(null);
   const me = sim.devices[spec.device];
   const sent = sim.events.filter((e) => e.type === 'config' && e.what === 'arp-spoof' && e.device === spec.device).slice(-4);
   const send = () => {
     const r = checkSpoofClaim(sim, spec.device, victim, claim);
     if (!r.ok) return setMsg({ tone: 'bad', text: r.msg });
+    // A locked (static) entry will ignore the reply, so don't say the victim believes it.
+    const held = sim.devices[victim].arp[r.ip];
+    const locked = held?.via === 'static' && held.mac !== me.ifaces[0].mac;
     session.dispatch({ type: 'arp-spoof', device: spec.device, victim, claimIp: r.ip });
-    setMsg({ tone: 'good', text: `Sent. ${sim.devices[victim].label} now hears that ${r.ip} is at ${me.ifaces[0].mac}.` });
+    setMsg({
+      tone: 'good',
+      text: locked
+        ? `Sent. ${sim.devices[victim].label} has a locked entry for ${r.ip}, so it will ignore this reply.`
+        : `Sent. ${sim.devices[victim].label} now hears that ${r.ip} is at ${me.ifaces[0].mac}.`,
+    });
   };
   return (
     <div class="tool-card attack">
@@ -1075,10 +1085,12 @@ function AnnounceTool({ session, spec }: { session: LabSession; spec: Extract<To
 function StaticArpTool({ session, spec }: { session: LabSession; spec: Extract<ToolSpec, { kind: 'static-arp' }> }) {
   const sim = session.sim;
   const d = sim.devices[spec.device];
-  const [ip, setIp] = useState('');
-  const [mac, setMac] = useState('');
+  const [ip, setIp] = useKept(session, `${session.step.id}/static-arp/${spec.device}/ip`);
+  const [mac, setMac] = useKept(session, `${session.step.id}/static-arp/${spec.device}/mac`);
   const [msg, setMsg] = useState<Msg>(null);
   const locked = Object.entries(d.arp).filter(([, e]) => e.via === 'static');
+  // Only the box at fault turns red: the MAC box once the IP address names a device.
+  const bad = msg?.tone === 'bad' ? (staticArpIpError(sim, spec.device, ip) ? 'ip' : 'mac') : null;
   const lock = () => {
     const r = checkStaticArp(sim, spec.device, ip, mac);
     if (!r.ok) return setMsg({ tone: 'bad', text: r.msg });
@@ -1100,7 +1112,7 @@ function StaticArpTool({ session, spec }: { session: LabSession; spec: Extract<T
       <div class="sentence">
         Lock
         <input
-          class={`mono ${msg?.tone === 'bad' ? 'invalid' : ''}`}
+          class={`mono ${bad === 'ip' ? 'invalid' : ''}`}
           value={ip}
           placeholder="IP address"
           inputMode="decimal"
@@ -1113,7 +1125,7 @@ function StaticArpTool({ session, spec }: { session: LabSession; spec: Extract<T
         />
         to
         <input
-          class={`mono ${msg?.tone === 'bad' ? 'invalid' : ''}`}
+          class={`mono ${bad === 'mac' ? 'invalid' : ''}`}
           value={mac}
           placeholder="MAC address"
           autoComplete="off"

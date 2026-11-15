@@ -45,7 +45,7 @@ describe('café network (on-path lab)', () => {
     expect(loginCaptured(sim.events, 'mallory')).toBe(true);
   });
 
-  it('with WPA2 (switched) the sniffer no longer sees it', () => {
+  it('with WPA2 the sniffer still hears Alice, but only as sealed frames', () => {
     const sim = buildCafe();
     enableWpa2(sim);
     sim.setSniffing('mallory', true);
@@ -53,6 +53,9 @@ describe('café network (on-path lab)', () => {
     sim.runUntilIdle();
     expect(sim.dev('alice').browser?.status).toBe('loaded');
     expect(loginCaptured(sim.events, 'mallory')).toBe(false);
+    const caught = sim.dev('mallory').capture.map((c) => c.frame).filter((f) => f.dst !== 'ff:ff:ff:ff:ff:ff');
+    expect(caught.length).toBeGreaterThan(0);
+    expect(caught.every((f) => f.sealed && !f.ip && !f.arp)).toBe(true);
   });
 
   it('ARP poisoning without forwarding breaks Alice’s connection', () => {

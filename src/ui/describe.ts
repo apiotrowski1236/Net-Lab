@@ -5,12 +5,14 @@ import { fwDenyText } from './firewallText';
 import { DHCP_OP_LABEL, dhcpIps, dhcpSays, fromClient } from '../sim/dhcp';
 import { flagText, isHandshakeOnly, payloadLen } from '../sim/tcp';
 
-export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH' | 'TELNET' | 'DHCP' | 'PRINT' | 'RSYNC';
+export type Proto = 'ARP' | 'HTTP' | 'HTTPS' | 'DNS' | 'PING' | 'ROUTE' | 'SSH' | 'SMB' | 'TCP' | 'ETH' | 'TELNET' | 'DHCP' | 'PRINT' | 'RSYNC' | 'WPA2';
 
 /** Pill for a connection to a service (services.ts), by the program really inside. */
 const SVC_PROTO: Record<string, Proto> = { https: 'HTTPS', http: 'HTTP', ssh: 'SSH', smb: 'SMB', dns: 'DNS', telnet: 'TELNET', ipp: 'PRINT', rsync: 'RSYNC' };
 
 export function protoOf(f: Frame): Proto {
+  // A Wi-Fi frame encrypted with another device's key (airseal.ts): nothing inside is readable.
+  if (f.sealed) return 'WPA2';
   if (f.arp) return 'ARP';
   if (f.bgp) return 'ROUTE';
   if (f.dhcp) return 'DHCP';
@@ -43,6 +45,7 @@ export const PROTO_COLOR: Record<Proto, string> = {
   DHCP: '#4338ca',
   PRINT: '#0f766e',
   RSYNC: '#57534e',
+  WPA2: '#3f3f46',
 };
 
 /** Fill for forged ("FAKE") packets. White text, 4.8:1. */
@@ -81,6 +84,7 @@ export const PROTO_BLURB: Record<Proto, string> = {
   DHCP: 'DHCP: a device asking for an IP address, and the router handing one out.',
   PRINT: 'Print: a document on its way to a printer over the network.',
   RSYNC: 'Rsync: one computer copying files to another, like a nightly backup.',
+  WPA2: 'WPA2: a Wi-Fi frame locked with another device’s key. Only that device and the access point can read it.',
 };
 
 /** Packet colors the legend adds for labs whose hosts run services (services.ts), hand out addresses (dhcp.ts), or print. */
@@ -91,6 +95,7 @@ export function extraProtos(sim: Sim): Proto[] {
   const out: Proto[] = devs.some((d) => d.services?.some((x) => x.app === 'telnet')) ? [...base, 'TELNET'] : base;
   if (devs.some((d) => d.dhcp)) out.push('DHCP');
   if (devs.some((d) => d.services?.some((x) => x.app === 'ipp'))) out.push('PRINT');
+  if (devs.some((d) => d.airSeal)) out.push('WPA2');
   return out;
 }
 
@@ -126,6 +131,7 @@ export function infoOf(f: Frame): string {
 }
 
 function infoOfOne(f: Frame): string {
+  if (f.sealed) return 'Encrypted Wi-Fi data (WPA2)';
   if (f.arp) {
     const a = f.arp;
     return a.op === 'request' ? `Who has ${a.targetIp}? Tell ${a.senderIp}` : `${a.senderIp} is at ${a.senderMac}`;
@@ -267,6 +273,16 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
         ],
       },
     );
+    return layers;
+  }
+  if (f.sealed) {
+    layers.push({
+      title: `${f.sealed.mode} (encrypted Wi-Fi)`,
+      color: LAYER_COLOR.HTTPS,
+      rows: [['Data', gibberish(f.id)]],
+      locked: true,
+      note: 'This frame is locked with another device’s Wi-Fi key, the key for everything that device sends and receives. Everything inside is hidden, even the IP addresses. Only the MAC addresses stay readable.',
+    });
     return layers;
   }
   if (!f.ip && !f.arp && !f.bgp) {
