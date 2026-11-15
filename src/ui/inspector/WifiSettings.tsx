@@ -90,7 +90,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
                   : ap.security === 'wpa2'
                   ? `WPA2 holds with a long passphrase that is hard to guess${needsKey && weakness ? (weakness === 'short' ? ' (yours is short)' : ' (yours is a common password)') : ''}.`
                   : ap.auth === 'eap'
-                    ? 'WPA3 is the strongest. Each person signs in with their own login.'
+                    ? 'WPA3 with per-user logins: the strongest. Each person signs in with their own account.'
                     : needsKey && ap.passphrase && isCommonPassphrase(ap.passphrase)
                       ? 'WPA3 is the strongest, but yours is a common password, one of the first guesses an attacker tries.'
                       : 'WPA3 is the strongest. An attacker cannot test guesses against a recording, but a long passphrase still matters.'}

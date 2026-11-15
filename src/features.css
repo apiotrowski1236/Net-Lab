@@ -6729,8 +6729,11 @@ button.pl-tile:active {
   padding: 4px 8px;
 }
 .wifi-noise {
-  margin: 8px 0 0;
+  margin: 8px 0;
   color: var(--ink-2);
+}
+.wifi-noise .noise-high {
+  color: var(--bad);
 }
 .approved-aps .table td {
   vertical-align: top;

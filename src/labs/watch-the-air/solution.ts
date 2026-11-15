@@ -33,7 +33,6 @@ export const watchTheAirSolution: LabSolution = {
 
   evidence: {
     moves: [
-      { citeLog: 'wap', where: (e) => e.fields?.action === 'heard' && e.fields?.bssid === BSSID.twin },
       { citeLog: 'wap', where: (e) => e.fields?.action === 'left' && e.fields?.mac === MAC.visitor },
       { citeLog: 'wap', where: (e) => e.fields?.action === 'stray' && e.fields?.mac === MAC.visitor },
     ],
@@ -63,7 +62,7 @@ export const watchTheAirSolution: LabSolution = {
   recommend: {
     text: {
       impact:
-        "The weekly sweep and reading the alerts take a staff member about fifteen minutes a day. The alarms will still raise false alarms, mostly new volunteer laptops on the switch, and each one takes a few minutes to check. The tools run on the access point and switch the shelter already has, so the cost is staff time, not money. Families keep their privacy because the alarms watch radios and ports, not the websites people visit or what they send.",
+        "The weekly sweep takes about 20 minutes, and checking about 2 alerts a week at 5 minutes each adds 10 more, so the plan costs a volunteer about 30 minutes a week. The alarms will still raise false alarms, mostly new volunteer laptops on the switch, and each one takes a few minutes to check. The tools run on the access point and switch the shelter already has, so the cost is staff time, not money. Families keep their privacy because the alarms watch radios and ports, not the websites people visit or what they send.",
     },
   },
 };

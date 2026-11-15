@@ -17,7 +17,7 @@ export function ApprovedAps({ session, dev }: InspectorSectionProps) {
       <table class="table">
         <thead>
           <tr>
-            <th>Network</th>
+            <th>Network and BSSID</th>
             <th>Channel</th>
             <th>Where it hangs</th>
           </tr>
