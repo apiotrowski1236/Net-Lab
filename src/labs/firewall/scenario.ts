@@ -67,7 +67,7 @@ export const INNER: [string, string][] = [
 ];
 
 export function buildHospital(): Sim {
-  const sim = new NetBuilder({ linkMs: 120, procMs: 40, httpTimeoutMs: 4000, pingTimeoutMs: 3000, autoArp: true })
+  const sim = new NetBuilder({ linkMs: 120, procMs: 40, httpTimeoutMs: 2500, pingTimeoutMs: 2000, autoArp: true })
     .host('patient', {
       label: 'Patient at home',
       sublabel: PATIENT,
