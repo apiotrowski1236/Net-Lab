@@ -25,7 +25,7 @@ export const netToolsSolution: LabSolution = {
 
   nmap: { moves: [at('laptop', 'nmap 10.0.0.0/24')] },
 
-  vuln: { moves: [at('laptop', 'nmap -sV --script vuln 10.0.0.0/24')] },
+  vuln: { moves: [at('laptop', 'nmap -sV --script vuln 10.0.0.20')] },
 
   close: { moves: [{ press: 'close-risky' }, at('laptop', 'nmap 10.0.0.0/24')] },
 
