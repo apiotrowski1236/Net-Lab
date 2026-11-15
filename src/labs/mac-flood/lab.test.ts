@@ -82,7 +82,9 @@ describe('mac-flood lab', () => {
     playMove(s, { press: 'ortiz-sends' }); // capture still off
     expect(s.goalDone('jack', 'sent')).toBe(false);
     playMove(s, { tool: { type: 'sniff', device: 'mallory', on: true } });
-    playMove(s, { press: 'ortiz-sends' }); // ARP is cached now: no broadcast this time
+    // Her PC forgets the server's MAC on every press in this step, so Mallory still catches an ARP broadcast.
+    playMove(s, { press: 'ortiz-sends' });
+    expect(s.sim.dev('mallory').capture.some((c) => c.frame.arp?.op === 'request' && c.frame.src === MAC.ortiz)).toBe(true);
     expect(s.goalDone('jack', 'sent')).toBe(true);
   });
 

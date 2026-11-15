@@ -40,7 +40,7 @@ export const ATTENDANCE_URL = `http://${SITE}/attendance?period=3&absent=Jordan+
 export const isAttendance = (f: Frame): boolean => f.ip?.app.kind === 'http-req' && f.ip.app.path.startsWith('/attendance');
 
 export function buildOffice(): Sim {
-  const sim = new NetBuilder({ linkMs: 850 })
+  const sim = new NetBuilder({ linkMs: 450 })
     .router('router', {
       label: 'District router',
       icon: 'router',
@@ -157,8 +157,8 @@ export function zones(sim: Sim): MapZone[] {
     { id: 'lobby', shape: { kind: 'rect', x: 660, y: 135, w: 320, h: 340 }, label: 'Lobby (open to visitors)', tone: 'warn' },
     {
       id: 'jack',
-      shape: { kind: 'rect', x: 674, y: 171, w: 176, h: 30 },
-      label: jack ? 'Wall jack, port 7: off' : 'Wall jack, port 7',
+      shape: { kind: 'rect', x: 674, y: 171, w: 204, h: 30 },
+      label: jack ? 'Wall jack, port 7: off, safe' : 'Wall jack, port 7',
       tone: jack ? 'good' : 'bad',
     },
   ];
