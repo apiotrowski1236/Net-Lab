@@ -70,6 +70,21 @@ describe('Maple Grove resolver (dns-spoof lab)', () => {
     expect(sim.dev('ben').browser?.from).toBe(IP.grades);
   });
 
+  it('a forged burst during a lookup already in flight races it, and the event says so', () => {
+    const sim = buildDistrict();
+    primeAndExpire(sim);
+    sim.browse('alice', `http://${SITE}/`);
+    // Step until the resolver has asked the name server but has no answer yet.
+    while (!Object.values(sim.dev('resolver').resolver!.pending).some((p) => p.name === SITE)) sim.advanceTo(sim.nextJobAt!);
+    const before = upstreamQueries(sim);
+    sim.forgeDnsAnswer('evil', 'resolver', SITE, IP.evil);
+    sim.runUntilIdle();
+    expect(upstreamQueries(sim)).toBe(before); // joined Alice's lookup, asked nothing new
+    expect(cachedIp(sim)).toBe(IP.evil);
+    const forge = sim.events.find((e) => e.type === 'config' && e.what === 'dns-forge');
+    expect(forge?.type === 'config' && forge.raced).toBe(true);
+  });
+
   it('a forged burst is ignored while the resolver holds a fresh answer: it asks nothing', () => {
     const sim = buildDistrict();
     primeCache(sim);
@@ -78,6 +93,8 @@ describe('Maple Grove resolver (dns-spoof lab)', () => {
     sim.runUntilIdle();
     expect(upstreamQueries(sim)).toBe(before);
     expect(cachedIp(sim)).toBe(IP.grades);
+    const forge = sim.events.find((e) => e.type === 'config' && e.what === 'dns-forge');
+    expect(forge?.type === 'config' && forge.raced).toBe(false);
   });
 
   it('a matching forged burst poisons the cache once the TTL has run out', () => {

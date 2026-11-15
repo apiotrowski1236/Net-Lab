@@ -1545,7 +1545,8 @@ export class Sim {
     const r = resolver.resolver;
     if (!r) throw new Error(`${resolverId} is not a resolver`);
     const asking = Object.values(r.pending).some((p) => p.name === name);
-    if (!asking && !freshEntry(r, name, this.t)) this.resolverAsk(resolver, name, []);
+    const fresh = !!freshEntry(r, name, this.t);
+    if (!asking && !fresh) this.resolverAsk(resolver, name, []);
     const resolverIp = this.ipOf(resolverId);
     for (const g of forgedGuesses()) {
       this.originate(
@@ -1562,7 +1563,7 @@ export class Sim {
         true,
       );
     }
-    this.emit({ t: this.t, type: 'config', device: attackerId, what: 'dns-forge', detail: `forged ${name} = ${ip}` });
+    this.emit({ t: this.t, type: 'config', device: attackerId, what: 'dns-forge', detail: `forged ${name} = ${ip}`, raced: asking || !fresh });
   }
 
   /** Turn the resolver's defense on or off: unpredictable query IDs and source ports. */

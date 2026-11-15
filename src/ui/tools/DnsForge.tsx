@@ -20,9 +20,8 @@ export function DnsForge({ session, spec }: ToolCardProps<'dns-forge'>) {
   const sent = sim.events.filter((e) => e.type === 'config' && e.what === 'dns-forge' && e.device === spec.device).slice(-4);
   const guesses = forgedGuesses().length;
   /** How a burst sent at `t` came out: the first answer the resolver accepted for the name after it. */
-  const result = (t: number, detail: string): string => {
-    const asked = resolver.logs.some((l) => l.t === t && l.source === 'dns' && l.msg.startsWith('query ') && detail.includes(` ${l.msg.split(' ')[1]} `));
-    if (!asked) return 'the resolver had a fresh answer and asked nothing, so every guess was ignored';
+  const result = (t: number, detail: string, raced: boolean): string => {
+    if (!raced) return 'the resolver had a fresh answer and asked nothing, so every guess was ignored';
     const ans = sim.events.find((e) => e.t >= t && e.type === 'dns-answer' && e.device === spec.resolver && detail.includes(` ${e.name} `));
     if (!ans || ans.type !== 'dns-answer') return 'waiting for the race';
     return detail.endsWith(` ${ans.ip}`) ? 'a guess matched: the cache is poisoned' : 'no guess matched: the real answer won';
@@ -82,7 +81,7 @@ export function DnsForge({ session, spec }: ToolCardProps<'dns-forge'>) {
       {sent.length > 0 && (
         <ul class="tool-log">
           {sent.map((e) => (
-            <li>{e.type === 'config' ? `${e.detail}: ${result(e.t, e.detail ?? '')}` : ''}</li>
+            <li>{e.type === 'config' ? `${e.detail}: ${result(e.t, e.detail ?? '', !!e.raced)}` : ''}</li>
           ))}
         </ul>
       )}

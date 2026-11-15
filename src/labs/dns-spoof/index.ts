@@ -60,7 +60,8 @@ const mallorysBurst: ActionDef = {
   label: 'Mallory sends another forged burst',
   run: (sim) => sim.forgeDnsAnswer('evil', 'resolver', SITE, IP.evil),
   outcome: (sim, since) => {
-    const asked = loggedSince(sim, 'resolver', since, (e) => e.source === 'dns' && e.msg.startsWith(`query ${SITE} `));
+    // Did the burst race a lookup, either one it started or one already in flight?
+    const asked = sim.events.some((e) => e.t >= since && e.type === 'config' && e.what === 'dns-forge' && e.device === 'evil' && e.raced);
     const ans = sim.events.find((e) => e.t >= since && e.type === 'dns-answer' && e.device === 'resolver' && e.name === SITE);
     const ip = ans?.type === 'dns-answer' ? ans.ip : undefined;
     if (!asked && !ans) {
@@ -481,7 +482,7 @@ export const dnsSpoofLab: LabDef = {
             { id: 'block', text: 'They block every packet that comes into the school from outside, including the forged answers.', feedback: 'They do not block anything. They make the right ticket number too hard to guess.' },
             { id: 'encrypt', text: 'They encrypt each DNS answer, so a forger cannot read the real one or make a copy of it.', feedback: 'The answer is not encrypted. The defense is that the matching numbers are unpredictable.' },
           ],
-          explain: 'Resolvers have used random query IDs for a long time. After the Kaminsky attack in 2008 showed how fast forgers could keep trying, resolvers also began picking a random source port, so a forger has to guess both.',
+          explain: 'Resolvers have used random query IDs for a long time. In 2008, the Kaminsky attack got around the fresh-record wait by asking about made-up names like abc123.grades.example, which are never cached, so forgers could keep trying. After that, resolvers also began picking a random source port, so a forger has to guess both.',
         },
         {
           id: 'dnssec',
