@@ -135,7 +135,7 @@ export const captureAnalysisLab: LabDef = {
         [[switch]] has a **mirror port**: it sends a copy of every frame out one port, where [[analyst]] is plugged in. Each hour the laptop saved a one-minute **capture file**, a recording of packets you open later, like a .pcap file in Wireshark.
 
         1. Click [[switch]]. **Mirror port** is below its port tables.
-        2. Open the **Capture** tab. It shows **07:00 depot.pcap**, a normal morning. The **No.** column numbers every packet, and **Time** counts seconds from the start of the file.
+        2. Open the **Capture** tab. It shows **07:00 depot.pcap**, a normal morning. The **No.** column numbers every packet, and **Time** counts seconds from the start of the file. A packet keeps its number when a filter hides other rows, so analysts **cite** packets by number: they list the numbers in a report as proof.
         3. Press **Endpoints: IPv4**. It lists every IP address, with how many packets it sent and received, busiest first. **Bytes** counts how much data, so it can rank addresses in a different order.
 
         A normal hour is the depot's **baseline**: once you know it, anything new stands out. 203.0.113.10 is not on the map. It's the bus-tracking map service on the internet, which dispatch checks all day.
