@@ -442,7 +442,7 @@ export const netAuditLab: LabDef = {
       body: md`
         Next is the Wi-Fi, the course's high example. [[wap]] uses **WEP**, an old encryption that a free tool cracks in under a minute. Its signal reaches the parking lot. The office is one flat network, so once someone is on the Wi-Fi they can reach [[fileserver]] and its donor records.
 
-        1. Click [[wap]] and change its security from WEP to **WPA3**, the strongest setting. (WPA2 also clears the finding.)
+        1. Click [[wap]] and change its security from WEP to **WPA3**, the strongest setting. (WPA2 also clears the finding, if the Wi-Fi password stays long.)
         2. Re-scan.
 
         WPA3 closes the quick way in. The network is still flat, so a break-in could still spread. Splitting it into zones is a separate project: that is **network segmentation**, a later lab.
@@ -452,7 +452,7 @@ export const netAuditLab: LabDef = {
       tools: [{ kind: 'wifi-config', device: 'wap' }, { kind: 'scanner', device: 'auditor' }],
       goals: [
         { id: 'wpa3', label: 'Replace WEP on [[wap]] with WPA3 (or WPA2)', hint: 'Open [[wap]] and change the security mode. WEP is broken; pick WPA3.', check: ({ sim }) => wifiStrong(sim) },
-        { id: 'rescan', label: 'Re-scan and clear the high finding', hint: 'Change the setting first, then press **Run scan again**.', check: without('wifi-weak') },
+        { id: 'rescan', label: 'Re-scan and clear the high finding', hint: 'Change the setting first, then press **Run scan again**. If the finding stays, the Wi-Fi password may be too short: pick WPA3, or keep a long password.', check: without('wifi-weak') },
       ],
       questions: [
         {
