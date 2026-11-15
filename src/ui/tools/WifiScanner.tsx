@@ -92,6 +92,7 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
                     {r.ssid || '(hidden)'}
                   </button>
                   <div class="mono tiny muted">{r.bssid}</div>
+                  {r.hidden && !watch && <div class="tiny muted">Name hidden from beacons. Phones that know it ask for it by name, so the scanner heard it anyway.</div>}
                 </td>
                 <td class="small">
                   {SECURITY_LABEL[r.security].replace(' (no encryption)', '')}
@@ -120,6 +121,7 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
                   <td class="small">
                     {dupSsid.has(r.ssid) && <span class="pill bad">duplicate name</span>}
                     {r.rogue && !dupSsid.has(r.ssid) && <span class="pill warn">not yours</span>}
+                    {r.hidden && !r.rogue && !dupSsid.has(r.ssid) && <span class="pill">name hidden</span>}
                   </td>
                 )}
               </tr>

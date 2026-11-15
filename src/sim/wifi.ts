@@ -151,9 +151,25 @@ export function bars(signal: number): number {
 /** A passphrase is weak if it is short enough to guess. Twelve characters is the line this lab draws. */
 export const STRONG_PASSPHRASE_LEN = 12;
 
+/** Words that guessing tools try first. A passphrase built on one of them is weak at any length. */
+const COMMON_WORDS = new Set([
+  'password', 'passw0rd', 'welcome', 'letmein', 'qwerty', 'qwertyuiop', 'iloveyou', 'admin', 'administrator', 'abc', 'abcdef', 'abcdefg',
+  'monkey', 'dragon', 'football', 'baseball', 'sunshine', 'princess', 'shadow', 'superman', 'trustno', 'master', 'login', 'guest',
+  'changeme', 'secret', 'wifi', 'internet', 'shelter', 'default', 'asdf', 'asdfgh', 'zxcvbn', 'hello', 'freedom', 'whatever',
+]);
+
+/** Why a passphrase is weak: too short, or a common password with numbers or symbols added. */
+export function passphraseWeakness(p: string | undefined): 'short' | 'common' | undefined {
+  if (!p) return undefined;
+  if (p.length < STRONG_PASSPHRASE_LEN) return 'short';
+  const core = p.toLowerCase().replace(/[^a-z]/g, '');
+  if (!core || COMMON_WORDS.has(core) || /^(.)\1*$/.test(core) || /^(.)\1*$/.test(p)) return 'common';
+  return undefined;
+}
+
 export function passphraseStrength(p: string | undefined): 'none' | 'weak' | 'strong' {
   if (!p) return 'none';
-  return p.length >= STRONG_PASSPHRASE_LEN ? 'strong' : 'weak';
+  return passphraseWeakness(p) ? 'weak' : 'strong';
 }
 
 /** Security modes from weakest to strongest, for ranking questions and labels. */
@@ -184,13 +200,17 @@ export interface CrackResult {
 export function crack(ap: WifiAp): CrackResult {
   if (ap.security === 'open') return { ok: true, method: 'open', estimate: 'no password to break' };
   if (ap.security === 'wep') return { ok: true, method: 'wep', estimate: 'under a minute' };
+  const weak = ap.auth === 'psk' ? passphraseWeakness(ap.passphrase) : undefined;
+  // WPA and WPA2: a captured handshake can be guessed against offline, so a weak passphrase falls first,
+  // even with WPS on. That way turning WPS off never makes the time drop.
+  if (weak && ap.security !== 'wpa3') {
+    const how = weak === 'common' ? 'guessing common passwords with numbers added' : 'guessing short passwords';
+    return { ok: true, method: 'guess', estimate: `a few minutes (${how})` };
+  }
   if (ap.wps) return { ok: true, method: 'wps', estimate: 'a few hours (the WPS PIN)' };
   if (ap.auth === 'eap') return { ok: false, method: 'none', estimate: 'no shared passphrase to steal' };
-  const strength = passphraseStrength(ap.passphrase);
-  if (ap.security === 'wpa3') return { ok: false, method: 'none', estimate: 'centuries (WPA3 resists guessing)' };
-  // WPA and WPA2: a captured handshake can be guessed against, so a short passphrase falls.
-  if (strength === 'weak') return { ok: true, method: 'guess', estimate: 'a few minutes (guessing common passwords)' };
-  return { ok: false, method: 'none', estimate: 'centuries (too long to guess)' };
+  if (ap.security === 'wpa3') return { ok: false, method: 'none', estimate: weak ? 'WPA3 blocks guessing from a recording, but a longer passphrase is still safer' : 'centuries (WPA3 blocks guessing from a recording)' };
+  return { ok: false, method: 'none', estimate: 'centuries (long and hard to guess)' };
 }
 
 /** The identity a joining device presents to an AP. */
@@ -240,6 +260,8 @@ export interface ScanRow {
   /** Measured signal (0 to 100) from the scanner's position. */
   signal: number;
   rogue: boolean;
+  /** The AP's beacons leave the name out. The scanner still learns it from devices that ask for it (wireless). */
+  hidden?: boolean;
 }
 
 /** Solve for the point that is `dist` from each reading (trilateration). Needs 3 non-collinear readings. */

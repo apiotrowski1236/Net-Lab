@@ -2100,6 +2100,7 @@ export class Sim {
         channel: ap.wifi!.channel,
         signal,
         rogue: !!ap.wifi!.rogue,
+        hidden: !ap.wifi!.beacon || undefined,
       });
     }
     return rows.sort((a, b) => b.signal - a.signal || a.bssid.localeCompare(b.bssid));

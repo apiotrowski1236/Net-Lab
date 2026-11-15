@@ -183,7 +183,7 @@ async function drive(c, i, step, m) {
       if (a.type === 'wifi-power') await field('Signal strength').getByRole('button', { name: POWER[a.power], exact: true }).click();
       else if (a.type === 'wifi-auth') await field('Who may join').getByRole('button', { name: a.auth === 'eap' ? 'Per-user login (EAP)' : 'Shared passphrase', exact: true }).click();
       else if (a.type === 'wifi-wps') await toggle(sw(/^WPS/), a.on);
-      else if (a.type === 'wifi-beacon') await toggle(sw(/Broadcasting the name|Name hidden/), a.on);
+      else if (a.type === 'wifi-beacon') await toggle(sw(/Broadcast the name|Broadcasting the name|Name hidden/), a.on);
       else if (a.type === 'wifi-macfilter') await toggle(sw(/^MAC filter/), a.on);
       else {
         await field('Security').getByRole('button', { name: SECURITY[a.security], exact: true }).click();

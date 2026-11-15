@@ -229,11 +229,11 @@ function markerFor(
     case 'wifi':
       switch (e.what) {
         case 'join':
-          return { device: e.device, text: 'device joined', tone: 'info' };
+          return { device: e.client ?? e.device, text: e.client ? 'joined Wi-Fi' : 'device joined', tone: 'info' };
         case 'leave':
-          return { device: e.device, text: 'device dropped off', tone: 'warn' };
+          return { device: e.client ?? e.device, text: e.client ? 'off Wi-Fi' : 'device dropped off', tone: 'warn' };
         case 'rejected':
-          return { device: e.device, text: 'join denied', tone: 'good' };
+          return { device: e.client ?? e.device, text: 'join denied', tone: 'good' };
         case 'crack':
           return { device: e.device, text: e.ok ? 'key cracked!' : 'key held', tone: e.ok ? 'bad' : 'good' };
         case 'jam':

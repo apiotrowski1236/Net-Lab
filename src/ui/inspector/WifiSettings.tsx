@@ -1,5 +1,5 @@
 import { checkWifiPassphrase } from '../../runtime/toolInput';
-import { passphraseStrength, SECURITY_LABEL, type WifiSecurity } from '../../sim/wifi';
+import { passphraseStrength, passphraseWeakness, SECURITY_LABEL, type WifiSecurity } from '../../sim/wifi';
 import type { InspectorSection, InspectorSectionProps } from './registry';
 import { Toggle, ToolMsg, useDraft, type Msg } from '../tools/parts';
 import { useState } from 'preact/hooks';
@@ -88,7 +88,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
                   ? `WPA2 holds with a long passphrase${needsKey && strength !== 'strong' ? ' (yours is short)' : ''}.`
                   : ap.auth === 'eap'
                     ? 'WPA3 is the strongest. Each person signs in with their own login.'
-                    : 'WPA3 is the strongest. It resists guessing even with a short passphrase.'}
+                    : 'WPA3 is the strongest. An attacker cannot test guesses against a recording, but a long passphrase still matters.'}
         </p>
       </div>
 
@@ -101,6 +101,9 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
               value={pass.value}
               disabled={!edit}
               onInput={(e) => pass.set((e.target as HTMLInputElement).value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && edit && pass.edited) savePass();
+              }}
               placeholder="the key families type to join"
             />
             <button class="btn tiny" disabled={!edit || !pass.edited} onClick={savePass}>
@@ -108,7 +111,11 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
             </button>
           </div>
           <p class="small muted">
-            {ap.passphrase ? `${ap.passphrase.length} characters, ${strength}.` : 'No passphrase set.'}
+            {!ap.passphrase
+              ? 'No passphrase set. Type one and press Save.'
+              : ap.security === 'wep'
+                ? `${ap.passphrase.length} characters. On WEP the length does not help.`
+                : `${ap.passphrase.length} characters, ${strength}${passphraseWeakness(ap.passphrase) === 'common' ? ' (a common password with characters added)' : ''}.`}
           </p>
           <ToolMsg msg={msg} />
         </div>
@@ -150,7 +157,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
       </div>
 
       <div class="wifi-field">
-        <Toggle on={ap.beacon} label={ap.beacon ? 'Broadcasting the name' : 'Name hidden'} onChange={(on) => edit && session.dispatch({ type: 'wifi-beacon', device: dev.id, on })} />
+        <Toggle on={ap.beacon} label={ap.beacon ? 'Broadcast the name: on' : 'Broadcast the name: off (hidden)'} onChange={(on) => edit && session.dispatch({ type: 'wifi-beacon', device: dev.id, on })} />
         <p class="small muted">A beacon announces the SSID to anyone nearby. Hiding it stops casual scans only; a patient scanner still finds it.</p>
       </div>
 
