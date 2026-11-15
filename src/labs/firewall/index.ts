@@ -459,7 +459,7 @@ export const firewallLab: LabDef = {
 
         Use [[attacker]]'s **Port scanner** again. Scan \`${SERVER_NET}\` and \`${STAFF_NET}\` again. In step 2 these scans found every computer, and port 445 on the file server. See what they find now. (10.0.1.1 still answers. It's the ISP's router, outside Firewall A.)
 
-        Then open the **Logs** tab and click a DENY line from the attacker, ${ATTACKER}, in Firewall A's log. In a line's details, **src** is where the packet came from and **dst** is where it was going. **sport** and **dport** are the ports at each end. The number after an address, like :49236, is the port it came from.
+        Then open the **Logs** tab and click a DENY line from the attacker, ${ATTACKER}, in Firewall A's log. In a line's details, **src** is where the packet came from and **dst** is where it was going. **sport** and **dport** are the ports at each end. In \`${ATTACKER}:49236 -> ${FILES}:445\`, the packet came from port 49236 and was going to port 445.
       `,
       setup: (sim) => placeBoth(sim),
       focus: ['attacker', 'fwA'],
