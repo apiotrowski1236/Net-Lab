@@ -6582,6 +6582,10 @@ button.pl-tile:active {
   margin-top: -2px;
   overflow-wrap: anywhere;
 }
+.bench-attacks .bench-closed {
+  color: var(--bad-ink);
+  font-weight: 600;
+}
 .bench-attacks li.caught svg {
   color: var(--good);
 }

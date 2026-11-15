@@ -326,7 +326,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
           at: r.at,
           host: r.host,
           by: 'anomaly',
-          why: `new kind of traffic: ${name(r.host)} to ${r.peer}${r.where === 'internet' ? ' on the internet' : ''}, ${port(r.port)}`,
+          why: `new kind of traffic (not in the baseline): ${name(r.host)} to ${r.peer}${r.where === 'internet' ? ' on the internet' : ''}, ${port(r.port)}`,
           attack: r.attack,
         });
         continue;
@@ -395,7 +395,11 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
           if (worst === undefined || Math.abs(dev) > Math.abs(worst)) worst = dev;
         }
         why.anomaly =
-          worst === undefined ? 'its traffic stayed inside the tolerance' : `its hour was ${signedPct(worst)}, inside the ±${input.tolerance}% tolerance`;
+          worst === undefined
+            ? 'its traffic stayed inside the tolerance'
+            : Math.round(worst * 100) === 0
+              ? `it added almost no traffic: its hour was +0%, inside the ±${input.tolerance}% tolerance`
+              : `its hour was ${signedPct(worst)}, inside the ±${input.tolerance}% tolerance`;
       }
     }
     if (why.signature || why.anomaly) notBy[atk.id] = why;

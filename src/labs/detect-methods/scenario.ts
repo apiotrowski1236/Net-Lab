@@ -251,7 +251,7 @@ export const CLIENTS: BenchClient[] = [
     attacks: [
       { id: STUFFBOT, name: 'StuffBot password-guessing bot' },
       { id: VIDJACK, name: 'VidJack video player exploit' },
-      { id: LEAK, name: 'Unreleased shows copied out', novel: true },
+      { id: LEAK, name: 'Unreleased shows stolen', novel: true },
     ],
     days: { [TODAY]: streamToday, [STREAM_BASE]: evenDay(STREAM_BASE, 'Nov 5', SC_STREAMS, 0.9, 5) },
     today: TODAY,

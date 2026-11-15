@@ -52,7 +52,7 @@ function baselineFrom(sim: Sim, client: string, day: string): void {
   if (!bench(sim).settings[client].baseline) sim.benchRecordBaseline(BENCH, client, day);
 }
 
-/** StreamCo's newest run left the copied shows closed unread. If not, set ±25% and run it. */
+/** StreamCo's newest run left the stolen shows closed unread. If not, set ±25% and run it. */
 function fatigueRun(sim: Sim): void {
   anomalyOn(sim, STREAM);
   baselineFrom(sim, STREAM, STREAM_BASE);
@@ -207,7 +207,7 @@ export const detectMethodsLab: LabDef = {
         A signature database only knows the attacks someone has already found and described, so it needs regular **updates**.
 
         1. In the [[bench]], press **Install the October 2026 update**.
-        2. Run signature detection again. A table of your runs appears under the result. Compare its two rows.
+        2. Run signature detection again. A table of your runs appears under the result. Compare the September and October rows.
       `,
       open: 'tools',
       focus: [BENCH],
@@ -226,7 +226,7 @@ export const detectMethodsLab: LabDef = {
           id: 'zero-day',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'With the October update, the bench still missed the unreleased shows being copied out of the content library. Why can’t any signature catch this one yet?',
+          prompt: 'With the October update, the bench still missed the unreleased shows being stolen from the content library. Why can’t any signature catch this one yet?',
           options: [
             { id: 'new', text: 'Nobody has seen this attack before, so no signature describes it.', correct: true },
             {
@@ -315,7 +315,7 @@ export const detectMethodsLab: LabDef = {
         },
         {
           id: 'sep14-again',
-          label: 'Record the clean Sep 14 baseline again',
+          label: 'Record the Sep 14 baseline again',
           hint: 'After the Nov 9 run, press Sep 14 under Record a baseline from.',
           check: ({ sim, since }) =>
             ranSince(sim, since, PLANT, (r) => r.baselineDay === PLANT_INFECTED) && bench(sim).settings[PLANT].baseline?.day === PLANT_CLEAN,
@@ -348,8 +348,9 @@ export const detectMethodsLab: LabDef = {
         1. In the [[bench]], choose **Anomaly**.
         2. Record a baseline from **Nov 5**, a clean day.
         3. Keep the tolerance at ±25% and run it.
+        4. Compare the new row in the table with your signature runs: what each caught, false alarms, and cost. Click a row to see that run's result again, with how long each catch took.
 
-        Compare the new row in the table with your signature runs: what each caught, false alarms, and cost. Click a row to see that run's result again, with how long each catch took. The cost pays for the computers that run the method. On this bench, comparing StreamCo's huge traffic with a baseline takes far more computing power than matching signatures.
+        The cost pays for the computers that run the method. On this bench (real tools vary), comparing StreamCo's huge traffic with a baseline takes far more computing power than matching signatures.
       `,
       open: 'tools',
       focus: [BENCH, 'sc-net'],
@@ -372,9 +373,9 @@ export const detectMethodsLab: LabDef = {
             {
               id: 'all',
               text: 'Anomaly caught all three attacks, since it watches every kind of traffic.',
-              feedback: 'Check the run: it caught only the copied shows. StuffBot’s extra sign-ins stayed inside ±25%, and VidJack’s small file hid inside 40 GB of video.',
+              feedback: 'Check the run: it caught only the stolen shows. StuffBot’s extra sign-ins stayed inside ±25%, and VidJack’s small file hid inside 40 GB of video.',
             },
-            { id: 'trade', text: 'Anomaly caught the copied shows, but it was slower, noisier, and costlier.', correct: true },
+            { id: 'trade', text: 'Anomaly caught the stolen shows, but it was slower, with more false alarms and a higher cost.', correct: true },
             {
               id: 'quiet',
               text: 'Anomaly raised fewer false alarms, because it learned StreamCo’s normal day.',
@@ -382,7 +383,7 @@ export const detectMethodsLab: LabDef = {
             },
             {
               id: 'same',
-              text: 'Anomaly cost the same and caught the copied shows within seconds.',
+              text: 'Anomaly cost the same and caught the stolen shows within seconds.',
               feedback: 'Check the Cost column and the time: $9,000 a month against $2,000, and almost 8 minutes against 6 seconds.',
             },
           ],
@@ -405,8 +406,8 @@ export const detectMethodsLab: LabDef = {
 
         The **Analyst queue** in the bench card shows your newest StreamCo run. After five false alarms in a row, the analyst stopped reading and closed every later alert unread. This is **alert fatigue**. (The bench gives the whole day to one analyst, to keep it simple.)
 
-        1. In the queue, click the 14:20 **Content library** alert marked **closed unread**.
-        2. Change the tolerance and run again until the analyst finds the copied shows.
+        1. In the [[bench]] queue, click the 14:20 **Content library** alert marked **closed unread**.
+        2. Change the tolerance and run again until the analyst finds the stolen shows. Their hour was +150%, so compare each tolerance with that number.
         3. Then try ±200%.
       `,
       setup: fatigueRun,
@@ -422,13 +423,13 @@ export const detectMethodsLab: LabDef = {
         },
         {
           id: 'found',
-          label: 'Run at a tolerance where the analyst finds the copied shows',
+          label: 'Run at a tolerance where the analyst finds the stolen shows',
           hint: 'Fewer false alarms means the analyst keeps reading. Try a wider tolerance.',
           check: ({ sim, since }) => ranSince(sim, since, STREAM, (r) => usesAnomaly(r) && !!r.result && analystFound(r.result, LEAK)),
         },
         {
           id: 'too-wide',
-          label: 'Run at a tolerance so wide the bench misses the copied shows',
+          label: 'Run at a tolerance so wide the bench misses the stolen shows',
           hint: 'Try ±200%.',
           check: ({ sim, since }) => ranSince(sim, since, STREAM, (r) => usesAnomaly(r) && missed(r, LEAK)),
         },
@@ -438,10 +439,10 @@ export const detectMethodsLab: LabDef = {
           id: 'why-closed',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'At ±25%, the bench caught the copied shows, but the analyst closed that alert unread. Why?',
+          prompt: 'At ±25%, the bench caught the stolen shows, but the analyst closed that alert unread. Why?',
           options: [
             { id: 'fatigue', text: 'Five false alarms in a row came first, so the analyst stopped reading.', correct: true },
-            { id: 'none', text: 'The bench never raised an alert for the copied shows.', feedback: 'It did, at 14:20. The bench caught it, and the person missed it.' },
+            { id: 'none', text: 'The bench never raised an alert for the stolen shows.', feedback: 'It did, at 14:20. The bench caught it, and the person missed it.' },
             { id: 'late', text: 'The alert came in after the analyst’s shift had ended.', feedback: 'The analyst was still working the queue. They had stopped reading alerts.' },
             { id: 'low', text: 'The bench marked the alert as low priority.', feedback: 'Every alert looked the same in the queue. After many false ones in a row, the analyst stopped checking.' },
           ],
@@ -452,7 +453,7 @@ export const detectMethodsLab: LabDef = {
           id: 'false-negative',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'At ±200%, the bench raised no false alarms and missed the copied shows. What is that miss called, and what does it cost?',
+          prompt: 'At ±200%, the bench raised no false alarms and missed the stolen shows. What is that miss called, and what does it cost?',
           options: [
             { id: 'fp-time', text: 'A false positive: the analyst wastes 5 minutes on it.', feedback: 'A false positive is an alert with no attack. This is the opposite: an attack with no alert.' },
             { id: 'fn-time', text: 'A false negative: the analyst wastes 5 minutes on it.', feedback: 'It is a false negative, but there is no alert to check. The cost is the attack itself.' },
@@ -471,7 +472,7 @@ export const detectMethodsLab: LabDef = {
       body: md`
         County 911 must not miss an attack. **Ransomware**, harmful software (**malware**) that locks a computer's files until someone pays, could lock the dispatch server and delay police, fire, and ambulances. **Hybrid detection** runs signature and anomaly detection together.
 
-        1. Run **Signature** on Nov 12.
+        1. In the [[bench]], run **Signature** on Nov 12.
         2. Choose **Anomaly**, record a baseline from **Nov 4** (a clean day), and run.
         3. Choose **Hybrid** and run. Compare the three rows in the table.
       `,
@@ -502,7 +503,7 @@ export const detectMethodsLab: LabDef = {
             { id: 'quiet', text: 'The most per month, but the fewest alerts.', feedback: 'The cost is right. But hybrid raises every alert either method raises, so it has the most.' },
           ],
           explain:
-            'Hybrid combines the two: signatures catch known attacks in seconds, and anomaly detection catches new ones. It raises every alert either method raises, so one attack can raise two alerts. It is the most expensive method and raises the most alerts, which suits a sensitive or critical network that can afford it.',
+            'Hybrid combines the two: signatures catch known attacks in seconds, and anomaly detection catches new ones. On this bench, it raises every alert either method raises, so one attack can raise two alerts. It is the most expensive method and raises the most alerts, which suits a sensitive or critical network that can afford it.',
         },
       ],
     },
@@ -515,7 +516,7 @@ export const detectMethodsLab: LabDef = {
 
         Press **Load the day with LockDown repacked**. Then:
 
-        1. Run **Signature** on it.
+        1. In the [[bench]], run **Signature** on it.
         2. Run **Anomaly** or **Hybrid** on it. In the result, read the line under LockDown: when it was caught, and what the **Dispatcher console** was doing. (Port 445 is how computers open each other's shared files.)
       `,
       setup: (sim) => baselineFrom(sim, DISPATCH, DISPATCH_BASE),
@@ -556,7 +557,7 @@ export const detectMethodsLab: LabDef = {
           id: 'late',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'In step 8, signatures caught the original LockDown at 10:38, the minute its file was downloaded. Anomaly detection caught the repacked one at 10:42. What was LockDown doing by then?',
+          prompt: 'In step 8, signatures caught the original LockDown at 10:38, the minute its file arrived. Anomaly detection caught the repacked one at 10:42. What was LockDown doing by then?',
           options: [
             {
               id: 'download',

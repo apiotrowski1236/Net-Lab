@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
+  analystFound,
   clientOf,
   clock,
   dbSignatures,
@@ -40,7 +41,7 @@ function Seg<T extends string | number>({ label, value, opts, onPick }: { label:
 }
 
 /** Each attack in a run: caught by what, how fast, or missed. */
-function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
+function RunDetail({ b, run, queue }: { b: BenchState; run: BenchRun; queue?: boolean }) {
   const c = clientOf(b, run.client);
   const r = run.result;
   if (!r) return <p class="small muted">Run {run.no} is replaying the day…</p>;
@@ -60,6 +61,8 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
           // Hybrid: the other method may have flagged it too, which is why one attack can raise two alerts.
           const also = hit && run.method === 'hybrid' ? first(hit.by === 'signature' ? 'anomaly' : 'signature') : undefined;
           const missWhy = !hit && r.missedWhy?.[a.id];
+          // With the analyst queue: the bench caught it, and the person never read it.
+          const closedUnread = queue && hit && r.alerts.some((x) => x.attack === a.id && x.queue === 'closed') && !analystFound(r, a.id);
           // Hybrid caught by one half: say why the other half stayed quiet.
           const other = hit?.by === 'signature' ? 'anomaly' : 'signature';
           const quiet = hit && run.method === 'hybrid' && !also ? r.notBy?.[a.id]?.[other] : undefined;
@@ -74,7 +77,10 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
                   </span>
                 )}
               </span>
-              <span class="small">{hit ? `caught by ${hit.by}, ${duration(hit.detectMs)} after it started` : 'missed'}</span>
+              <span class="small">
+                {hit ? `caught by ${hit.by}, ${duration(hit.detectMs)} after it started` : 'missed'}
+              </span>
+              {closedUnread && <span class="small bench-why bench-closed">The analyst closed this alert unread.</span>}
               {why && (
                 <span class="small muted bench-why">
                   <span class="mono">{clock(why.at)}</span> {why.why}
@@ -82,7 +88,7 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
               )}
               {also && (
                 <span class="small muted bench-why">
-                  <span class="mono">{clock(also.at)}</span> {also.by} also flagged it: {also.why}
+                  <span class="mono">{clock(also.at)}</span> {also.by} also flagged it ({also.why})
                 </span>
               )}
               {quiet && (
@@ -219,7 +225,7 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
         <div class="bench-results">
           {spec.queue && <AnalystQueue key={lastRun(b, (r) => r.client === cid)?.no ?? 0} session={session} devId={spec.device} client={cid} />}
           <div ref={detailRef}>
-            {detail ? <RunDetail b={b} run={detail} /> : !spec.queue && <p class="small muted">No runs on {c.name} yet. Results show here.</p>}
+            {detail ? <RunDetail b={b} run={detail} queue={spec.queue} /> : !spec.queue && <p class="small muted">No runs on {c.name} yet. Results show here.</p>}
           </div>
           {runs.length > 1 && !spec.queue && (
             <table class="table bench-table">

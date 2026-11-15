@@ -166,12 +166,12 @@ describe('detect-methods: steps', () => {
   it('the run card’s reason lines say what the questions ask about', () => {
     // Step 4: the beacon stands out as new traffic, port 4444 included.
     const plant = run(PLANT, 'anomaly', { baseline: PLANT_CLEAN });
-    expect(plant.alerts.find((a) => a.attack === BEACON)!.why).toBe('new kind of traffic: Filler controller to 198.51.100.4 on the internet, port 4444 (no common service)');
+    expect(plant.alerts.find((a) => a.attack === BEACON)!.why).toBe('new kind of traffic (not in the baseline): Filler controller to 198.51.100.4 on the internet, port 4444 (no common service)');
     // Step 9: signatures caught the original at the 10:38 download; anomaly catches the repack at 10:42, locking files.
     const orig = run(DISPATCH, 'signature').alerts.find((a) => a.attack === LOCKDOWN)!;
     expect([orig.at, orig.why]).toEqual([10 * 60 + 38, 'matched the "LockDown ransomware" signature (file hash 313e2d61…)']);
     const repack = run(DISPATCH, 'hybrid', { baseline: DISPATCH_BASE, day: RENAMED }).alerts.find((a) => a.attack === LOCKDOWN)!;
-    expect([repack.at, repack.why]).toEqual([10 * 60 + 42, 'new kind of traffic: Dispatcher console to Dispatch server, port 445 (file sharing)']);
+    expect([repack.at, repack.why]).toEqual([10 * 60 + 42, 'new kind of traffic (not in the baseline): Dispatcher console to Dispatch server, port 445 (file sharing)']);
     // Step 7: the volume alert spells out how much more than usual.
     const leak = run(STREAM, 'anomaly', { baseline: STREAM_BASE }).alerts.find((a) => a.attack === LEAK)!;
     expect(leak.why).toBe('Content library to partner studios, port 443 (secure web): would reach 5.0 GB in the hour starting 14:00, usual 2.0 GB (3.0 GB more, +150%, outside ±25%)');
@@ -187,6 +187,8 @@ describe('detect-methods: steps', () => {
     expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE, tolerance: 200 }).missedWhy![LEAK]).toBe('its hour was +150%, inside the ±200% tolerance');
     // Step 6: StuffBot's hour stayed inside ±25%.
     expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE }).missedWhy![STUFFBOT]).toMatch(/^its hour was [+−]\d+%, inside the ±25% tolerance$/);
+    // Step 6: VidJack's small file adds nothing visible to 40 GB of video, and the card says so.
+    expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE }).missedWhy![VIDJACK]).toBe('it added almost no traffic: its hour was +0%, inside the ±25% tolerance');
     // Step 5: the infected baseline. It names the match, not the reason, so the question still asks for it.
     expect(run(PLANT, 'anomaly', { baseline: PLANT_INFECTED }).missedWhy![BEACON]).toBe('its traffic matched the Nov 9 baseline');
     // Step 9: the repacked file has a hash no signature knows.
