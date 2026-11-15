@@ -68,7 +68,8 @@ const botnetFlood = {
   id: 'botnet',
   label: 'Botnet joins in',
   run: (sim: Sim) => {
-    sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE);
+    // Once the ISP filters pings, the bots' pings no longer reach the uplink.
+    if (!sim.dev('isp').firewall) sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE);
     // One aggregated burst stands for hundreds of bots, each pinging the server from its own real address.
     sim.echo('botnet', WEB, { burst: { count: BOTNET_RATE } });
   },
@@ -354,10 +355,10 @@ computers tricked into sending the flood for her.`,
     {
       id: 'read-the-spike',
       title: 'Read the spike',
-      body: `Switch sides. You are now defending. An attack like this leaves signs in two places.
+      body: `Now you are the defender. An attack like this leaves signs in two places.
 
 1. **The symptom**, at Hilltop. Click [[edge]] and read its **Traffic meter**. The uplink was near zero before
-   the attack. Now it is stuck at its limit.
+   the attack. Now it is stuck at its limit, full of echo replies to pings Hilltop never sent.
 2. **The cause**, at Westfield. Hilltop's admin calls Westfield, and Westfield's admin shares the campus
    router's log. Open the **Logs** tab and click the [[campus]] line for pings sent to \`198.51.100.255\`.
    Its source (src) is the ticket server's address. Mallory forged it, so the log can't point to her.
@@ -406,7 +407,7 @@ happened. Nobody broke in here. The signs point to an attack on availability.`,
             { id: 'cpu', text: 'The web server is working hard.', feedback: 'A busy server fits many problems. Look for the broadcast pings.' },
           ],
           explain:
-            "A traffic spike tells you there's a flood. Echo requests aimed at a broadcast address, from outside, are the fingerprint of a smurf attack.",
+            "A traffic spike tells you there's a flood. Echo requests aimed at a broadcast address, from outside, are the clear sign of a smurf attack.",
         },
       ],
     },
@@ -488,8 +489,6 @@ top, and the first rule that matches decides.
 1. In [[edge]]'s firewall, add the rule **DENY in ICMP (ping) from any to any**. Move it above the rule that
    allows ping.
 2. Press **Botnet joins in**, then **Fan buys a ticket**. Read both results.
-3. Your **ISP** (internet service provider) is the company that connects Hilltop to the internet. It sits one
-   hop before your uplink. Press **The ISP filters upstream**, then **Fan buys a ticket** again.
 
 (This firewall blocks all ICMP with one rule. Real firewalls can block only echo requests and keep the ICMP
 messages a network needs.)`,
@@ -508,17 +507,11 @@ messages a network needs.)`,
       actions: [
         botnetFlood,
         buyTicket,
-        {
-          id: 'isp-filter',
-          label: 'The ISP filters upstream',
-          run: (sim) => ispFilterUpstream(sim),
-          outcome: (sim) => [{ tone: 'good', text: 'The provider now drops pings headed for Hilltop, before they reach the uplink.' }, uplinkLine(sim)],
-        },
       ],
       goals: [
         {
           id: 'rule',
-          label: 'Add a rule to [[edge]] that drops inbound ICMP',
+          label: 'Add a rule to [[edge]] that drops incoming pings (ICMP)',
           hint: 'Action DENY, direction in, protocol ICMP (ping), from any. Move it above the rule that allows ping.',
           check: ({ sim }) => deniesInboundIcmp(sim, 'edge'),
         },
@@ -528,6 +521,39 @@ messages a network needs.)`,
           hint: 'Press **Botnet joins in**, then **Fan buys a ticket**.',
           check: (c) => deniesInboundIcmp(c.sim, 'edge') && fanFloodFailed(c),
         },
+      ],
+    },
+    {
+      id: 'filter-upstream',
+      title: 'Filter before the uplink',
+      body: `Hilltop's firewall drops the pings, but only after they cross the full uplink. The fix has to sit
+before the uplink.
+
+Hilltop's **ISP** (internet service provider) is the company that connects it to the internet. The ISP sits
+one hop before the uplink, so it is **upstream** of Hilltop. Hilltop calls its ISP and asks it to filter the
+pings.
+
+1. Press **The ISP filters upstream**. Watch the **Traffic meter**.
+2. Press **Fan buys a ticket**.`,
+      focus: ['isp', 'edge', 'fan', 'botnet'],
+      open: 'tools',
+      tools: [{ kind: 'traffic-meter', device: 'edge' }],
+      setup: (sim) => {
+        ensureEdgeFirewall(sim);
+        sim.setDirectedBroadcast('campus', false);
+        // The botnet is still flooding, unless the ISP already filters it.
+        if (!sim.dev('isp').firewall) sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE);
+      },
+      actions: [
+        {
+          id: 'isp-filter',
+          label: 'The ISP filters upstream',
+          run: (sim) => ispFilterUpstream(sim),
+          outcome: (sim) => [{ tone: 'good', text: 'The provider now drops pings headed for Hilltop, before they reach the uplink.' }, uplinkLine(sim)],
+        },
+        buyTicket,
+      ],
+      goals: [
         {
           id: 'upstream-fixes',
           label: "After the ISP filters upstream, a fan's purchase goes through",

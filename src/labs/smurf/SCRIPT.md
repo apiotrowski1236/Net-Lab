@@ -60,6 +60,11 @@ that alter what students do or see:
 - **Step 9** gives a high / moderate / low rubric, keeps options in that order, and drops "none" from Q1.
 - Button results (`outcome`) say where the replies went and why a purchase failed.
 - Questions that depend on a result are `afterGoals`.
+- **Step 8 is split in two.** `guard-your-edge` keeps the edge firewall rule and the botnet test (no question).
+  New step 9 `filter-upstream` ("Filter before the uplink") defines ISP and upstream, starts the botnet flood in
+  its setup unless the ISP already filters, and holds **The ISP filters upstream**, the `upstream-fixes` goal,
+  and the `why-upstream` question. **Botnet joins in** no longer refills the uplink once the ISP filters. The
+  lab now has 12 steps.
 
 ## What changed from PLAN.md
 

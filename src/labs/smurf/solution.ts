@@ -20,10 +20,9 @@ export const smurfSolution: LabSolution = {
       { tool: { type: 'fw-add-rule', device: 'edge', rule: { dir: 'in', proto: 'icmp', src: 'any', dst: 'any', dport: 'any', action: 'deny' }, at: 0 } },
       { press: 'botnet' },
       { press: 'fan-buy' },
-      { press: 'isp-filter' },
-      { press: 'fan-buy' },
     ],
   },
+  'filter-upstream': { moves: [{ press: 'isp-filter' }, { press: 'fan-buy' }] },
   'how-risky': {},
   reflect: {
     text: {

@@ -149,17 +149,37 @@ describe('smurf lab', () => {
   it('the edge firewall drops inbound ICMP yet the uplink stays full until the ISP filters upstream', () => {
     const s = playTo('silence-the-amplifier');
     expect(s.step.id).toBe('guard-your-edge');
-    const [addRule, botnet, buy, ispFilter, buyAgain] = sol['guard-your-edge'].moves!;
+    const [addRule, botnet, buy] = sol['guard-your-edge'].moves!;
     playMove(s, addRule);
     playMove(s, botnet);
     playMove(s, buy);
     expect(s.goalDone('guard-your-edge', 'rule')).toBe(true);
     expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(true);
-    expect(s.goalDone('guard-your-edge', 'upstream-fixes')).toBe(false);
+    s.goTo(index('filter-upstream'));
+    s.sim.runUntilIdle();
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'the botnet is still flooding when step 9 opens').toBeGreaterThan(UPLINK_CAP);
+    playMove(s, { press: 'fan-buy' });
+    expect(s.goalDone('filter-upstream', 'upstream-fixes')).toBe(false);
+    const [ispFilter, buyAgain] = sol['filter-upstream'].moves!;
     playMove(s, ispFilter);
     playMove(s, buyAgain);
-    expect(s.goalDone('guard-your-edge', 'upstream-fixes')).toBe(true);
+    expect(s.goalDone('filter-upstream', 'upstream-fixes')).toBe(true);
     expect(s.sim.dev('fan').browser?.status).toBe('loaded');
+  });
+
+  it("step 9's setup starts the botnet flood even if step 8 never pressed Botnet joins in", () => {
+    const sim = buildEchoStorm();
+    lab.steps[index('filter-upstream')].setup!(sim);
+    expect(sim.linkPps(uplinkId(sim))).toBeGreaterThan(UPLINK_CAP);
+  });
+
+  it('pressing Botnet joins in after the ISP filters does not refill the uplink', () => {
+    const sim = buildEchoStorm();
+    ispFilterUpstream(sim);
+    const botnet = lab.steps[index('guard-your-edge')].actions!.find((a) => a.id === 'botnet')!;
+    botnet.run(sim);
+    sim.runUntilIdle();
+    expect(sim.linkPps(uplinkId(sim))).toBe(0);
   });
 
   it('step 7: pressing Mallory tries again before the fix still lets the goal finish once the setting is off', () => {
