@@ -49,13 +49,26 @@ const gatewayIsRouter = (device: string) => ({ sim }: { sim: Sim }) => {
   return !!gw && sim.dev(device).gateway === gw;
 };
 
+/** Alice tried to ping after the last time a cable to Alice or Ben changed, with both plugged in. */
+const pingedAfterCables = ({ sim, since }: { sim: Sim; since: number }) => {
+  if (!sim.linkBetween('alice', 'sw') || !sim.linkBetween('ben', 'sw')) return false;
+  let cable = -1;
+  let ping = -1;
+  sim.events.forEach((e, i) => {
+    if (e.t < since) return;
+    if (e.type === 'config' && e.what === 'cable' && (e.device === 'alice' || e.device === 'ben')) cable = i;
+    if (e.type === 'ping-fail' && e.device === 'alice' && e.reason === 'no-ip') ping = i;
+  });
+  return ping > cable;
+};
+
 /** At least `n` of the three faults on Ben's computer are fixed: cable, address, gateway. */
 const bensFixes = (n: number) => ({ sim }: { sim: Sim }) =>
   [plugged('ben', 'sw')({ sim }), hostOn(sim, 'ben', NET.office), gatewayIsRouter('ben')({ sim })].filter(Boolean).length >= n;
 
 export const buildNetworkLab: LabDef = {
   id: 'build-network',
-  version: 1,
+  version: 2,
   title: 'Build a Network: Addresses, Gateways, and Routes',
   tagline: "Plug in the cables, give each device an IP address, set gateways, and add routes until Alice's browser loads the page.",
   unit: 3,
@@ -87,7 +100,7 @@ export const buildNetworkLab: LabDef = {
 
         Click [[alice]], then [[office]]. Compare their ports. A computer's port is often named **eth0**, short for its first Ethernet port. Router and switch ports are numbered.
 
-        In the first lab, the Wi-Fi router handed out addresses. Here you'll type them yourself.
+        On a home network, the Wi-Fi router usually hands out addresses on its own. Here you'll type them yourself.
       `,
       focus: ['alice', 'office'],
       goals: [
@@ -105,7 +118,7 @@ export const buildNetworkLab: LabDef = {
             { id: 'store', text: 'Stores the website', feedback: 'The web server stores the website.' },
             { id: 'address', text: 'Gives each computer its IP address', feedback: 'In this lab, you will type the addresses yourself.' },
           ],
-          explain: 'A switch passes data between the devices plugged into it. It never leaves its own local network.',
+          explain: 'A switch passes data between the devices plugged into it, all on one local network.',
         },
         {
           id: 'router-ports',
@@ -113,7 +126,7 @@ export const buildNetworkLab: LabDef = {
           prompt: 'Alice has one port. The office router has two. Why does a router need more than one?',
           options: [
             { id: 'networks', text: 'Each port connects to a different network', correct: true },
-            { id: 'send-receive', text: 'One port sends and the other one receives', feedback: 'Every port both sends and receives.' },
+            { id: 'send-receive', text: 'One port sends and the other one receives', feedback: 'Every port both sends and receives. Think about how many networks a router sits between.' },
             { id: 'spare', text: 'The second port is a spare in case one breaks', feedback: 'Both ports will be in use once the network is built. Where will each cable go?' },
           ],
           explain: 'A router sits where networks meet. It needs one port on each network it connects, and it passes packets between them.',
@@ -132,8 +145,6 @@ export const buildNetworkLab: LabDef = {
         3. Press **Alice pings Ben**.
 
         A **ping** is a tiny message that asks "Are you there?" If the other device answers, the path between them works in both directions. The result shows under the button. If the ping stops on the way, a red tag on the map shows where.
-
-        A packet that leaves takes a few seconds to cross the map. The speed buttons above the map change how fast.
       `,
       focus: ['alice', 'ben', 'sw'],
       tools: [{ kind: 'cable' }],
@@ -145,9 +156,7 @@ export const buildNetworkLab: LabDef = {
           id: 'ping',
           label: 'Alice tries to ping Ben',
           hint: 'Plug in both cables first, then press Alice pings Ben.',
-          check: ({ sim, since }) =>
-            !!sim.linkBetween('alice', 'sw') &&
-            happened(sim, since, (e) => e.type === 'ping-fail' && e.device === 'alice' && e.reason === 'no-ip'),
+          check: pingedAfterCables,
         },
       ],
       questions: [
@@ -157,12 +166,12 @@ export const buildNetworkLab: LabDef = {
           afterGoals: true,
           prompt: 'The cables work, but the ping still failed. Why were cables alone not enough?',
           options: [
-            { id: 'no-ip', text: 'A packet also needs addresses that say who sent it and where it goes', correct: true },
+            { id: 'no-ip', text: 'Alice has no IP address yet, so she has nothing to send from', correct: true },
             { id: 'ports', text: 'The cables are plugged into the wrong switch ports', feedback: 'A switch treats all its ports the same. Any free port works.' },
             { id: 'ben', text: "Ben's computer turned the ping away when it arrived", feedback: 'The ping never left Alice. Read the result under the button.' },
             { id: 'switch', text: 'The switch needs its own IP address before it can work', feedback: 'A switch passes data along without one. Read the result under the button: who is missing an address?' },
           ],
-          explain: 'Cables carry signals, but a packet also needs a sender address and a destination address. That is the next layer up.',
+          explain: 'Cables carry signals, but a packet also needs an IP address for the sender and one for the destination. That is the next layer up.',
         },
       ],
     },
@@ -171,18 +180,18 @@ export const buildNetworkLab: LabDef = {
       id: 'addresses',
       title: 'Give each computer an address',
       body: md`
-        An **IP address** names a device on a network, the way a street address names a house. It has two parts:
+        An **IP address** names a device on a network, the way a street address names a house. Take \`192.168.10.11/24\`. It has two parts:
 
-        - The **network part** says which network the device is on. Every device on one local network shares it.
-        - The **host part** picks out one device on that network.
+        - The **network part**, \`192.168.10\`, says which network the device is on. Every device on one local network shares it.
+        - The **host part**, \`11\`, picks out one device on that network.
 
-        Computers store each address as 32 **bits**, binary digits that are each 0 or 1. Each of the four numbers is 8 bits. The **prefix length** after the slash says how many bits are the network part, so \`/24\` means the first three numbers. In \`192.168.10.11/24\`, the network part is \`192.168.10\` and the host part is \`11\`. The whole network is written \`192.168.10.0/24\`.
+        The \`/24\` is the **prefix length**. It counts how many **bits** (binary digits, each 0 or 1) belong to the network part. Each of the four numbers is 8 bits, and 3 numbers × 8 bits = 24 bits. So \`/24\` means the first three numbers are the network part. The whole network is written \`192.168.10.0/24\`.
 
         1. Click [[alice]]. In the Inspect tab, type \`192.168.10.11/24\` as her IP address and save it.
         2. Give [[ben]] a different address on the same network, like \`192.168.10.12/24\`.
-        3. Use the **Ping** tool in the Toolkit tab to ping Ben's address from Alice.
+        3. In the Toolkit tab, use the **Ping** tool to ping Ben's address from Alice. A ping goes to one device, so type only its address, with no slash.
 
-        Watch the map. Another kind of packet, labeled ARP, goes out before the ping. The next step explains it.
+        Watch the map. A packet labeled ARP goes out before the ping, and tags about MAC addresses appear. The next step explains both. Packets take a few seconds to cross the map. The speed buttons above the map (\`1×\`, \`2×\`, \`4×\`) make them faster.
       `,
       setup: cabled,
       focus: ['alice', 'ben', 'sw'],
@@ -221,16 +230,14 @@ export const buildNetworkLab: LabDef = {
       id: 'mac',
       title: 'How the switch finds Ben',
       body: md`
-        The switch doesn't read IP addresses. Every port has a second address, a **MAC address**, built into the hardware. On one local network, data goes from MAC address to MAC address.
+        The switch doesn't read IP addresses. Every port has a second address built into the hardware, its **MAC address**. On one local network, data goes from MAC address to MAC address.
 
         So before Alice can ping Ben, she needs his MAC address. She sends an **ARP** request as a **broadcast**, a message to every device on the network: "Who has this IP address?" Ben answers with his MAC address.
 
-        Everything sent on a local network carries its sender's MAC address. Watch which switch port each packet comes in on.
+        The computers and the switch have forgotten what they learned in the last step.
 
-        The computers and the switch have forgotten everything they learned in the last step.
-
-        1. Press **Alice pings Ben**. Watch for the ARP packets before the ping.
-        2. Click [[sw]] and read its **MAC address table**.
+        1. Press **Alice pings Ben**. Watch which switch port each packet comes in on.
+        2. After Alice gets her reply, click [[sw]] and read its **MAC address table**.
       `,
       setup: (sim) => {
         officeLan(sim);
@@ -248,9 +255,11 @@ export const buildNetworkLab: LabDef = {
         },
         {
           id: 'switch',
-          label: "Open [[sw]] after the ping and find Alice's and Ben's MAC addresses",
-          check: ({ sim, ev }) => {
+          label: 'After the reply, open [[sw]] and read its MAC address table',
+          hint: 'Wait for the result under the button to say Alice got a reply, then click the switch.',
+          check: ({ sim, ev, since }) => {
             if (ev?.type !== 'ui:inspect' || ev.device !== 'sw') return false;
+            if (!pinged(sim, since, 'alice', sim.dev('ben').ifaces[0].ip)) return false;
             const table = sim.dev('sw').macTable;
             return ['alice', 'ben'].every((d) => table[sim.dev(d).ifaces[0].mac]);
           },
@@ -288,6 +297,8 @@ export const buildNetworkLab: LabDef = {
         1. Plug a port of [[office]] into [[sw]].
         2. Click [[office]]. Give the port you plugged in an address on the office network. Routers often take the first one: \`192.168.10.1/24\`.
         3. Ping the router's address from Alice.
+
+        A router keeps a **routing table**: a list of the networks it knows, and where to send packets for each one. Scroll down in the router's Inspect panel to find it.
       `,
       setup: officeLan,
       focus: ['office', 'sw'],
@@ -315,7 +326,7 @@ export const buildNetworkLab: LabDef = {
           options: [
             { id: 'own', text: 'A router knows every network its own ports are on', correct: true },
             { id: 'switch', text: 'The switch told the router about it', feedback: "Switches don't know about IP networks." },
-            { id: 'ping', text: 'Alice told the router when she pinged it', feedback: 'The row appeared the moment you saved the address, before any ping.' },
+            { id: 'ping', text: 'Alice told the router when she pinged it', feedback: 'A ping never adds a route. The row is there because you saved an address on that port.' },
           ],
           explain: 'These are called connected routes. Give a port an address, and the router knows that whole network is out that port.',
         },
@@ -332,9 +343,11 @@ export const buildNetworkLab: LabDef = {
 
         1. Click [[alice]]. Set her default gateway to the office router's address on her network. A gateway is one address, with no slash.
         2. Do the same for [[ben]].
-        3. Press **Alice opens the website**. The page won't load yet, because you'll build the web server's network, \`203.0.113.0/24\`, in the next step. Watch how far the request gets.
+        3. Press **Alice opens the website**. The page won't load yet. The web server, \`203.0.113.80\`, is on a network you'll build in the next step, \`203.0.113.0/24\`. Watch how far the request gets.
 
-        Her browser will say **Not secure**. This site uses plain HTTP, so nothing it sends is encrypted. More on that at the end.
+        A router that has nowhere to send a packet **drops** it: it throws the packet away. Alice's browser waits a while, then shows **No connection**. (The simulation keeps two things simple: a real browser sets up a connection before it asks for the page, and a real router usually sends back an error when it drops a packet.)
+
+        When the page loads in a later step, her browser will say **Not secure**. This site uses plain HTTP, so nothing it sends is encrypted. More on that at the end.
       `,
       setup: officeRouter,
       focus: ['alice', 'ben', 'office'],
@@ -377,9 +390,9 @@ export const buildNetworkLab: LabDef = {
         1. Plug [[web]] into a port of [[dc]].
         2. Give that router port \`203.0.113.1/24\`.
         3. Give [[web]] its address, \`203.0.113.80/24\`. Set its default gateway to the data center router.
-        4. Ping the data center router from the web server.
+        4. In the Ping tool, set **From** to the web server. Ping the data center router.
 
-        You typed Alice's address by hand to see how addressing works. Most laptops get one automatically each time they join a network, so Alice's could change tomorrow and nothing would break. A server keeps one **static address** for years, because other computers need to know where to find it.
+        You typed Alice's address by hand to see how addressing works. Most laptops get a new address on their own each time they join a network. A server keeps one **static address**, so other computers can always find it.
       `,
       setup: gateways,
       focus: ['dc', 'web'],
@@ -389,6 +402,7 @@ export const buildNetworkLab: LabDef = {
         {
           id: 'router',
           label: "Give the data center router's server port an address on 203.0.113.0/24",
+          hint: 'Check the address number by number. It should start with 203.0.113, on the port whose cable goes to the web server.',
           check: ({ sim }) => !!dcServerIp(sim),
         },
         { id: 'web', label: 'Give [[web]] the address 203.0.113.80/24', check: ({ sim }) => sim.dev('web').ifaces[0].ip === WEB_IP },
@@ -418,7 +432,7 @@ export const buildNetworkLab: LabDef = {
               feedback: 'A fixed address is easier to find, for attackers too. Static addresses are about being findable.',
             },
           ],
-          explain: "If the address changed, visitors would go to the wrong place. It would break every bookmark, link, and setting that points to it.",
+          explain: 'Other computers find the site at 203.0.113.80. Most sites also have a name, and a directory on the internet matches that name to the address. If the address changed, the directory and every computer that uses it would point to the wrong place.',
         },
       ],
     },
@@ -430,8 +444,10 @@ export const buildNetworkLab: LabDef = {
         The two routers need a cable between them. That cable is a tiny network of its own, with only two devices on it: one port from each router.
 
         1. Plug the free port of [[office]] into the free port of [[dc]].
-        2. Give both ends addresses on one network. Use \`10.0.0.1/24\` for the office router and \`10.0.0.2/24\` for the data center router.
+        2. Give both ends addresses on one network. Use \`10.0.0.1/24\` for the office router and \`10.0.0.2/24\` for the data center router. In each router's Addresses table, use the port whose **Cable goes to** names the other router.
         3. Ping \`10.0.0.2\` from the office router.
+
+        Any network that nobody else uses works for this cable. Real networks often give a link like this a smaller network than \`/24\`, since only two devices sit on it.
       `,
       setup: dataCenter,
       focus: ['office', 'dc'],
@@ -466,7 +482,7 @@ export const buildNetworkLab: LabDef = {
               feedback: 'The office router has no port on the server network, 203.0.113.0/24, and nobody has told it about that network yet.',
             },
           ],
-          explain: 'A router learns only the networks its own ports are plugged into. The server network is one router further away.',
+          explain: 'On its own, a router knows only the networks its ports are plugged into. The server network is one router further away.',
         },
       ],
     },
@@ -478,9 +494,11 @@ export const buildNetworkLab: LabDef = {
         The office router already has a **connected route** for each network its own ports are on. To reach the server network, it needs a **static route**: a rule you type in that says "send packets for this network to that neighbor." A route has two parts:
 
         - The **destination**: the network the packets are going to, \`203.0.113.0/24\`.
-        - The **next hop**: the address of the neighbor router to hand them to. It has to be on a network the router is plugged into.
+        - The **next hop**: the address of the neighbor router to hand them to. It has to be on a network the router is plugged into. The routing table calls this column **Send to**.
 
-        1. Click [[office]]. Below its routing table, add a route to \`203.0.113.0/24\`. For the next hop, use the data center router's address on the network the two routers share.
+        The two routers share one network: \`10.0.0.0/24\`, on the cable between them. So the next hop is the data center router's address on that network.
+
+        1. Click [[office]]. Below its routing table, add a route to \`203.0.113.0/24\` with that next hop.
         2. Press **Alice opens the website** and follow the request, and then the reply.
       `,
       setup: routerLink,
@@ -522,7 +540,7 @@ export const buildNetworkLab: LabDef = {
       id: 'return',
       title: 'Routes go both ways',
       body: md`
-        Every request needs a reply, and the reply makes its own trip back. Routers don't remember where a packet came from. Each router looks up every packet's destination on its own.
+        Every request needs a reply, and the reply makes its own trip back. Basic routers like these don't remember where a packet came from. Each router looks up every packet's destination on its own.
 
         1. Click [[dc]]. Add a route back to the office network, \`192.168.10.0/24\`. For the next hop, use the office router's address on the network the two routers share.
         2. Press **Alice opens the website**.
@@ -546,7 +564,7 @@ export const buildNetworkLab: LabDef = {
         {
           id: 'both-ways',
           kind: 'text',
-          prompt: 'Before you added this route, the office router could already reach the server network. Explain why a ping from Alice to the web server would still have failed.',
+          prompt: "Before you added the data center router's route back, the office router could already reach the server network. Explain why a ping from Alice to the web server would still have failed.",
           minWords: 20,
         },
       ],
@@ -564,7 +582,7 @@ export const buildNetworkLab: LabDef = {
         2. **Address**: Is his IP address on the office network?
         3. **Gateway**: Does his gateway point to the office router?
 
-        Use pings, the buttons, and the inspector to find each fault. Fix them until Ben can load the website.
+        Press **Ben opens the website** before and after each fix. The result under the button tells you what is still broken. Fix every problem until Ben can load the website.
       `,
       setup: (sim) => {
         returnRoute(sim);
@@ -601,7 +619,7 @@ export const buildNetworkLab: LabDef = {
           kind: 'choice',
           afterGoals: true,
           multi: true,
-          prompt: "Which faults did you find on Ben's computer?",
+          prompt: "Which problems did you find on Ben's computer?",
           options: [
             { id: 'cable', text: 'The cable was unplugged', correct: true },
             { id: 'address', text: 'His IP address was on the wrong network', correct: true },
@@ -618,20 +636,20 @@ export const buildNetworkLab: LabDef = {
       id: 'reflect',
       title: 'What could go wrong on purpose?',
       body: md`
-        Every part you set up can be misused.
+        Every part you set up can be used against you.
 
-        - An unused switch port is an open door. Anyone who plugs into it joins the office network. Many offices turn off ports nobody uses.
-        - Routers trust their routes. Someone who can change a router's settings can add a route that sends traffic through a computer they control.
-        - This website uses plain HTTP. Every device on the path could read the page, and anything Alice typed into it.
+        - Anyone who plugs into an unused switch port joins the office network. Many offices turn off ports nobody uses.
+        - Routers follow their routes without checking them. Someone who can change a router's settings can add a route that sends traffic through a computer they control.
+        - This website uses plain HTTP, so every device on the path could read the page and anything Alice typed into it. **HTTPS** is the encrypted version. Devices on the path still carry the traffic, but they can't read it.
       `,
       questions: [
         {
           id: 'bad-route',
           kind: 'choice',
           prompt:
-            'An attacker breaks into the office router. They add a route that sends 203.0.113.0/24 to a laptop they plugged into the office switch. What happens to Alice\'s web traffic?',
+            "An attacker breaks into the office router. They add a route that sends 203.0.113.0/24 to a laptop they control. The laptop copies each packet and sends it on to the web server. What happens to Alice's web traffic?",
           options: [
-            { id: 'detour', text: "It goes to the attacker's laptop first. If the laptop passes it on, Alice may never notice.", correct: true },
+            { id: 'detour', text: "It goes through the attacker's laptop, and Alice may never notice", correct: true },
             {
               id: 'gateway',
               text: "Nothing changes. Alice's gateway still points to the real router.",
@@ -649,7 +667,7 @@ export const buildNetworkLab: LabDef = {
           id: 'trace',
           kind: 'text',
           prompt:
-            "Trace Alice's request to the web server. List each device it passes through. For each router, say which route it used, and whether that was a connected route or a static route you added.",
+            "Trace Alice's request to the web server. Name each device it passes through, in order. For each router, say which route it used, and whether that was a connected route or a static route you added.",
           minWords: 30,
           lines: 5,
         },
@@ -661,7 +679,7 @@ export const buildNetworkLab: LabDef = {
       title: 'Review and submit',
       kind: 'submit',
       body: md`
-        Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+        Look over your summary. You can go back to any step and change an answer, then download and hand in your report again.
       `,
     },
   ],

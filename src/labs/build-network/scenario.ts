@@ -29,7 +29,9 @@ export const WEB_PIN = {
 };
 
 export function buildParts(): Sim {
-  return new NetBuilder({ linkMs: 500, procMs: 100, l2Ms: 50, httpTimeoutMs: 15000, arpTimeoutMs: 4000, pingTimeoutMs: 12000 })
+  // Faster than the home lab: students send a dozen pings and page loads here, and a cold page load crosses 4 links with ARP at each hop.
+  // The timeouts stay well above the slowest real answer (a cold page load, about 6 s), so a dropped request says "No connection" sooner.
+  return new NetBuilder({ linkMs: 300, procMs: 60, l2Ms: 30, httpTimeoutMs: 9000, arpTimeoutMs: 3000, pingTimeoutMs: 8000 })
     .host('alice', { label: 'Alice', icon: 'laptop', x: 90, y: 170 })
     .host('ben', { label: 'Ben', icon: 'desktop', x: 90, y: 430 })
     .switch('sw', { label: 'Office switch', x: 270, y: 300, ports: 4 })
