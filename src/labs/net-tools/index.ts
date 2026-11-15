@@ -214,7 +214,7 @@ export const netToolsLab: LabDef = {
 
         **The rule: nmap only with written permission.** The first four look at your own computer or ask one question at a time. nmap knocks on the doors of other people's computers. Scanning a network without its owner's written permission can be a crime, even if you mean no harm. Everything in this lab happens inside a simulation.
 
-        Click [[router]]. It connects the library to the internet, and it's the library's **DNS server**: it turns names like catalog.lakeside.example into addresses. Then click [[catalog]]. Its details open under the map. Most of them are for later. Scroll down to **Open ports**, the doors this server has open. In step 8, nmap finds the same list from outside. (The **Port** column in the Addresses table, like eth0 or lan, is a different thing: the place where a cable plugs in.)
+        Click [[router]]. It connects the library to the internet, and it's the library's **DNS server**: it turns names like catalog.lakeside.example into addresses. Then click [[catalog]] and scroll down to **Open ports**, the doors this server has open. In step 8, nmap finds the same list from outside. (The **Port** column in the Addresses table, like eth0, is a different thing: where a cable plugs in.)
       `,
       focus: ['router', 'catalog'],
       goals: [
@@ -409,10 +409,13 @@ export const netToolsLab: LabDef = {
       body: md`
         Ticket 2: the e-book site, ebooks.example, won't load.
 
-        1. In the Terminal at [[pc1]], type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. (The **sent as** tag on [[router]] shows the library's internet address, which the router puts on every packet going out.)
+        1. In the Terminal at [[pc1]], type \`ping ebooks.example\`. **Request timed out** means no answer came back in time.
         2. To find where the packets stop, type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map.
+        3. Read the trace with the notes below. Then answer **In the first trace, where is the problem?**
+        4. Press [[button:call-isp]].
+        5. Run the traceroute again at [[pc1]]. Wait for it to reach the site.
 
-        traceroute sends packets with a small TTL. The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
+        **How to read a trace.** traceroute sends packets with a small TTL. The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
 
         | Try | TTL sent | Where it hits 0 | Shows up as |
         |---|---|---|---|
@@ -420,14 +423,12 @@ export const netToolsLab: LabDef = {
         | 2 | 2 | 2nd router | line 2 |
         | 3 | 3 | 3rd router | line 3, and so on |
 
-        Each line is one **hop**: a stop on the way.
+        Each line is one **hop**: a stop on the way. (A real traceroute tries each hop 3 times. This one tries once.)
 
         - Every line is a router, except the last line of a finished trace. That line is the site itself. (The internet provider, with the globe icon, is a router too.)
         - \`*\` means nothing answered. One \`*\` isn't proof, since some routers ignore traceroute. If the trace never gets past the \`*\` and pings fail too, the path is broken there.
 
-        3. Answer **In the first trace, where is the problem?** below.
-        4. Press [[button:call-isp]].
-        5. Run the traceroute again at [[pc1]]. Wait for it to reach the site.
+        The **sent as** tag on [[router]] shows the library's internet address, which the router puts on every packet going out.
       `,
       focus: ['pc1', 'isp', 'core', 'ebooks'],
       open: 'tools',
@@ -572,7 +573,7 @@ export const netToolsLab: LabDef = {
         >
         > *Signed: the library director*
 
-        The **/24** means every address that starts with 10.0.0: all 256 of them, from 10.0.0.0 to 10.0.0.255, counting 10.0.0.0. Only the library's own computers (pulsing on the map) use them. The guest Wi-Fi is a separate network.
+        The **/24** means every address that starts with 10.0.0: all 256 of them, from 10.0.0.0 to 10.0.0.255 (0 to 255 is 256 numbers). Only the library's own computers (pulsing on the map) use them.
 
         This is the **scope**: what you may scan, from where, and when. Don't scan outside it, even if something looks broken or interesting. This lab's Terminal refuses scans outside the letter. A real nmap won't, so following the letter is your job.
       `,
@@ -655,7 +656,7 @@ export const netToolsLab: LabDef = {
       body: md`
         An open port can hide another problem. The program behind it might be an old version with a **vulnerability**: a known weakness an attacker can use. Researchers publish each one as a **CVE** (Common Vulnerabilities and Exposures) with an ID like CVE-2011-2523, so everyone can check for it.
 
-        These tests are slower than a plain scan, so IT staff run them on one computer at a time. Start with [[catalog]], the server the most people use.
+        These tests are slow, so IT staff run them on one computer at a time. Start with [[catalog]], the server the most people use.
 
         1. In the Terminal at [[laptop]], type \`nmap -sV --script vuln 10.0.0.20\`. **-sV** asks each open port which program and version answers. **--script vuln** tests for known vulnerabilities. Some tests try the weakness for real, so the letter had to allow them.
         2. Read the new **VERSION** column, and the lines that start with a bar, \`|\`. A **backdoor** is a secret way in that skips the password.
