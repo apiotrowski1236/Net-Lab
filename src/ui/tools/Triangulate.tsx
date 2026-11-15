@@ -48,7 +48,7 @@ export function Triangulate({ session, spec, onSelect }: ToolCardProps<'triangul
       <div class="tool-title">
         <Icon name="target" /> Signal triangulation
       </div>
-      <p class="tool-desc">Pick a network, then measure it from three spots. Three distances pin down where the radio is.</p>
+      <p class="tool-desc">Pick a network, then measure it from three spots. Three distances show where the radio is.</p>
 
       <label class="small">Network to find</label>
       <select value={target} onChange={(e) => setTarget((e.target as HTMLSelectElement).value)}>

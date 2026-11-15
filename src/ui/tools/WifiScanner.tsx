@@ -134,7 +134,7 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
           {channels.map((c, i) => (
             <span key={c}>
               {i > 0 && ', '}
-              channel {c}: <strong>{sim.channelNoise(c)}</strong>
+              channel {c}: <strong class={sim.channelNoise(c) > 50 ? 'noise-high' : ''}>{sim.channelNoise(c)}</strong>
             </span>
           ))}
         </p>

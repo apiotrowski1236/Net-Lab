@@ -326,7 +326,7 @@ describe('watch-the-air lab', () => {
   it('says a device with a profile checked the copy for the certificate and sent no login', () => {
     const s = playThrough('lookalike');
     const lines = watchTheAirLab.steps.find((st) => st.id === 'lookalike')!.actions![0].outcome!(s.sim, 0);
-    expect(lines[0].text).toBe('Volunteer desk tried the copy first. Its profile asked for proof that the copy is radius.shelter, got none, sent no login, and went back to the real network.');
+    expect(lines[0].text).toBe('Volunteer desk checked the louder copy before moving to it. Its profile asked for proof that the copy is radius.shelter, got none, so it stayed on the real network and sent no login.');
   });
 
   it('replays the same network and citations after a reload', () => {

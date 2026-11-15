@@ -61,7 +61,7 @@ const copyName: ActionDef = {
     return [
       ...STAFF.map((id): ActionLine =>
         onReal(sim, id)
-          ? { tone: 'good', text: `${label(sim, id)} tried the copy first. Its profile asked for proof that the copy is ${SERVER}, got none, sent no login, and went back to the real network.` }
+          ? { tone: 'good', text: `${label(sim, id)} checked the louder copy before moving to it. Its profile asked for proof that the copy is ${SERVER}, got none, so it stayed on the real network and sent no login.` }
           : { tone: 'bad', text: `${label(sim, id)} is not on the real network.` },
       ),
       sim.dev('visitor').wifiClient?.joinedAp === 'twin'
@@ -214,7 +214,7 @@ export const watchTheAirLab: LabDef = {
       id: 'tour',
       title: 'Two weeks later',
       body: md`
-        The emergency shelter in the Ridgeview High gym has been open for two weeks. Its Wi-Fi is well protected: **WPA3** encryption scrambles everything sent over the air, each person signs in with their own login, and the signal is turned down so it doesn't reach far past the building.
+        The emergency shelter in the Ridgeview High gym has been open for two weeks. Its Wi-Fi is well protected: **WPA3** encryption scrambles what people send over the air, each person signs in with their own login, and the signal is turned down so it doesn't reach far past the building.
 
         Now you **keep watch**. Tonight, people report strange things on the Wi-Fi. Check each report, collect evidence, and choose alarms that catch the next problem. (The map shows a few of the gym's phones and laptops, not all of them.)
 
@@ -249,9 +249,11 @@ export const watchTheAirLab: LabDef = {
         1. In the Wi-Fi scanner, press **Scan from Volunteer desk**.
         2. Compare each network's BSSID with the list on [[wap]]. Mark it **On the list** or **Not on it**. The scanner won't decide for you.
 
-        A network that isn't on the list could be a **rogue access point**: a box someone plugged into the shelter's wired network. Anyone can join an open box without a password. (The map shows the box on its wall jack because this is a simulation. On a real network you only have the scan and the switch log.) The [[lansw]] switch logs a **LINK** line when a port comes up, and a **MAC_NEW** line when a new device appears on a port. On the wire, a device's address is called its **MAC**. In this lab the box's MAC matches its BSSID.
+        A network that isn't on the list could be a **rogue access point**: a box someone plugged into the shelter's wired network. Anyone can join an open box without a password. (The map shows the box on its wall jack because this is a simulation. On a real network you only have the scan and the switch log.)
 
-        3. Open the **Logs** tab. Click a switch line from last night about the box's port, then press **Cite this line as evidence**.
+        3. Open the **Logs** tab and choose [[lansw]]. Click the line that shows the box on its port, then press **Cite this line as evidence**.
+           - A **LINK** line says a port came up.
+           - A **MAC_NEW** line names a new device and its port. On the wire, a device's address is called its **MAC**. In this lab the box's MAC matches its BSSID.
         4. Click [[lansw]], press **Edit** on that port, then press **Shut port down**. It takes effect at once.
       `,
       setup: seedRogue,
@@ -335,7 +337,7 @@ export const watchTheAirLab: LabDef = {
           id: 'why-stay',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'The copy used the exact name and WPA3, and some devices with a profile heard it louder than the real network. Why did they stay?',
+          prompt: 'The copy used the exact name and WPA3, and some devices with a profile heard it louder than the real network. Why did they stay on the real network?',
           options: [
             { id: 'profile', text: `Their profile checks for ${SERVER}'s certificate.`, correct: true },
             { id: 'name', text: 'They noticed the underscore in the network name.', feedback: 'By then the copy used the exact name. Anyone can copy a name.' },
@@ -449,6 +451,8 @@ export const watchTheAirLab: LabDef = {
         1. Click [[lansw]] and check the state of port 1, where the access point is plugged in.
         2. Scan from the [[desk]] and read the noise on each channel.
         3. Open the **Logs** tab and click the newest noise line from Shelter Wi-Fi.
+
+        (The scan can still list Shelter-WiFi, because a scanner only needs to catch one beacon now and then. Staying connected needs every message to get through.)
       `,
       setup: (sim) => {
         setupAfterTwin(sim);
@@ -490,7 +494,7 @@ export const watchTheAirLab: LabDef = {
 
         1. Press **Movie night starts**.
         2. Scan from the [[desk]] and read the noise.
-        3. Open the [[wap]]'s newest noise line in the Logs tab. Compare it with the line from the jamming.
+        3. Open the newest noise line from Shelter Wi-Fi in the Logs tab. It is a notice, so turn off **Warnings and alerts only**. Compare it with the line from the jamming.
 
         (Real Wi-Fi tools show a crowd as a busy channel, not as noise. This lab shows a crowd and a jammer on one noise scale to keep it simple.)
       `,
@@ -513,7 +517,7 @@ export const watchTheAirLab: LabDef = {
       goals: [
         { id: 'busy', label: 'Start movie night', check: ({ sim }) => (sim.dev('wap').wids?.crowd ?? 0) >= MOVIE_CROWD },
         { id: 'scan', label: 'Scan from the [[desk]] during movie night', check: ({ sim, since }) => scannedInMovieNight(sim, since) },
-        { id: 'log', label: 'Open the noise line from movie night', hint: 'Search the log for "noise". Pick the newest line.', check: openedLog((e) => noiseLine(e) && Number(e.fields?.noise) > 10 && Number(e.fields?.noise) <= 50) },
+        { id: 'log', label: 'Open the noise line from movie night', hint: 'Search the log for "noise" and pick the newest line. It is a notice, so uncheck **Warnings and alerts only**.', check: openedLog((e) => noiseLine(e) && Number(e.fields?.noise) > 10 && Number(e.fields?.noise) <= 50) },
       ],
       questions: [
         {
@@ -528,7 +532,7 @@ export const watchTheAirLab: LabDef = {
             { id: 'slow', text: 'Pages load slowly for everyone in the gym tonight.', feedback: "Slow pages have many causes, so slowness alone can't tell a crowd from a jammer." },
             { id: 'evening', text: "It's evening, when most families are back in the gym.", feedback: 'The jammer struck in the evening too.' },
           ],
-          explain: 'A jammer pushes the noise near the top, and every device drops off. A crowd raises the reading a little (a real tool would show a busier channel) and keeps everyone on. An alarm that fires whenever the Wi-Fi is slow would go off every movie night. That is a **false alarm**.',
+          explain: 'A jammer pushes the noise near the top, and every device drops off. A crowd raises the reading a little (a real tool would show a busier channel) and keeps everyone on. An alarm that raises an alert whenever the Wi-Fi is slow would raise one every movie night. That is a **false alarm**.',
         },
       ],
     },
@@ -541,12 +545,12 @@ export const watchTheAirLab: LabDef = {
 
         The [[wap]] can run four alarm rules. Three watch the air. The fourth reads the [[lansw]] switch's log, because a rogue box shows up on the wire too. The access point also saved a record of the last 14 days, so you can test your choices before you trust them. It may also hold an attack nobody noticed at the time.
 
+        An alarm that goes off when nothing is wrong is a **false alarm**, also called a false positive. An attack that raises no alarm is a **miss**.
+
         1. In **Wireless alarms**, turn on all four rules.
         2. Press **Replay the last 14 days** and read the results.
         3. Pick a noise alarm level that catches the jammer (88) but stays quiet on movie nights (up to 17). Replay again. Other false alarms can stay. The question below asks about them.
         4. Open one of the alert lines in the Logs tab.
-
-        An alarm that goes off when nothing is wrong is a **false alarm**, also called a false positive. An attack that raises no alarm is a **miss**.
       `,
       setup: setupAfterTwin,
       focus: ['wap'],
@@ -610,8 +614,8 @@ export const watchTheAirLab: LabDef = {
             { id: 'sweep', text: 'A weekly scan of the air, compared with the approved list.', correct: true, missed: 'The alarms only hear radios near the access points. What covers the rest of the building?' },
             { id: 'rules', text: 'Alarms for unknown radios, lookalikes, and new devices on ports.', correct: true },
             { id: 'noise', text: 'A noise alarm set between movie night and the jammer.', correct: true },
-            { id: 'review', text: 'Someone reads the alerts every day and notes what each was.', correct: true, missed: 'Who looks at the alerts once they fire?' },
-            { id: 'low', text: 'A noise alarm at 10, so that not even a small change slips past.', feedback: 'It would go off every movie night, and staff would learn to ignore it.' },
+            { id: 'review', text: 'Someone reads the alerts every day and notes what each was.', correct: true, missed: 'Who looks at the alerts once they appear?' },
+            { id: 'low', text: 'A noise alarm at 10, so it catches even a small change.', feedback: 'It would raise an alert every movie night, and staff would learn to ignore it.' },
             { id: 'sites', text: 'A log of every website each family visits on the Wi-Fi.', feedback: 'That watches people, not the air. It costs families their privacy and would catch none of tonight\'s attacks.' },
             { id: 'off', text: 'Turn the Wi-Fi off each night so there is nothing to watch.', feedback: 'That is not detection, and families need the Wi-Fi at night.' },
           ],

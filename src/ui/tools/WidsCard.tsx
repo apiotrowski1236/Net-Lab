@@ -84,7 +84,15 @@ export function WidsCard({ session, spec }: ToolCardProps<'wids'>) {
               </tr>
               <tr>
                 <td>False alarms</td>
-                <td class={last.falseAlarms.length ? 'warn' : ''}>{last.falseAlarms.length ? last.falseAlarms.map((f) => `${f}, from the ${raisedBy(last, f)}`).join('; ') : 'none'}</td>
+                <td class={last.falseAlarms.length ? 'warn' : ''}>
+                  {last.falseAlarms.length
+                    ? last.falseAlarms.map((f) => (
+                        <div key={f}>
+                          {f}, from the {raisedBy(last, f)}
+                        </div>
+                      ))
+                    : 'none'}
+                </td>
               </tr>
               <tr>
                 <td>Alert lines</td>
