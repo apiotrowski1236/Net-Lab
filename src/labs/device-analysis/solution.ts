@@ -43,7 +43,7 @@ export const deviceAnalysisSolution: LabSolution = {
   'write-up': {
     text: {
       'part-a':
-        'Row 11 of ufw.log shows a SYN from 203.0.113.140 to port 22. Rule 1 denies 22/tcp from 203.0.113.140, and it is the first rule that matches, so ufw dropped the packet and logged it. Deleting rule 1 would allow it, because rule 5 allows SSH from anywhere. The impact is that the scanner could then try to sign in with SSH.',
+        'Row 4 of ufw.log shows a SYN from 203.0.113.140 to port 3306, MySQL. Rule 6 allows 3306 only from 192.0.2.0/24, and 203.0.113.140 is outside that network, so no rule above rule 10 matches. Rule 10 denies everything, so ufw dropped the packet and logged it. To open MySQL to the internet, the co-op could change rule 6 to allow 3306/tcp from Anywhere. The impact is that anyone could reach the database and try to guess its passwords.',
       'part-b':
         'Rows 11 to 24 of auth.log show 203.0.113.77 trying many usernames, like admin, oracle, and root, with only a few passwords. That is a password spray. An intrusion prevention system such as fail2ban counts the failed sign-ins and adds a firewall rule that bans the address within seconds. A different countermeasure is turning off password sign-in so only SSH keys work.',
     },

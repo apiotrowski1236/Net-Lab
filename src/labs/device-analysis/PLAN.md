@@ -8,7 +8,7 @@ New capstone (see `docs/unit3/SUITE-PLAN.md`). Slot 17 of 17, the last lab of th
 - **Tagline:** Read a web server's firewall rules and logs, find two attacks, change the rules, and stop the next attack while it happens.
 - **CodeHS:** 3.18 The Story in the Logs, 3.19 Securing Networks Quiz (review); also the firewall lessons 3.10 and 3.12 for rule tracing and writing
 - **CED:** 3.4.B.1 to B.3 and 3.4.D.1 to D.3 (a host firewall); 3.5.A.3 (automated prevention); 3.5.E.7 (scan, known source); 3.1.C.1 (CIA); 3.2.A.1 (disable unneeded services)
-- **Minutes:** 50. **Steps:** 11 or 12.
+- **Minutes:** 65 (was 50; see Version 2). **Steps:** 11 or 12.
 - **Prerequisites:** the whole unit, especially Firewall Rules and Placement and Log Analysis and Intrusion Detection.
 
 ## Why this lab
@@ -39,7 +39,7 @@ No NetLab lab has a host firewall, an sshd auth.log, UFW lines, an nginx log, or
 1. **The case** (tour). Inspect `web01`: its services (`ss -tuln` in the Terminal: listening ports) and its firewall table, shaped like the FRQ's (about 10 numbered rules, an explicit final "Deny all inbound"). Read the co-op's server policy (a short source in the step body or a policy panel). Question: which rule lets customers reach the order site?
 2. **Trace the table.** Four connection attempts (a customer on 443, Jo on 22, an outside IP on 3389, the attacker's IP on 22). For each, predict the rule number and the verdict, then test it. Goals check the tests ran; questions check the predictions.
 3. **The weekend's auth.log.** Logs tab: real-format sshd lines (`Failed password for invalid user admin from 203.0.113.x port 51234 ssh2`, `Accepted publickey for jo from ...`). Many usernames, one or two passwords, one source: a **password spray** (define it, and how it differs from brute force). Questions: the adversary IP (typed; any reasonable format), and which line numbers show the spray (cite rows, checked).
-4. **Blocked at the door.** UFW lines (`[UFW BLOCK] IN=eth0 OUT= SRC=... DST=... PROTO=TCP SPT=... DPT=25 SYN`) from a second IP probing many ports in seconds. Questions: which rule blocked them (the final deny), the scanner's IP, and which rows show a scan (3.5.E.7, unauthorized scan).
+4. **What ufw blocked.** UFW lines (`[UFW BLOCK] IN=eth0 OUT= SRC=... DST=... PROTO=TCP SPT=... DPT=25 SYN`) from a second IP probing many ports in seconds. Questions: which rule blocked them (the final deny), the scanner's IP, and which rows show a scan (3.5.E.7, unauthorized scan).
 5. **The web log.** nginx combined-format lines: normal customers, then `curl` requests for `/.env`, `/wp-login.php`, `/phpmyadmin`, all 404. Question: what the attacker was doing (looking for weak spots to attack: reconnaissance), citing rows. Connect to the scanner IP if it's the same source.
 6. **Write the command.** In the Terminal, block the spray's source. `ufw deny from <ip>` appends the rule *after* the Allow SSH rule, so the spray still works: the test shows it. Students then use `ufw insert 1 deny from <ip>` (or delete and re-add) and test again. Teaches rule order with the exact command the FRQ's "Write" verb wants. Typed checks explain mistakes in this lab's terms.
 7. **Change a rule, predict the impact.** The policy says remote administration only from the office network, and no unencrypted file transfer. Students find the rules that break the policy (SSH from anywhere; FTP 21 open to all; maybe RDP). Change SSH to the office network only and remove FTP. Before testing, a question asks who loses access (impact). Then test: Jo still works and the internet can't reach SSH, but the vendor's nightly upload (SFTP, which runs over SSH from the vendor's network) now fails. Students add an allow for the vendor's network above the final deny and test again. Text question: describe the change and its impact on allowed and denied traffic. The surprise is the lesson: a rule change has side effects you have to predict.
@@ -78,5 +78,19 @@ All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrou
 - **Botnet.** Each press of **The botnet tries again** moves Unknown C to the next address and makes 3 guesses, under fail2ban's maxretry of 5, so fail2ban never bans it. Only turning off password sign-in stops it.
 - **Log rows.** Every log line goes through `sim.log` with `fields.file`; row N is the Nth entry for that file. The weekend history is a pure generator (`weekend()`), so the row constants (`ROWS`) are fixed at module load and the tests check them.
 - **Typed rows.** `src/runtime/citeRows.ts` reads "11-24", "11 to 24", "11–24", "11, 12, 13" and explains a wrong citation ("Row 9 isn't part of the spray: ..."). capture-analysis and watch-the-air check citations too; the three could share this module.
-- **Left out for later.** File permissions (`chmod`, `ls -l`) and the update policy (rule 4) have no step. A permissions part could be added to the write-up later.
+- **Left out for later.** File permissions (`chmod`, `ls -l`) and an update policy have no step. A permissions part could be added to the write-up later.
 - **Map.** One router, "Internet", joins the co-op server, the office, Bayline Farms, a customer, and a switch for the three unknown addresses.
+
+### Version 2 (student panel, November 2026)
+
+- **Step 1** explains /24 in one sentence and asks about the `ss` output (can the internet reach 127.0.0.1:25?) in place of the "which rule allows 443" warm-up. The policy shows only its three firewall points; points 4 (updates) and 5 (Monday log review) are gone, since nothing used them.
+- **Policy point 3** reads "Files from outside the office", so rule 9 (SMB from the office) fits the policy.
+- **fail2ban step:** the ban goal and the "next guesses blocked" goal count only a ban made while fail2ban was already running (`liveBans`). A ban from the lines fail2ban reads back when it starts happens at the moment it is turned on, so it doesn't count. Once the bot's address is banned, **A bot starts guessing passwords** moves the bot to the next address first, so a student who pressed it before turning fail2ban on can still watch a ban during the attack.
+- **Results come in when ufw drops a packet** (`settled`), not when the client gives up.
+- **Fewer cards per step:** the scan step has only Log files, and the command and policy steps only the Terminal, so the Terminal keeps its height.
+- **Write-up part A** offers rows 4, 7, and 10 (MySQL, file sharing, screen sharing: services only the office may use), so no one writes an impact for port 25, which listens only on 127.0.0.1, or for SSH, which rule 5 already opens to everyone. The four parts are numbered.
+- **Rule numbers in feedback** name the rule by service, with the weekend's number, since a student's own inserts and fail2ban's bans renumber the live list.
+- **fail2ban read-back:** the step no longer promises fewer than 5 Found lines for 203.0.113.77 (extra step 5 replays can reach 5). Its settings are a small table. The note about a student's /24 rule being narrowed is a goal hint, since it applies to few students.
+- **Step 7** Jo's goal waits for the laptop to get the answer, so it checks off with the result line.
+- **fail2ban turned on mid-attack** counts: a read-back ban that then blocks guesses of the same run is a ban while the attack happens (`stoppedByBan`). A read-back ban after the attack ended still doesn't count, because the next press moves the bot first.
+- **Minutes** 65: the panel's median for the required steps ran 56.5 to 65 over rounds 2 to 4, after trimming. The write-up can go home if a period runs short.
