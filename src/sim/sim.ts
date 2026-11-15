@@ -2254,9 +2254,12 @@ export class Sim {
     const inPort = box.ifaces.find((i) => i.id !== fw.outside);
     if (!inPort) throw new Error(`${fwId} needs two ports`);
     const home = { x: box.x, y: box.y };
-    this.disconnect(outEnd.device, outEnd.iface);
-    this.connect({ device: outEnd.device, iface: outEnd.iface }, { device: fwId, iface: fw.outside });
-    this.connect({ device: fwId, iface: inPort.id }, { device: inEnd.device, iface: inEnd.iface });
+    // The map tags the firewall itself ('firewall-placed'), not each cable end.
+    this.quietly(() => {
+      this.disconnect(outEnd.device, outEnd.iface);
+      this.connect({ device: outEnd.device, iface: outEnd.iface }, { device: fwId, iface: fw.outside });
+      this.connect({ device: fwId, iface: inPort.id }, { device: inEnd.device, iface: inEnd.iface });
+    });
     fw.placed = { a: { ...outEnd }, b: { ...inEnd }, home };
     fw.conns = [];
     fw.changedAt = this.t;
@@ -2272,15 +2275,28 @@ export class Sim {
     const box = this.dev(fwId);
     const p = box.firewall?.placed;
     if (!p) return;
-    for (const i of box.ifaces) if (i.linkId) this.disconnect(fwId, i.id);
     const free = (e: { device: string; iface: string }) => !this.devices[e.device]?.ifaces.find((i) => i.id === e.iface)?.linkId;
-    if (free(p.a) && free(p.b)) this.connect(p.a, p.b);
+    this.quietly(() => {
+      for (const i of box.ifaces) if (i.linkId) this.disconnect(fwId, i.id);
+      if (free(p.a) && free(p.b)) this.connect(p.a, p.b);
+    });
     box.x = p.home.x;
     box.y = p.home.y;
     delete box.firewall!.placed;
     box.firewall!.conns = [];
     box.firewall!.changedAt = this.t;
     this.emit({ t: this.t, type: 'config', device: fwId, what: 'firewall-placed', on: false });
+  }
+
+  /** Run `fn` with its events tagged quiet, then put `quiet` back as it was. */
+  private quietly(fn: () => void): void {
+    const was = this.quiet;
+    this.quiet = true;
+    try {
+      fn();
+    } finally {
+      this.quiet = was;
+    }
   }
 
   private fwOf(devId: string) {

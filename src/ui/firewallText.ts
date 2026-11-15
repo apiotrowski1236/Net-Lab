@@ -1,4 +1,4 @@
-import { ruleText, type FwRule, type FwVerdict } from '../sim/firewall';
+import { ruleMatches, ruleText, type FwRule, type FwVerdict } from '../sim/firewall';
 import { signatureName } from '../sim/ngfw';
 import { appForPort, appName, isReply, portLabel, type Conn } from '../sim/services';
 import type { Sim } from '../sim/sim';
@@ -51,6 +51,32 @@ export function zoneWhyText(sim: Sim, fwId: string, v: FwVerdict): string | unde
   return port === undefined ? `its zone policy denies ${pairName(zp, pair.from, pair.to)}` : `its zone policy allows only ${only}`;
 }
 
+/**
+ * After an implicit deny: a rule that names an address and would have matched
+ * the packet but for its direction or its protocol, so a student who wrote
+ * "in" for traffic going out, or "TCP" where a ping needs "any protocol", sees
+ * why the rule did nothing. Empty when there is none.
+ */
+export function nearMissText(sim: Sim, e: FwEvent): string {
+  if (e.verdict.by !== 'implicit' || isReply(e.pkt)) return '';
+  const fw = sim.devices[e.device]?.firewall;
+  // The line reads today's rules, but the packet was judged by the rules of its moment. Once the rules
+  // change (even at the same sim time, while paused), say nothing, rather than describe rules it never met.
+  if (!fw || (fw.changedAt ?? -Infinity) >= e.t) return '';
+  const rules = fw.rules ?? [];
+  if (rules.some((r) => ruleMatches(r, e.pkt, e.dir))) return '';
+  const other = e.dir === 'in' ? 'out' : 'in';
+  // A rule for any address to any address (like "out, anything") would match
+  // every packet turned around, so it says nothing about this one.
+  const named = (r: FwRule) => r.src !== 'any' || r.dst !== 'any';
+  const i = rules.findIndex((r) => r.dir === other && named(r) && ruleMatches({ ...r, dir: e.dir }, e.pkt, e.dir));
+  if (i >= 0) return ` Rule ${i + 1} would match it, but rule ${i + 1} is for packets going ${other}, and this one is going ${e.dir}.`;
+  const j = rules.findIndex((r) => r.dir === e.dir && named(r) && r.proto !== 'any' && r.proto !== e.pkt.proto && ruleMatches({ ...r, proto: e.pkt.proto }, e.pkt, e.dir));
+  if (j < 0) return '';
+  const what = e.pkt.app.kind === 'ping' ? 'a ping (ICMP)' : e.pkt.proto.toUpperCase();
+  return ` Rule ${j + 1} would match it, but rule ${j + 1} is only for ${rules[j].proto.toUpperCase()}, and this packet is ${what}.`;
+}
+
 /** "Firewall A let the request in: rule 2, ALLOW in TCP ..." */
 export function fwEventText(sim: Sim, e: FwEvent): string {
   const label = sim.devices[e.device]?.label ?? e.device;
@@ -58,7 +84,7 @@ export function fwEventText(sim: Sim, e: FwEvent): string {
   const allowed = e.verdict.action === 'allow';
   const zoned = !!sim.devices[e.device]?.zonePolicy;
   const verb = allowed ? `let the ${what} ${zoned ? 'through' : e.dir === 'in' ? 'in' : 'out'}` : `blocked the ${what}`;
-  return `${label} ${verb}: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.`;
+  return `${label} ${verb}: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.${nearMissText(sim, e)}`;
 }
 
 /** For a packet a firewall dropped at time `t`: which firewall, and why. */
@@ -67,7 +93,7 @@ export function fwDenyText(sim: Sim, fwId: string | undefined, t: number): strin
   for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= t - 1; i--) {
     const e = sim.events[i];
     if (e.type === 'firewall' && e.device === fwId && e.verdict.action === 'deny' && e.t <= t) {
-      return `${label} blocked it: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.`;
+      return `${label} blocked it: ${zoneWhyText(sim, e.device, e.verdict) ?? whyText(e.verdict, sim.devices[e.device]?.firewall?.rules)}.${nearMissText(sim, e)}`;
     }
   }
   return `${label} blocked it.`;

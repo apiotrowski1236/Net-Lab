@@ -41,7 +41,8 @@ export const firewallSolution: LabSolution = {
   inner: {
     moves: [
       { tool: { type: 'fw-add-rule', device: 'fwB', rule: STAFF_OUT } },
-      { press: 'nurse-ssh' },
+      { press: 'nurse-web' },
+      { press: 'nurse-ping' },
       { press: 'web-files' },
       { press: 'nurse-files' },
     ],

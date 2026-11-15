@@ -114,6 +114,8 @@ interface Marker {
   life: number;
   /** Tags with the same key on one device show as one, so they don't stack up over the map. */
   merge?: { key: string; many: (n: number) => string };
+  /** Only the newest tag with this key shows on a device ("taken out", then "placed in the cable"). */
+  latest?: string;
 }
 
 /** `macName`: when set, a switch shows what it learns ("learned Alice: port 1"). `devName` names a device by id. */
@@ -196,6 +198,7 @@ function markerFor(
       return e.reason === 'timeout' ? { device: e.device, text: 'no reply', tone: 'bad' } : null;
     case 'config':
       if (e.what === 'cable') return { device: e.device, text: e.on ? 'plugged in' : 'unplugged', tone: e.on ? 'info' : 'warn' };
+      if (e.what === 'firewall-placed') return { device: e.device, text: e.on ? 'placed in the cable' : 'taken out', tone: 'info', latest: 'placed' };
       if (e.what === 'ip' || e.what === 'gateway') {
         const what = e.what === 'ip' ? 'address' : 'gateway';
         if (!e.on) return { device: e.device, text: `${what} removed`, tone: 'warn', merge: { key: 'addr-off', many: () => 'address and gateway removed' } };
@@ -278,6 +281,7 @@ function recentMarkers(sim: Sim, since = 0, learn = false): Marker[] {
     if (age > life) continue;
     const m = markerFor(e, captured, macName, (id) => sim.devices[id]?.label, sim.opts.icmpErrors);
     if (m && fail && (changed.get(m.device) ?? -1) > e.t) continue;
+    if (m?.latest && out.some((o) => o.device === m.device && o.latest === m.latest)) continue;
     const group = m?.merge && merged.get(`${m.device}|${m.merge.key}`);
     if (m?.merge && group) {
       group.texts.add(m.text);

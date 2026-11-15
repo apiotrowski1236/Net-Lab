@@ -22,6 +22,14 @@ export function PortScanTool({ session, spec }: ToolCardProps<'port-scan'>) {
   const scans = (d.scans ?? []).filter((s) => s.t >= since);
   const conns = (d.conns ?? []).filter((c) => c.t >= since).slice(-3).reverse();
   const busy = scans.some((s) => !s.doneAt);
+  // The result lands under the scan tables, below the fold on a laptop: bring a new one into view.
+  const connRef = useRef<HTMLUListElement>(null);
+  const newest = conns[0]?.id;
+  const shown = useRef(newest);
+  useLayoutEffect(() => {
+    if (newest !== undefined && newest !== shown.current) connRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    shown.current = newest;
+  }, [newest]);
   const run = (raw = target) => {
     const r = checkScanTarget(sim, spec.device, raw);
     if (!r.ok) {
@@ -67,7 +75,7 @@ export function PortScanTool({ session, spec }: ToolCardProps<'port-scan'>) {
         <ScanResult key={s.id} sim={sim} scan={s} open={i === 0} onConnect={connect} />
       ))}
       {conns.length > 0 && (
-        <ul class="ping-log conn-log" aria-live="polite">
+        <ul ref={connRef} class="ping-log conn-log" aria-live="polite">
           {conns.map((c) => {
             const tone = c.status === 'pending' ? 'wait' : c.status === 'open' ? 'good' : 'bad';
             return (

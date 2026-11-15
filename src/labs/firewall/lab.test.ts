@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { scanFindings } from '../../sim/services';
+import { fwDenyText } from '../../ui/firewallText';
 import type { Sim } from '../../sim/sim';
 import { firewallLab } from '.';
 import {
+  ISP_ROUTER,
   ATTACKER,
   bothPlaced,
   buildHospital,
@@ -23,6 +25,10 @@ function connect(sim: Sim, from: string, to: string, port: number, opts: { app?:
   const id = sim.connectService(from, to, port, opts);
   sim.runUntilIdle();
   return sim.dev(from).conns!.find((c) => c.id === id)!;
+}
+
+function connected(sim: Sim, from: string, to: string, port: number): boolean {
+  return !!sim.dev(from).conns?.some((c) => c.to === to && c.port === port && c.status === 'open');
 }
 
 function placed(b: [string, string] = INNER[0]): Sim {
@@ -68,7 +74,7 @@ describe('firewall lab network', () => {
       const sim = placed(b);
       expect(bothPlaced(sim)).toBe(true);
       sim.fwAddRule('fwB', STAFF_OUT);
-      expect(connect(sim, 'nurse', WEB, 22).status, `nurse SSH, B on ${b}`).toBe('open');
+      expect(connect(sim, 'nurse', WEB, 443).status, `nurse web app, B on ${b}`).toBe('open');
       expect(connect(sim, 'web', FILES, 445).reason, `web to files, B on ${b}`).toBe('firewall');
       expect(connect(sim, 'nurse', FILES, 445).status).toBe('open');
       sim.browse('nurse', `https://${PORTAL_SITE}/`);
@@ -135,5 +141,146 @@ describe('firewall lab step setups', () => {
     sim.browse('patient', 'https://achospital.example/');
     sim.runUntilIdle();
     expect(sim.dev('patient').browser?.status).toBe('loaded');
+  });
+});
+
+describe('firewall lab feedback', () => {
+  it('says when a rule on Firewall B points the wrong way', () => {
+    const sim = placed();
+    sim.fwAddRule('fwB', { ...STAFF_OUT, dir: 'in', proto: 'tcp' });
+    const t = sim.t;
+    expect(connect(sim, 'nurse', WEB, 443).reason).toBe('firewall');
+    expect(fwDenyText(sim, 'fwB', sim.events.find((e) => e.type === 'firewall' && e.t >= t)!.t)).toBe(
+      'Firewall B blocked it: no rule matched (the implicit deny). Rule 1 would match it, but rule 1 is for packets going in, and this one is going out.',
+    );
+  });
+
+  it('says when a TCP-only rule on Firewall B is all that stops a ping', () => {
+    const sim = placed();
+    sim.fwAddRule('fwB', { ...STAFF_OUT, proto: 'tcp' });
+    const t = sim.t;
+    sim.ping('nurse', ISP_ROUTER);
+    sim.runUntilIdle();
+    expect(fwDenyText(sim, 'fwB', sim.events.find((e) => e.type === 'firewall' && e.t >= t)!.t)).toBe(
+      'Firewall B blocked it: no rule matched (the implicit deny). Rule 1 would match it, but rule 1 is only for TCP, and this packet is a ping (ICMP).',
+    );
+  });
+
+  it('step 7: two single-address scans do not count as scanning both networks', () => {
+    const goal = step('log').goals!.find((g) => g.id === 'rescan')!;
+    const sim = placed();
+    const since = sim.t;
+    sim.scan('attacker', WEB);
+    sim.runUntilIdle();
+    sim.scan('attacker', FILES);
+    sim.runUntilIdle();
+    expect(goal.check({ sim, since } as never)).toBe(false);
+    sim.scan('attacker', SERVER_NET);
+    sim.runUntilIdle();
+    sim.scan('attacker', STAFF_NET);
+    sim.runUntilIdle();
+    expect(goal.check({ sim, since } as never)).toBe(true);
+  });
+
+  it('says nothing extra once the rules change after the packet was blocked', () => {
+    const sim = placed();
+    const t = sim.t;
+    // Blocked with no rule for it, then the student adds the TCP rule that would let it out.
+    expect(connect(sim, 'nurse', WEB, 443).reason).toBe('firewall');
+    const at = sim.events.find((e) => e.type === 'firewall' && e.device === 'fwB' && e.t >= t)!.t;
+    sim.fwAddRule('fwB', { ...STAFF_OUT, proto: 'tcp' });
+    expect(fwDenyText(sim, 'fwB', at)).toBe('Firewall B blocked it: no rule matched (the implicit deny).');
+  });
+
+  it('says nothing extra when a wrong-way rule is added after the block', () => {
+    const sim = placed();
+    const t = sim.t;
+    expect(connect(sim, 'nurse', WEB, 443).reason).toBe('firewall');
+    const at = sim.events.find((e) => e.type === 'firewall' && e.device === 'fwB' && e.t >= t)!.t;
+    sim.fwAddRule('fwB', { ...STAFF_OUT, dir: 'in', proto: 'tcp' });
+    expect(fwDenyText(sim, 'fwB', at)).toBe('Firewall B blocked it: no rule matched (the implicit deny).');
+  });
+
+  it('says nothing extra for an implicit deny that no rule would turn around', () => {
+    const sim = placed();
+    const t = sim.t;
+    sim.ping('attacker', WEB);
+    sim.runUntilIdle();
+    expect(fwDenyText(sim, 'fwA', sim.events.find((e) => e.type === 'firewall' && e.t >= t)!.t)).toBe(
+      'Firewall A blocked it: no rule matched (the implicit deny).',
+    );
+  });
+
+  it('tags the firewall, not every cable end, when it is placed', () => {
+    const sim = buildHospital();
+    const n = sim.events.length;
+    sim.placeFirewall('fwA', ...EDGE, 'inet');
+    const loud = sim.events.slice(n).filter((e) => !e.quiet);
+    expect(loud.map((e) => e.type === 'config' && e.what)).toEqual(['firewall-placed']);
+  });
+});
+
+describe('firewall lab goals', () => {
+  it('counts the clinic in step 5 only while the coworker’s deny rule is still there', () => {
+    const goal = step('order').goals!.find((g) => g.id === 'clinic')!;
+    const sim = buildHospital();
+    step('order').setup!(sim);
+    const since = sim.t;
+    const deny = sim.dev('fwA').firewall!.rules.find((r) => r.action === 'deny')!;
+    sim.fwDeleteRule('fwA', deny.id);
+    expect(connect(sim, 'clinic', WEB, 22).status).toBe('open');
+    expect(goal.check({ sim, since })).toBe(false);
+  });
+
+  it('does not count a clinic login from before the deny rule was put back in the wrong order (step 5)', () => {
+    const goal = step('order').goals!.find((g) => g.id === 'clinic')!;
+    const sim = buildHospital();
+    step('order').setup!(sim);
+    const since = sim.t;
+    const rules = () => sim.dev('fwA').firewall!.rules;
+    const at = rules().findIndex((r) => r.action === 'deny');
+    sim.fwDeleteRule('fwA', rules()[at].id);
+    expect(connect(sim, 'clinic', WEB, 22).status).toBe('open');
+    // Put the deny back where it was, above the clinic's rule.
+    sim.fwAddRule('fwA', DENY_IN_TCP, at);
+    sim.runUntilIdle();
+    expect(goal.check({ sim, since })).toBe(false);
+    // Fix the order the intended way and test again.
+    const clinic = rules().find((r) => r.src === CLINIC_SSH.src)!;
+    sim.fwMoveRule('fwA', clinic.id, rules().findIndex((r) => r.action === 'deny'));
+    expect(connect(sim, 'clinic', WEB, 22).status).toBe('open');
+    expect(goal.check({ sim, since })).toBe(true);
+  });
+
+  it('needs scans of both networks for the rescan in step 7', () => {
+    const rescan = step('log').goals!.find((g) => g.id === 'rescan')!;
+    const sim = buildHospital();
+    step('log').setup!(sim);
+    const since = sim.t;
+    sim.scan('attacker', SERVER_NET);
+    sim.runUntilIdle();
+    expect(rescan.check({ sim, since })).toBe(false);
+    sim.scan('attacker', STAFF_NET);
+    sim.runUntilIdle();
+    expect(rescan.check({ sim, since })).toBe(true);
+  });
+
+  it('needs Firewall B to allow every protocol out, not only TCP, for the nurse ping in step 6', () => {
+    const ping = step('inner').goals!.find((g) => g.id === 'nurse-ping')!;
+    const press = (sim: Sim, id: string) => step('inner').actions!.find((a) => a.id === id)!.run(sim);
+    for (const [proto, want] of [['tcp', false], ['any', true]] as const) {
+      const sim = buildHospital();
+      step('inner').setup!(sim);
+      const since = sim.t;
+      sim.fwAddRule('fwB', { ...STAFF_OUT, proto });
+      press(sim, 'nurse-web');
+      press(sim, 'nurse-ping');
+      sim.runUntilIdle();
+      expect(connected(sim, 'nurse', WEB, 443), proto).toBe(true);
+      expect(ping.check({ sim, since }), proto).toBe(want);
+      // The nurse's ping crosses both firewalls, the slowest round trip in the
+      // lab. A working rule must get its reply before the ping gives up.
+      if (want) expect(sim.events.some((e) => e.t >= since && e.type === 'ping-fail' && e.device === 'nurse'), 'timed out').toBe(false);
+    }
   });
 });
