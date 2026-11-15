@@ -35,6 +35,8 @@ export const MAC = {
   visitor: '0a:0c:af:00:00:31',
   /** A volunteer's new laptop, plugged in on day 5 (harmless). */
   volunteer: '0a:70:1e:00:00:41',
+  /** A small wired box with no radio, plugged in overnight on day 8: only the switch's new-device rule can see it. */
+  wiredBox: '02:5e:b0:00:00:08',
 };
 
 export const IP = {
@@ -69,7 +71,7 @@ export const SPOTS = [
 
 /** Places in the gym the triangulation card can name. */
 export const PLACES = [
-  { label: 'behind the stacked bleachers', x: TWIN_POS.x, y: TWIN_POS.y },
+  { label: 'behind the stacked bleacher seats', x: TWIN_POS.x, y: TWIN_POS.y },
   { label: 'by the east door', x: 640, y: 260 },
   { label: 'at center court', x: 330, y: 360 },
   { label: 'by the north wall', x: 100, y: 200 },
@@ -101,6 +103,7 @@ export const RECORD: AirRecord[] = [
   { day: 3, time: '19:45', kind: 'noise', channel: 6, level: 14, what: 'movie night (day 3)', attack: false },
   { day: 5, time: '09:12', kind: 'port-mac', port: 'port 4', mac: MAC.volunteer, what: "a volunteer's new laptop", attack: false },
   { day: 7, time: '21:30', kind: 'noise', channel: 6, level: 7, what: 'a quiet evening', attack: false },
+  { day: 8, time: '02:14', kind: 'port-mac', port: 'port 5', mac: MAC.wiredBox, what: 'a wired box with no radio (day 8)', attack: true },
   { day: 10, time: '19:50', kind: 'noise', channel: 6, level: 17, what: 'movie night (day 10)', attack: false },
   { day: 13, time: '23:41', kind: 'port-mac', port: 'port 7', mac: BSSID.rogue, what: 'the rogue box', attack: true },
   { day: 13, time: '23:43', kind: 'ap', ssid: ROGUE_SSID, bssid: BSSID.rogue, channel: 11, what: 'the rogue box', attack: true },

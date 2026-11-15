@@ -194,9 +194,20 @@ describe('watch-the-air lab', () => {
       const r = at(level);
       expect(r.missed).toEqual([]);
       expect(r.falseAlarms).toEqual(["a volunteer's new laptop"]);
-      // The recommend step tells students this count.
-      expect(r.alerts.length).toBe(8);
+      expect(r.caught).toHaveLength(4);
+      expect(r.alerts.length).toBe(9);
     }
+  });
+
+  it('turning the new-device rule off misses the wired box, so the laptop question has evidence behind it', () => {
+    const w = buildWatch().dev('wap').wids!;
+    for (const r of Object.keys(w.rules) as (keyof typeof w.rules)[]) w.rules[r] = true;
+    w.noiseThreshold = 40;
+    w.rules['new-mac'] = false;
+    const r = replayRecord(w, 0);
+    expect(r.missed).toEqual(['a wired box with no radio (day 8)']);
+    expect(r.falseAlarms).toEqual([]);
+    expect(r.caught).toContain('the rogue box');
   });
 
   it('each rule alone misses something, so the alarms work as a set', () => {
@@ -315,7 +326,7 @@ describe('watch-the-air lab', () => {
   it('says a device with a profile checked the copy for the certificate and sent no login', () => {
     const s = playThrough('lookalike');
     const lines = watchTheAirLab.steps.find((st) => st.id === 'lookalike')!.actions![0].outcome!(s.sim, 0);
-    expect(lines[0].text).toBe("Volunteer desk stayed on the real network. Its profile asked the copy for radius.shelter's certificate, got none, and sent no login.");
+    expect(lines[0].text).toBe('Volunteer desk tried the copy first. Its profile asked for proof that the copy is radius.shelter, got none, sent no login, and went back to the real network.');
   });
 
   it('replays the same network and citations after a reload', () => {

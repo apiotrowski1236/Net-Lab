@@ -84,11 +84,14 @@ export function WidsCard({ session, spec }: ToolCardProps<'wids'>) {
               </tr>
               <tr>
                 <td>False alarms</td>
-                <td class={last.falseAlarms.length ? 'warn' : ''}>{last.falseAlarms.length ? last.falseAlarms.map((f) => `${f} (${raisedBy(last, f)})`).join(', ') : 'none'}</td>
+                <td class={last.falseAlarms.length ? 'warn' : ''}>{last.falseAlarms.length ? last.falseAlarms.map((f) => `${f}, from the ${raisedBy(last, f)}`).join('; ') : 'none'}</td>
               </tr>
               <tr>
                 <td>Alert lines</td>
-                <td>{last.alerts.length}</td>
+                <td>
+                  {last.alerts.length}
+                  {last.alerts.length > last.caught.length + last.falseAlarms.length && <div class="small muted">One event can set off more than one rule, so there are more lines than events.</div>}
+                </td>
               </tr>
             </tbody>
           </table>

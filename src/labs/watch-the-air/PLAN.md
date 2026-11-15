@@ -66,7 +66,7 @@ Deltas from the outline:
 - **Evidence.** Deauthentication is not modeled. The three cited lines are "new network heard", the visitor "left Shelter-WiFi", and the visitor "seen talking to ... not on the approved list" (the stray line).
 - **Jam.** The jammer has no map device: `setJam` sets `sim.jam` on channel 6 and the AP logs noise 88. The student checks port 1 on the switch (up), scans (the AP still shows, noise by channel), and opens the newest noise line. The step text mentions no ping.
 - **Crowd.** Movie night is 140 devices (the noise formula needs more than 120 to clear 10): noise 17, everyone stays connected.
-- **Alarms.** Four rules and six noise levels (10 to 95) on the **Wireless alarms** card. Replay scores the 14-day `RECORD`: attacks caught, missed, false alarms. Levels 20 to 80 catch all three attacks with no movie-night alarm; every setting still flags the volunteer's laptop on day 5, which the step's question discusses.
+- **Alarms.** Four rules and six noise levels (10 to 95) on the **Wireless alarms** card. Replay scores the 14-day `RECORD`: attacks caught, missed, false alarms. Levels 20 to 80 catch all four attacks (the three from tonight plus a radio-less wired box on day 8 that only the switch rule sees) with no movie-night alarm; every setting still flags the volunteer's laptop on day 5, which the step's question discusses.
 
 Shared APIs added (all additive):
 
