@@ -350,7 +350,7 @@ export const watchTheAirLab: LabDef = {
           afterGoals: true,
           prompt: 'The copy used the exact name and WPA3, and some devices with a profile heard it louder than the real network. Why did they stay on the real network?',
           options: [
-            { id: 'profile', text: `Their profile checks for ${SERVER}'s certificate.`, correct: true },
+            { id: 'profile', text: `Their profile makes the server prove it has ${SERVER}'s secret key.`, correct: true },
             { id: 'name', text: 'They noticed the underscore in the network name.', feedback: 'By then the copy used the exact name. Anyone can copy a name.' },
             { id: 'louder', text: 'The real network was louder for every device with a profile.', feedback: 'Not for all of them. A device can hear the copy louder and still refuse it.' },
             { id: 'mac', text: 'The copy blocked their MAC addresses from joining.', feedback: 'The copy wants everyone to join. The devices turned it down themselves.' },

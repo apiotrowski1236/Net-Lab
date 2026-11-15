@@ -74,7 +74,7 @@ export const PLACES = [
   { label: 'behind the folded-up gym seats', x: TWIN_POS.x, y: TWIN_POS.y },
   { label: 'by the east door', x: 640, y: 260 },
   { label: 'at center court', x: 330, y: 360 },
-  { label: 'by the north wall', x: 100, y: 200 },
+  { label: 'by the north wall', x: 330, y: 185 },
 ];
 
 /** The wiring closet port the rogue box is plugged into. */
