@@ -54,14 +54,25 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
       <ul class="bench-attacks">
         {inDay.map((a) => {
           const hit = r.caught.find((x) => x.attack === a.id);
+          // The alert that caught it first: what the method saw, and when on the replayed day.
+          const why = hit && r.alerts.filter((x) => x.attack === a.id && x.by === hit.by).sort((x, y) => x.at - y.at)[0];
           return (
             <li key={a.id} class={hit ? 'caught' : 'missed'}>
               <Icon name={hit ? 'check' : 'x'} />
               <span>
                 {a.name}
-                {a.novel && <span class="pill tiny muted">new</span>}
+                {a.novel && (
+                  <span class="pill tiny muted" title="Nobody had seen this attack before, so no signature exists for it">
+                    new attack
+                  </span>
+                )}
               </span>
               <span class="small">{hit ? `caught by ${hit.by} in ${duration(hit.detectMs)}` : 'missed'}</span>
+              {why && (
+                <span class="small muted bench-why">
+                  <span class="mono">{clock(why.at)}</span> {why.why}
+                </span>
+              )}
             </li>
           );
         })}
@@ -242,8 +253,10 @@ function AnalystQueue({ session, devId, client }: { session: ToolCardProps['sess
   const run = lastRun(b, (r) => r.client === client);
   const replaying = b.runs.find((r) => r.client === client && !r.result);
   const name = (id: string) => b.config.names?.[id] ?? sim.devices[id]?.label ?? id;
-  const pick = (a: BenchAlert, i: number) => {
+  const pick = (a: BenchAlert, i: number, el: HTMLElement) => {
     setOpen(open === i ? null : i);
+    // The detail opens under the row, inside a short scroll box: bring it into view.
+    if (open !== i) requestAnimationFrame(() => el.closest('li')?.scrollIntoView({ block: 'nearest' }));
     const entry = dev.logs.find((e) => e.no === a.logNo);
     if (entry) session.ui({ type: 'ui:open-log', device: dev.id, entry });
   };
@@ -281,7 +294,7 @@ function AnalystQueue({ session, devId, client }: { session: ToolCardProps['sess
             <ol class="bench-alerts" aria-label={`Run ${run.no} alerts`}>
               {r.alerts.map((a, i) => (
                 <li key={`${run.no}-${i}`} class={open === i ? 'open' : ''}>
-                  <button class="bench-alert" onClick={() => pick(a, i)} aria-expanded={open === i}>
+                  <button class="bench-alert" onClick={(e) => pick(a, i, e.currentTarget)} aria-expanded={open === i}>
                     <span class="mono">{clock(a.at)}</span>
                     <span>{name(a.host)}</span>
                     <span class={`pill tiny ${QUEUE_TONE[a.queue ?? 'false']}`}>{QUEUE_TEXT[a.queue ?? 'false']}</span>

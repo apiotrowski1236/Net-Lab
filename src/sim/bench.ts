@@ -151,6 +151,8 @@ export interface BenchConfig {
   budget: number;
   /** Device id -> its name on screen, for alert text. */
   names?: Record<string, string>;
+  /** Port -> what it's for, in a few words ("file sharing"), for alert text. */
+  ports?: Record<number, string>;
 }
 
 /** A baseline: each kind of traffic's typical hourly amount. */
@@ -293,6 +295,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
   const day = client.days[input.day];
   if (!day) throw new Error(`${client.name} has no recorded day "${input.day}"`);
   const name = (id: string) => config.names?.[id] ?? id;
+  const port = (n: number) => (config.ports?.[n] ? `port ${n} (${config.ports[n]})` : `port ${n}`);
   const alerts: BenchAlert[] = [];
   const useSig = input.method !== 'anomaly';
   const useAnom = input.method !== 'signature';
@@ -301,7 +304,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
     const sigs = dbSignatures(config, input.db).filter((s) => s.file);
     for (const r of day.records) {
       const s = sigs.find((x) => x.file === r.file);
-      if (s) alerts.push({ at: r.at, host: r.host, by: 'signature', why: `matched signature "${s.name}" (${s.file})`, attack: r.attack });
+      if (s) alerts.push({ at: r.at, host: r.host, by: 'signature', why: `matched the "${s.name}" signature (${shortDetail(s.file!)})`, attack: r.attack });
     }
   }
 
@@ -319,7 +322,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
           at: r.at,
           host: r.host,
           by: 'anomaly',
-          why: `new kind of traffic: ${name(r.host)} ${r.where === 'internet' ? 'to the internet' : 'inside'} (${r.peer}) on port ${r.port}`,
+          why: `new kind of traffic: ${name(r.host)} to ${r.peer}${r.where === 'internet' ? ' on the internet' : ''}, ${port(r.port)}`,
           attack: r.attack,
         });
         continue;
@@ -339,7 +342,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
         at: bad ? bad.at : h * 60 + 30,
         host: rs[0].host,
         by: 'anomaly',
-        why: `${name(rs[0].host)} to ${rs[0].peer}, port ${rs[0].port}: on pace for ${amount(total)} in the hour starting ${clock(h * 60)}, usual ${amount(usual)} (${signedPct(dev)}, outside ±${input.tolerance}%)`,
+        why: `${name(rs[0].host)} to ${rs[0].peer}, ${port(rs[0].port)}: on pace for ${amount(total)} in the hour starting ${clock(h * 60)}, usual ${amount(usual)} (${amount(Math.abs(total - usual))} ${total >= usual ? 'more' : 'less'}, ${signedPct(dev)}, outside ±${input.tolerance}%)`,
         attack: bad?.attack,
       });
     }
@@ -431,6 +434,9 @@ export function amount(mb: number): string {
   if (mb >= 10) return `${Math.round(mb)} MB`;
   return `${mb.toFixed(1)} MB`;
 }
+
+/** A signature's detail as an alert shows it: a 64-character hash cut to its first 8. */
+export const shortDetail = (file: string): string => file.replace(/^hash ([0-9a-f]{8})[0-9a-f]{56}$/, 'file hash $1…');
 
 const signedPct = (dev: number) => `${dev >= 0 ? '+' : '−'}${Math.round(Math.abs(dev) * 100)}%`;
 

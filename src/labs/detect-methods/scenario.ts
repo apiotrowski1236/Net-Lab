@@ -314,6 +314,7 @@ export const BENCH_CONFIG: BenchConfig = {
   db: SEP,
   budget: BUDGET,
   names: NAMES,
+  ports: { 443: 'secure web', 445: 'file sharing', 502: 'machine control', 5060: 'calls' },
 };
 
 // ---------------------------------------------------------------------------
@@ -386,7 +387,7 @@ export function buildDetect(): Sim {
       y: TOP,
       notes: [
         'County 911 Dispatch answers emergency calls and sends police, fire, and ambulances. If it goes down, help arrives late.',
-        'Its sensor sees about 15,000 connections a minute.',
+        'Its traffic rises and falls as calls come in, but much less than StreamCo’s. Its sensor sees about 15,000 connections a minute.',
       ],
     })
     .host('cd-console', { label: NAMES['cd-console'], icon: 'desktop', x: 1170, y: ROW, ip: '10.3.0.21/24', notes: ['Where a dispatcher takes calls and assigns units.'] })

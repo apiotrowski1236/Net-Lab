@@ -6528,7 +6528,7 @@ button.pl-tile:active {
   gap: 10px 18px;
   margin-top: 8px;
 }
-@media (max-width: 760px) {
+@media (max-width: 960px) {
   .bench-cols {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -6576,6 +6576,11 @@ button.pl-tile:active {
   align-items: center;
   gap: 6px;
   padding: 2px 0;
+}
+.bench-attacks .bench-why {
+  grid-column: 2 / -1;
+  margin-top: -2px;
+  overflow-wrap: anywhere;
 }
 .bench-attacks li.caught svg {
   color: var(--good);

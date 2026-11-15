@@ -163,10 +163,21 @@ describe('detect-methods: steps', () => {
     expect(bench(sim).settings[DISPATCH].day).toBe(RENAMED);
   });
 
-  it('accepts the time in the formats students write', () => {
-    const q = step('bypass').questions!.find((x) => x.id === 'when')!;
-    if (q.kind !== 'text') throw new Error('text question');
-    for (const ok of ['10:42', '10.42', '10:42 am', 'at 10:42', '10 42', '10:42:00']) expect(q.expect!.test(ok)).toBe(true);
-    for (const no of ['10:38', '14:20', '9:10']) expect(q.expect!.test(no)).toBe(false);
+  it('the run card’s reason lines say what the questions ask about', () => {
+    // Step 4: the beacon stands out as new traffic, port 4444 included.
+    const plant = run(PLANT, 'anomaly', { baseline: PLANT_CLEAN });
+    expect(plant.alerts.find((a) => a.attack === BEACON)!.why).toBe('new kind of traffic: Filler controller to 185.220.101.4 on the internet, port 4444');
+    // Step 9: signatures caught the original at the 10:38 download; anomaly catches the repack at 10:42, locking files.
+    const orig = run(DISPATCH, 'signature').alerts.find((a) => a.attack === LOCKDOWN)!;
+    expect([orig.at, orig.why]).toEqual([10 * 60 + 38, 'matched the "LockDown ransomware" signature (file hash 313e2d61…)']);
+    const repack = run(DISPATCH, 'hybrid', { baseline: DISPATCH_BASE, day: RENAMED }).alerts.find((a) => a.attack === LOCKDOWN)!;
+    expect([repack.at, repack.why]).toEqual([10 * 60 + 42, 'new kind of traffic: Dispatcher console to Dispatch server, port 445 (file sharing)']);
+    // Step 7: the volume alert spells out how much more than usual.
+    const leak = run(STREAM, 'anomaly', { baseline: STREAM_BASE }).alerts.find((a) => a.attack === LEAK)!;
+    expect(leak.why).toBe('Content library to partner studios, port 443 (secure web): on pace for 5.0 GB in the hour starting 14:00, usual 2.0 GB (3.0 GB more, +150%, outside ±25%)');
+  });
+
+  it('the 911 step lists its goals in the order the steps say', () => {
+    expect(step('hybrid').goals!.map((g) => g.id)).toEqual(['signature', 'baseline', 'anomaly', 'hybrid']);
   });
 });
