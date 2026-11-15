@@ -197,14 +197,16 @@ describe('capture-analysis: cited packets', () => {
     expect(say('flood', 'cite-flood', [flood[0].no - 1, ...flood.slice(0, 10).map((c) => c.no)].join(', '))).toMatch(/from before or after the flood/);
   });
 
-  it('cite-orders takes the cmd= replies, not the server’s “received” after the upload', () => {
+  it('cite-commands takes two different cmd= replies, not the server’s “received” after the upload', () => {
     const replies = file('night').frames.filter((c) => toC2(c.frame) && c.frame.ip!.src === IP.c2 && payloadLen(c.frame.ip!) > 0);
     const text = (c: (typeof replies)[number]) => (c.frame.ip!.app.kind === 'svc' ? (c.frame.ip!.app.text ?? '') : '');
-    const cmds = replies.filter((c) => text(c).includes('cmd=')).map((c) => c.no);
+    const sleeps = replies.filter((c) => text(c).includes('cmd=sleep')).map((c) => c.no);
+    const upload = replies.find((c) => text(c).includes('cmd=upload'))!.no;
     const ok = replies.find((c) => /received/.test(text(c)))!.no;
-    expect(cmds.length).toBeGreaterThanOrEqual(2);
-    expect(say('c2', 'cite-orders', `${cmds[0]}, ${cmds[1]}`)).toBeUndefined();
-    expect(say('c2', 'cite-orders', `${cmds[0]}, ${ok}`)).toBe(`Packet ${ok} is the server confirming the upload, not a command. A command reply has cmd= in it.`);
+    expect(sleeps.length).toBeGreaterThanOrEqual(2);
+    expect(say('c2', 'cite-commands', `${sleeps[0]}, ${upload}`)).toBeUndefined();
+    expect(say('c2', 'cite-commands', `${sleeps[0]}, ${sleeps[1]}`)).toMatch(/same command/);
+    expect(say('c2', 'cite-commands', `${sleeps[0]}, ${ok}`)).toBe(`Packet ${ok} is the server confirming the upload, not a command. A command reply has cmd= in it.`);
   });
 
   it('turns away numbers that are not in the file', () => {
@@ -217,11 +219,7 @@ describe('capture-analysis: cited packets', () => {
     expect(say('scan', 'cite-open', `${syn}, ${syn + 1}`)).toMatch(/is the scanner’s SYN/);
   });
 
-  it('checks the scanner and C2 addresses, with a nudge for the target', () => {
-    expect(say('scan', 'scanner-ip', ' 203.0.113.66 ')).toBeUndefined();
-    expect(say('scan', 'scanner-ip', IP.fares)).toMatch(/the target/);
-    expect(say('c2', 'c2-ip', IP.c2)).toBeUndefined();
-    expect(say('c2', 'c2-ip', IP.cams)).toMatch(/recorder itself/);
+  it('takes the Telnet password only with the right capital letters', () => {
     expect(say('telnet', 'password', 'bus$top42')).toMatch(/capital letters/);
   });
 });

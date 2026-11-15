@@ -1,6 +1,6 @@
 import { evaluate } from '../../sim/firewall';
 import { payloadLen } from '../../sim/tcp';
-import type { FileFrame } from '../../sim/capfile';
+import { loadCaptureFile, parsePacketList, type FileFrame } from '../../sim/capfile';
 import type { Sim } from '../../sim/sim';
 import type { Frame, IpPacket } from '../../sim/types';
 import { citeQuestion } from '../cite';
@@ -43,7 +43,30 @@ const payload = (f: Frame) => !!f.ip && payloadLen(f.ip) > 0;
 /** The text a service packet carries (an HTTP reply's headers and body). */
 const svcText = (f: Frame) => (f.ip?.app.kind === 'svc' ? (f.ip.app.text ?? '') : '');
 const port = (f: Frame, p: number) => f.ip?.srcPort === p || f.ip?.dstPort === p;
-const ipText = /^\s*\d{1,3}(\.\d{1,3}){3}\s*$/;
+
+/** The different commands (sleep, upload) in the 02:00 packets a student cites. */
+function citedCommands(v: string): Set<string> {
+  const p = parsePacketList(v);
+  const out = new Set<string>();
+  if (!p.ok) return out;
+  const file = loadCaptureFile(FILES.night);
+  for (const n of p.nums) {
+    const cmd = /cmd=(\w+)/.exec(svcText(file.frames[n - 1]?.frame ?? ({} as Frame)))?.[1];
+    if (cmd) out.add(cmd);
+  }
+  return out;
+}
+
+/** A cite question for the 02:00 commands that also wants two different ones, so following only sleep replies doesn't pass. */
+function twoCommands(o: Parameters<typeof citeQuestion>[0]) {
+  const q = citeQuestion(o);
+  const fits = q.verify!;
+  return {
+    ...q,
+    verify: (v: string, answer: Parameters<typeof fits>[1]) =>
+      fits(v, answer) ?? (citedCommands(v).size < 2 ? 'Every packet here gives the same command. Follow more check-ins: one reply gives a different command.' : undefined),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // The fix step: what the live network does now
@@ -100,7 +123,7 @@ const replayCheckinAction: ActionDef = {
 
 export const captureAnalysisLab: LabDef = {
   id: 'capture-analysis',
-  version: 2,
+  version: 3,
   title: 'Finding Attacks in Packet Captures',
   tagline: 'Open a day of packet captures from a bus depot, tell attacks from an outage and a false alarm, and cite the packets that prove each attack.',
   unit: 3,
@@ -151,7 +174,7 @@ export const captureAnalysisLab: LabDef = {
         {
           id: 'top-talker',
           kind: 'choice',
-          prompt: 'Which address sends and receives the most packets in a normal hour?',
+          prompt: 'Which address sends and receives the most packets in the 07:00 file?',
           options: [
             { id: 'fares', text: '198.51.100.20, the fare server', correct: true },
             { id: 'maps', text: '203.0.113.10, the map service', feedback: 'It comes second. Sort Endpoints by Packets and read the top row.' },
@@ -239,17 +262,17 @@ export const captureAnalysisLab: LabDef = {
       id: 'smurf',
       title: 'Slow at lunch: the first spike',
       body: md`
-        Staff said the network was slow at lunch. Open **12:00 depot.pcap**, then **I/O Graph**: a bar for each second, as tall as the number of packets in it. Point at a bar to read its numbers.
+        Staff said the network was slow at lunch. **12:00 depot.pcap** is open. Press **I/O Graph**: a bar for each second, as tall as the number of packets in it.
 
         There are two spikes. Start with the first, at about 14 to 24 seconds. Filter to ICMP, the protocol ping uses:
 
         \`icmp\`
 
-        The matching packets turn darker on the graph, so you can see the filter covers the spike. Click a bar in the spike to open the **Packet list** at that second. An **echo request** is a ping, and an **echo reply** answers it. To list only the requests, filter \`icmp.type == 8\`.
+        The matching packets turn darker on the graph, so you can see the filter covers the spike. An **echo request** is a ping, and an **echo reply** answers it. To list only the requests, filter \`icmp.type == 8\`.
 
-        The requests go to 198.51.100.255, the depot's **broadcast address**. Every computer on the depot network gets a copy, and each one replies. This works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
+        The requests go to 198.51.100.255, the depot's **broadcast address**, so every depot computer gets a copy and replies. Pings sent to a broadcast address like this are a **smurf attack**. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
 
-        Now read the Source. Anyone who builds a packet can write any address there. Faking it is called **spoofing**, and the fake address is **forged**. Who gets all the replies?
+        Now read the Source. Anyone who builds a packet can write any address there. Faking it is called **spoofing**, and the fake address is **forged**.
       `,
       open: 'capture',
       tools: [files('noon')],
@@ -296,7 +319,7 @@ export const captureAnalysisLab: LabDef = {
             },
           ],
           explain:
-            'This is a **smurf attack**: pings to a network’s broadcast address, with the victim’s address forged as the source. Every computer replies to the victim, so one packet becomes nine. The depot was the amplifier, and its slow lunch was a side effect. Modern routers turn directed broadcast off by default, and most computers ignore broadcast pings, but this old router and its computers don’t.',
+            'In a smurf attack, the victim’s address is forged as the source. Every computer replies to the victim, so one packet becomes nine. The depot was the amplifier, and its slow lunch was a side effect. Modern routers turn directed broadcast off by default, and most computers ignore broadcast pings, but this old router and its computers don’t.',
         },
       ],
     },
@@ -305,9 +328,9 @@ export const captureAnalysisLab: LabDef = {
       id: 'backup',
       title: 'Slow at lunch: the second spike',
       body: md`
-        Now the second spike, at about 38 to 47 seconds. If a filter is on, clear it. Open **Conversations**: it lists each pair of addresses that talked, busiest first.
+        Now the second spike, at about 38 to 47 seconds. Open **Conversations**: it lists each pair of addresses that talked, busiest first.
 
-        The top pair is two depot computers. Press **Filter** on that row to show only their packets. Then look at the I/O Graph again, and read a few packets. Which port do they use? (Port 873 is **rsync**, a program that copies files from one computer to another.)
+        The top pair is two depot computers. Press **Filter** on that row to show only their packets, and read a few. They use port 873, **rsync**: a program that copies files from one computer to another.
 
         A detector watches traffic and raises an alert when something looks wrong. "True" or "false" says whether there really was an attack:
 
@@ -340,7 +363,7 @@ export const captureAnalysisLab: LabDef = {
             { id: 'tn', text: 'A true negative', feedback: 'A true negative is no alert for harmless traffic. Here the detector did alert.' },
           ],
           explain:
-            'One known pair, one port, the backup program, and a steady stream of full-size packets: it’s the nightly backup, which someone started early by hand. A spike alone doesn’t prove an attack, so this alert is a **false positive**. Too many of them, and analysts start ignoring alerts. (rsync on port 873 doesn’t encrypt what it copies. That’s a weakness worth fixing, but it isn’t an attack.)',
+            'One known pair, one port, the backup program, and a steady stream of full-size packets: it’s most likely the nightly backup, started early. A spike alone doesn’t prove an attack, so this alert is a **false positive**. Too many of them, and analysts start ignoring alerts. (rsync on port 873 doesn’t encrypt what it copies. That’s a weakness worth fixing, but it isn’t an attack.)',
         },
       ],
     },
@@ -349,13 +372,13 @@ export const captureAnalysisLab: LabDef = {
       id: 'arp',
       title: 'One MAC, two addresses',
       body: md`
-        Open **13:00 depot.pcap** and filter to ARP replies (opcode 2 is a reply, and 1 is a request):
+        **13:00 depot.pcap** is open. Filter to ARP replies (opcode 2 is a reply, and 1 is a request):
 
         \`arp.opcode == 2\`
 
-        A **MAC address** is the hardware name of a network card, like ${MAC.gw}. An IP address is where a device sits on the network. An **ARP reply** connects the two: it tells a computer "this IP address is at this MAC address." The Info column shows each claim, and the Source column shows the MAC that sent it. Open a reply to read its whole **Claim** in the ARP layer.
+        A **MAC address** is the hardware name of a network card, like 08:00:27:4c:9d:e2. An IP address is where a device sits on the network. An **ARP reply** connects the two: it tells a computer "this IP address is at this MAC address." The Info column shows each claim, and the Source column shows the MAC that sent it. Open a reply to read its whole **Claim** in the ARP layer.
 
-        The router is 198.51.100.1. Click [[gw]] to see its real MAC address. Do all the replies agree with it? Write down a MAC that doesn't match, then click devices on the map to find whose it is. Many MACs here start with the same numbers, so compare the last part.
+        The router is 198.51.100.1. Click [[gw]] to see its real MAC address. Do all the replies agree with it? Write down a MAC that doesn't match. To find whose it is, read the router's **ARP table**: its list of which IP is at which MAC, with each device's name. Many MACs here start with the same numbers, so compare the last part.
 
         A computer believes any ARP reply, unless its entry for the router was typed in by hand. That is a **static ARP entry**, and no reply can change it.
       `,
@@ -386,16 +409,17 @@ export const captureAnalysisLab: LabDef = {
                 : f.arp?.op === 'request'
                   ? 'is an ARP request, a question. Cite the replies.'
                   : 'is not an ARP reply.',
+          explain: `Each one says 198.51.100.1 is at ${MAC.breakroom}. The router’s real MAC is ${MAC.gw}.`,
         }),
         {
           id: 'whose-mac',
           kind: 'choice',
-          prompt: 'Which device sent the forged replies? Click devices on the map to compare their MACs.',
+          prompt: 'Which device sent the forged replies?',
           options: [
             { id: 'breakroom', text: 'The Break-room PC', correct: true },
             { id: 'router', text: 'The Depot router', feedback: `The router’s MAC is ${MAC.gw}. The forged replies only claim its IP address.` },
-            { id: 'dispatch2', text: 'Dispatch 2', feedback: 'Dispatch 2 is a victim: the replies are sent to it. Click devices on the map and compare MACs.' },
-            { id: 'analyst', text: 'The Analyst laptop', feedback: 'The analyst laptop only listens on the mirror port. Click devices on the map and compare MACs.' },
+            { id: 'dispatch2', text: 'Dispatch 2', feedback: 'Dispatch 2 is a victim: the replies are sent to it. Compare the last part of the MAC with the router’s ARP table.' },
+            { id: 'analyst', text: 'The Analyst laptop', feedback: 'The analyst laptop only listens on the mirror port. Compare the last part of the MAC with the router’s ARP table.' },
           ],
           explain:
             'This is **ARP poisoning**. The Break-room PC tells both dispatch computers that the router’s IP is at its own MAC. Their internet traffic now goes to the Break-room PC first, which passes it on: an on-path attack. It can see who dispatch talks to and when, and read anything that isn’t encrypted. A static ARP entry for the router on each dispatch computer would stop it.',
@@ -409,7 +433,7 @@ export const captureAnalysisLab: LabDef = {
       body: md`
         A switch keeps a **MAC address table**: which MAC is on which port, so it can send each frame out one port only. The table has room for only so many MACs. When it's full, the switch can't learn new ones. It sends each frame it can't place out every port, like a **hub** (an old device that repeats everything to everyone).
 
-        Open **14:00 depot.pcap** and **Endpoints: Ethernet**, which lists every MAC address in the file. A depot this size has about ten. How many does this file have? The count is above the table.
+        **14:00 depot.pcap** is open. Open **Endpoints: Ethernet**, which lists every MAC address in the file. A depot this size has about ten. How many does this file have? The count is above the table.
 
         Open the **I/O Graph** and click a bar in the spike. The **Packet list** opens at that second. Open a few frames there. Each is an Ethernet frame with nothing inside, from a different made-up MAC. (Click a row, then the arrow keys move up and down.)
       `,
@@ -431,7 +455,7 @@ export const captureAnalysisLab: LabDef = {
           // A range across the flood picks up a few ordinary packets sent in the same seconds. They don't count either way.
           skip: (c) => !isFloodFrame(c.frame) && c.t >= 20_000 && c.t <= 30_500 && 'is ordinary depot traffic sent during the flood, so it doesn’t count.',
           fits: (c) => (isFloodFrame(c.frame) ? true : 'is ordinary depot traffic from before or after the flood.'),
-          explain: 'A range across the flood can take in a few ordinary packets sent in the same seconds. Those don’t count for or against you. In a real report, say so, or list only the flood’s frames.',
+          explain: 'If a range you cite includes a few ordinary packets sent in the same seconds, they don’t count for or against you. In a real report, say so, or list only the flood’s frames.',
         }),
         {
           id: 'mac-table',
@@ -444,7 +468,7 @@ export const captureAnalysisLab: LabDef = {
             { id: 'shut', text: 'It made the switch shut off the port the frames came in on.', feedback: 'Only port security shuts a port, and it was off at 14:00.' },
           ],
           explain:
-            'This is **MAC flooding**. With its table full, the switch acts like a hub. Anyone can then capture traffic meant for other ports. The capture can’t show which port the frames came in on, since the made-up MACs belong to no one. The switch’s MAC table can: at 14:00 it filled up with made-up MACs, all on port 7, the Break-room PC’s port. **Port security** on port 7, which limits how many MACs one port may use, would have stopped it.',
+            'This is **MAC flooding**. With its table full, the switch sends frames for MACs it hasn’t learned out every port, like a hub. Anyone can then capture traffic meant for other ports. The capture can’t show which port the frames came in on, since the made-up MACs belong to no one. The switch’s MAC table did: at 14:00 it filled up with made-up MACs, all on port 7, the Break-room PC’s port. (Those entries have since timed out.) **Port security** on port 7, which limits how many MACs one port may use, would have stopped it.',
         },
       ],
     },
@@ -453,17 +477,20 @@ export const captureAnalysisLab: LabDef = {
       id: 'scan',
       title: 'One address, a thousand ports',
       body: md`
-        Open **15:00 depot.pcap** and **Conversations**. Click the **Ports** heading to sort by it: the number of different ports one side used. Most conversations use a few. One uses more than a thousand.
+        **15:00 depot.pcap** is open. Open **Conversations** and click the **Ports** heading to sort by it: the number of different ports one side used. Most conversations use a few. One uses more than a thousand.
 
         Filter to connection attempts:
 
         \`tcp.flags.syn == 1\`
 
-        One outside address sends a SYN to port 1 on the fare server, then port 2, then 3, and on up. This is a **port scan**: the scanner tries every port to learn which ones are open. A closed port answers RST. An open port answers SYN, ACK, and the scanner ends it with RST before the handshake finishes. (Real scanners like nmap try ports in a random order. This one goes in order, so the pattern is clear.) The scanner isn't on the threat list. A threat list only names attackers someone has already seen.
+        One outside address sends a SYN to port 1 on the fare server, then port 2, then 3, and on up. This is a **port scan**: the scanner tries port after port to learn which ones are open. A closed port answers RST. An open port answers SYN, ACK, and the scanner ends it with RST before the handshake finishes. (Real scanners like nmap try ports in a random order. This one goes in order, so the pattern is clear.) The scanner isn't on the threat list. A threat list only names attackers someone has already seen.
 
-        To find the open ports, show only packets with both flags on. \`&&\` means "and": a packet has to match both sides. Normal kiosk connections have SYN, ACK packets too, so add the scanner's address as well. With the scanner's address in place of 203.0.113.5:
+        To find the open ports, show only packets with both flags on. \`&&\` means "and": a packet has to match both sides. Normal kiosk connections have SYN, ACK packets too, so also match the scanner's address. Copy this filter, then type the scanner's address at the end:
 
-        \`tcp.flags.syn == 1 && tcp.flags.ack == 1 && ip.addr == 203.0.113.5\`
+        \`\`\`
+        tcp.flags.syn == 1 && tcp.flags.ack == 1
+        && ip.addr ==
+        \`\`\`
       `,
       open: 'capture',
       focus: ['fares'],
@@ -478,18 +505,6 @@ export const captureAnalysisLab: LabDef = {
         },
       ],
       questions: [
-        {
-          id: 'scanner-ip',
-          kind: 'text',
-          short: true,
-          prompt: 'What IP address ran the scan?',
-          placeholder: 'An IP address',
-          expect: ipText,
-          expectHint: 'Type one IP address, like 203.0.113.5.',
-          verify: (v) =>
-            v.trim() === IP.scanner ? undefined : v.trim() === IP.fares ? 'That’s the fare server, the target. Who sends the SYNs?' : 'Find the address that sends SYNs to port after port.',
-          explain: '203.0.113.66 sent 1,024 SYNs to the fare server in about six seconds, from the same source port every time.',
-        },
         citeQuestion({
           id: 'cite-open',
           prompt: 'Which packets show the scanner finding an open port? Cite each one.',
@@ -507,7 +522,7 @@ export const captureAnalysisLab: LabDef = {
                     ? 'is a SYN, ACK from an ordinary connection, not an answer to the scanner.'
                     : 'is not a SYN, ACK sent to the scanner.',
           explain:
-            'Two SYN, ACKs go back to 203.0.113.66: from port 443, the fare program, and port 873, rsync. Now the scanner knows where to aim next. A scan is **reconnaissance**: an attacker making a map of targets before attacking them. Nobody approved this one, so it goes in your report as an attack, even though nothing else came from 203.0.113.66. (rsync open to the internet is a problem of its own, since it doesn’t encrypt.)',
+            '203.0.113.66 sent 1,024 SYNs in about six seconds. Two SYN, ACKs go back to it: from port 443, the fare program, and port 873, rsync. Now the scanner knows where to aim next. A scan is **reconnaissance**: an attacker making a map of targets before attacking them. Nobody approved this one, so it goes in your report as an attack, even though nothing else came from 203.0.113.66. (rsync open to the internet is a problem of its own, since it doesn’t encrypt.)',
         }),
       ],
     },
@@ -516,7 +531,7 @@ export const captureAnalysisLab: LabDef = {
       id: 'c2',
       title: 'Wrong port, wrong program',
       body: md`
-        Open **02:00 depot.pcap**, from early this morning. Nobody works at the depot at 2 a.m., so almost everything here is a machine on a schedule. Open **Conversations** to see who talked.
+        **02:00 depot.pcap** is open. It's from early this morning. Nobody works at the depot at 2 a.m., so almost everything here is a machine on a schedule. Open **Conversations** to see who talked.
 
         One pair is the nightly backup. The other is [[cams]] talking to an outside address on port 4444. Compare that address with the threat list in the ticket:
 
@@ -524,7 +539,7 @@ export const captureAnalysisLab: LabDef = {
 
         Web traffic normally uses port 80 (HTTP) or 443 (HTTPS). Port 4444 is the default for a well-known attack tool. A known bad address and a program on the wrong port are both **indicators of compromise** (IoCs). Here "compromised" means broken into: an IoC is evidence in traffic or logs that an attack happened.
 
-        Click one of the recorder's packets and press **Follow TCP Stream**. It puts one connection in order: what the recorder sent in one color, and what came back in another. The recorder makes a **check-in** every ten seconds: a new connection that asks the server for orders. Each check-in has its own stream, so follow two of them to find two commands. To list every check-in, filter to \`tcp.port == 4444 && http\`.
+        Click one of the recorder's packets and press **Follow TCP Stream**. It puts one connection in order: what the recorder sent in one color, and what came back in another. The recorder makes a **check-in** every ten seconds: a new connection that asks the server for orders. Each check-in has its own stream. Follow them until you find two different commands. To list every check-in, filter to \`tcp.port == 4444 && http\`.
       `,
       open: 'capture',
       focus: ['cams'],
@@ -538,20 +553,9 @@ export const captureAnalysisLab: LabDef = {
         },
       ],
       questions: [
-        {
-          id: 'c2-ip',
-          kind: 'text',
-          short: true,
-          prompt: 'What outside IP address does the camera recorder talk to?',
-          placeholder: 'An IP address',
-          expect: ipText,
-          expectHint: 'Type one IP address, like 203.0.113.5.',
-          verify: (v) =>
-            v.trim() === IP.c2 ? undefined : v.trim() === IP.cams ? 'That’s the camera recorder itself. Who does it talk to?' : 'Open Conversations and find the recorder’s partner.',
-        },
-        citeQuestion({
-          id: 'cite-orders',
-          prompt: 'Cite two or more packets where the outside server sends the recorder a command, like cmd=sleep or cmd=upload.',
+        twoCommands({
+          id: 'cite-commands',
+          prompt: 'Cite two packets where the outside server sends the recorder two different commands.',
           file: FILES.night,
           min: 2,
           minText: 'two packet numbers',
@@ -566,7 +570,7 @@ export const captureAnalysisLab: LabDef = {
                     ? 'is the server confirming the upload, not a command. A command reply has cmd= in it.'
                     : true,
           explain:
-            'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. One reply said to upload a garage camera video, and the next connection sent it.',
+            'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. One reply said to upload a garage camera video, and the next connection sent it. A firewall rule on the router that denies traffic out to 192.0.2.44 would cut it off.',
         }),
       ],
     },
@@ -771,7 +775,7 @@ export const captureAnalysisLab: LabDef = {
           expect: /\S/,
           expectHint: 'Type the password from the stream.',
           verify: (v) => (v.trim() === TELNET_PASSWORD ? undefined : v.trim().toLowerCase() === TELNET_PASSWORD.toLowerCase() ? 'Close. Passwords care about capital letters.' : 'Read what the client sends after “Password:”.'),
-          explain: 'Anyone on the mirror port, or anyone who floods the switch, can read it. SSH does the same job with encryption, so a capture shows only scrambled bytes.',
+          explain: 'Anyone on the mirror port, or anyone who floods the switch, can read it. SSH is a program that does the same job with encryption, so a capture of it shows only scrambled bytes.',
         },
       ],
     },
