@@ -315,6 +315,22 @@ describe('device-analysis: a step 6 rule for the whole network', () => {
     expect(outcome(sim, 'fail2ban', 'bot', t)).toBe('The bot came back from a new address, 203.0.113.202. 5 guesses reached sshd. Then fail2ban banned 203.0.113.202, and ufw blocked the last 3.');
   });
 
+  it('turning fail2ban on in the middle of the attack counts once its ban blocks the rest', () => {
+    const sim = buildCoop();
+    const s7 = enter(sim, 'fail2ban');
+    const t = sim.t;
+    step('fail2ban').actions!.find((a) => a.id === 'bot')!.run(sim);
+    sim.advance(1700);
+    expect(goals(sim, 'fail2ban', s7)).toEqual({ on: false, banned: false, after: false });
+    sim.linuxSet(WEB, 'fail2ban', true);
+    const onAt = sim.t;
+    sim.runUntilIdle();
+    // The read-back finds 5 or more failures, so the ban lands the moment fail2ban starts.
+    expect(sim.events.find((e) => e.type === 'config' && e.what === 'fail2ban-ban')!.t).toBe(onAt);
+    expect(goals(sim, 'fail2ban', s7)).toEqual({ on: true, banned: true, after: true });
+    expect(outcome(sim, 'fail2ban', 'bot', t)).toMatch(/^\d guesses reached sshd\. Then fail2ban banned 203\.0\.113\.201, and ufw blocked the last \d\.$/);
+  });
+
   it('a guess or test that ufw drops has its result within a second', () => {
     const sim = buildCoop();
     const s6 = enter(sim, 'command');
