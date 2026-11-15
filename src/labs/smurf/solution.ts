@@ -3,13 +3,13 @@ import { CAMPUS_BCAST, PC1, WEB } from './scenario';
 
 /** Answer key for "Smurf Attacks and Amplification". Choice answers come from the lab itself. */
 export const smurfSolution: LabSolution = {
-  echo: { moves: [{ press: 'fan-ping' }, { inspect: 'web' }, { inspect: 'campus' }] },
+  echo: { moves: [{ press: 'fan-ping' }, { inspect: 'campus' }] },
   everyone: { moves: [{ tool: { type: 'echo', device: 'mallory', target: CAMPUS_BCAST } }] },
   'return-to-sender': { moves: [{ tool: { type: 'echo', device: 'mallory', target: PC1, source: WEB } }] },
   'the-storm': { moves: [{ press: 'storm' }, { press: 'fan-buy' }] },
   'many-attackers': { moves: [{ press: 'botnet' }, { press: 'fan-buy' }] },
   'read-the-spike': {
-    moves: [{ inspect: 'edge' }, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp' }],
+    moves: [{ inspect: 'edge' }, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp' && e.fields?.src === WEB }],
   },
   'silence-the-amplifier': {
     moves: [{ tool: { type: 'directed-broadcast', device: 'campus', on: false } }, { press: 'retry' }],
@@ -20,10 +20,9 @@ export const smurfSolution: LabSolution = {
       { tool: { type: 'fw-add-rule', device: 'edge', rule: { dir: 'in', proto: 'icmp', src: 'any', dst: 'any', dport: 'any', action: 'deny' }, at: 0 } },
       { press: 'botnet' },
       { press: 'fan-buy' },
-      { press: 'isp-filter' },
-      { press: 'fan-buy' },
     ],
   },
+  'filter-upstream': { moves: [{ press: 'isp-filter' }, { press: 'fan-buy' }] },
   'how-risky': {},
   reflect: {
     text: {

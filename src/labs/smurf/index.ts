@@ -1,5 +1,7 @@
+import type { Sim } from '../../sim/sim';
+import type { SimEvent } from '../../sim/types';
 import { happened, inspected, openedLog, pageSince } from '../helpers';
-import type { CheckCtx, LabDef } from '../types';
+import type { ActionLine, CheckCtx, LabDef } from '../types';
 import {
   buildEchoStorm,
   CAMPUS_BCAST,
@@ -9,10 +11,14 @@ import {
   ispFilterUpstream,
   LAN_HOSTS,
   PC1,
-  SMURF_RATE,
   smurfZones,
+  cancelPendingFloods,
+  scheduleFlood,
+  startSmurfFlood,
+  startSmurfFloodAsItArrives,
   STORM_COUNT,
   TICKETS,
+  UPLINK_CAP,
   uplinkId,
   WEB,
 } from './scenario';
@@ -20,36 +26,94 @@ import {
 /** The uplink carries only so many packets per second; a flood past that drops the fan's purchase. */
 const BOTNET_RATE = 300;
 
-/** The fan's purchase was dropped because a flood filled Hilltop's uplink. */
-const fanFloodFailed = ({ sim, since }: CheckCtx): boolean =>
-  happened(sim, since, (e) => e.type === 'drop' && e.reason === 'congestion' && e.pkt?.app.kind === 'http-req' && e.pkt.src === FAN);
+/** The fan's request, or the page coming back to her, was dropped on a full link. */
+const fanTrafficJammed = (e: SimEvent): boolean =>
+  e.type === 'drop' &&
+  e.reason === 'congestion' &&
+  ((e.pkt?.app.kind === 'http-req' && e.pkt.src === FAN) || (e.pkt?.app.kind === 'http-res' && e.pkt.dst === FAN));
+
+const fanFloodFailed = ({ sim, since }: CheckCtx): boolean => happened(sim, since, fanTrafficJammed);
+
+
+type Reply = Extract<SimEvent, { type: 'ping-reply' }>;
+
+/** Replies to Mallory's broadcast pings since `t` that landed on the ticket server, counting each burst at its full size. */
+function repliesAtWeb(sim: Sim, t: number): number {
+  const seqs = new Set<number>();
+  let n = 0;
+  for (const e of sim.events) {
+    if (e.t < t) continue;
+    if (e.type === 'ping-sent' && e.device === 'mallory' && e.to === CAMPUS_BCAST) seqs.add(e.seq);
+    else if (e.type === 'ping-reply' && e.device === 'web' && e.seq !== undefined && seqs.has(e.seq)) n += (e as Reply).count ?? 1;
+  }
+  return n;
+}
+
+/** One line about Hilltop's uplink: its load against what it carries. */
+function uplinkLine(sim: Sim): ActionLine {
+  const pps = sim.linkPps(uplinkId(sim));
+  return pps > UPLINK_CAP
+    ? { tone: 'bad', text: `Hilltop's uplink: ${pps} packets a second, but it carries only ${UPLINK_CAP}. The rest are dropped.` }
+    : { tone: 'good', text: `Hilltop's uplink: ${pps} packets a second, under its limit of ${UPLINK_CAP}.` };
+}
 
 /** Lesson buttons shared across steps (same behavior wherever they appear). */
-const buyTicket = { id: 'fan-buy', label: 'Fan buys a ticket', run: (sim: ReturnType<typeof buildEchoStorm>) => sim.browse('fan', `https://${TICKETS}/checkout`) };
+const buyTicket = {
+  id: 'fan-buy',
+  label: 'Fan buys a ticket',
+  run: (sim: Sim) => sim.browse('fan', `https://${TICKETS}/checkout`),
+  outcome: (sim: Sim, t: number): ActionLine[] => {
+    const b = sim.dev('fan').browser;
+    if (!b || b.startedAt < t) return [];
+    const jam = sim.events.find((e) => e.t >= t && fanTrafficJammed(e));
+    if (b.status === 'loaded') return [{ tone: 'good', text: 'The ticket page loaded. The fan bought her seat.' }];
+    if (jam?.type === 'drop' && jam.pkt?.app.kind === 'http-req')
+      return [{ tone: 'bad', text: "The purchase failed. Hilltop's uplink is full of flood traffic, so her request was dropped before it reached Hilltop." }];
+    if (jam)
+      return [
+        {
+          tone: 'bad',
+          text: "The purchase failed. Her request got in a moment before the flood filled Hilltop's uplink, and the rest of the purchase was dropped there. Her browser gives up in a few seconds.",
+        },
+      ];
+    if (b.status === 'failed') return [{ tone: 'bad', text: `The purchase failed. ${b.error ?? ''}`.trim() }];
+    return [{ tone: 'wait', text: 'The ticket page is loading…' }];
+  },
+};
 const botnetFlood = {
   id: 'botnet',
-  label: 'Botnet joins in',
-  run: (sim: ReturnType<typeof buildEchoStorm>) => {
-    sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE);
-    // One aggregated burst from made-up sources stands for hundreds of bots pinging the server straight on.
-    sim.echo('mallory', WEB, { burst: { count: BOTNET_RATE, vary: 'src-ip' } });
+  label: 'Botnet attacks',
+  run: (sim: Sim) => {
+    // Once the ISP filters pings, the bots' pings no longer reach the uplink. Otherwise they get
+    // there one hop after they leave, so the meter climbs then.
+    const hop = sim.opts.linkMs + sim.opts.procMs;
+    scheduleFlood(sim, hop, () => {
+      if (!sim.dev('isp').firewall) sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE);
+    });
+    // One aggregated burst stands for hundreds of bots, each pinging the server from its own real address.
+    sim.echo('botnet', WEB, { burst: { count: BOTNET_RATE } });
+  },
+  outcome: (sim: Sim, t: number): ActionLine[] => {
+    if (!sim.dev('isp').firewall && !sim.linkPps(uplinkId(sim)) && sim.t - t < 2000)
+      return [{ tone: 'wait', text: 'Hundreds of bots start pinging the ticket server…' }];
+    return [{ tone: 'bad', text: `Hundreds of bots are pinging the ticket server straight from their own addresses.` }, uplinkLine(sim)];
   },
 };
 
 export const smurfLab: LabDef = {
   id: 'smurf',
-  version: 1,
+  version: 2,
   title: 'Smurf Attacks and Amplification',
   tagline: "Use a network's ping replies to knock a ticket site offline, then turn off the amplifier and filter at your own edge.",
   unit: 3,
   codehs: ['3.3 Misdirected and Overwhelmed'],
   ced: ['3.1.A', '3.1.B', '3.1.C', '3.5.E'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
     'Explain what ICMP echo (ping) does and what a broadcast address is.',
     'Describe how a smurf attack forges a source address and amplifies pings into a flood.',
     'Tell a denial-of-service attack from a distributed one, and relate both to availability.',
-    'Choose defenses: stop forwarding directed broadcasts, filter at the edge, and filter upstream.',
+    'Choose defenses: stop forwarding directed broadcasts, and filter upstream when the edge firewall is too late.',
   ],
   build: buildEchoStorm,
   captureDevice: 'mallory',
@@ -59,17 +123,18 @@ export const smurfLab: LabDef = {
     {
       id: 'echo',
       title: 'An echo and a reply',
-      body: `[[fan]] wants a seat for Friday's game. Her browser will open [[web]], the Hilltop ticket server, out past
-[[isp]] and Hilltop's [[edge]] router. First, a simpler message.
+      body: `[[fan]] wants a seat for Friday's game. She will buy it from [[web]], the Hilltop ticket server. First, a
+simpler message.
 
-A **ping** is a tiny "Are you there?" message. It uses **ICMP**, the protocol computers use to check each
+A **ping** is a tiny "Are you there?" message. It uses **ICMP**, the protocol computers use to check on each
 other and report problems. A ping is two packets: an **echo request** goes out, and an **echo reply** comes
 back. If the reply arrives, the two devices can reach each other.
 
-Press **Fan pings the ticket server**. Watch the request cross to [[web]] and the reply come back. Set the
-speed to 0.5x if it goes too fast.
+Press **Fan pings the ticket server**. Watch the request cross to [[web]] and the reply come back. This takes a
+few seconds.
 
-Then click [[web]] and [[campus]] on the map to look inside them.
+Then click [[campus]], the router for a college network. Find its **Directed broadcasts** setting. It is on.
+You will see why that matters in the next two steps.
 
 > Everything in this lab happens inside a simulation. Sending forged floods at a real network without
 > permission is illegal.`,
@@ -82,8 +147,7 @@ Then click [[web]] and [[campus]] on the map to look inside them.
           hint: 'Press **Fan pings the ticket server** and watch the reply come back.',
           check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'ping-reply' && e.device === 'fan' && e.from === WEB),
         },
-        { id: 'web', label: 'Open [[web]]', check: inspected('web') },
-        { id: 'campus', label: 'Open [[campus]]', check: inspected('campus') },
+        { id: 'campus', label: 'Open [[campus]]', hint: 'Click [[campus]], then scroll to **Directed broadcasts**.', check: inspected('campus') },
       ],
       questions: [
         {
@@ -91,7 +155,7 @@ Then click [[web]] and [[campus]] on the map to look inside them.
           kind: 'choice',
           prompt: 'What does a ping (an ICMP echo) do?',
           options: [
-            { id: 'reach', text: 'Checks whether another device is online.', correct: true },
+            { id: 'reach', text: 'Checks whether you can reach another device.', correct: true },
             { id: 'page', text: 'Carries a web page from a server to a browser.', feedback: "That's HTTP. A ping carries no page, only a tiny 'Are you there?'." },
             { id: 'name', text: 'Turns a name like tickets.hilltop.example into an IP address.', feedback: "That's DNS. A ping already needs the address." },
             { id: 'encrypt', text: 'Scrambles traffic so no one in the middle can read it.', feedback: 'A ping does nothing with encryption. It only checks reachability.' },
@@ -104,15 +168,15 @@ Then click [[web]] and [[campus]] on the map to look inside them.
     {
       id: 'everyone',
       title: 'Everyone answers',
-      body: `Every network has one **broadcast address**: the last address in its range. For the campus network
-\`198.51.100.0/24\`, that is **\`198.51.100.255\`**. A packet sent to the broadcast address is meant for every
-device on that network at once.
+      body: `The campus network is \`198.51.100.0/24\`. The **/24** means the first three numbers name the network, so
+its addresses run from \`198.51.100.0\` to \`198.51.100.255\`. You don't need to work anything out from it.
 
-Westfield's router still does something many networks did for years: when a ping arrives for its broadcast
-address, it hands that ping to every computer on the campus. This is a **directed broadcast**.
+The last address, **\`198.51.100.255\`**, is the network's **broadcast address**. A packet sent there is meant
+for every device on the network at once. When a ping for that address arrives from outside, Westfield's router
+hands it to every campus computer. This is a **directed broadcast**.
 
-You are Mallory now, out on the internet. Open the **Echo tool** in the Toolkit. Leave the source blank for
-now. Ping the campus broadcast address \`198.51.100.255\` and count the replies.`,
+You are Mallory now, out on the internet. In the **Echo tool** (in the Toolkit tab), ping \`198.51.100.255\`. Leave the source box
+blank. Count the replies.`,
       focus: ['mallory', 'isp', 'campus', 'pc1', 'pc2', 'pc3'],
       open: 'tools',
       tools: [{ kind: 'echo-tool', device: 'mallory' }],
@@ -120,7 +184,7 @@ now. Ping the campus broadcast address \`198.51.100.255\` and count the replies.
         {
           id: 'send',
           label: 'Ping the campus broadcast address from [[mallory]]',
-          hint: 'In the Echo tool, type `198.51.100.255` as the target. Leave the source blank.',
+          hint: 'In the Echo tool, type `198.51.100.255` in the **ping** box. Leave the source blank.',
           check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'ping-sent' && e.device === 'mallory' && e.to === CAMPUS_BCAST),
         },
         {
@@ -143,21 +207,23 @@ now. Ping the campus broadcast address \`198.51.100.255\` and count the replies.
             { id: 'two', text: 'Two: the router and the ticket server.', feedback: "The ticket server isn't on this network. Every campus computer answered." },
           ],
           explain:
-            'One request to the broadcast address became thirty replies. Sending one packet and getting many back is called **amplification**, and it is the engine of a smurf attack.',
+            'One request to the broadcast address became thirty replies. Sending one packet and getting many back is called **amplification**, and it is what makes a smurf attack so strong.',
         },
       ],
     },
     {
       id: 'return-to-sender',
       title: 'Return to sender',
-      body: `A ping carries the sender's address in its **source** field, so the reply knows where to go. Nothing checks
-that the source is true. Mallory can write any address there. This is a **forged source address**.
+      body: `A ping carries the sender's address in its **source** field, so the reply knows where to go. Routers along
+the way don't check that the source is true, and many networks never filter it, so Mallory can write any
+address there. This is a **forged** (fake)
+source address. The map labels forged packets FAKE and draws them in red. Real networks don't.
 
-Watch what that does. In the Echo tool, set the source to the ticket server's address, \`192.0.2.10\`, and ping
-one campus computer, [[pc1]] at \`198.51.100.11\`. The computer answers, but the reply does not come back to
-Mallory. It goes to whatever address the ping claimed to be from.
+1. In the Echo tool, type [[pc1]]'s address, \`198.51.100.11\`, in the **ping** box.
+2. Type the ticket server's address, \`192.0.2.10\`, in the **source** box. Press **Send**.
 
-Forged packets are drawn in red so you can follow them. Real networks don't color them.`,
+Watch where [[pc1]]'s reply goes. The result takes a few seconds. (Other campus computers may see the ping too and mark it "not for me".
+Only [[pc1]] answers.)`,
       focus: ['mallory', 'pc1', 'web'],
       open: 'tools',
       tools: [{ kind: 'echo-tool', device: 'mallory' }],
@@ -165,7 +231,7 @@ Forged packets are drawn in red so you can follow them. Real networks don't colo
         {
           id: 'forge',
           label: "Ping [[pc1]] with the ticket server's address as the source",
-          hint: 'Target `198.51.100.11`. Source `192.0.2.10`, the ticket server.',
+          hint: 'Ping box `198.51.100.11`. Source box `192.0.2.10`, the ticket server.',
           check: ({ sim, since }) =>
             happened(sim, since, (e) => e.type === 'ping-sent' && e.device === 'mallory' && e.to === PC1 && e.from === WEB && !!e.forged),
         },
@@ -180,9 +246,10 @@ Forged packets are drawn in red so you can follow them. Real networks don't colo
         {
           id: 'why-there',
           kind: 'choice',
+          afterGoals: true,
           prompt: 'The reply landed on the ticket server, which never pinged anyone. Why did the campus computer send it there?',
           options: [
-            { id: 'source', text: "The request carried the ticket server's address as its source, so the reply went to that address.", correct: true },
+            { id: 'source', text: "The request carried the ticket server's address as its source.", correct: true },
             { id: 'lookup', text: 'The computer looked the ticket server up by name.', feedback: 'It did no lookup. It copied the source address straight off the request.' },
             { id: 'router', text: "The campus router rewrote the reply's destination.", feedback: 'The router only forwarded it. The destination came from the forged source.' },
             { id: 'asked', text: 'The ticket server had asked the campus computer for a reply earlier.', feedback: 'It never sent a thing. That is the whole trick.' },
@@ -194,20 +261,28 @@ Forged packets are drawn in red so you can follow them. Real networks don't colo
     {
       id: 'the-storm',
       title: 'The storm',
-      body: `Now put the two tricks together. That is a **smurf attack**: forge the victim's address as the source, send
-to a network's broadcast address, and do it over and over. One forged request becomes thirty replies, all
-aimed at the victim. Enough of them, and the victim's link fills up.
+      body: `Put the two tricks together and you have a **smurf attack**. Mallory sends ping after ping to the campus
+broadcast address, each with the ticket server's address as the source. The campus network is the
+**amplifier**: it turns each ping into thirty replies, all aimed at the victim.
 
-Watch Hilltop's uplink. The link from [[isp]] to [[edge]] carries only 60 packets each second. When more than
-that arrive, the extra packets are **dropped**: the link is full, so there is no room for them. This is
+Hilltop's **uplink** is the link from [[isp]] to [[edge]]. The Traffic meter calls it "Link with Internet
+provider" on [[edge]]. It carries only 60 packets per second (**pps**). Extra packets are **dropped**. This is
 **congestion**.
 
-1. Press **Launch the storm**. Mallory sends a wave of forged requests to the campus broadcast address.
-   Open [[edge]] and watch its uplink meter climb.
-2. Press **Fan buys a ticket** while the storm runs. Her purchase has to cross the same full uplink.`,
+1. Press **Launch the storm**. Wait until its result shows the math, and watch the **Traffic meter**.
+2. Then press **Fan buys a ticket**.
+
+(The map draws the replies reaching the ticket server, to show where they are aimed. On a real full link,
+most of them would be dropped on the way.)
+
+The question uses the **CIA triad**, three things security protects: **confidentiality** (secrets stay
+secret), **integrity** (data stays correct), and **availability** (people can use the system when they need
+it).`,
       focus: ['mallory', 'campus', 'isp', 'edge', 'web', 'fan'],
-      open: { inspect: 'edge' },
+      open: 'tools',
+      tools: [{ kind: 'traffic-meter', device: 'edge' }],
       setup: (sim) => {
+        cancelPendingFloods(sim);
         sim.clearFloods();
         sim.setDirectedBroadcast('campus', true);
       },
@@ -216,9 +291,23 @@ that arrive, the extra packets are **dropped**: the link is full, so there is no
           id: 'storm',
           label: 'Launch the storm',
           run: (sim) => {
-            sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE);
+            startSmurfFloodAsItArrives(sim);
             // A wave of forged echo requests (the victim as source) to the campus broadcast, each amplified ×30.
             sim.echo('mallory', CAMPUS_BCAST, { source: WEB, burst: { count: STORM_COUNT } });
+          },
+          outcome: (sim, t) => {
+            const n = repliesAtWeb(sim, t);
+            if (!n)
+              return [
+                {
+                  tone: 'wait',
+                  text: `Mallory is sending ${STORM_COUNT} forged pings a second to the campus broadcast address. Each one will become ${LAN_HOSTS} replies…`,
+                },
+              ];
+            return [
+              { tone: 'bad', text: `${STORM_COUNT} forged pings a second × ${LAN_HOSTS} replies each = ${n} replies a second, all sent to the ticket server. Mallory got none.` },
+              uplinkLine(sim),
+            ];
           },
         },
         buyTicket,
@@ -233,7 +322,7 @@ that arrive, the extra packets are **dropped**: the link is full, so there is no
         {
           id: 'congested',
           label: "Fill Hilltop's uplink",
-          hint: 'Press **Launch the storm** and watch the [[edge]] uplink meter pass 60.',
+          hint: 'Press **Launch the storm** and watch the Traffic meter pass 60.',
           check: ({ sim }) => sim.linkPps(uplinkId(sim)) > 60,
         },
         {
@@ -248,7 +337,7 @@ that arrive, the extra packets are **dropped**: the link is full, so there is no
           id: 'which-cia',
           kind: 'choice',
           afterGoals: true,
-          prompt: "The ticket site is still up and its pages are unchanged, but fans can't reach it. Which part of the CIA triad is under attack?",
+          prompt: "The ticket site is still online and its pages are unchanged, but fans can't reach it. Which part of the CIA triad is under attack?",
           options: [
             { id: 'avail', text: 'Availability.', correct: true },
             { id: 'conf', text: 'Confidentiality.', feedback: 'Nothing was read or leaked. The data stayed private.' },
@@ -263,192 +352,292 @@ that arrive, the extra packets are **dropped**: the link is full, so there is no
     {
       id: 'many-attackers',
       title: 'Many attackers',
-      body: `The smurf used a trick to turn one attacker into many. There is a blunter way: use many attackers to start
-with. A **botnet** is a crowd of computers an attacker controls, often without their owners knowing.
+      body: `Mallory's storm is over. The smurf used a trick to turn one attacker into many. Another way is to start
+with many attackers. A
+**botnet** is a crowd of computers an attacker controls, often without their owners knowing. The map draws
+the [[botnet]] as one box.
 
-Press **Botnet joins in**. Hundreds of bots ping the ticket server straight on, no amplifier needed. The
-uplink fills the same way.
+1. Press **Botnet attacks**. Hundreds of bots ping the ticket server from their own addresses. They forge
+   nothing and use no amplifier.
+2. Press **Fan buys a ticket**.
 
-A flood from one source is a **denial-of-service (DoS)** attack. A flood from many sources at once is a
-**distributed denial-of-service (DDoS)**.`,
-      focus: ['isp', 'edge', 'web', 'fan'],
-      open: { inspect: 'edge' },
-      setup: (sim) => sim.clearFloods(),
+A flood from one attacker is a **denial-of-service (DoS)** attack. A flood from many attacking computers at
+once is a **distributed denial-of-service (DDoS)**. A smurf sits in between: it has one attacker, like a DoS,
+but the flood comes from thirty campus computers tricked into sending it, like a DDoS.`,
+      focus: ['botnet', 'isp', 'edge', 'web', 'fan'],
+      open: 'tools',
+      tools: [{ kind: 'traffic-meter', device: 'edge' }],
+      setup: (sim) => {
+        cancelPendingFloods(sim);
+        sim.clearFloods();
+      },
       actions: [botnetFlood, buyTicket],
       goals: [
         {
           id: 'ddos',
           label: 'Start the botnet flood',
-          hint: 'Press **Botnet joins in**.',
+          hint: 'Press **Botnet attacks**.',
           check: ({ sim }) => sim.linkPps(uplinkId(sim)) > 60,
         },
-        { id: 'fan-fails', label: "The fan's purchase fails again", hint: 'Press **Botnet joins in**, then **Fan buys a ticket**.', check: fanFloodFailed },
+        { id: 'fan-fails', label: "The fan's purchase fails again", hint: 'Press **Botnet attacks**, then **Fan buys a ticket**.', check: fanFloodFailed },
       ],
       questions: [
         {
           id: 'dos-vs-ddos',
           kind: 'choice',
-          prompt: 'The botnet flood comes straight from hundreds of computers, with no amplifier. Why is that harder to stop than one attacker?',
+          afterGoals: true,
+          prompt: 'The botnet flood comes straight from hundreds of computers. Why is that harder to stop than one attacker?',
           options: [
             { id: 'many', text: 'It comes from many addresses at once, so blocking one does almost nothing.', correct: true },
             { id: 'fast', text: 'Each bot sends faster than a single attacker could.', feedback: "Speed isn't the point. It's the number of sources, all at once." },
-            { id: 'crypt', text: "The botnet encrypts its traffic so the firewall can't read it.", feedback: 'These are plain pings. The problem is how many senders there are.' },
-            { id: 'move', text: "The botnet changes the ticket server's address.", feedback: "The server's address stays put. The traffic just arrives from everywhere." },
+            { id: 'crypt', text: 'The bots scramble their pings so no one can read them.', feedback: 'These are plain pings. The problem is how many senders there are.' },
+            { id: 'move', text: "The botnet changes the ticket server's address.", feedback: "The server's address stays put. The traffic arrives from everywhere." },
           ],
           explain:
-            'A DoS from one source can be blocked by blocking that source. A **DDoS** spreads across thousands of sources, so there is no single address to block. The smurf faked that spread with one amplifier.',
+            'A DoS from one source can be stopped by blocking that source. A **DDoS** comes from hundreds or thousands of sources, so there is no single address to block.',
         },
       ],
     },
     {
       id: 'read-the-spike',
       title: 'Read the spike',
-      body: `Switch sides. You are now defending. An attack like this leaves tracks in two places.
+      body: `Now you are the defender. The botnet has gone quiet, but Mallory has started the smurf storm again. A sudden jump in
+traffic like this is called a **spike**. An attack leaves signs in two places.
 
-1. **The symptom**, at Hilltop. Open [[edge]]. Its uplink meter, near zero before the game, is pegged at its
-   limit. A sudden spike in traffic is an **indicator of compromise**: a sign something is wrong.
-2. **The cause**, at Westfield. Open [[campus]] and read its log. During the attack it recorded echo requests
-   sent to its **broadcast address** from an outside address. Normal traffic almost never does that.
+**The symptom** is at Hilltop. Click [[edge]] and read its **Traffic meter**. The uplink is far over its
+limit, full of echo replies to pings Hilltop never sent.
 
-Open the campus router's log line that shows the broadcast-address pings.`,
+**The cause** is at Westfield. Westfield's admin shares the campus router's log with Hilltop.
+
+1. Open the **Logs** tab.
+2. Click the bottom [[campus]] line for pings sent to \`198.51.100.255\`. It is the newest one.
+3. In its details, find **src**, the ping's source address. (The **Source** column is something else: it
+   names the part of the router that wrote the line.)
+
+The src is the ticket server's address. Mallory forged it, so the log can't point to her. The oldest line
+shows Mallory's real address. That is your own test ping from step 2.
+
+A sign like these is an **indicator of compromise (IoC)**: evidence that an attack is happening or has
+happened. No one got into Hilltop's computers here. The signs point to an attack on availability.`,
       focus: ['edge', 'campus'],
       open: 'logs',
-      tools: [{ kind: 'logs', devices: ['edge', 'campus'] }],
+      tools: [
+        { kind: 'logs', devices: ['edge', 'campus'] },
+        { kind: 'traffic-meter', device: 'edge' },
+      ],
       setup: (sim) => {
-        // Leave the uplink pegged so the edge meter reads a spike, and make sure the campus line exists to open.
+        // Only the smurf flood runs here, so the meter reads all replies. The restarted storm
+        // writes a fresh forged line, so the newest line is this step's attack.
+        cancelPendingFloods(sim);
+        sim.clearLinkFlood('botnet');
         sim.setDirectedBroadcast('campus', true);
-        sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE);
-        const campus = sim.dev('campus');
-        if (!campus.logs.some((e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp')) {
-          sim.log('campus', {
-            source: 'router',
-            level: 'warn',
-            msg: `ICMP echo request to ${CAMPUS_BCAST} (directed broadcast) relayed to ${LAN_HOSTS} hosts`,
-            fields: { src: WEB, dst: CAMPUS_BCAST, proto: 'icmp', count: LAN_HOSTS },
-          });
-        }
+        startSmurfFlood(sim);
+        sim.log('campus', {
+          source: 'router',
+          level: 'warn',
+          msg: `ICMP echo request to ${CAMPUS_BCAST} (directed broadcast) relayed to ${LAN_HOSTS} hosts`,
+          fields: { src: WEB, dst: CAMPUS_BCAST, proto: 'icmp', count: LAN_HOSTS },
+        });
       },
       goals: [
-        { id: 'meter', label: 'Open [[edge]] and read its uplink traffic meter', check: inspected('edge') },
+        { id: 'meter', label: 'Open [[edge]] and read its Traffic meter', check: inspected('edge') },
         {
           id: 'logline',
-          label: 'Open the campus log line for the broadcast-address pings',
-          hint: 'In the Logs tab, pick the campus line whose destination is `198.51.100.255`.',
-          check: openedLog((e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp'),
+          label: 'Open a campus log line for the forged broadcast-address pings',
+          hint: 'In the Logs tab, open the bottom campus line for `198.51.100.255`. Its src should be `192.0.2.10`, not Mallory.',
+          check: openedLog((e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp' && e.fields?.src === WEB),
         },
       ],
       questions: [
         {
           id: 'names-it',
           kind: 'choice',
-          prompt: 'Several signs show up during the attack. Which one points to a smurf attack in particular, not just to some flood?',
+          afterGoals: true,
+          prompt: 'Which sign points to a smurf attack in particular, not to any flood?',
           options: [
             { id: 'broadcast', text: 'Echo requests sent to a broadcast address from outside the network.', correct: true },
-            { id: 'meter', text: 'The uplink meter pegged at its limit.', feedback: 'That shows a flood, but not which kind. Many attacks fill a link.' },
+            { id: 'meter', text: 'The uplink meter stuck at its limit.', feedback: 'That shows a flood, but not which kind. Many attacks fill a link.' },
             { id: 'slow', text: 'The ticket site loads slowly for fans.', feedback: "That's the symptom of any denial of service. It doesn't single out smurf." },
             { id: 'cpu', text: 'The web server is working hard.', feedback: 'A busy server fits many problems. Look for the broadcast pings.' },
           ],
           explain:
-            "A traffic spike tells you there's a flood. Echo requests aimed at a broadcast address, from outside, are the fingerprint of a smurf attack. That's the ICMP-to-broadcast indicator defenders watch for.",
+            "A traffic spike tells you there's a flood. Echo requests aimed at a broadcast address, from outside, are the clear sign of a smurf attack.",
         },
       ],
     },
     {
       id: 'silence-the-amplifier',
       title: 'Silence the amplifier',
-      body: `The real fix is at the amplifier. A router has no good reason to forward pings from the internet to a whole
-network at once. Modern routers don't, by default.
+      body: `The real fix is at the amplifier. A router has no good reason to pass pings from the internet to a whole
+network at once. Modern routers don't, unless someone turns it on.
 
-Open [[campus]]. In its settings, turn **off** forwarding of directed broadcasts. Then press **Mallory tries
-again**. One forged request goes in, and the campus router drops it at the door. No replies, no flood.`,
+1. Click [[campus]]. Under **Directed broadcasts**, switch it **off**.
+2. Press **Mallory tries again**. One forged ping goes to the campus broadcast address. The result takes a few
+   seconds.`,
       focus: ['campus', 'mallory', 'web'],
       open: { inspect: 'campus' },
       tools: [{ kind: 'directed-broadcast', device: 'campus' }],
       setup: (sim) => {
         // Enter with the amplifier on and a flood running, so turning the setting off is what stops it.
+        cancelPendingFloods(sim);
         sim.clearLinkFlood('botnet');
         sim.setDirectedBroadcast('campus', true);
-        sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE);
+        startSmurfFlood(sim);
       },
       actions: [
-        { id: 'retry', label: 'Mallory tries again', run: (sim) => sim.echo('mallory', CAMPUS_BCAST, { source: WEB }) },
+        {
+          id: 'retry',
+          label: 'Mallory tries again',
+          run: (sim) => sim.echo('mallory', CAMPUS_BCAST, { source: WEB }),
+          outcome: (sim, t) => {
+            if (happened(sim, t, (e) => e.type === 'drop' && e.device === 'campus' && e.reason === 'no-broadcast'))
+              return [{ tone: 'good', text: 'The campus router dropped the ping as it arrived, so no campus computer replied.' }];
+            const n = repliesAtWeb(sim, t);
+            if (n) return [{ tone: 'bad', text: `The campus router passed it on, and ${n} replies hit the ticket server. Switch directed broadcasts off, then try again.` }];
+            return [{ tone: 'wait', text: 'The forged ping is on its way to the campus router…' }];
+          },
+        },
       ],
       goals: [
         {
           id: 'off',
-          label: 'Turn off directed-broadcast forwarding on [[campus]]',
-          hint: 'Open [[campus]] and switch directed broadcasts off.',
+          label: 'Turn off directed broadcasts on [[campus]]',
+          hint: 'Click [[campus]] and switch **Directed broadcasts** off.',
           check: ({ sim }) => sim.dev('campus').directedBroadcast === false,
         },
         {
           id: 'fizzle',
           label: "Mallory's ping gets no replies",
           hint: 'Turn the setting off first, then press **Mallory tries again**.',
-          check: ({ sim, since }) =>
-            happened(sim, since, (e) => e.type === 'drop' && e.device === 'campus' && e.reason === 'no-broadcast') &&
-            !happened(sim, since, (e) => e.type === 'ping-reply' && e.device === 'web'),
+          // The latest drop at the door counts, even if an earlier press (before the fix) got replies.
+          check: ({ sim, since }) => {
+            const drop = [...sim.events].reverse().find((e) => e.t >= since && e.type === 'drop' && e.device === 'campus' && e.reason === 'no-broadcast');
+            return !!drop && !happened(sim, drop.t, (e) => e.type === 'ping-reply' && e.device === 'web');
+          },
         },
       ],
       questions: [
         {
           id: 'whose-network',
           kind: 'choice',
-          prompt: 'Turning that setting off stopped the attack. But the campus network belongs to Westfield, not Hilltop. What does that mean for Hilltop?',
+          afterGoals: true,
+          prompt: 'Turning that setting off stopped the smurf attack. But the campus network belongs to Westfield, not Hilltop. What does that mean for Hilltop?',
           options: [
             { id: 'depends', text: "Hilltop depends on other networks to fix this, and can't force them.", correct: true },
-            { id: 'own', text: 'Hilltop can just turn the setting off on its own router instead.', feedback: "That keeps Hilltop from being an amplifier, but it doesn't stop a flood that uses some other network." },
+            { id: 'own', text: 'Hilltop can turn the setting off on its own router instead.', feedback: "That keeps Hilltop from being an amplifier, but it doesn't stop a flood that uses some other network." },
             { id: 'over', text: 'Nothing. Once one amplifier is fixed, smurf attacks are over.', feedback: 'There are many open networks. An attacker can pick a different amplifier.' },
             { id: 'back', text: 'Hilltop should flood the campus network back.', feedback: 'Flooding back is illegal and pointless.' },
           ],
           explain:
-            "The best fix sits on a network you may not control. That's why defenders also guard their own edge and lean on their provider. No single fix covers every case.",
+            "The best fix sits on a network you may not control. That's why defenders also guard their own edge and ask their provider for help. No single fix covers every case.",
         },
       ],
     },
     {
       id: 'guard-your-edge',
       title: 'Guard your own edge',
-      body: `Westfield fixed its router. But the next attacker will find another amplifier, or just use a botnet like you
-saw in step 5. Hilltop has to defend its own edge too.
+      body: `Westfield fixed its router. But the next attacker can find another amplifier, or use a botnet. Hilltop has
+to guard its own **edge**, the place where its network meets the internet.
 
-[[edge]] runs a **firewall**. Add a rule that drops inbound ICMP echo traffic from the internet, so pings from
-outside never reach the ticket server. Then test it against the botnet flood.
+[[edge]] has a **firewall**: a list of allow and deny rules. It checks each packet against the rules from the
+top, and the first rule that matches decides.
 
-1. In [[edge]]'s firewall, add a rule: **deny inbound ICMP from ALL**. Put it above the rule that lets ping in.
-2. Press **Botnet joins in**, then **Fan buys a ticket**. Read the result. The pings no longer reach the
-   server, but fans still can't get through.
-3. The flood fills the uplink before it ever reaches your firewall. Press **The ISP filters upstream**: now
-   the provider drops the flood one hop earlier, before Hilltop's uplink. Press **Fan buys a ticket** again.`,
-      focus: ['isp', 'edge', 'web', 'fan'],
+1. In [[edge]]'s firewall, add the rule **DENY in ICMP (ping) from any to any**. Move it above the rule that
+   allows ping.
+2. Press **Botnet attacks** and read its result.
+3. Press **Fan buys a ticket**. The result takes a few seconds.
+
+(This firewall blocks all ICMP with one rule. Real firewalls can block only pings (echo requests and replies)
+and keep the other ICMP messages a network needs.)`,
+      focus: ['isp', 'edge', 'web', 'fan', 'botnet'],
       open: { inspect: 'edge' },
-      tools: [{ kind: 'firewall-rules', devices: ['edge'] }],
+      tools: [
+        { kind: 'firewall-rules', devices: ['edge'] },
+        { kind: 'traffic-meter', device: 'edge' },
+      ],
       setup: (sim) => {
+        cancelPendingFloods(sim);
         sim.clearFloods();
         // The edge firewall ships open to ping (the weakness); the student adds the deny above it.
         ensureEdgeFirewall(sim);
         sim.setDirectedBroadcast('campus', false);
       },
       actions: [
-        botnetFlood,
+        {
+          ...botnetFlood,
+          outcome: (sim: Sim, t: number): ActionLine[] => {
+            const lines = botnetFlood.outcome(sim, t);
+            if (lines[0]?.tone === 'wait') return lines;
+            return [
+              ...lines,
+              deniesInboundIcmp(sim, 'edge')
+                ? { tone: 'good', text: "Hilltop's firewall drops the pings at its edge." }
+                : { tone: 'bad', text: "Hilltop's firewall lets the pings in. A rule above yours allows ping, and the first match decides." },
+            ];
+          },
+        },
         buyTicket,
-        { id: 'isp-filter', label: 'The ISP filters upstream', run: (sim) => ispFilterUpstream(sim) },
       ],
       goals: [
         {
           id: 'rule',
-          label: 'Add a rule to [[edge]] that drops inbound ICMP',
-          hint: 'Direction inbound, protocol ICMP, source ALL, action deny. Place it above the rule that allows ping.',
+          label: 'Add a rule to [[edge]] that drops incoming pings (ICMP)',
+          hint: 'Action DENY, direction in, protocol ICMP (ping), from any. Move it above the rule that allows ping.',
           check: ({ sim }) => deniesInboundIcmp(sim, 'edge'),
         },
         {
           id: 'still-fails',
-          label: "See that fans still can't buy, even with the rule",
-          hint: 'Press **Botnet joins in**, then **Fan buys a ticket**. The uplink is already full.',
-          check: (c) => deniesInboundIcmp(c.sim, 'edge') && fanFloodFailed(c),
+          label: 'With your rule in place, a fan tries to buy a ticket',
+          hint: 'Press **Botnet attacks**, then **Fan buys a ticket**.',
+          // After the latest rule change, the edge drops the bots' pings and a purchase started then
+          // still fails, so step 9 can say the firewall dropped the pings and the fan still couldn't buy.
+          check: ({ sim, since }) => {
+            if (!deniesInboundIcmp(sim, 'edge')) return false;
+            const ruleAt = Math.max(since, sim.dev('edge').firewall?.changedAt ?? 0);
+            const dropped = happened(sim, ruleAt, (e) => e.type === 'firewall' && e.device === 'edge' && e.verdict.action === 'deny' && e.pkt.proto === 'icmp');
+            const b = sim.dev('fan').browser;
+            return dropped && !!b && b.startedAt >= ruleAt && happened(sim, ruleAt, fanTrafficJammed);
+          },
         },
+      ],
+    },
+    {
+      id: 'filter-upstream',
+      title: 'Filter before the uplink',
+      body: `In step 8, Hilltop's firewall dropped the pings, but the fan still could not buy a ticket.
+
+Hilltop's **ISP** (internet service provider) is the company that connects it to the internet. The ISP sits
+one step before Hilltop's uplink, so it is **upstream** of Hilltop. Hilltop calls its ISP and asks it to filter the
+pings.
+
+1. Press **The ISP filters upstream**. Read its result, and check the **Traffic meter**.
+2. Press **Fan buys a ticket**. The page takes a few seconds to load.`,
+      focus: ['isp', 'edge', 'fan', 'botnet'],
+      open: 'tools',
+      tools: [{ kind: 'traffic-meter', device: 'edge' }],
+      setup: (sim) => {
+        ensureEdgeFirewall(sim);
+        sim.setDirectedBroadcast('campus', false);
+        // The botnet is still flooding, unless the ISP already filters it.
+        cancelPendingFloods(sim);
+        if (!sim.dev('isp').firewall) sim.setLinkFlood(uplinkId(sim), 'botnet', BOTNET_RATE);
+      },
+      actions: [
+        {
+          id: 'isp-filter',
+          label: 'The ISP filters upstream',
+          run: (sim) => ispFilterUpstream(sim),
+          outcome: (sim) => [
+            { tone: 'good', text: `The bots are still sending ${BOTNET_RATE} pings a second. The provider now drops them before they reach Hilltop's uplink.` },
+            uplinkLine(sim),
+          ],
+        },
+        buyTicket,
+      ],
+      goals: [
         {
           id: 'upstream-fixes',
-          label: "After the ISP filters upstream, a fan's purchase goes through",
+          label: 'After the ISP filters upstream, a fan buys a ticket',
           hint: 'Press **The ISP filters upstream**, then **Fan buys a ticket**.',
           check: ({ sim, since }) => !!sim.dev('isp').firewall && pageSince(sim, 'fan', since, (b) => b.status === 'loaded' && b.host === TICKETS),
         },
@@ -457,67 +646,79 @@ outside never reach the ticket server. Then test it against the botnet flood.
         {
           id: 'why-upstream',
           kind: 'choice',
-          prompt: "Your edge firewall drops the flood, but fans can't buy tickets until the ISP filters it upstream. Why?",
+          afterGoals: true,
+          prompt: "Your edge firewall drops the pings, but fans can't buy tickets until the ISP filters them. Why?",
           options: [
             { id: 'fills', text: 'The flood fills the uplink before it reaches your firewall.', correct: true },
-            { id: 'match', text: "Edge firewalls can't match on ICMP.", feedback: 'They can. Your rule worked: the pings were dropped at your edge.' },
-            { id: 'faster', text: "The ISP's firewall is faster than yours.", feedback: "Speed isn't it. The ISP sits upstream of the full link, so it drops the flood before the bottleneck." },
-            { id: 'order', text: 'Your rule was in the wrong order.', feedback: "Order didn't matter here. The uplink was already saturated upstream of your firewall." },
+            { id: 'match', text: "Edge firewalls can't match on ICMP.", feedback: 'They can. Your rule worked: the map showed the pings denied at your edge.' },
+            { id: 'faster', text: "The ISP's firewall is faster than yours.", feedback: "Speed isn't it. The ISP sits before the full link, so it drops the flood in time." },
+            { id: 'order', text: 'Your rule was in the wrong order.', feedback: "Your rule was on top and it worked. The uplink was already full before your firewall." },
           ],
           explain:
-            'A firewall can only act on traffic that reaches it. In a volumetric flood, the harm is the full uplink, which is upstream of your edge. Providers and DDoS-scrubbing services filter there, before the bottleneck.',
+            'A firewall can only act on packets that reach it. This flood does its harm on the uplink, before your firewall. The ISP sits before that link. Many ISPs also drop packets with a source address that cannot belong to their own customers. That stops forged pings close to where they start.',
         },
       ],
     },
     {
       id: 'how-risky',
       title: 'How risky?',
-      body: `A security review grades each weakness by how much harm it could cause. Many use three levels: **high**,
-**moderate**, and **low** risk. Grade three findings.`,
+      body: `A security review grades each weakness by how much harm it could cause on its own:
+
+- **High risk**: an outsider can reach important data or systems directly.
+- **Moderate risk**: an attacker can use it to do harm, like sending a flood, but it opens no way to the data.
+- **Low risk**: it only shows that something exists. An attacker can do almost nothing with it.
+
+Grade what the weakness allows, not the size of the attack it was part of.`,
       focus: ['edge', 'campus'],
       questions: [
         {
           id: 'open-icmp',
           kind: 'choice',
-          prompt: "Before you added the rule, Hilltop's edge firewall allowed inbound ICMP from anywhere. What risk is that?",
+          prompt: "Before you added the rule, Hilltop's edge firewall allowed ping from anywhere. What risk is that?",
           options: [
-            { id: 'mod', text: 'Moderate risk.', correct: true },
-            { id: 'high', text: 'High risk.', feedback: 'It helps an attacker probe and adds to a flood, but on its own it hands over no data or control. Open external ICMP is a moderate risk.' },
-            { id: 'low', text: 'Low risk.', feedback: "It's more than cosmetic: it enables ping sweeps and feeds floods. It's a moderate risk." },
-            { id: 'none', text: 'No risk at all.', feedback: "Leaving ICMP open has real downsides. It's a moderate risk." },
+            { id: 'high', text: 'High risk.', feedback: 'Reread the risk lines above. Open ping gave no one the data or control.', last: true },
+            { id: 'mod', text: 'Moderate risk.', correct: true, last: true },
+            {
+              id: 'low',
+              text: 'Low risk.',
+              feedback:
+                "Reread the risk lines above. Open ping does more than show that Hilltop exists: an attacker can use it to flood the ticket server. Blocking ping at the edge did not save the uplink, but it does keep the flood off the server.",
+              last: true,
+            },
           ],
           explain:
-            'Open inbound ICMP at an external firewall is a moderate risk: useful to an attacker, but not a direct path to the data. Blocking it is cheap, so most networks do.',
+            "Ping left open at an external firewall is a moderate risk. An attacker can use it to flood the ticket server, but it opens no way to the data. Blocking it at the edge does not save the uplink, but it keeps the flood off the server and the rest of Hilltop's network.",
         },
         {
           id: 'wifi-flat',
           kind: 'choice',
-          prompt: 'Another finding: the campus has one flat network with its grade server on it, and anyone in range can join over weak Wi-Fi. What risk is that?',
+          prompt:
+            'At a different school, every computer, including the server that stores grades, sits on one network with nothing dividing it (a **flat network**). The Wi-Fi password is weak, so anyone in range can join that network. What risk is the weak Wi-Fi password?',
           options: [
-            { id: 'high', text: 'High risk.', correct: true },
-            { id: 'mod', text: 'Moderate risk.', feedback: "Worse than open ICMP. An outsider can join and reach the grade server directly. That's a high risk." },
-            { id: 'low', text: 'Low risk.', feedback: "Low is for things like access points sending beacon frames. Here an outsider can reach a key server. That's a high risk." },
+            { id: 'high', text: 'High risk.', correct: true, last: true },
+            { id: 'mod', text: 'Moderate risk.', feedback: 'Reread the risk lines above. Anyone who joins can reach the grade server directly.', last: true },
+            { id: 'low', text: 'Low risk.', feedback: 'Reread the risk lines above. This opens a direct path from outside to the grades.', last: true },
           ],
-          explain: 'Weak Wi-Fi lets an outsider in, and a flat network puts the key server within reach. Together that is a high risk.',
+          explain: 'On this flat network, the weak password lets an outsider join and reach the grade server directly. That is a high risk.',
         },
         {
           id: 'beacons',
           kind: 'choice',
-          prompt: "Last one: the campus Wi-Fi access points broadcast beacon frames that announce the network's name. What risk is that?",
+          prompt:
+            "Last one: the school's Wi-Fi access points (the boxes that send the Wi-Fi signal) send out **beacon frames**, short radio messages that announce the network's name to anyone nearby. What risk is that?",
           options: [
-            { id: 'low', text: 'Low risk.', correct: true },
-            { id: 'mod', text: 'Moderate risk.', feedback: "Beacons only announce that a network exists. Anyone nearby could find it anyway. That's a low risk." },
-            { id: 'high', text: 'High risk.', feedback: "A beacon gives no way in and no data. That's a low risk." },
+            { id: 'high', text: 'High risk.', feedback: 'A beacon gives no way in and no data. Reread the risk lines above.', last: true },
+            { id: 'mod', text: 'Moderate risk.', feedback: 'A beacon cannot be used to send a flood or get in. Reread the risk lines above.', last: true },
+            { id: 'low', text: 'Low risk.', correct: true, last: true },
           ],
-          explain:
-            "Beacon frames tell nearby devices a network exists. That helps an attacker a little, but it opens nothing. It's a low risk.",
+          explain: 'Beacon frames only show that a network exists, which anyone nearby could notice anyway. It is a low risk.',
         },
       ],
     },
     {
       id: 'reflect',
       title: 'Reflect',
-      body: 'Pull it together in your own words.',
+      body: 'Explain the whole attack in your own words.',
       questions: [
         {
           id: 'explain-smurf',
@@ -525,7 +726,7 @@ outside never reach the ticket server. Then test it against the botnet flood.
           minWords: 40,
           lines: 6,
           prompt:
-            "Explain how a smurf attack turns one attacker's pings into a flood big enough to knock a site offline. Then name the one setting, and on which device, that stops this smurf attack at its source.",
+            "Explain how a smurf attack turns one attacker's pings into a flood big enough to stop fans from reaching a website. Then name the setting that stops it at the amplifier, and the device that setting is on.",
         },
       ],
     },
@@ -533,8 +734,7 @@ outside never reach the ticket server. Then test it against the botnet flood.
       id: 'submit',
       title: 'Review and submit',
       kind: 'submit',
-      body: `Look over your summary on the right. You can go back to any step and change an answer, then hand in your work
-again.`,
+      body: `Look over your summary. You can go back to any step and change an answer, then hand in your work again.`,
     },
   ],
 };

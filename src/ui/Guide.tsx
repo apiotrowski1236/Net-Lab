@@ -55,6 +55,7 @@ const TOOL_NAME: Record<ToolSpec['kind'], string> = {
   'log-files': 'Log files',
   'ssh-guard': 'Sign-in defenses',
   'directed-broadcast': 'Directed-broadcast setting (in the inspector)',
+  'traffic-meter': 'Traffic meter',
   // capture-analysis
   'capture-file': 'Capture files: filters, Statistics, and Follow TCP Stream (in the Capture tab)',
 };

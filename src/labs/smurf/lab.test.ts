@@ -3,7 +3,7 @@ import { LabSession } from '../../runtime/session';
 import type { LabProgress } from '../../store/progress';
 import { playMove, playStep } from '../solution';
 import { smurfLab as lab } from '.';
-import { buildEchoStorm, CAMPUS_BCAST, FAN, LAN_HOSTS, PC1, SMURF_RATE, STORM_COUNT, TICKETS, UPLINK_CAP, uplinkId, WEB } from './scenario';
+import { BOTNET, BOTNET_RATE, buildEchoStorm, CAMPUS_BCAST, FAN, MALLORY, ispFilterUpstream, LAN_HOSTS, PC1, SMURF_RATE, STORM_COUNT, TICKETS, UPLINK_CAP, uplinkId, WEB } from './scenario';
 import { smurfSolution as sol } from './solution';
 
 class MemoryStorage {
@@ -149,17 +149,199 @@ describe('smurf lab', () => {
   it('the edge firewall drops inbound ICMP yet the uplink stays full until the ISP filters upstream', () => {
     const s = playTo('silence-the-amplifier');
     expect(s.step.id).toBe('guard-your-edge');
-    const [addRule, botnet, buy, ispFilter, buyAgain] = sol['guard-your-edge'].moves!;
+    const [addRule, botnet, buy] = sol['guard-your-edge'].moves!;
     playMove(s, addRule);
     playMove(s, botnet);
     playMove(s, buy);
     expect(s.goalDone('guard-your-edge', 'rule')).toBe(true);
     expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(true);
-    expect(s.goalDone('guard-your-edge', 'upstream-fixes')).toBe(false);
+    s.goTo(index('filter-upstream'));
+    s.sim.runUntilIdle();
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'the botnet is still flooding when step 9 opens').toBeGreaterThan(UPLINK_CAP);
+    playMove(s, { press: 'fan-buy' });
+    expect(s.goalDone('filter-upstream', 'upstream-fixes')).toBe(false);
+    const [ispFilter, buyAgain] = sol['filter-upstream'].moves!;
     playMove(s, ispFilter);
     playMove(s, buyAgain);
-    expect(s.goalDone('guard-your-edge', 'upstream-fixes')).toBe(true);
+    expect(s.goalDone('filter-upstream', 'upstream-fixes')).toBe(true);
     expect(s.sim.dev('fan').browser?.status).toBe('loaded');
+  });
+
+  it("step 9's setup starts the botnet flood even if step 8 never pressed Botnet attacks", () => {
+    const sim = buildEchoStorm();
+    lab.steps[index('filter-upstream')].setup!(sim);
+    expect(sim.linkPps(uplinkId(sim))).toBeGreaterThan(UPLINK_CAP);
+  });
+
+  it('pressing Botnet attacks after the ISP filters does not refill the uplink', () => {
+    const sim = buildEchoStorm();
+    ispFilterUpstream(sim);
+    const botnet = lab.steps[index('guard-your-edge')].actions!.find((a) => a.id === 'botnet')!;
+    botnet.run(sim);
+    sim.runUntilIdle();
+    expect(sim.linkPps(uplinkId(sim))).toBe(0);
+  });
+
+  it('step 7: pressing Mallory tries again before the fix still lets the goal finish once the setting is off', () => {
+    const s = playTo('read-the-spike');
+    expect(s.step.id).toBe('silence-the-amplifier');
+    playMove(s, { press: 'retry' });
+    expect(s.goalDone('silence-the-amplifier', 'fizzle')).toBe(false);
+    const [off, retry] = sol['silence-the-amplifier'].moves!;
+    playMove(s, off);
+    playMove(s, retry);
+    expect(s.goalDone('silence-the-amplifier', 'fizzle')).toBe(true);
+  });
+
+  it('the botnet pings from its own address, not a forged one', () => {
+    const s = playTo('the-storm');
+    expect(s.step.id).toBe('many-attackers');
+    playMove(s, { press: 'botnet' });
+    const sent = s.sim.events.find((e) => e.type === 'ping-sent' && e.device === 'botnet');
+    expect(sent?.type === 'ping-sent' && sent.forged).toBeFalsy();
+    expect(sent?.type === 'ping-sent' ? sent.from : undefined).toBe(BOTNET);
+  });
+
+  it('the ISP filter drops the botnet pings before Hilltop', () => {
+    const sim = buildEchoStorm();
+    ispFilterUpstream(sim);
+    sim.echo('botnet', WEB, { burst: { count: 300 } });
+    sim.runUntilIdle();
+    expect(sim.events.some((e) => e.type === 'drop' && e.device === 'isp' && e.reason === 'firewall')).toBe(true);
+    expect(sim.events.some((e) => e.type === 'ping-reply' && e.device === 'botnet')).toBe(false);
+  });
+
+  it('button results say where the replies went and why a purchase failed', () => {
+    const s = playTo('return-to-sender');
+    const step = lab.steps[index('the-storm')];
+    const storm = step.actions!.find((a) => a.id === 'storm')!;
+    const buy = step.actions!.find((a) => a.id === 'fan-buy')!;
+    const t0 = s.sim.t;
+    playMove(s, { press: 'storm' });
+    expect(storm.outcome!(s.sim, t0)).toEqual([
+      { tone: 'bad', text: `${STORM_COUNT} forged pings a second × ${LAN_HOSTS} replies each = ${STORM_COUNT * LAN_HOSTS} replies a second, all sent to the ticket server. Mallory got none.` },
+      { tone: 'bad', text: `Hilltop's uplink: ${SMURF_RATE} packets a second, but it carries only ${UPLINK_CAP}. The rest are dropped.` },
+    ]);
+    const t1 = s.sim.t;
+    playMove(s, { press: 'fan-buy' });
+    expect(buy.outcome!(s.sim, t1)).toEqual([
+      { tone: 'bad', text: "The purchase failed. Hilltop's uplink is full of flood traffic, so her request was dropped before it reached Hilltop." },
+    ]);
+  });
+
+  it('the storm fills the uplink only once its replies get there', () => {
+    const s = playTo('return-to-sender');
+    const storm = lab.steps[index('the-storm')].actions!.find((a) => a.id === 'storm')!;
+    storm.run(s.sim);
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'not on the click').toBe(0);
+    s.sim.runUntilIdle();
+    expect(s.sim.linkPps(uplinkId(s.sim))).toBe(SMURF_RATE);
+  });
+
+  it('step 4: a purchase pressed the moment the storm starts still counts as failed', () => {
+    // Her request slips through before the uplink fills, and the page coming back is dropped instead.
+    const s = playTo('return-to-sender');
+    const buy = lab.steps[index('the-storm')].actions!.find((a) => a.id === 'fan-buy')!;
+    const t0 = s.sim.t;
+    s.runStepAction('storm');
+    s.runStepAction('fan-buy');
+    s.sim.runUntilIdle();
+    expect(s.missing()).toEqual(['1 question']);
+    expect(buy.outcome!(s.sim, t0)).toEqual([
+      {
+        tone: 'bad',
+        text: "The purchase failed. Her request got in a moment before the flood filled Hilltop's uplink, and the rest of the purchase was dropped there. Her browser gives up in a few seconds.",
+      },
+    ]);
+  });
+
+  it('step 5: the botnet fills the uplink when its pings get there, not on the click', () => {
+    const s = playTo('the-storm');
+    expect(s.step.id).toBe('many-attackers');
+    const botnet = lab.steps[index('many-attackers')].actions!.find((a) => a.id === 'botnet')!;
+    const t0 = s.sim.t;
+    botnet.run(s.sim);
+    expect(s.sim.linkPps(uplinkId(s.sim))).toBe(0);
+    expect(botnet.outcome!(s.sim, t0)[0].tone).toBe('wait');
+    s.sim.runUntilIdle();
+    expect(s.sim.linkPps(uplinkId(s.sim))).toBe(BOTNET_RATE);
+    expect(botnet.outcome!(s.sim, t0).at(-1)?.text).toMatch(/carries only/);
+  });
+
+  it("step 6 counts only a forged log line, not Mallory's own step 2 test ping", () => {
+    const s = playTo('many-attackers');
+    expect(s.step.id).toBe('read-the-spike');
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'botnet gone quiet; only the smurf flood').toBe(SMURF_RATE);
+    playMove(s, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.src === MALLORY });
+    expect(s.goalDone('read-the-spike', 'logline')).toBe(false);
+    const newest = s.sim.dev('campus').logs.at(-1)!;
+    expect(newest.fields?.src, 'the restarted storm logs a fresh forged line').toBe(WEB);
+    expect(newest.t).toBeGreaterThanOrEqual(s.progress.stepStart['read-the-spike'] ?? 0);
+    playMove(s, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.src === WEB });
+    expect(s.goalDone('read-the-spike', 'logline')).toBe(true);
+  });
+
+  it('step 8: the botnet result says whether the firewall rule took effect', () => {
+    const s = playTo('silence-the-amplifier');
+    const botnet = lab.steps[index('guard-your-edge')].actions!.find((a) => a.id === 'botnet')!;
+    playMove(s, { press: 'botnet' });
+    expect(botnet.outcome!(s.sim, 0).at(-1)?.text).toMatch(/lets the pings in/);
+    playMove(s, sol['guard-your-edge'].moves![0]);
+    expect(botnet.outcome!(s.sim, 0).at(-1)?.text).toMatch(/drops the pings/);
+  });
+
+  it('step 5: a storm pressed in step 4 just before Continue does not finish step 5', () => {
+    const s = playTo('return-to-sender');
+    expect(s.step.id).toBe('the-storm');
+    playStep(s, sol['the-storm']);
+    s.sim.runUntilIdle();
+    s.runStepAction('storm');
+    s.goTo(index('many-attackers'));
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'the old storm stays stopped').toBe(0);
+    expect(s.goalDone('many-attackers', 'ddos')).toBe(false);
+    playMove(s, { press: 'fan-buy' });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('many-attackers', 'fan-fails')).toBe(false);
+  });
+
+  it('step 6: a botnet press just before Continue does not carry into step 6', () => {
+    const s = playTo('the-storm');
+    playStep(s, sol['many-attackers']);
+    s.sim.runUntilIdle();
+    s.sim.clearFloods();
+    s.runStepAction('botnet');
+    s.goTo(index('read-the-spike'));
+    s.sim.runUntilIdle();
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'only the smurf flood').toBe(SMURF_RATE);
+  });
+
+  it('step 8: a purchase that failed before the rule existed does not count', () => {
+    const s = playTo('silence-the-amplifier');
+    expect(s.step.id).toBe('guard-your-edge');
+    playMove(s, { press: 'botnet' });
+    s.sim.runUntilIdle();
+    playMove(s, { press: 'fan-buy' });
+    s.sim.runUntilIdle();
+    playMove(s, sol['guard-your-edge'].moves![0]);
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('guard-your-edge', 'rule')).toBe(true);
+    expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(false);
+    // Buying again doesn't count either: the edge never dropped a ping with the rule in place.
+    playMove(s, { press: 'fan-buy' });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(false);
+    // The bots attack again, the rule drops their pings, and the next purchase still fails.
+    playMove(s, { press: 'botnet' });
+    s.sim.runUntilIdle();
+    playMove(s, { press: 'fan-buy' });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(true);
   });
 
   it('rebuilds identical device state after a reload mid-storm', () => {

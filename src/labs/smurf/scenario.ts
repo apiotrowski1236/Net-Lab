@@ -11,6 +11,8 @@ import type { MapZone } from '../types';
 // the authorized users who can no longer buy.
 
 export const MALLORY = '203.0.113.66';
+/** The botnet (step 5), drawn as one device that stands in for hundreds of bots. */
+export const BOTNET = '198.18.0.50';
 export const FAN = '203.0.120.40';
 export const WEB = '192.0.2.10';
 export const PC1 = '198.51.100.11';
@@ -35,6 +37,47 @@ export function uplinkId(sim: Sim): string {
   return sim.linkBetween('isp', 'edge')!.id;
 }
 
+/** Westfield's link to the provider: the amplified replies leave the campus here. */
+export function campusLinkId(sim: Sim): string {
+  return sim.linkBetween('isp', 'campus')!.id;
+}
+
+/** The smurf flood's steady load: the replies leave Westfield and pile onto Hilltop's uplink. */
+export function startSmurfFlood(sim: Sim): void {
+  sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE);
+  sim.setLinkFlood(campusLinkId(sim), 'smurf', SMURF_RATE);
+}
+
+/**
+ * Start the smurf flood link by link as the first wave gets there, so the meter climbs when the
+ * replies arrive, not on the click. The request reaches the campus after two hops; the replies
+ * then cross the campus link (hop 3) and Hilltop's uplink (hop 4).
+ */
+export function startSmurfFloodAsItArrives(sim: Sim): void {
+  const hop = sim.opts.linkMs + sim.opts.procMs;
+  scheduleFlood(sim, 2 * hop, () => sim.setLinkFlood(campusLinkId(sim), 'smurf', SMURF_RATE));
+  scheduleFlood(sim, 3 * hop, () => sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE));
+}
+
+/** Bumped by cancelPendingFloods, so a flood scheduled before a step began never starts inside it. */
+const floodEpoch = new WeakMap<Sim, number>();
+
+/** Run `start` after `ms`, unless a step setup calls cancelPendingFloods first. */
+export function scheduleFlood(sim: Sim, ms: number, start: () => void): void {
+  const epoch = floodEpoch.get(sim) ?? 0;
+  sim.schedule(ms, () => {
+    if ((floodEpoch.get(sim) ?? 0) === epoch) start();
+  });
+}
+
+/**
+ * Cancel floods that a button scheduled but that haven't reached the uplink yet. Step setups call
+ * this, so a button pressed just before Continue can't flood the next step.
+ */
+export function cancelPendingFloods(sim: Sim): void {
+  floodEpoch.set(sim, (floodEpoch.get(sim) ?? 0) + 1);
+}
+
 // --- edge firewall (created when step 8 starts) ---------------------------
 
 /** Fans reach the ticket site over HTTPS. */
@@ -53,15 +96,20 @@ export function ensureEdgeFirewall(sim: Sim): void {
 
 // --- ISP upstream filter (the step 8 "scrubbing" action) ------------------
 
-/** Drop pings heading into Hilltop at the provider, one hop before the uplink. */
-const ISP_DENY_ICMP: FwRuleInput = { dir: 'in', proto: 'icmp', src: 'any', dst: 'any', dport: 'any', action: 'deny', note: 'Scrubbing: drop ping floods heading to Hilltop' };
+/**
+ * Drop pings heading into Hilltop at the provider, one hop before the uplink. The provider's
+ * firewall counts 'pub' as outside, so traffic from its other customers (the botnet, the
+ * campus) is "out": deny both directions.
+ */
+const ISP_DENY_ICMP: FwRuleInput = { dir: 'in', proto: 'icmp', src: 'any', dst: '192.0.2.0/24', dport: 'any', action: 'deny', note: 'Scrubbing: drop ping floods heading to Hilltop' };
+const ISP_DENY_ICMP_OUT: FwRuleInput = { ...ISP_DENY_ICMP, dir: 'out' };
 const ISP_OUT: FwRuleInput = { dir: 'out', proto: 'any', src: 'any', dst: 'any', dport: 'any', action: 'allow', note: 'Customer traffic out' };
 const ISP_IN: FwRuleInput = { dir: 'in', proto: 'any', src: 'any', dst: 'any', dport: 'any', action: 'allow', note: 'Everything else in' };
 
-/** The ISP starts scrubbing: deny inbound ICMP from the internet, and clear the flood off the uplink. Idempotent. */
+/** The ISP starts scrubbing: deny ICMP headed for Hilltop, and clear the flood off the uplink. Idempotent. */
 export function ispFilterUpstream(sim: Sim): void {
   const isp = sim.dev('isp');
-  if (!isp.firewall) isp.firewall = newFirewall('pub', 'stateless', [ISP_DENY_ICMP, ISP_OUT, ISP_IN]);
+  if (!isp.firewall) isp.firewall = newFirewall('pub', 'stateless', [ISP_DENY_ICMP, ISP_DENY_ICMP_OUT, ISP_OUT, ISP_IN]);
   sim.clearLinkFlood('botnet');
 }
 
@@ -79,18 +127,19 @@ export function deniesInboundIcmp(sim: Sim, device: string): boolean {
 export function smurfZones(): MapZone[] {
   return [
     { id: 'internet', shape: { kind: 'rect', x: 60, y: 60, w: 520, h: 300 }, label: 'The internet', tone: 'neutral', dashed: true },
-    { id: 'campus', shape: { kind: 'rect', x: 120, y: 400, w: 580, h: 180 }, label: `Westfield College · ${LAN_HOSTS} computers`, tone: 'info', dashed: true },
+    { id: 'campus', shape: { kind: 'rect', x: 120, y: 400, w: 580, h: 180 }, label: `Westfield College · ${LAN_HOSTS} computers (3 drawn)`, tone: 'info', dashed: true },
     { id: 'hilltop', shape: { kind: 'rect', x: 660, y: 120, w: 320, h: 170 }, label: 'Hilltop Tickets', tone: 'good' },
   ];
 }
 
 export function buildEchoStorm(): Sim {
   const sim = new NetBuilder({ linkMs: 240, procMs: 70, httpTimeoutMs: 9000, pingTimeoutMs: 6000, autoArp: true })
-    .host('mallory', { label: 'Mallory', sublabel: MALLORY, icon: 'attacker', x: 150, y: 110, ip: `${MALLORY}/24`, gateway: '203.0.113.1', attacker: true })
+    .host('mallory', { label: 'Mallory', sublabel: MALLORY, icon: 'attacker', x: 150, y: 160, ip: `${MALLORY}/24`, gateway: '203.0.113.1', attacker: true })
     .host('fan', { label: 'Fan at home', sublabel: FAN, icon: 'laptop', x: 150, y: 300, ip: `${FAN}/24`, gateway: '203.0.120.1' })
+    .host('botnet', { label: 'Botnet', sublabel: 'hundreds of bots', icon: 'attacker', x: 330, y: 85, ip: `${BOTNET}/24`, gateway: '198.18.0.1' })
     .router('isp', {
-      label: 'The internet',
-      sublabel: 'the provider',
+      label: 'Internet provider',
+      sublabel: 'the ISP',
       icon: 'cloud',
       x: 470,
       y: 200,
@@ -99,6 +148,7 @@ export function buildEchoStorm(): Sim {
         { id: 'home', ip: '203.0.120.1/24' },
         { id: 'hilltop', ip: '100.64.0.1/30' },
         { id: 'campus', ip: '100.64.0.5/30' },
+        { id: 'bots', ip: '198.18.0.1/24' },
       ],
       routes: [
         { prefix: '192.0.2.0/24', via: '100.64.0.2', iface: 'hilltop' },
@@ -143,6 +193,7 @@ export function buildEchoStorm(): Sim {
     .host('pc3', { label: 'Westfield PC', sublabel: PC3, icon: 'desktop', x: 630, y: 520, ip: `${PC3}/24`, gateway: '198.51.100.1' })
     .link('mallory', ['isp', 'pub'])
     .link('fan', ['isp', 'home'])
+    .link('botnet', ['isp', 'bots'])
     .link(['isp', 'hilltop'], ['edge', 'wan'], { capacity: UPLINK_CAP })
     .link(['edge', 'lan'], 'web')
     .link(['isp', 'campus'], ['campus', 'wan'], { capacity: 300 })

@@ -41,6 +41,49 @@ student experiences; they are implementation choices the script left open or nam
   restores both braces (and the lost `.port-edit-head` body) so the following rules un-nest correctly; the new
   `congestion-pulse` keyframe animates `opacity` rather than `stroke-dashoffset` (the minifier rejected the latter).
 
+## Student panel changes (version 2)
+
+The student panel reworded most step bodies; `index.ts` is the source of truth for student text. Changes
+that alter what students do or see:
+
+- **A `botnet` device on the map** (`198.18.0.50`, behind a new `isp.bots` port). **Botnet joins in** pings
+  the ticket server from the botnet's own address (`burst`, not forged), so the map no longer draws the
+  DDoS as forged traffic from Mallory. The ISP filter denies ICMP toward `192.0.2.0/24` in both directions,
+  so it drops the botnet burst at the provider.
+- **Toolkit cards** for the **Traffic meter** (steps 4, 5, 6, 8) and **Directed broadcasts** (step 7), so
+  the meter is visible next to the buttons and step 7's Toolkit is not empty.
+- **Step 1** drops the "Open the ticket server" goal and the 0.5× tip. Answer key: `[{ press: 'fan-ping' },
+  { inspect: 'campus' }]`, and the campus goal points at **Directed broadcasts**.
+- **Step 2** explains /24 and the `.0` to `.255` range. **Step 4** defines uplink, pps, and the CIA triad.
+- **Step 7** `fizzle` checks the latest no-broadcast drop since the step began with no reply to the
+  ticket server after it, so pressing **Mallory tries again** before the fix no longer blocks the goal.
+- **Step 9** gives a high / moderate / low rubric, keeps options in that order, and drops "none" from Q1.
+- Button results (`outcome`) say where the replies went and why a purchase failed.
+- Questions that depend on a result are `afterGoals`.
+- **Step 8 is split in two.** `guard-your-edge` keeps the edge firewall rule and the botnet test (no question).
+  New step 9 `filter-upstream` ("Filter before the uplink") defines ISP and upstream, starts the botnet flood in
+  its setup unless the ISP already filters, and holds **The ISP filters upstream**, the `upstream-fixes` goal,
+  and the `why-upstream` question. **Botnet joins in** no longer refills the uplink once the ISP filters. The
+  lab now has 12 steps.
+- **Round 2:** the storm sets its floods as the first wave arrives (`startSmurfFloodAsItArrives`), so the meter
+  climbs when replies get there. Step 6 clears the botnet flood and its log goal needs a forged line
+  (`src` = the ticket server), not Mallory's step 2 test ping. Step 8's **Botnet joins in** result says whether
+  the edge firewall drops the pings. "How risky?" keeps options in High/Moderate/Low order (`last` on all) and
+  Q2 grades the weak Wi-Fi password alone. Mallory moved to (150, 160) and the botnet to (330, 85).
+- **Round 3:** a purchase counts as failed when the fan's request *or* the page coming back is dropped on the
+  full uplink (a purchase pressed the instant the storm starts lets the request through and loses the page).
+  **Botnet joins in** sets its uplink flood one hop after the click, so the meter climbs when the bots' pings
+  arrive. Step 4 names the campus network as the amplifier and tells students to wait for the math line.
+  Step 6 says the newest log line is the bottom one and to read **src** in the details. Step 9's ISP result says
+  the bots are still sending. Step 10's beacon prompt no longer gives the answer away.
+- **Round 4:** the early-purchase result no longer says which direction was dropped (links carry each
+  direction separately). **Botnet joins in** is now **Botnet attacks** (same id). Step 4 moves the CIA triad
+  after the numbered steps. Step 6 splits the log instructions into numbered steps, says the **Source** column is not
+  the packet's src, and its setup logs a fresh forged line for the restarted storm. "How risky?" feedback says
+  "Reread the risk lines above" instead of naming the answer. Steps 3, 7 and 8 say the result takes a few seconds.
+- **Round 5:** no high findings, and 8/8 on the learning check for all six. The median time was 49 minutes
+  (29 to 53), the third round above 45, so `minutes` is now 50.
+
 ## What changed from PLAN.md
 
 The plan stands. These are refinements, not a change of course, so `PLAN.md` is unchanged:
@@ -150,7 +193,7 @@ tagline: 'Use a network's ping replies to knock a ticket site offline, then turn
 unit: 3
 codehs: ['3.3 Misdirected and Overwhelmed']
 ced: ['3.1.A', '3.1.B', '3.1.C', '3.5.E']
-minutes: 45
+minutes: 50
 objectives:
   - 'Explain what ICMP echo (ping) does and what a broadcast address is.'
   - 'Describe how a smurf attack forges a source address and amplifies pings into a flood.'
@@ -707,4 +750,4 @@ wave 2, after both land.
    finds the map misleading, consider drawing a faint "× 30" stack behind the PCs rather than adding devices.
 6. **COVERAGE/README (orchestrator, after merge).** No change needed to COVERAGE's mapping; this lab delivers
    3.1.A.4, 3.1.B.1, 3.1.C.1, 3.1.C.5, 3.5.E.6, 3.5.E.7 as mapped. README's lab table can move `smurf` from
-   "coming soon" to done with CodeHS `3.3` and 11 steps / ~45 min.
+   "coming soon" to done with CodeHS `3.3` and 12 steps / ~50 min.
