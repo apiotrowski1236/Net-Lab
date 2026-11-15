@@ -125,9 +125,9 @@ export const macFloodLab: LabDef = {
   unit: 3,
   codehs: [],
   ced: ['3.1.A', '3.1.B', '3.2.A', '3.2.B', '3.3.B', '3.5.E'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
-    "Explain how MAC flooding turns a switch into a hub and lets an attacker eavesdrop.",
+    "Explain how MAC flooding makes a switch act like a hub and lets an attacker eavesdrop.",
     'Find a MAC flood in a switch’s log and MAC address table.',
     'Stop MAC flooding with port security, and close unused ports.',
     'Explain why MAC spoofing defeats MAC filtering, and write a switch security policy.',
@@ -185,7 +185,9 @@ export const macFloodLab: LabDef = {
 
         Open the **Toolkit** and turn on **Packet capture** for Mallory. It copies every frame that reaches her network card.
 
-        Press **2×** above the map to speed up the packets. Then press **Ms. Ortiz sends attendance**. Her PC sends third period's absences to the [[records]]. First it asks for the server's MAC address with an **ARP request**. That is a **broadcast**: a frame addressed to every device. Watch which frames reach the lobby.
+        Press **2×** above the map to speed up the packets.
+
+        Then press **Ms. Ortiz sends attendance**. Her PC sends third period's absences to the [[records]]. Her PC has forgotten the server's MAC address, so first it asks for it with an **ARP request**. That is a **broadcast**: a frame addressed to every device. Watch which frames reach the lobby.
       `,
       focus: ['mallory', 'sw', 'ortiz'],
       actions: [plugIn, ortizSendsFresh],
@@ -222,7 +224,7 @@ export const macFloodLab: LabDef = {
           id: 'why-not',
           kind: 'choice',
           afterGoals: true,
-          prompt: "Look in the Capture tab. Ms. Ortiz's attendance reached the server, but Mallory has no copy. Why?",
+          prompt: "Look in the Capture tab below the map. Ms. Ortiz's attendance reached the server, but Mallory has no copy of the attendance. Why?",
           options: [
             { id: 'table', text: "The switch looked up the server's MAC and sent the frame out port 2 only.", correct: true },
             { id: 'encrypted', text: 'The attendance was encrypted.', feedback: 'It is plain HTTP. And an encrypted frame would still show up in the capture, as gibberish.' },
@@ -247,13 +249,13 @@ export const macFloodLab: LabDef = {
 
         A switch learns the From MAC of every frame that comes in, and its table has a size limit. **MAC flooding** is sending frames from thousands of made-up MAC addresses until the table is full. The real devices get pushed out.
 
-        When a frame's To MAC isn't in the table, the switch sends the frame out every port except the one it came in on. With the real devices pushed out, the switch acts like a **hub**: a simple device that copies every frame to every port.
+        When a frame's To MAC isn't in the table, the switch sends the frame out every port except the one it came in on. With the real devices pushed out, the switch acts like a **hub**: a simple device that copies every frame to every other port.
 
         Open the **Toolkit** and find the **MAC flooder**. Choose how many bursts and press **Flood**. Each burst is 20 frames, each from a different made-up MAC. On the map, a stack marked ×20 stands for 20 frames.
 
         Keep flooding until the table is full. Watch the meter on the flooder, or click [[sw]] to watch its table.
 
-        This switch holds ${TABLE_SIZE} entries so you can watch it fill. Real switches hold thousands. When this table is full, the switch pushes out its oldest entry to make room. (A real switch stops learning instead, and its old entries run out after a few minutes. The result is the same.)
+        This switch holds ${TABLE_SIZE} entries so you can watch it fill. When it is full, it pushes out its oldest entry to make room. Real switches hold thousands, and they work a little differently, with the same result.
       `,
       focus: ['mallory', 'sw'],
       open: 'tools',
@@ -298,7 +300,7 @@ export const macFloodLab: LabDef = {
 
         Press **Ms. Ortiz sends attendance** again. The switch doesn't know where the server is, so it sends her frame out every port, including port 7. Listening in on traffic meant for someone else is called **eavesdropping**.
 
-        Then open the **Capture** tab and click the attendance frame (**GET /attendance**) to read it.
+        Then open the **Capture** tab and click the attendance frame (**GET /attendance**) to read it. In a web address, a + stands for a space.
 
         Security has three goals, called the **CIA triad**: **confidentiality** (only the right people can read data), **integrity** (nobody changes it), and **availability** (it works when people need it).
       `,
@@ -323,7 +325,7 @@ export const macFloodLab: LabDef = {
         {
           id: 'cia',
           kind: 'choice',
-          prompt: 'Attendance, and the reason a student is absent, are private. Which part of the CIA triad did the flood break?',
+          prompt: 'Attendance, and the reason a student is absent, are private. Mallory read them. Which part of the CIA triad did that break?',
           options: [
             { id: 'c', text: 'Confidentiality', correct: true },
             { id: 'i', text: 'Integrity', feedback: 'Nothing was changed. The upload reached the server exactly as Ms. Ortiz sent it.' },
@@ -338,7 +340,7 @@ export const macFloodLab: LabDef = {
           placeholder: 'First and last name',
           expect: /jordan/i,
           expectHint: 'Open the attendance frame and read the path in the HTTP request.',
-          explain: 'Jordan Lee. The absence list and the reason were in the request, in plain text. With HTTPS, Mallory would still capture the frame, but she couldn’t read it.',
+          explain: 'Jordan Lee. The absence list and the reason were in the request as **plain text**, readable by anyone. **HTTPS** encrypts web traffic. With HTTPS, Mallory would still capture the frame, but she would see only scrambled data.',
         },
       ],
     },
@@ -347,9 +349,9 @@ export const macFloodLab: LabDef = {
       id: 'detect',
       title: 'Spot the flood',
       body: md`
-        Now you are the school's network admin. Ms. Ortiz says the office network feels slow this morning. Find out why.
+        Now you are the school's network admin. Ms. Ortiz says the office network was slow this morning. Find out why.
 
-        A switch keeps a **log**: one line for every event it notices, with the time. Open the **Logs** tab and read [[sw]]'s log. Click a line to see its details.
+        A switch keeps a **log**: one line for every event it notices, with the time. Open the **Logs** tab and read [[sw]]'s log. Each line starts with a code. The words after it say what happened. Scroll up to find the lines that say the table is full, and click one to see its details.
 
         Then click [[sw]] and look at its **Ports and port security** table. Count the MAC addresses on each port. A PC or a printer has one.
       `,
@@ -377,7 +379,7 @@ export const macFloodLab: LabDef = {
             { id: 'p3', text: "Ms. Ortiz's port went down and up this morning.", feedback: 'That happened at 09:23, long before the flood. A PC restarting does that.' },
           ],
           explain:
-            'One port that suddenly has dozens of new MAC addresses is the sign of MAC flooding. In the log, the table-full lines show port 7 learning 20 new addresses at a time. A real device, like Ms. Ortiz’s PC on port 3, brings one.',
+            'One port that suddenly has dozens of new MAC addresses is the sign of MAC flooding. In the log, a table-full line shows port 7 learning 20 new addresses at once. A real device, like Ms. Ortiz’s PC on port 3, brings one.',
         },
         {
           id: 'port',
@@ -396,16 +398,18 @@ export const macFloodLab: LabDef = {
       title: 'Port security',
       setup: ensureCleanTable,
       body: md`
-        The flood has stopped for now. Its made-up entries ran out, and the switch has learned the real devices again. Mallory's laptop is still on port 7. Lock that port down.
+        The flood has stopped for now. Its made-up entries expired, and the switch has learned the real devices again. Mallory's laptop is still on port 7. Protect that port.
 
         **Port security** limits how many MAC addresses may use a switch port. A laptop has one MAC. If another MAC shows up, that is a **violation**, and the switch does what you choose:
 
         - **Shut the port down**: the port turns off until an admin turns it back on.
         - **Drop its frames, keep the port on**: frames from the extra MACs are thrown away and logged.
 
-        Click [[sw]]. In **Ports and port security**, choose **Edit** on port 7. Turn on port security, keep **Most MACs** at 1, and keep **If another MAC shows up** on **Shut the port down**. Press **Save port 7**: nothing changes until you save. (Leave the **Shut port down** button alone. It turns the port off right away, which is a different tool.)
-
-        Then press **Mallory floods again** and watch port 7. Press **Ms. Ortiz sends attendance** to check that her data stays private.
+        1. Click [[sw]]. In **Ports and port security**, choose **Edit** on port 7.
+        2. Turn on port security. Keep **Most MACs** at 1 and **If another MAC shows up** on **Shut the port down**. Leave **Only these MACs** empty.
+        3. Press **Save port 7**. Nothing changes until you save. Leave the **Shut port down** button alone: it turns the port off right away.
+        4. Press **Mallory floods again** and watch port 7.
+        5. Press **Ms. Ortiz sends attendance** to check that her data stays private.
       `,
       focus: ['sw', 'mallory'],
       open: { inspect: 'sw' },
@@ -471,7 +475,7 @@ export const macFloodLab: LabDef = {
         **As Mallory**, copy the printer's MAC. It is on a sticker on the printer's back. Sending someone else's MAC address is called **MAC spoofing**.
 
         3. In the **Toolkit**, type the printer's MAC into the **MAC changer** and press **Change MAC**.
-        4. Press **Mallory takes the printer's cable**, then **Mallory pings the records server**.
+        4. Press **Mallory takes the printer's cable**, then **Mallory pings the records server**. A **ping** is a short test message that asks a device to reply.
       `,
       focus: ['printer', 'sw', 'mallory'],
       tools: [{ kind: 'mac-change', device: 'mallory' }, { kind: 'port-security', device: 'sw' }],
@@ -480,7 +484,7 @@ export const macFloodLab: LabDef = {
         {
           id: 'filter',
           label: "Port 5 allows only the printer's MAC, and drops other frames",
-          hint: "Click the Office switch and choose **Edit** on port 5. Choose **Drop its frames, keep the port on**, type the printer's MAC under **Only these MACs**, and press **Save port 5**.",
+          hint: "Click the Office switch and choose **Edit** on port 5. Choose **Drop its frames, keep the port on**, type the printer's MAC under **Only these MACs**, and press **Save port 5**. Check every digit against the printer's MAC.",
           check: ({ sim }) => {
             const ps = portSet(sim, PORT.printer)?.security;
             return ps?.violation === 'restrict' && ps.allowed?.length === 1 && ps.allowed[0] === MAC.printer;
@@ -506,14 +510,14 @@ export const macFloodLab: LabDef = {
           id: 'not-enough',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'MAC filtering let Mallory in. Why isn’t it enough on its own?',
+          prompt: 'MAC filtering let Mallory in. Why isn’t it enough alone?',
           options: [
             { id: 'copy', text: 'Every frame shows its From MAC, and software can change it.', correct: true },
             { id: 'max', text: 'Port 5 allowed too many MACs.', feedback: 'It allowed exactly one. Mallory used that one.' },
             { id: 'weak', text: "The printer's MAC was too short.", feedback: 'Every MAC is the same length. A copy works as well as the original.' },
             { id: 'wifi', text: 'MAC filtering only works on Wi-Fi.', feedback: 'Switches and Wi-Fi access points both offer it, and spoofing beats it on both.' },
           ],
-          explain: 'A MAC address is a label, not a proof. Anyone who can read it, on a sticker or in a captured frame, can copy it. To trust a device, a network has to make it prove who it is, the way a password proves who you are.',
+          explain: 'A MAC address is a label, not a proof. Anyone who can read it, on a sticker or in a captured frame, can copy it. To trust a device, a network has to make it prove who it is, the way a password proves who you are. MAC filtering still helps as one layer: an attacker has to find and copy the right MAC first.',
         },
       ],
     },
@@ -523,13 +527,13 @@ export const macFloodLab: LabDef = {
       title: 'Close the doors',
       setup: ensurePrinterBack,
       body: md`
-        Mallory unplugged her laptop and walked away, and the [[printer]] is back on its cable. Once Mallory sent the printer's MAC, MAC filtering let all her frames through. The switch's log noticed something else.
+        Mallory unplugged her laptop and put the [[printer]] back on its cable. MAC filtering let all her frames through. The switch's log noticed something else.
 
-        Open the **Logs** tab and type port 5 in the **Search** box. Only port 5's lines are left. Click a **warning** that says port 5 changed state to **down**. Both of them are Mallory: one when she unplugged the printer, one when she unplugged herself. A printer that goes offline and comes back is a reason to check on it.
+        Open the **Logs** tab and type port 5 in the **Search** box. Click a **warning** that says port 5 changed state to **down**. There are two, and both are Mallory unplugging a cable. A printer that goes offline and comes back is a reason to check on it.
 
         Now close the doors. A port with nothing plugged in is an open door. Click [[sw]], choose **Edit** on each empty port (6, 7, and 8), and press **Shut port down**. You don't need to press Save.
 
-        Port 7 is off already, because port security shut it. An admin who sees that might turn it back on, thinking it was a glitch. Press **Shut port down** on it too, to mark it as off on purpose.
+        Port 7 is off already, because port security shut it. An admin who sees that might think it was a mistake and turn it back on. Press **Shut port down** on it too, to mark it as off on purpose.
       `,
       focus: ['sw', 'printer'],
       open: 'logs',
@@ -563,7 +567,7 @@ export const macFloodLab: LabDef = {
             { id: 'logs', text: 'Delete old log lines so nobody can read them.', feedback: 'The log is how you caught the printer swap. Keep it.' },
           ],
           explain:
-            'Making each device prove its identity before the port opens is port-based authentication. Its standard is 802.1X. It goes beyond this course, but it is how many schools and companies lock down wall jacks. Keeping switches and spare jacks out of public areas helps too.',
+            'Making each device prove its identity before the port opens is port-based authentication. A **certificate** is a digital ID that is much harder to copy than a MAC. The standard is 802.1X. It goes beyond this course, but it is how many schools and companies lock down wall jacks. Keeping switches and spare jacks out of public areas helps too.',
         },
       ],
     },
@@ -574,9 +578,9 @@ export const macFloodLab: LabDef = {
       body: md`
         A **security policy** is a written set of rules an organization follows. A **switch security policy** says how every switch must be set up, so the next admin doesn't leave a jack open.
 
-        A policy also says how admins sign in to a switch. Out of the box, each switch has its own **local account**, a username and password stored on that one switch. A district **authentication server** is one computer that checks every admin's sign-in. With it, there is one place to remove someone's access, and one record of who changed what.
+        A policy also says how admins sign in to a switch. A new switch has its own **local account**, a username and password stored on that one switch. A district **authentication server** is one computer that checks every admin's sign-in. With it, there is one place to remove someone's access, and one record of who changed what.
 
-        Help write Lincoln High's policy. Pick every rule that belongs in it.
+        A policy can use a weak control, like MAC filtering, as one layer among stronger ones. Help write Lincoln High's policy. Pick every rule that belongs in it.
       `,
       questions: [
         {
@@ -594,7 +598,7 @@ export const macFloodLab: LabDef = {
             { id: 'shared', text: 'Office staff share one switch password, so anyone can fix a problem.', feedback: 'A shared password can’t be traced to one person, and everyone who leaves still knows it.' },
           ],
           explain:
-            'Each rule closes a door. Signing in through the authentication server means an admin who leaves loses access to every switch at once. MAC filtering is weak alone, because a MAC can be copied. Together with port security and the log, it makes an attack harder to pull off and more likely to be caught.',
+            'Each rule closes a door. Signing in through the authentication server means an admin who leaves loses access to every switch at once. MAC filtering is weak alone, because a MAC can be copied. Together with port security and the log, it makes an attack harder and more likely to be caught.',
         },
       ],
     },

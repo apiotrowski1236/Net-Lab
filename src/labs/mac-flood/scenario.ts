@@ -158,7 +158,7 @@ export function zones(sim: Sim): MapZone[] {
     {
       id: 'jack',
       shape: { kind: 'rect', x: 674, y: 171, w: 176, h: 30 },
-      label: jack ? 'Wall jack, port 7: off' : 'Wall jack, port 7',
+      label: jack ? 'Wall jack, port 7: off, safe' : 'Wall jack, port 7',
       tone: jack ? 'good' : 'bad',
     },
   ];
