@@ -67,14 +67,20 @@ const buyTicket = {
     if (b.status === 'loaded') return [{ tone: 'good', text: 'The ticket page loaded. The fan bought her seat.' }];
     if (jam?.type === 'drop' && jam.pkt?.app.kind === 'http-req')
       return [{ tone: 'bad', text: "The purchase failed. Hilltop's uplink is full of flood traffic, so her request was dropped before it reached Hilltop." }];
-    if (jam) return [{ tone: 'bad', text: "The purchase failed. Hilltop's uplink is full of flood traffic, so the page was dropped on its way back to her." }];
+    if (jam)
+      return [
+        {
+          tone: 'bad',
+          text: "The purchase failed. Her request got in a moment before the flood filled Hilltop's uplink, and the rest of the purchase was dropped there. Her browser gives up in a few seconds.",
+        },
+      ];
     if (b.status === 'failed') return [{ tone: 'bad', text: `The purchase failed. ${b.error ?? ''}`.trim() }];
     return [{ tone: 'wait', text: 'The ticket page is loading…' }];
   },
 };
 const botnetFlood = {
   id: 'botnet',
-  label: 'Botnet joins in',
+  label: 'Botnet attacks',
   run: (sim: Sim) => {
     // Once the ISP filters pings, the bots' pings no longer reach the uplink. Otherwise they get
     // there one hop after they leave, so the meter climbs then.
@@ -159,13 +165,13 @@ You will see why that matters in the next two steps.
       id: 'everyone',
       title: 'Everyone answers',
       body: `The campus network is \`198.51.100.0/24\`. The **/24** means the first three numbers name the network, so
-its addresses run from \`198.51.100.0\` to \`198.51.100.255\`.
+its addresses run from \`198.51.100.0\` to \`198.51.100.255\`. You don't need to work anything out from it.
 
 The last address, **\`198.51.100.255\`**, is the network's **broadcast address**. A packet sent there is meant
 for every device on the network at once. When a ping for that address arrives from outside, Westfield's router
 hands it to every campus computer. This is a **directed broadcast**.
 
-You are Mallory now, out on the internet. In the **Echo tool**, ping \`198.51.100.255\`. Leave the source box
+You are Mallory now, out on the internet. In the **Echo tool** (in the Toolkit tab), ping \`198.51.100.255\`. Leave the source box
 blank. Count the replies.`,
       focus: ['mallory', 'isp', 'campus', 'pc1', 'pc2', 'pc3'],
       open: 'tools',
@@ -212,7 +218,7 @@ source address. The map labels forged packets FAKE and draws them in red. Real n
 1. In the Echo tool, type [[pc1]]'s address, \`198.51.100.11\`, in the **ping** box.
 2. Type the ticket server's address, \`192.0.2.10\`, in the **source** box. Press **Send**.
 
-Watch where [[pc1]]'s reply goes. (Other campus computers may see the ping too and mark it "not for me".
+Watch where [[pc1]]'s reply goes. The result takes a few seconds. (Other campus computers may see the ping too and mark it "not for me".
 Only [[pc1]] answers.)`,
       focus: ['mallory', 'pc1', 'web'],
       open: 'tools',
@@ -256,17 +262,18 @@ broadcast address, each with the ticket server's address as the source. The camp
 **amplifier**: it turns each ping into thirty replies, all aimed at the victim.
 
 Hilltop's **uplink** is the link from [[isp]] to [[edge]]. The Traffic meter calls it "Link with Internet
-provider". It carries only 60 packets per second (**pps**). Extra packets are **dropped**. This is
+provider" on [[edge]]. It carries only 60 packets per second (**pps**). Extra packets are **dropped**. This is
 **congestion**.
-
-The **CIA triad** names three things security protects: **confidentiality** (secrets stay secret),
-**integrity** (data stays correct), and **availability** (people can use the system when they need it).
 
 1. Press **Launch the storm**. Wait until its result shows the math, and watch the **Traffic meter**.
 2. Then press **Fan buys a ticket**.
 
 (The map draws the replies reaching the ticket server, to show where they are aimed. On a real full link,
-most of them would be dropped on the way.)`,
+most of them would be dropped on the way.)
+
+The question uses the **CIA triad**, three things security protects: **confidentiality** (secrets stay
+secret), **integrity** (data stays correct), and **availability** (people can use the system when they need
+it).`,
       focus: ['mallory', 'campus', 'isp', 'edge', 'web', 'fan'],
       open: 'tools',
       tools: [{ kind: 'traffic-meter', device: 'edge' }],
@@ -345,14 +352,13 @@ with many attackers. A
 **botnet** is a crowd of computers an attacker controls, often without their owners knowing. The map draws
 the [[botnet]] as one box.
 
-1. Press **Botnet joins in**. Hundreds of bots ping the ticket server from their own addresses. They forge
+1. Press **Botnet attacks**. Hundreds of bots ping the ticket server from their own addresses. They forge
    nothing and use no amplifier.
 2. Press **Fan buys a ticket**.
 
 A flood from one attacker is a **denial-of-service (DoS)** attack. A flood from many attacking computers at
-once is a **distributed denial-of-service (DDoS)**. A smurf sits in between: one attacker, with thirty campus
-computers tricked into sending the flood for her. It has one attacker, like a DoS, but the flood comes from
-many computers, like a DDoS.`,
+once is a **distributed denial-of-service (DDoS)**. A smurf sits in between: it has one attacker, like a DoS,
+but the flood comes from thirty campus computers tricked into sending it, like a DDoS.`,
       focus: ['botnet', 'isp', 'edge', 'web', 'fan'],
       open: 'tools',
       tools: [{ kind: 'traffic-meter', device: 'edge' }],
@@ -362,10 +368,10 @@ many computers, like a DDoS.`,
         {
           id: 'ddos',
           label: 'Start the botnet flood',
-          hint: 'Press **Botnet joins in**.',
+          hint: 'Press **Botnet attacks**.',
           check: ({ sim }) => sim.linkPps(uplinkId(sim)) > 60,
         },
-        { id: 'fan-fails', label: "The fan's purchase fails again", hint: 'Press **Botnet joins in**, then **Fan buys a ticket**.', check: fanFloodFailed },
+        { id: 'fan-fails', label: "The fan's purchase fails again", hint: 'Press **Botnet attacks**, then **Fan buys a ticket**.', check: fanFloodFailed },
       ],
       questions: [
         {
@@ -390,14 +396,18 @@ many computers, like a DDoS.`,
       body: `Now you are the defender. The botnet has gone quiet, but Mallory has started the smurf storm again. A sudden jump in
 traffic like this is called a **spike**. An attack leaves signs in two places.
 
-1. **The symptom**, at Hilltop. Click [[edge]] and read its **Traffic meter**. The uplink is far over its
-   limit, full of echo replies to pings Hilltop never sent.
-2. **The cause**, at Westfield. Hilltop's admin calls Westfield, and Westfield's admin shares the campus
-   router's log. Open the **Logs** tab. Click the newest [[campus]] line for pings sent to
-   \`198.51.100.255\`. It is the bottom one, with the latest time. In the details, look for **src**, the
-   ping's source address. It is the ticket server's address. Mallory forged it, so the log can't point to
-   her. (The oldest line shows Mallory's real address. That is your own test ping from step 2, sent before
-   you forged anything.)
+**The symptom** is at Hilltop. Click [[edge]] and read its **Traffic meter**. The uplink is far over its
+limit, full of echo replies to pings Hilltop never sent.
+
+**The cause** is at Westfield. Westfield's admin shares the campus router's log with Hilltop.
+
+1. Open the **Logs** tab.
+2. Click the bottom [[campus]] line for pings sent to \`198.51.100.255\`. It is the newest one.
+3. In its details, find **src**, the ping's source address. (The **Source** column is something else: it
+   names the part of the router that wrote the line.)
+
+The src is the ticket server's address. Mallory forged it, so the log can't point to her. The oldest line
+shows Mallory's real address. That is your own test ping from step 2.
 
 A sign like these is an **indicator of compromise (IoC)**: evidence that an attack is happening or has
 happened. No one got into Hilltop's computers here. The signs point to an attack on availability.`,
@@ -408,26 +418,24 @@ happened. No one got into Hilltop's computers here. The signs point to an attack
         { kind: 'traffic-meter', device: 'edge' },
       ],
       setup: (sim) => {
-        // Only the smurf flood runs here, so the meter reads all replies; make sure a forged campus line exists to open.
+        // Only the smurf flood runs here, so the meter reads all replies. The restarted storm
+        // writes a fresh forged line, so the newest line is this step's attack.
         sim.clearLinkFlood('botnet');
         sim.setDirectedBroadcast('campus', true);
         startSmurfFlood(sim);
-        const campus = sim.dev('campus');
-        if (!campus.logs.some((e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp' && e.fields?.src === WEB)) {
-          sim.log('campus', {
-            source: 'router',
-            level: 'warn',
-            msg: `ICMP echo request to ${CAMPUS_BCAST} (directed broadcast) relayed to ${LAN_HOSTS} hosts`,
-            fields: { src: WEB, dst: CAMPUS_BCAST, proto: 'icmp', count: LAN_HOSTS },
-          });
-        }
+        sim.log('campus', {
+          source: 'router',
+          level: 'warn',
+          msg: `ICMP echo request to ${CAMPUS_BCAST} (directed broadcast) relayed to ${LAN_HOSTS} hosts`,
+          fields: { src: WEB, dst: CAMPUS_BCAST, proto: 'icmp', count: LAN_HOSTS },
+        });
       },
       goals: [
         { id: 'meter', label: 'Open [[edge]] and read its Traffic meter', check: inspected('edge') },
         {
           id: 'logline',
           label: 'Open a campus log line for the forged broadcast-address pings',
-          hint: 'In the Logs tab, open the newest campus line for `198.51.100.255`. Its src should be `192.0.2.10`, not Mallory.',
+          hint: 'In the Logs tab, open the bottom campus line for `198.51.100.255`. Its src should be `192.0.2.10`, not Mallory.',
           check: openedLog((e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp' && e.fields?.src === WEB),
         },
       ],
@@ -455,7 +463,8 @@ happened. No one got into Hilltop's computers here. The signs point to an attack
 network at once. Modern routers don't, unless someone turns it on.
 
 1. Click [[campus]]. Under **Directed broadcasts**, switch it **off**.
-2. Press **Mallory tries again**. One forged ping goes to the campus broadcast address.`,
+2. Press **Mallory tries again**. One forged ping goes to the campus broadcast address. The result takes a few
+   seconds.`,
       focus: ['campus', 'mallory', 'web'],
       open: { inspect: 'campus' },
       tools: [{ kind: 'directed-broadcast', device: 'campus' }],
@@ -525,8 +534,8 @@ top, and the first rule that matches decides.
 
 1. In [[edge]]'s firewall, add the rule **DENY in ICMP (ping) from any to any**. Move it above the rule that
    allows ping.
-2. Press **Botnet joins in** and read its result.
-3. Press **Fan buys a ticket**.
+2. Press **Botnet attacks** and read its result.
+3. Press **Fan buys a ticket**. The result takes a few seconds.
 
 (This firewall blocks all ICMP with one rule. Real firewalls can block only pings (echo requests and replies)
 and keep the other ICMP messages a network needs.)`,
@@ -568,7 +577,7 @@ and keep the other ICMP messages a network needs.)`,
         {
           id: 'still-fails',
           label: 'With your rule in place, a fan tries to buy a ticket',
-          hint: 'Press **Botnet joins in**, then **Fan buys a ticket**.',
+          hint: 'Press **Botnet attacks**, then **Fan buys a ticket**.',
           check: (c) => deniesInboundIcmp(c.sim, 'edge') && fanFloodFailed(c),
         },
       ],
@@ -582,7 +591,7 @@ Hilltop's **ISP** (internet service provider) is the company that connects it to
 one step before Hilltop's uplink, so it is **upstream** of Hilltop. Hilltop calls its ISP and asks it to filter the
 pings.
 
-1. Press **The ISP filters upstream**. Read its result and watch the **Traffic meter** drop.
+1. Press **The ISP filters upstream**. Read its result, and check the **Traffic meter**.
 2. Press **Fan buys a ticket**. The page takes a few seconds to load.`,
       focus: ['isp', 'edge', 'fan', 'botnet'],
       open: 'tools',
@@ -647,18 +656,18 @@ Grade what the weakness allows, not the size of the attack it was part of.`,
           kind: 'choice',
           prompt: "Before you added the rule, Hilltop's edge firewall allowed ping from anywhere. What risk is that?",
           options: [
-            { id: 'high', text: 'High risk.', feedback: 'Check the rule for high. Open ping gave no one the data or control.', last: true },
+            { id: 'high', text: 'High risk.', feedback: 'Reread the risk lines above. Open ping gave no one the data or control.', last: true },
             { id: 'mod', text: 'Moderate risk.', correct: true, last: true },
             {
               id: 'low',
               text: 'Low risk.',
               feedback:
-                "Check the rule for moderate. Blocking ping at the edge did not save the uplink, but open ping lets an attacker's flood reach every computer behind the firewall.",
+                "Reread the risk lines above. Open ping does more than show that Hilltop exists: an attacker can use it to flood the ticket server. Blocking ping at the edge did not save the uplink, but it does keep the flood off the server.",
               last: true,
             },
           ],
           explain:
-            'Ping left open at an external firewall is a moderate risk. An attacker can use it to flood the computers behind the firewall, but it opens no way to the data. Blocking it at the edge does not save the uplink, but it keeps the flood off the network behind the firewall.',
+            "Ping left open at an external firewall is a moderate risk. An attacker can use it to flood the ticket server, but it opens no way to the data. Blocking it at the edge does not save the uplink, but it keeps the flood off the server and the rest of Hilltop's network.",
         },
         {
           id: 'wifi-flat',
@@ -667,8 +676,8 @@ Grade what the weakness allows, not the size of the attack it was part of.`,
             'At a different school, every computer, including the server that stores grades, sits on one network with nothing dividing it (a **flat network**). The Wi-Fi password is weak, so anyone in range can join that network. What risk is the weak Wi-Fi password?',
           options: [
             { id: 'high', text: 'High risk.', correct: true, last: true },
-            { id: 'mod', text: 'Moderate risk.', feedback: 'Check the rule for high. Anyone who joins can reach the grade server directly.', last: true },
-            { id: 'low', text: 'Low risk.', feedback: 'Check the rule for high. This opens a direct path from outside to the grades.', last: true },
+            { id: 'mod', text: 'Moderate risk.', feedback: 'Reread the risk lines above. Anyone who joins can reach the grade server directly.', last: true },
+            { id: 'low', text: 'Low risk.', feedback: 'Reread the risk lines above. This opens a direct path from outside to the grades.', last: true },
           ],
           explain: 'On this flat network, the weak password lets an outsider join and reach the grade server directly. That is a high risk.',
         },
@@ -678,8 +687,8 @@ Grade what the weakness allows, not the size of the attack it was part of.`,
           prompt:
             "Last one: the school's Wi-Fi access points (the boxes that send the Wi-Fi signal) send out **beacon frames**, short radio messages that announce the network's name to anyone nearby. What risk is that?",
           options: [
-            { id: 'high', text: 'High risk.', feedback: 'A beacon gives no way in and no data. Check the rule for low.', last: true },
-            { id: 'mod', text: 'Moderate risk.', feedback: 'A beacon cannot be used to send a flood or get in. It only shows the network exists. Check the rule for low.', last: true },
+            { id: 'high', text: 'High risk.', feedback: 'A beacon gives no way in and no data. Reread the risk lines above.', last: true },
+            { id: 'mod', text: 'Moderate risk.', feedback: 'A beacon cannot be used to send a flood or get in. Reread the risk lines above.', last: true },
             { id: 'low', text: 'Low risk.', correct: true, last: true },
           ],
           explain: 'Beacon frames only show that a network exists, which anyone nearby could notice anyway. It is a low risk.',

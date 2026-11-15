@@ -167,13 +167,13 @@ describe('smurf lab', () => {
     expect(s.sim.dev('fan').browser?.status).toBe('loaded');
   });
 
-  it("step 9's setup starts the botnet flood even if step 8 never pressed Botnet joins in", () => {
+  it("step 9's setup starts the botnet flood even if step 8 never pressed Botnet attacks", () => {
     const sim = buildEchoStorm();
     lab.steps[index('filter-upstream')].setup!(sim);
     expect(sim.linkPps(uplinkId(sim))).toBeGreaterThan(UPLINK_CAP);
   });
 
-  it('pressing Botnet joins in after the ISP filters does not refill the uplink', () => {
+  it('pressing Botnet attacks after the ISP filters does not refill the uplink', () => {
     const sim = buildEchoStorm();
     ispFilterUpstream(sim);
     const botnet = lab.steps[index('guard-your-edge')].actions!.find((a) => a.id === 'botnet')!;
@@ -248,7 +248,10 @@ describe('smurf lab', () => {
     s.sim.runUntilIdle();
     expect(s.missing()).toEqual(['1 question']);
     expect(buy.outcome!(s.sim, t0)).toEqual([
-      { tone: 'bad', text: "The purchase failed. Hilltop's uplink is full of flood traffic, so the page was dropped on its way back to her." },
+      {
+        tone: 'bad',
+        text: "The purchase failed. Her request got in a moment before the flood filled Hilltop's uplink, and the rest of the purchase was dropped there. Her browser gives up in a few seconds.",
+      },
     ]);
   });
 
@@ -271,6 +274,9 @@ describe('smurf lab', () => {
     expect(s.sim.linkPps(uplinkId(s.sim)), 'botnet gone quiet; only the smurf flood').toBe(SMURF_RATE);
     playMove(s, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.src === MALLORY });
     expect(s.goalDone('read-the-spike', 'logline')).toBe(false);
+    const newest = s.sim.dev('campus').logs.at(-1)!;
+    expect(newest.fields?.src, 'the restarted storm logs a fresh forged line').toBe(WEB);
+    expect(newest.t).toBeGreaterThanOrEqual(s.progress.stepStart['read-the-spike'] ?? 0);
     playMove(s, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.src === WEB });
     expect(s.goalDone('read-the-spike', 'logline')).toBe(true);
   });

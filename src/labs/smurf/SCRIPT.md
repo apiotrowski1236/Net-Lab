@@ -76,6 +76,11 @@ that alter what students do or see:
   arrive. Step 4 names the campus network as the amplifier and tells students to wait for the math line.
   Step 6 says the newest log line is the bottom one and to read **src** in the details. Step 9's ISP result says
   the bots are still sending. Step 10's beacon prompt no longer gives the answer away.
+- **Round 4:** the early-purchase result no longer says which direction was dropped (links carry each
+  direction separately). **Botnet joins in** is now **Botnet attacks** (same id). Step 4 moves the CIA triad
+  after the buttons. Step 6 splits the log instructions into numbered steps, says the **Source** column is not
+  the packet's src, and its setup logs a fresh forged line for the restarted storm. "How risky?" feedback says
+  "Reread the risk lines above" instead of naming the answer. Steps 3, 7 and 8 say the result takes a few seconds.
 
 ## What changed from PLAN.md
 
