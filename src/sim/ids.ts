@@ -459,7 +459,7 @@ function checkAnomaly(sim: Sim, dev: Device, s: IdsSensor, frame: Frame): void {
   s.judged.push(j);
   if (s.judged.length > MAX_JUDGED) s.judged.splice(0, s.judged.length - MAX_JUDGED);
   if (!j.alerted) return;
-  const why = [j.offHours ? j.time : '', j.newPeer ? `new peer ${j.peer}` : '', j.big ? megabytes(j.bytes) : ''].filter(Boolean).join(', ');
+  const why = [j.offHours ? j.time : '', j.newPeer ? `new address ${j.peer}` : '', j.big ? megabytes(j.bytes) : ''].filter(Boolean).join(', ');
   const line = alertLine('anomaly', { host: j.host, hour: j.hour, peer: j.peer, bytes: j.bytes, deviation: j.deviation }, why);
   raise(sim, dev, s, `anomaly|${j.host}|${j.peer}`, line, { block: j.host });
 }

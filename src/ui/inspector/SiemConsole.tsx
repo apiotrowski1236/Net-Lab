@@ -12,7 +12,7 @@ const KIND_TEXT: Record<string, string> = {
   'auth-fail': 'Failed sign-ins',
 };
 
-const TRUTH_TEXT: Record<AiEvent['truth'], string> = { attack: 'real attack', 'false-alarm': 'false alarm', normal: 'normal' };
+const TRUTH_TEXT: Record<AiEvent['truth'], string> = { attack: 'real attack', 'false-alarm': 'harmless', normal: 'normal' };
 
 /** "Escalated: real attack", "Open". */
 export function triageText(inc: Incident): string {
@@ -51,7 +51,10 @@ export function IncidentCard({ session, sim, siemId, inc, edit }: { session: Lab
       return;
     }
     session.dispatch({ type: 'siem-triage', device: siemId, incident: inc.id, verdict, action });
-    setMsg({ tone: 'good', text: `Saved. Incident ${inc.id} is ${triageText({ ...inc, verdict, action }).toLowerCase()}.` });
+    const saved = `Saved. Incident ${inc.id} is ${triageText({ ...inc, verdict, action }).toLowerCase()}.`;
+    // A real attack that is closed gets no follow-up: say so, or the choice looks fine.
+    if (verdict === 'real' && action === 'close') setMsg({ tone: 'bad', text: `${saved} Closing it means nobody follows up on a real attack.` });
+    else setMsg({ tone: 'good', text: saved });
   };
   const seg = <T extends string>(label: string, value: T | undefined, set: (v: T) => void, opts: [T, string][]) => (
     <div class="ids-row">
@@ -162,7 +165,7 @@ function AiThreshold({ session, sim, devId, q, edit }: { session: LabSession; si
         <h4>
           AI threshold <span class="muted">which scores become alerts</span>
         </h4>
-        <p class="small callout">Nothing scored yet. Press <strong>Score this morning's events</strong> in the lesson.</p>
+        <p class="small callout">Nothing scored yet. Press <strong>Score the night's events</strong> in the lesson.</p>
       </section>
     );
   }

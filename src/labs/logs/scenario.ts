@@ -87,7 +87,7 @@ export const BASELINE: Baseline = {
   defaultTypical: MB,
 };
 
-/** What the AI model scores when the analyst presses "Score this morning's events". */
+/** What the AI model scores when the analyst presses "Score the night's events". */
 export const AI_EVENTS: AiEvent[] = [
   { id: 'arp', label: 'Forged ARP replies for the gateway, from the unknown laptop', when: '02:30', score: 0.95, truth: 'attack' },
   { id: 'upload', label: "Raj's PC uploads 90 MB to 45.77.12.9", when: '03:12', score: 0.9, truth: 'attack' },
@@ -115,7 +115,8 @@ export function at(h: number, m: number, s = 0): number {
 
 export function buildUtility(): Sim {
   const host = (ip: string) => ({ ip: `${ip}/24`, gateway: IP.gateway, dns: DNS });
-  const sim = new NetBuilder({ linkMs: 700 })
+  // Short links: a replay's connection answers in a few seconds, not fifteen.
+  const sim = new NetBuilder({ linkMs: 450, procMs: 100 })
     .router('internet', {
       label: 'Internet',
       icon: 'cloud',
@@ -189,8 +190,8 @@ export function buildUtility(): Sim {
       services: [{ port: 873, proto: 'tcp', app: 'rsync' }],
       notes: [`Copies the records server every afternoon. On the first of the month at 02:00 it sends a full backup to the offsite vault ${VAULT}.`],
     })
-    .host('pc1', { label: "Dana's PC", sublabel: 'operator', icon: 'desktop', x: 120, y: 330, ...host(IP.pc1) })
-    .host('pc2', { label: "Raj's PC", sublabel: 'finance clerk', icon: 'desktop', x: 120, y: 500, ...host(IP.pc2) })
+    .host('pc1', { label: "Dana's PC", sublabel: IP.pc1, icon: 'desktop', x: 120, y: 330, ...host(IP.pc1) })
+    .host('pc2', { label: "Raj's PC", sublabel: IP.pc2, icon: 'desktop', x: 120, y: 500, ...host(IP.pc2) })
     .host('control', { label: 'Control room PC', icon: 'desktop', x: 330, y: 500, ...host(IP.control) })
     .host('plant', {
       label: 'Plant controller',
@@ -443,7 +444,7 @@ function seedHistory(sim: Sim): void {
   });
   for (let h = 17; h !== 8; h = (h + 1) % 24) {
     log('nids', at(h, 0, 0), { source: 'ids', level: 'info', msg: h >= 2 && h < 12 ? 'heartbeat OK (detection paused)' : 'heartbeat OK', fields: {} });
-    log('siem', at(h, 0, 30), { source: 'siem', level: 'info', msg: 'ingest OK: firewall, switch, records, backup, sensor', fields: { sources: 5 } });
+    log('siem', at(h, 0, 30), { source: 'siem', level: 'info', msg: `ingest OK: logs from ${LOG_DEVICES.length - 1} devices`, fields: { sources: LOG_DEVICES.length - 1 } });
   }
   log('siem', at(16, 20, 0), { source: 'siem', level: 'notice', msg: 'INCIDENT 1040 closed: false alarm', fields: { incident: 1040, verdict: 'false', action: 'close', triage: 'closed' } });
 }

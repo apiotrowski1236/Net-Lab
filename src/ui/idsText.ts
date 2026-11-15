@@ -12,9 +12,9 @@ export function toleranceText(t: Tolerance): string {
   return `${TOLERANCE_NAME[t]} alerts at a deviation of ${TOLERANCE_MIN[t]} or more`;
 }
 
-/** Why a connection scored its deviation: "outside office hours (03:12), new peer 45.77.12.9, 90 MB (over 10x usual)". */
+/** Why a connection scored its deviation: "outside office hours (03:12), never-used address 45.77.12.9, 90 MB (over 10x usual)". */
 export function deviationWhy(j: Judgment): string {
-  const parts = [j.offHours ? `outside office hours (${j.time})` : '', j.newPeer ? `new peer ${j.peer}` : '', j.big ? `${megabytes(j.bytes)}, over 10x usual` : ''];
+  const parts = [j.offHours ? `outside office hours (${j.time})` : '', j.newPeer ? `never-used address ${j.peer}` : '', j.big ? `${megabytes(j.bytes)}, over 10x usual` : ''];
   return parts.filter(Boolean).join(', ') || 'nothing unusual';
 }
 
@@ -76,7 +76,8 @@ function quietLines(label: string, s: IdsSensor, judged: Judgment[]): OutcomeLin
   if (!s.signatures && !s.anomaly) return [{ tone: 'bad', text: `${label} saw the traffic, but its detection is off. No alert.` }];
   const out: OutcomeLine[] = [];
   if (s.signatures) out.push({ tone: 'bad', text: `${label} saw the traffic. No signature matched it, so no alert.` });
-  if (s.anomaly) {
+  if (s.anomaly && !s.baseline) out.push({ tone: 'bad', text: `${label}: anomaly detection has no baseline yet, so it could not score this.` });
+  else if (s.anomaly) {
     const j = judged.at(-1);
     if (j) out.push({ tone: 'bad', text: `${label}: deviation ${j.deviation} (${deviationWhy(j)}). ${toleranceText(s.tolerance)}, so no alert.` });
   }

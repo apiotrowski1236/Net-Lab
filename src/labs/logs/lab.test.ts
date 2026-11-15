@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { aiCounts, type Tolerance } from '../../sim/ids';
 import type { Sim } from '../../sim/sim';
 import type { LogEntry } from '../../sim/types';
+import { deviationWhy, idsOutcomeLines } from '../../ui/idsText';
 import { INCIDENT, logsLab } from '.';
 import {
   AI_EVENTS,
@@ -204,9 +205,45 @@ describe('logs lab: goals', () => {
     };
     const passing = Array.from({ length: 21 }, (_, i) => i / 20).filter(good);
     expect(passing).toEqual([0.7, 0.75]);
-    expect(goal('threshold', 'good-threshold').check({ sim, since: 0 })).toBe(false);
+  });
+
+  it('the threshold goal needs both ends tried after scoring, then a good setting left in place', () => {
+    const sim = buildUtility();
+    const good = goal('threshold', 'good-threshold');
+    const check = () => good.check({ sim, since: 0 });
+    // Tries before the events are scored do not count.
+    sim.aiSetThreshold('siem', 1);
+    sim.aiSetThreshold('siem', 0);
+    sim.t += 1000;
+    sim.aiScore('siem', AI_EVENTS);
+    sim.t += 1000;
+    // A good setting straight away is not enough: the student has not seen either end.
     sim.aiSetThreshold('siem', 0.7);
-    expect(goal('threshold', 'good-threshold').check({ sim, since: 0 })).toBe(true);
+    expect(check()).toBe(false);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 1);
+    expect(goal('threshold', 'tried-high').check({ sim, since: 0 })).toBe(true);
+    expect(goal('threshold', 'tried-low').check({ sim, since: 0 })).toBe(false);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0);
+    expect(goal('threshold', 'tried-low').check({ sim, since: 0 })).toBe(true);
+    // Sliding past a good value and stopping at 0.80 misses the scan.
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0.8);
+    expect(check()).toBe(false);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0.75);
+    expect(check()).toBe(true);
+  });
+
+  it('tries from before the step started do not count', () => {
+    const sim = buildUtility();
+    sim.aiScore('siem', AI_EVENTS);
+    sim.aiSetThreshold('siem', 1);
+    sim.aiSetThreshold('siem', 0);
+    sim.aiSetThreshold('siem', 0.75);
+    sim.t += 1000;
+    expect(goal('threshold', 'good-threshold').check({ sim, since: sim.t })).toBe(false);
   });
 
   it('the scan IoC goal takes a scan line, not the broadcast pings or the incident', () => {
@@ -217,5 +254,28 @@ describe('logs lab: goals', () => {
     expect(open(lines(sim, 'siem', (e) => e.fields?.incident === INCIDENT)[0])).toBe(false);
     expect(open(lines(sim, 'nids', (e) => e.fields?.signature === 'port-scan')[0])).toBe(true);
     expect(open(lines(sim, 'fw', (e) => e.fields?.src === SCANNER && e.fields?.proto === 'tcp')[0])).toBe(true);
+  });
+});
+
+describe('logs lab: result lines', () => {
+  it('anomaly detection with no baseline says it could not score the upload', () => {
+    const sim = buildUtility();
+    sim.idsSetSignatures('nids', true);
+    sim.idsSetAnomaly('nids', true, 'medium');
+    const t = sim.t;
+    play(sim, replayUpload);
+    expect(idsOutcomeLines(sim, t).map((l) => l.text)).toEqual([
+      'NIDS sensor saw the traffic. No signature matched it, so no alert.',
+      'NIDS sensor: anomaly detection has no baseline yet, so it could not score this.',
+    ]);
+  });
+
+  it('the alert and the score table name a new address, not a "peer"', () => {
+    const sim = withAnomaly('medium');
+    const t = sim.t;
+    play(sim, replayUpload);
+    expect(idsOutcomeLines(sim, t)[0].text).toContain(`new address ${EXFIL}`);
+    const j = sim.dev('nids').ids!.sensor!.judged.find((x) => x.host === IP.pc2)!;
+    expect(deviationWhy(j)).toBe(`outside office hours (03:12), never-used address ${EXFIL}, 90 MB, over 10x usual`);
   });
 });

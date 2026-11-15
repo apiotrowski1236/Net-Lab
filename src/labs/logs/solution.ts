@@ -30,7 +30,14 @@ export const logsSolution: LabSolution = {
       { tool: { type: 'siem-triage', device: 'siem', incident: INCIDENT, verdict: 'real', action: 'escalate' } },
     ],
   },
-  threshold: { moves: [{ press: 'score-morning' }, { tool: { type: 'ai-threshold', device: 'siem', value: 0.75 } }] },
+  threshold: {
+    moves: [
+      { press: 'score-morning' },
+      { tool: { type: 'ai-threshold', device: 'siem', value: 1 } },
+      { tool: { type: 'ai-threshold', device: 'siem', value: 0 } },
+      { tool: { type: 'ai-threshold', device: 'siem', value: 0.75 } },
+    ],
+  },
   'ioc-hunt': {
     moves: [
       { openLog: 'fw', where: (e) => e.fields?.dst === C2 },

@@ -1,7 +1,7 @@
 import { aiCounts } from '../../sim/ids';
 import type { Sim } from '../../sim/sim';
 import type { LogEntry } from '../../sim/types';
-import { loggedSince, openedLog } from '../helpers';
+import { happened, loggedSince, openedLog } from '../helpers';
 import { md } from '../md';
 import type { ActionDef, LabDef } from '../types';
 import {
@@ -32,7 +32,7 @@ const replayUploadAction: ActionDef = { id: 'replay-exfil', label: 'Replay the 3
 const replayBackupAction: ActionDef = { id: 'run-backup', label: 'Replay the 2 a.m. backup', run: replayBackup };
 const replayFloodAction: ActionDef = { id: 'replay-flood', label: 'Replay the MAC flood', run: replayFlood };
 const recordBaseline: ActionDef = { id: 'record-baseline', label: 'Record a clean-week baseline', run: (sim) => sim.idsRecordBaseline('nids', BASELINE) };
-const scoreMorning: ActionDef = { id: 'score-morning', label: 'Score this morning’s events', run: (sim) => sim.aiScore('siem', AI_EVENTS) };
+const scoreNight: ActionDef = { id: 'score-morning', label: 'Score the night’s events', run: (sim) => sim.aiScore('siem', AI_EVENTS) };
 
 /** The incident the SIEM opened overnight from the scanner's lines. */
 export const INCIDENT = 1041;
@@ -46,6 +46,13 @@ const siem = (sim: Sim) => sim.dev('siem').ids!.siem!;
 
 /** The sensor wrote a line matching `pred` since the step started. */
 const sensorLogged = (sim: Sim, since: number, pred: (e: LogEntry) => boolean) => loggedSince(sim, 'nids', since, pred);
+/** Since the step started and after the events were scored, the student set the AI threshold to a value matching `pred`. */
+function triedThreshold(sim: Sim, since: number, pred: (v: number) => boolean): boolean {
+  const ai = siem(sim).ai;
+  if (!ai) return false;
+  const from = Math.max(since, ai.scoredAt);
+  return happened(sim, from, (e) => e.type === 'config' && e.device === 'siem' && e.what === 'ai-threshold' && pred(Number(e.detail)));
+}
 const alertFor = (signature: string, pred: (e: LogEntry) => boolean = () => true) => (e: LogEntry) =>
   e.level === 'alert' && e.fields?.signature === signature && pred(e);
 
@@ -67,7 +74,7 @@ function anomalyAtMedium(sim: Sim): void {
 
 export const logsLab: LabDef = {
   id: 'logs',
-  version: 2,
+  version: 3,
   title: 'Log Analysis and Intrusion Detection',
   tagline: 'Read a night of logs, turn on IDS signatures and anomaly detection, and tune them so real attacks stand out from false alarms.',
   unit: 3,
@@ -89,18 +96,18 @@ export const logsLab: LabDef = {
       id: 'shift',
       title: 'Morning shift',
       body: md`
-        You are the new security analyst at Riverbend Water Utility. It runs the treatment plant for the whole city, so the office network is small but it matters. Break into the control room and you reach the plant.
+        You are the new security analyst at Riverbend Water Utility. It runs the city's water treatment plant. An attacker who gets into the office network can reach the control room, and from there the plant.
 
-        Every device keeps a **log**, a running record of what it did. [[fw]], [[sw]], the servers [[files]] and [[backup]], the staff computers, and [[plant]] all write lines. One place collects them all: the **SIEM** ([[siem]]), short for security information and event management. It is your console for the whole network.
+        Every device keeps a **log**, a running record of what it did. [[fw]], [[sw]], the servers, the staff computers, and [[plant]] all write lines. The **SIEM** ([[siem]]), short for security information and event management, collects a copy of every log in one place.
 
         Everything here is a simulation of one night at the utility. The attacks already happened. Your job this morning is to find them.
 
-        Open the **Logs** tab. Read a line from each kind of source so you know what each one looks like:
+        Open the **Logs** tab and read one line from each kind of source:
 
         1. A **firewall** line from [[fw]].
         2. A **switch** line from [[sw]].
         3. A **server** line from [[files]].
-        4. A **sensor** line from [[nids]], the intrusion detection sensor on the switch's mirror port.
+        4. A **sensor** line from [[nids]], the intrusion detection sensor. It plugs into the switch's **mirror port**, which sends it a copy of every frame the switch handles.
 
         Use the device filter at the top of the tab to jump between them. Click a line to open its fields.
       `,
@@ -146,7 +153,7 @@ export const logsLab: LabDef = {
 
     {
       id: 'haystack',
-      title: 'A haystack',
+      title: 'Too many lines',
       body: md`
         The overnight log holds hundreds of lines here, and a real utility's SIEM would hold millions a day. You cannot read them all. You search and filter instead.
 
@@ -156,7 +163,7 @@ export const logsLab: LabDef = {
         2. Check **Warnings and alerts only** to hide the routine lines.
         3. Type \`fail\` in the search box.
 
-        Open one of the failed sign-in lines. Notice they all come from the same address.
+        Open one of the failed sign-in lines. They all come from the same outside address, over **SSH**, a remote login program. Rule 1 on [[fw]] lets SSH in to this server so a vendor can do remote support. That open door is how the sign-in attempts got through.
       `,
       open: 'logs',
       focus: ['files'],
@@ -189,11 +196,19 @@ export const logsLab: LabDef = {
       id: 'signatures',
       title: 'Signatures',
       body: md`
-        A **NIDS**, a network intrusion detection system, watches traffic and raises an **alert** when it sees something it knows is bad. [[nids]], on the switch's mirror port, is a NIDS. Its rules have been off since 02:00, when a signature update failed. That is why nothing caught the intruder overnight.
+        A **NIDS**, a network intrusion detection system, watches traffic and raises an **alert** when it sees something it knows is bad. [[nids]] is a NIDS. Its rules have been off since 02:00, when a signature update failed. That is why nothing caught the intruder overnight.
 
         Open the **Detection** controls on [[nids]] and turn on the **signature set**. A signature is a stored pattern for a known attack, the way antivirus knows a known virus.
 
-        Then press **Replay last night's attack**. Watch the forged **ARP** replies cross the switch. An ARP reply tells a device which MAC address goes with an IP. Someone on the network told the other computers that the gateway \`${IP.gateway}\` lives at their MAC. The signature for that fires.
+        Then press **Replay last night's attack**. It plays the recorded traffic again now, so the alert carries this morning's time.
+
+        Some terms for what you will see:
+
+        - A **MAC address** is a network card's hardware ID.
+        - The **gateway** is [[fw]] at \`${IP.gateway}\`, the office's door to the internet.
+        - An **ARP** reply tells a computer which MAC address goes with an IP address.
+
+        [[mal]] sends fake ARP replies that say the gateway's IP belongs to the laptop's MAC. This attack is called **ARP spoofing**, or ARP poisoning. One signature is "an ARP reply gives the gateway's IP a different MAC than the one on file". Watch it fire.
       `,
       open: { inspect: 'nids' },
       focus: ['nids', 'sw', 'mal'],
@@ -217,7 +232,7 @@ export const logsLab: LabDef = {
             { id: 'pattern', text: 'It matched the traffic against known attack patterns, and a forged ARP reply for the gateway is one of them.', correct: true },
             {
               id: 'learned',
-              text: 'It learned the network’s normal behavior and noticed this looked different.',
+              text: 'It recorded a week of normal traffic and noticed this looked different.',
               feedback: 'That is anomaly detection, which you turn on in two steps. A signature does not learn; it compares to a fixed list.',
             },
             { id: 'blocked', text: 'It blocked the attacker’s MAC the moment it appeared.', feedback: 'A NIDS only warns. Blocking comes with a NIPS, later in this lab.' },
@@ -236,6 +251,8 @@ export const logsLab: LabDef = {
         At 03:12 last night, [[pc2]] in finance sent a large upload to \`${EXFIL}\`. No staffer was in the building. No list of known-bad addresses has ever seen that IP.
 
         Press **Replay the 3 a.m. upload**. Watch the signature set. It stays silent.
+
+        A detector can be wrong in two ways. A **false positive** is an alert on something harmless. A **false negative** is a real attack that raises no alert.
       `,
       setup: signaturesOn,
       focus: ['pc2', 'fw', 'nids'],
@@ -272,14 +289,16 @@ export const logsLab: LabDef = {
       id: 'baseline',
       title: 'Baseline',
       body: md`
-        **Anomaly-based** detection takes the other approach. First it records a **baseline**, a picture of the network on a clean, normal week: who talks to whom, how much, and at what hours. Then it flags whatever falls outside that picture.
+        **Anomaly-based** detection works the other way. First it records a **baseline**, a picture of the network on a clean, normal week: who talks to whom, how much, and at what hours. Then it gives each connection a score for how far it is from that picture, and alerts on a high score.
+
+        These controls are in [[nids]]'s **Detection** section:
 
         1. Press **Record a clean-week baseline**.
-        2. Set the **tolerance** to **Medium**. Tolerance is how far from normal an event may drift before the sensor alerts. Loose lets more through; Strict flags more.
+        2. Set the **tolerance** to **Medium**. The tolerance is the score that sets off an alert.
         3. Turn on **anomaly detection**.
         4. Press **Replay the 3 a.m. upload** again, then **Replay the 2 a.m. backup**.
 
-        The upload trips the alert now: wrong hour, a destination the network never uses, far too much data. But the monthly backup to the offsite vault trips it too. The backup is normal. It runs at 02:00 and moves a lot of data, so it looks odd to the baseline.
+        The backup is normal work: the monthly copy of the records to an offsite vault. Watch which replays raise an alert.
       `,
       setup: signaturesOn,
       open: { inspect: 'nids' },
@@ -314,13 +333,13 @@ export const logsLab: LabDef = {
           afterGoals: true,
           prompt: 'The backup is normal work, but it raised an alert. Why do false alerts like this one matter?',
           options: [
-            { id: 'fatigue', text: 'Analysts burn time on harmless events and start tuning alerts out, so a real one slips past.', correct: true },
+            { id: 'fatigue', text: 'Analysts waste time on harmless events and start to ignore alerts, so a real one gets missed.', correct: true },
             { id: 'stops', text: 'The sensor stops logging until someone clears the alert.', feedback: 'The sensor keeps running. The cost is the analyst’s time and attention, not lost logging.' },
             { id: 'attacker', text: 'A false alert helps the attacker finish faster.', feedback: 'The attacker is not involved in the backup alert. The cost lands on the team watching the screen.' },
-            { id: 'none', text: 'None, because the analyst can see it is the backup.', feedback: 'Spotting one is easy. Spotting the hundredth after a long shift is not. That is the real danger.' },
+            { id: 'none', text: 'None, because the analyst can see it is the backup.', feedback: 'Spotting one is no problem. Spotting the hundredth after a long shift is hard. That is the danger.' },
           ],
           explain:
-            'Every false alert costs attention. Enough of them and the team learns to ignore the alert, which is called alert fatigue, and a real attack hides in the noise. Anomaly detection suits steady networks for this reason: the quieter the normal, the less it cries wolf.',
+            'Every false alert costs attention. Enough of them and the team learns to ignore the alert, which is called alert fatigue, and a real attack hides in the noise. Anomaly detection suits steady networks for this reason: the steadier normal traffic is, the fewer false alerts it raises.',
         },
       ],
     },
@@ -329,11 +348,13 @@ export const logsLab: LabDef = {
       id: 'nips',
       title: 'From alarm to action',
       body: md`
-        A NIDS only warns. A **NIPS**, a network intrusion prevention system, can also act. It can close a switch port, block an IP address or a MAC address, or reject a protocol. The same sensor can do both jobs. You decide whether it may act.
+        A NIDS only warns. A **NIPS**, a network intrusion prevention system (IPS for short), can also act. It can close a switch port, block an IP address or a MAC address, or reject a protocol. [[nids]] only gets copies of traffic, so it cannot drop a packet itself. In **prevention mode** it tells [[sw]] to close a port or tells [[fw]] to block an address.
 
-        Turn on **prevention mode**. Then press **Replay the MAC flood**. The intruder's laptop, [[mal]], floods [[sw]] with made-up MAC addresses to make it leak everyone's traffic. In prevention mode the sensor shuts the port the flood came from. The attack stops on its own.
+        1. Turn on **Prevention mode** in [[nids]]'s Detection section.
+        2. Press **Replay the MAC flood**. [[mal]] sends [[sw]] frames from hundreds of made-up MAC addresses. When the switch's address table fills up, it sends every frame out every port, so the laptop sees everyone's traffic.
+        3. Press **Replay the 2 a.m. backup** again.
 
-        Now press **Replay the 2 a.m. backup** again. The backup still looks anomalous, so the NIPS blocks [[backup]] at the firewall. A normal backup failed, and no human decided that.
+        Watch what the sensor does to each one.
       `,
       setup: anomalyAtMedium,
       open: { inspect: 'nids' },
@@ -369,7 +390,7 @@ export const logsLab: LabDef = {
             { id: 'mac-only', text: 'It can block MAC addresses but never IP addresses.', feedback: 'A NIPS can block IPs, MACs, and ports. It blocked the backup server’s IP a moment ago.' },
           ],
           explain:
-            'Blocking automatically is fast and needs no analyst, which is its strength against a flood at 3 a.m. The cost is that a false positive now causes an outage instead of a wasted click. Teams tune a NIPS carefully and often let it block only the attacks it is most sure of.',
+            'Blocking automatically is fast and needs no analyst, which is its strength against a flood in the middle of the night. The cost is that a false positive now causes an outage instead of a wasted click. Teams tune a NIPS carefully and often let it block only the attacks it is most sure of.',
         },
       ],
     },
@@ -380,9 +401,14 @@ export const logsLab: LabDef = {
       body: md`
         The SIEM's real power is tying lines together. On their own, a blocked packet, a port scan, and a few failed sign-ins each look minor. The SIEM noticed all three came from one address, \`${SCANNER}\`, within twenty minutes, and opened a single **incident**.
 
-        Open incident **${INCIDENT}** on [[siem]]: filter the Logs tab to the SIEM server and click the \`INCIDENT ${INCIDENT}\` line. Read its three parts: the firewall denies, the port-scan alert, and the failed sign-ins on [[files]] you found earlier.
+        Open incident **${INCIDENT}** on [[siem]]: filter the Logs tab to the SIEM server, search for \`${INCIDENT}\`, and click the \`INCIDENT ${INCIDENT}\` line. Read its three parts: the firewall denies, the port-scan alert, and the failed sign-ins on [[files]] you found earlier.
 
-        Then **triage** it. Decide whether it is a real attack or a false alarm, and whether to escalate it or close it. Pick a **Verdict** and an **Action**, then press **Save triage**. An analyst resolves or escalates every incident by procedure.
+        Then **triage** it, which means sorting it by how serious it is:
+
+        - **Verdict**: is it a real attack or a false alarm?
+        - **Action**: **escalate** it, which hands it to the incident response team to act on, or **close** it, which means no more work is needed.
+
+        The **Verdict** and **Action** buttons are at the bottom of the line's details. Pick one of each, then press **Save triage**.
       `,
       open: 'logs',
       focus: ['siem', 'files', 'fw'],
@@ -396,8 +422,8 @@ export const logsLab: LabDef = {
         },
         {
           id: 'triaged',
-          label: `Triage incident ${INCIDENT} as a real attack and escalate it`,
-          hint: 'One address scanned, got denied, then tried passwords. Is that a mistake or an attack?',
+          label: `Triage incident ${INCIDENT} correctly`,
+          hint: 'One address scanned, got denied, then tried passwords. Is that a mistake or an attack? And should someone act on it?',
           check: ({ sim }) => {
             const inc = siem(sim).incidents.find((i) => i.id === INCIDENT);
             return inc?.verdict === 'real' && inc.action === 'escalate';
@@ -413,7 +439,7 @@ export const logsLab: LabDef = {
           options: [
             {
               id: 'story',
-              text: 'One address scanned the network, got blocked, then tried passwords on the records server. Together that is a targeted attempt.',
+              text: 'One address scanned the network, was blocked on most ports, then tried passwords through the one open port. Together that is a targeted attempt.',
               correct: true,
             },
             {
@@ -429,7 +455,7 @@ export const logsLab: LabDef = {
             },
           ],
           explain:
-            'Correlation turns weak single signals into one story. A scan, a deny, and failed logins from one external IP point at someone probing the utility. You escalate that, instead of closing three loose ends.',
+            'Correlation turns weak single signals into one story. A scan, a deny, and failed sign-ins from one outside IP point at someone probing the utility. You escalate that, instead of closing three loose ends.',
         },
       ],
     },
@@ -438,25 +464,38 @@ export const logsLab: LabDef = {
       id: 'threshold',
       title: 'Set the threshold',
       body: md`
-        There is still too much to read by hand. An **AI** model helps: it gives every event a score from 0.00 to 1.00 for how likely it is to be malicious. You set the **threshold**. Any event scored at or above it becomes an alert.
+        There is still too much to read by hand. An **AI** model helps: it gives every event a score from 0.00 to 1.00 for how likely it is to be an attack. You set the **threshold**. Any event scored at or above it becomes an alert.
 
-        Press **Score this morning's events**. Then move the threshold slider in [[siem]]'s inspector. Watch the two counters: real attacks caught, and false alerts raised.
-
-        Find a threshold that catches all three real attacks (the ARP poisoning, the 3 a.m. upload, and the overnight scan) without burying you in false alerts.
+        1. Press **Score the night's events**. The scores appear in [[siem]]'s inspector.
+        2. Drag the threshold slider to **1.00** and watch the two counters: real attacks caught, and false alerts.
+        3. Drag it to **0.00** and watch again.
+        4. Find a threshold that catches all three attacks on the list with at most one false alert, and leave it there.
       `,
       open: { inspect: 'siem' },
       focus: ['siem'],
       tools: [{ kind: 'ai-threshold', device: 'siem' }],
-      actions: [scoreMorning],
+      actions: [scoreNight],
       goals: [
-        { id: 'scored', label: 'Score this morning’s events', hint: 'Press Score this morning’s events.', check: ({ sim }) => !!siem(sim).ai },
+        { id: 'scored', label: 'Score the night’s events', hint: 'Press Score the night’s events.', check: ({ sim }) => !!siem(sim).ai },
+        {
+          id: 'tried-high',
+          label: 'Try a threshold of 0.95 or higher',
+          hint: 'Score the events first, then drag the slider all the way right.',
+          check: ({ sim, since }) => triedThreshold(sim, since, (v) => v >= 0.95),
+        },
+        {
+          id: 'tried-low',
+          label: 'Try a threshold of 0.05 or lower',
+          hint: 'Score the events first, then drag the slider all the way left.',
+          check: ({ sim, since }) => triedThreshold(sim, since, (v) => v <= 0.05),
+        },
         {
           id: 'good-threshold',
-          label: 'Set a threshold that catches all three real attacks with few false alerts',
-          hint: 'Too high and you miss the scan. Too low and the backup and more noise flood in. Try between 0.70 and 0.75.',
-          check: ({ sim }) => {
+          label: 'Leave the threshold where it catches all three attacks with at most one false alert',
+          hint: 'Try both ends first. Then look at the scores of the three real attacks and the harmless events right below them. Try between 0.70 and 0.75.',
+          check: ({ sim, since }) => {
             const q = siem(sim);
-            if (!q.ai) return false;
+            if (!q.ai || !triedThreshold(sim, since, (v) => v >= 0.95) || !triedThreshold(sim, since, (v) => v <= 0.05)) return false;
             const c = aiCounts(q);
             return c.caught === c.attacks && c.falseAlerts <= 1;
           },
@@ -467,27 +506,28 @@ export const logsLab: LabDef = {
           id: 'too-high',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'Set the threshold near 1.00. What happens?',
+          prompt: 'What happened with the threshold at 1.00?',
           options: [
-            { id: 'misses', text: 'The sensor alerts on almost nothing, so real attacks get through.', correct: true },
-            { id: 'perfect', text: 'It catches every attack and raises no false alarms.', feedback: 'A high bar is picky in the wrong direction: it ignores most events, including real ones.' },
-            { id: 'blocks', text: 'It blocks every event to stay safe.', feedback: 'The threshold decides what to alert on, not what to block. A higher bar means fewer alerts.' },
-            { id: 'twice', text: 'It scores each event twice to be sure.', feedback: 'The score does not change. Only the line you draw for an alert moves.' },
+            { id: 'misses', text: 'No event became an alert, so the real attacks got through.', correct: true },
+            { id: 'perfect', text: 'It caught every attack and raised no false alarms.', feedback: 'A high bar is picky in the wrong direction: it ignores most events, including real ones.' },
+            { id: 'blocks', text: 'It blocked every event to stay safe.', feedback: 'The threshold decides what to alert on, not what to block. A higher bar means fewer alerts.' },
+            { id: 'twice', text: 'It scored each event twice to be sure.', feedback: 'The score does not change. Only the line you draw for an alert moves.' },
           ],
           explain: 'A high threshold trusts almost everything, so real attacks slip by as false negatives.',
         },
         {
           id: 'too-low',
           kind: 'choice',
-          prompt: 'Now set it near 0.00. What happens?',
+          afterGoals: true,
+          prompt: 'And at 0.00?',
           options: [
-            { id: 'drown', text: 'Nearly every event raises an alert, and the real attacks drown in false ones.', correct: true },
-            { id: 'dangerous', text: 'Only the most dangerous events raise an alert.', feedback: 'A low bar is the opposite of picky. Almost everything clears it.' },
-            { id: 'stops', text: 'The AI stops scoring to save effort.', feedback: 'It keeps scoring. You moved the alert line down to the floor.' },
-            { id: 'blocks', text: 'It blocks the whole network.', feedback: 'The threshold raises alerts; it does not block. A low bar means far too many alerts.' },
+            { id: 'drown', text: 'Every event raised an alert, and the real attacks were lost among false ones.', correct: true },
+            { id: 'dangerous', text: 'Only the most dangerous events raised an alert.', feedback: 'A low bar is the opposite of picky. Almost everything clears it.' },
+            { id: 'stops', text: 'The AI stopped scoring to save effort.', feedback: 'It keeps scoring. You moved the alert line down to the floor.' },
+            { id: 'blocks', text: 'It blocked the whole network.', feedback: 'The threshold raises alerts; it does not block. A low bar means far too many alerts.' },
           ],
           explain:
-            'A low threshold alerts on everything, so the team drowns in false positives and misses the few that matter. The organization picks the threshold to balance the two, and a critical network like a water utility leans toward catching more and tolerating some false alerts.',
+            'A low threshold alerts on everything, so the team drowns in false positives and misses the few that matter. The organization picks the threshold to balance the two, and a critical network like a water utility leans toward catching more and accepting some false alerts.',
         },
       ],
     },
@@ -496,14 +536,16 @@ export const logsLab: LabDef = {
       id: 'ioc-hunt',
       title: 'IoC hunt',
       body: md`
-        An **indicator of compromise**, or IoC, is a fingerprint an attack leaves behind. Now that you know what the night held, hunt the logs for one line that shows each IoC. Use the device filter and the search box.
+        An **indicator of compromise**, or IoC, is a clue an attack leaves in the logs. The night held more than the attacks you replayed. Two of these clues come from [[pc2]], which points to malware on Raj's PC.
 
-        Find and open:
+        Use the device filter and the search box to find and open one line for each IoC:
 
-        1. A connection to a **known malicious IP** (one the threat feed flagged).
-        2. An **unauthorized scan** (one source hitting many ports).
-        3. A **spike of ICMP** sent to the broadcast address \`${BROADCAST}\`.
-        4. **SSH running on port 443**, where the service and the port do not match.
+        1. A connection to a **known malicious IP**. A **threat feed** is a list of bad addresses that security companies share, and the firewall tags a match with \`threat-feed\`. This one is \`known-c2\`: a command-and-control server, which sends orders to computers an attacker has taken over.
+        2. An **unauthorized scan**: one outside address trying many ports in a row.
+        3. A spike of **ICMP**, the protocol ping uses, sent to the **broadcast address** \`${BROADCAST}\`. A packet sent there reaches every device on the network.
+        4. **SSH** running on port **443**. Port 443 is the usual port for HTTPS, secure web traffic.
+
+        The first three match known patterns, so the signature set has a rule for each. An attack with no known pattern, like Raj's 3 a.m. upload, needs the anomaly baseline.
       `,
       open: 'logs',
       focus: ['fw', 'pc2'],
@@ -553,7 +595,28 @@ export const logsLab: LabDef = {
             },
           ],
           explain:
-            'A port number is only a label. Attackers put tools on port 443 because basic firewalls wave HTTPS through. A mismatch between the port and the real application is a classic IoC, and a next-generation firewall that inspects the application catches it.',
+            'A port number is only a label. Attackers put tools on port 443 because basic firewalls let HTTPS through. A mismatch between the port and the real application is a classic IoC, and a next-generation firewall that inspects the application catches it.',
+        },
+        {
+          id: 'which-detector',
+          kind: 'choice',
+          prompt: `Raj's PC connected to ${C2}, an address on the threat feed. At 03:12 it uploaded 90 MB to ${EXFIL}, an address on no list. Which detector fits each?`,
+          options: [
+            { id: 'split', text: 'The threat-feed match: a signature. The upload to an unknown address: the anomaly baseline.', correct: true },
+            {
+              id: 'both-sig',
+              text: 'Both: a signature, because both addresses are outside the utility.',
+              feedback: 'A signature needs a known pattern. No list named the upload address, which is why the signature set missed it in Something new.',
+            },
+            {
+              id: 'both-anomaly',
+              text: 'Both: the anomaly baseline, because a threat feed is a kind of baseline.',
+              feedback: 'A baseline is a record of this network’s own normal traffic. A threat feed is a list of known-bad addresses, so matching it is signature work.',
+            },
+            { id: 'swapped', text: 'The threat-feed match: the anomaly baseline. The upload: a signature.', feedback: 'That is backward. A signature matches what is already known, like an address on a list.' },
+          ],
+          explain:
+            'Signatures catch what someone has already seen and written down: a listed address, a scan pattern, a ping to a broadcast address. The anomaly baseline catches what is new or odd for this network, at the cost of some false alerts.',
         },
       ],
     },
@@ -562,16 +625,18 @@ export const logsLab: LabDef = {
       id: 'reflect',
       title: 'Write it up',
       body: md`
-        Write a short report for your shift lead.
+        Write a short report for your shift lead about one attack from last night. Cover three things:
 
-        **Next lab:** choosing a method for a network. You test signature, anomaly, and hybrid detection on three very different clients and recommend one for each.
+        1. Which attack it was.
+        2. The log line or alert that shows it, copied from the Logs tab, with the address or MAC that gives it away. An alert from one of this morning's replays counts.
+        3. Which detector flagged it, or would have, a signature or the anomaly baseline, and why.
       `,
+      open: 'logs',
       questions: [
         {
           id: 'writeup',
           kind: 'text',
-          prompt:
-            'Name one attack you found in the utility’s logs last night. Cite the exact log line or alert that shows it, with the address or MAC that gives it away. Then say which detector flagged it or would have, a signature or the anomaly baseline, and why.',
+          prompt: 'Your report: the attack, the line that shows it, and which detector catches it and why.',
           minWords: 45,
           lines: 7,
         },
@@ -583,7 +648,9 @@ export const logsLab: LabDef = {
       title: 'Review and submit',
       kind: 'submit',
       body: md`
-        Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+        Look over your summary. You can go back to any step and change an answer, then hand in your work again.
+
+        **Next lab:** choosing a method for a network. You test signature, anomaly, and **hybrid** detection, which runs both at once, on three very different clients and recommend one for each.
       `,
     },
   ],

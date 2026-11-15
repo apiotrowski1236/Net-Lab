@@ -14,7 +14,7 @@ export function idsControls(tools: ToolSpec[], devId: string): Set<IdsControl> {
 }
 
 const TOLERANCE_BLURB = {
-  loose: 'Lets more through. Fewer false alerts, more missed attacks.',
+  loose: 'Lets more through. A connection scores 3 at most, so Loose never alerts here, even on an attack.',
   medium: 'A balance.',
   strict: 'Flags more. Fewer missed attacks, more false alerts.',
 };

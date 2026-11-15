@@ -322,9 +322,10 @@ function usualOutcomeLines(sim: Sim, t: number): { tone: 'good' | 'bad' | 'wait'
       lines.push({ tone: 'bad', text: `${who} no connection. ${dropText(sim, lost)}` });
     } else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost ? ` ${dropText(sim, lost)}` : ''}` });
   }
+  // A sensor's alert and block come before the connection's end, so list them first.
+  lines.push(...idsOutcomeLines(sim, t));
   lines.push(...connOutcomeLines(sim, t));
   lines.push(...outbreakLines(sim, t));
-  lines.push(...idsOutcomeLines(sim, t));
   return lines;
 }
 
