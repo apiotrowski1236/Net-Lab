@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analystFound, BENCH_METHODS, learnBaseline, queueCounts, runBench, type BenchMethod, type TolerancePct } from '../../sim/bench';
+import { RUN_MS, analystFound, BENCH_METHODS, learnBaseline, queueCounts, runBench, type BenchMethod, type TolerancePct } from '../../sim/bench';
 import { detectMethodsLab } from '.';
 import {
   BEACON,
@@ -166,7 +166,7 @@ describe('detect-methods: steps', () => {
   it('the run card’s reason lines say what the questions ask about', () => {
     // Step 4: the beacon stands out as new traffic, port 4444 included.
     const plant = run(PLANT, 'anomaly', { baseline: PLANT_CLEAN });
-    expect(plant.alerts.find((a) => a.attack === BEACON)!.why).toBe('new kind of traffic: Filler controller to 185.220.101.4 on the internet, port 4444');
+    expect(plant.alerts.find((a) => a.attack === BEACON)!.why).toBe('new kind of traffic: Filler controller to 198.51.100.4 on the internet, port 4444 (no common service)');
     // Step 9: signatures caught the original at the 10:38 download; anomaly catches the repack at 10:42, locking files.
     const orig = run(DISPATCH, 'signature').alerts.find((a) => a.attack === LOCKDOWN)!;
     expect([orig.at, orig.why]).toEqual([10 * 60 + 38, 'matched the "LockDown ransomware" signature (file hash 313e2d61…)']);
@@ -174,10 +174,84 @@ describe('detect-methods: steps', () => {
     expect([repack.at, repack.why]).toEqual([10 * 60 + 42, 'new kind of traffic: Dispatcher console to Dispatch server, port 445 (file sharing)']);
     // Step 7: the volume alert spells out how much more than usual.
     const leak = run(STREAM, 'anomaly', { baseline: STREAM_BASE }).alerts.find((a) => a.attack === LEAK)!;
-    expect(leak.why).toBe('Content library to partner studios, port 443 (secure web): on pace for 5.0 GB in the hour starting 14:00, usual 2.0 GB (3.0 GB more, +150%, outside ±25%)');
+    expect(leak.why).toBe('Content library to partner studios, port 443 (secure web): would reach 5.0 GB in the hour starting 14:00, usual 2.0 GB (3.0 GB more, +150%, outside ±25%)');
   });
 
   it('the 911 step lists its goals in the order the steps say', () => {
     expect(step('hybrid').goals!.map((g) => g.id)).toEqual(['signature', 'baseline', 'anomaly', 'hybrid']);
+  });
+  it('the run card says why each missed attack got through', () => {
+    const sep = run(STREAM, 'signature', { db: SEP });
+    expect(sep.missedWhy).toEqual({ [VIDJACK]: 'the September 2026 database has no signature for it', [LEAK]: 'no signature exists for it yet' });
+    // Step 7 at ±200%: the copied shows' hour was +150%, inside the range.
+    expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE, tolerance: 200 }).missedWhy![LEAK]).toBe('its hour looked normal: +150%, inside ±200%');
+    // Step 6: StuffBot's hour stayed inside ±25%.
+    expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE }).missedWhy![STUFFBOT]).toMatch(/^its hour looked normal: [+−]\d+%, inside ±25%$/);
+    // Step 5: the infected baseline. It names the match, not the reason, so the question still asks for it.
+    expect(run(PLANT, 'anomaly', { baseline: PLANT_INFECTED }).missedWhy![BEACON]).toBe('its traffic matched the Nov 9 baseline');
+    // Step 9: the repacked file has a hash no signature knows.
+    expect(run(DISPATCH, 'signature', { day: RENAMED }).missedWhy![LOCKDOWN]).toBe('no signature matches its file');
+    // Hybrid gives both methods' reasons.
+    expect(run(PLANT, 'hybrid', { baseline: PLANT_INFECTED }).missedWhy![BEACON]).toBe('no signature exists for it yet; its traffic matched the Nov 9 baseline');
+  });
+});
+
+describe('detect-methods: goals finished the wrong way', () => {
+  const step = (id: string) => detectMethodsLab.steps.find((s) => s.id === id)!;
+  const goal = (sid: string, gid: string) => step(sid).goals!.find((g) => g.id === gid)!;
+  const finish = (sim: ReturnType<typeof buildDetect>) => sim.runUntilIdle();
+
+  it('step 9: a signature run before Load the day doesn’t count as the repacked run', () => {
+    const sim = buildDetect();
+    step('bypass').setup!(sim);
+    const since = sim.t;
+    sim.benchSet(BENCH, DISPATCH, { method: 'signature' });
+    sim.benchRun(BENCH, DISPATCH);
+    finish(sim);
+    expect(goal('bypass', 'renamed-sig').check({ sim, since })).toBe(false);
+    step('bypass').actions![0].run(sim);
+    sim.benchRun(BENCH, DISPATCH);
+    finish(sim);
+    expect(goal('bypass', 'renamed-sig').check({ sim, since })).toBe(true);
+    // Signature can't catch it, so only an anomaly or hybrid run finishes the second goal.
+    expect(goal('bypass', 'renamed-anom').check({ sim, since })).toBe(false);
+    sim.benchSet(BENCH, DISPATCH, { method: 'anomaly' });
+    sim.benchRun(BENCH, DISPATCH);
+    finish(sim);
+    expect(goal('bypass', 'renamed-anom').check({ sim, since })).toBe(true);
+  });
+
+  it('a run started just before Continue doesn’t count in the next step, even though its result lands there', () => {
+    const sim = buildDetect();
+    sim.benchSet(BENCH, STREAM, { method: 'anomaly' });
+    sim.benchRecordBaseline(BENCH, STREAM, STREAM_BASE);
+    sim.benchSet(BENCH, STREAM, { tolerance: 100 });
+    sim.benchRun(BENCH, STREAM);
+    const since = sim.t + RUN_MS / 2; // Continue pressed while it replays
+    finish(sim);
+    expect(analystFound(bench(sim).runs[0].result!, LEAK)).toBe(true);
+    expect(goal('fatigue', 'found').check({ sim, since })).toBe(false);
+  });
+
+  it('step 7: a ±200% signature-only run can’t stand in for the anomaly miss', () => {
+    const sim = buildDetect();
+    const since = sim.t;
+    sim.benchRun(BENCH, STREAM); // signature misses the copied shows too
+    finish(sim);
+    expect(goal('fatigue', 'too-wide').check({ sim, since })).toBe(false);
+  });
+
+  it('step 5: the Sep 14 button pressed before the Nov 9 run doesn’t finish “record it again”', () => {
+    const sim = buildDetect();
+    step('bad-baseline').setup!(sim);
+    const since = sim.t;
+    sim.benchRecordBaseline(BENCH, PLANT, PLANT_CLEAN);
+    expect(goal('bad-baseline', 'sep14-again').check({ sim, since })).toBe(false);
+    sim.benchRecordBaseline(BENCH, PLANT, PLANT_INFECTED);
+    sim.benchRun(BENCH, PLANT);
+    finish(sim);
+    expect(goal('bad-baseline', 'sep14-again').check({ sim, since })).toBe(false);
+    sim.benchRecordBaseline(BENCH, PLANT, PLANT_CLEAN);
+    expect(goal('bad-baseline', 'sep14-again').check({ sim, since })).toBe(true);
   });
 });

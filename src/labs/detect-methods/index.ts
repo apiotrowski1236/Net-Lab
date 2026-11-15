@@ -202,7 +202,7 @@ export const detectMethodsLab: LabDef = {
       id: 'update',
       title: 'Update the database',
       body: md`
-        Signatures missed two attacks. One was **VidJack**, a video player attack first seen in October. The bench still has the **September 2026** database, which has no signature for VidJack.
+        Signatures missed two attacks. One was **VidJack**, an **exploit**: an attack that uses a bug in a program, here the video player. It was first seen in October. The bench still has the **September 2026** database, which has no signature for VidJack.
 
         A signature database only knows the attacks someone has already found and described, so it needs regular **updates**.
 
@@ -247,7 +247,7 @@ export const detectMethodsLab: LabDef = {
       id: 'baseline',
       title: 'Learn normal at the plant',
       body: md`
-        **Anomaly-based detection** works differently. First it records a **baseline**: how much of each kind of traffic is normal, measured on a day when nothing was wrong.
+        **Anomaly-based detection** works differently. First it records a **baseline**: how much of each kind of traffic is normal, measured on a **clean** day, one with no attack in it.
 
         Then it alerts on two things: a kind of traffic the baseline never saw, and traffic outside a **tolerance range** around normal. At ±25%, an hour that is normally 100 MB is fine anywhere from 75 to 125 MB.
 
@@ -298,8 +298,8 @@ export const detectMethodsLab: LabDef = {
       body: md`
         A coworker says the **Nov 9** recording is newer, so it should make a better baseline. Try it.
 
-        1. Record a baseline from **Nov 9**.
-        2. Run anomaly detection, and compare the result with your Sep 14 run.
+        1. In the [[bench]], record a baseline from **Nov 9**.
+        2. Run anomaly detection, and compare the result with your Sep 14 run. (Only runs made in this step count.)
         3. Record the **Sep 14** baseline again before you go on.
       `,
       setup: (sim) => anomalyOn(sim, PLANT),
@@ -334,7 +334,7 @@ export const detectMethodsLab: LabDef = {
             { id: 'short', text: 'The Nov 9 recording was too short to learn from.', feedback: 'Both recordings are full days. The Nov 9 one already had the attacker’s traffic in it.' },
           ],
           explain:
-            'The controller was infected on Nov 3, so the Nov 9 baseline already had the attacker’s traffic in it as “normal.” A baseline must come from a time when the systems were **uncompromised**, or anomaly detection learns to ignore the attack.',
+            'The controller was infected on Nov 3, so the Nov 9 baseline already had the attacker’s traffic in it as “normal.” A baseline must come from a clean day, before any attack, or anomaly detection learns to ignore the attack.',
         },
       ],
     },
@@ -349,7 +349,7 @@ export const detectMethodsLab: LabDef = {
         2. Record a baseline from **Nov 5**, a clean day.
         3. Keep the tolerance at ±25% and run it.
 
-        Compare the new row in the table with your signature runs: what each caught, false alarms, time, and cost. The cost pays for the computers that run the method. On this bench, comparing StreamCo's huge traffic with a baseline takes far more computing power than matching signatures.
+        Compare the new row in the table with your signature runs: what each caught, false alarms, and cost. Click a row to see that run's result again, with how long each catch took. The cost pays for the computers that run the method. On this bench, comparing StreamCo's huge traffic with a baseline takes far more computing power than matching signatures.
       `,
       open: 'tools',
       focus: [BENCH, 'sc-net'],
@@ -403,7 +403,7 @@ export const detectMethodsLab: LabDef = {
         | Real attack | caught | false negative |
         | No attack | false positive | all quiet |
 
-        The **Analyst queue** in the bench card shows your newest StreamCo run. After five false alarms in a row, the analyst stopped reading and closed the rest unread. This is **alert fatigue**.
+        The **Analyst queue** in the bench card shows your newest StreamCo run. After five false alarms in a row, the analyst stopped reading and closed every later alert unread. This is **alert fatigue**. (The bench gives the whole day to one analyst, to keep it simple.)
 
         1. In the queue, click the 14:20 **Content library** alert marked **closed unread**.
         2. Change the tolerance and run again until the analyst finds the copied shows.
@@ -412,10 +412,7 @@ export const detectMethodsLab: LabDef = {
       setup: fatigueRun,
       open: 'tools',
       focus: [BENCH, 'sc-library'],
-      tools: [
-        { kind: 'bench', device: BENCH, clients: [STREAM], methods: ['anomaly'], controls: ['tolerance'], queue: true },
-        { kind: 'logs', devices: [BENCH] },
-      ],
+      tools: [{ kind: 'bench', device: BENCH, clients: [STREAM], methods: ['anomaly'], controls: ['tolerance'], queue: true }],
       goals: [
         {
           id: 'closed',
@@ -472,7 +469,7 @@ export const detectMethodsLab: LabDef = {
       id: 'hybrid',
       title: 'Both at once for 911',
       body: md`
-        County 911 must not miss an attack. **Ransomware**, malware that locks a computer's files until someone pays, could lock the dispatch server and delay police, fire, and ambulances. **Hybrid detection** runs signature and anomaly detection together.
+        County 911 must not miss an attack. **Ransomware**, harmful software (**malware**) that locks a computer's files until someone pays, could lock the dispatch server and delay police, fire, and ambulances. **Hybrid detection** runs signature and anomaly detection together.
 
         1. Run **Signature** on Nov 12.
         2. Choose **Anomaly**, record a baseline from **Nov 4** (a clean day), and run.
@@ -514,12 +511,12 @@ export const detectMethodsLab: LabDef = {
       id: 'bypass',
       title: 'Get past the signatures',
       body: md`
-        An attacker who knows about a signature can change the detail it looks for. LockDown's signature matches its file's hash. Changing a few bytes and **repacking** the file (packing it up again) gives it a new hash, and the program still does the same thing.
+        An attacker who knows about a signature can change the detail it looks for. LockDown's signature matches its file's hash. Changing a few bytes and **repacking** the file (wrapping the same program in a new package, a bit like zipping it again) gives it a new hash, and the program still does the same thing.
 
         Press **Load the day with LockDown repacked**. Then:
 
         1. Run **Signature** on it.
-        2. Run **Anomaly** or **Hybrid** on it. In the result, read the line under LockDown: when it was caught, and what the **Dispatcher console** was doing.
+        2. Run **Anomaly** or **Hybrid** on it. In the result, read the line under LockDown: when it was caught, and what the **Dispatcher console** was doing. (Port 445 is how computers open each other's shared files.)
       `,
       setup: (sim) => baselineFrom(sim, DISPATCH, DISPATCH_BASE),
       actions: [renameFile],
@@ -559,7 +556,7 @@ export const detectMethodsLab: LabDef = {
           id: 'late',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'In the last step, signatures caught the original LockDown at 10:38, the minute its file was downloaded. Anomaly detection caught the repacked one at 10:42. What was LockDown doing by then?',
+          prompt: 'In step 8, signatures caught the original LockDown at 10:38, the minute its file was downloaded. Anomaly detection caught the repacked one at 10:42. What was LockDown doing by then?',
           options: [
             {
               id: 'download',
@@ -588,7 +585,7 @@ export const detectMethodsLab: LabDef = {
       id: 'recommend',
       title: 'Recommend a plan',
       body: md`
-        Time to choose. In the **Detection plan** card, pick one method for each client. The total has to fit the $5,400 budget.
+        Time to choose. Click [[bench]] to find the **Detection plan** card at the top of the Toolkit, and pick one method for each client. The total has to fit the $5,400 budget.
 
         Use what the bench showed you. Think about each network's traffic: how much there is, how steady it is, and how bad a missed attack would be. No plan within the budget catches every attack, so decide where a miss would hurt most. The bench card has every run you made if you want to look again.
 

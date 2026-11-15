@@ -198,7 +198,7 @@ const beacon = (fromHour: number): BenchRecord[] =>
   Array.from({ length: 24 - fromHour }, (_, i) => ({
     at: (fromHour + i) * 60 + 15,
     host: 'rb-filler',
-    peer: '185.220.101.4',
+    peer: '198.51.100.4',
     where: 'internet' as const,
     port: 4444,
     mb: 0.4,
@@ -314,7 +314,7 @@ export const BENCH_CONFIG: BenchConfig = {
   db: SEP,
   budget: BUDGET,
   names: NAMES,
-  ports: { 443: 'secure web', 445: 'file sharing', 502: 'machine control', 5060: 'calls' },
+  ports: { 443: 'secure web', 445: 'file sharing', 502: 'machine control', 4444: 'no common service', 5060: 'calls', 9001: 'no common service' },
 };
 
 // ---------------------------------------------------------------------------

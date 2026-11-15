@@ -80,7 +80,7 @@ export interface BenchRecord {
   at: number;
   /** The map device that sent or received it. */
   host: string;
-  /** Who's on the other end, in words: "viewers", "185.220.101.4". */
+  /** Who's on the other end, in words: "viewers", "198.51.100.4". */
   peer: string;
   where: 'inside' | 'internet';
   port: number;
@@ -198,6 +198,8 @@ export interface BenchResult {
   caught: CaughtAttack[];
   /** Attack ids with no alert: false negatives. */
   missed: string[];
+  /** Missed attack id -> why each method let it through, in words. */
+  missedWhy?: Record<string, string>;
   falseAlarms: number;
   cost: number;
 }
@@ -308,11 +310,11 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
     }
   }
 
+  const buckets = new Map<string, BenchRecord[]>();
   if (useAnom && input.baseline) {
     const typical = input.baseline.typical;
     const tol = input.tolerance / 100;
     const seenNew = new Set<string>();
-    const buckets = new Map<string, BenchRecord[]>();
     for (const r of day.records) {
       const k = kindKey(r);
       if (typical[k] === undefined) {
@@ -342,7 +344,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
         at: bad ? bad.at : h * 60 + 30,
         host: rs[0].host,
         by: 'anomaly',
-        why: `${name(rs[0].host)} to ${rs[0].peer}, ${port(rs[0].port)}: on pace for ${amount(total)} in the hour starting ${clock(h * 60)}, usual ${amount(usual)} (${amount(Math.abs(total - usual))} ${total >= usual ? 'more' : 'less'}, ${signedPct(dev)}, outside ±${input.tolerance}%)`,
+        why: `${name(rs[0].host)} to ${rs[0].peer}, ${port(rs[0].port)}: would reach ${amount(total)} in the hour starting ${clock(h * 60)}, usual ${amount(usual)} (${amount(Math.abs(total - usual))} ${total >= usual ? 'more' : 'less'}, ${signedPct(dev)}, outside ±${input.tolerance}%)`,
         attack: bad?.attack,
       });
     }
@@ -365,8 +367,38 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
     else missed.push(atk.id);
   }
 
+  // Why each miss got through, one reason per method that ran.
+  const missedWhy: Record<string, string> = {};
+  for (const id of missed) {
+    const atk = client.attacks.find((a) => a.id === id)!;
+    const recs = day.records.filter((r) => r.attack === id);
+    const parts: string[] = [];
+    if (useSig) {
+      const files = recs.flatMap((r) => (r.file ? [r.file] : []));
+      const later = config.signatures.some((s) => s.file && files.includes(s.file));
+      const db = config.versions.find((v) => v.id === input.db)?.label ?? input.db;
+      parts.push(atk.novel ? 'no signature exists for it yet' : later ? `the ${db} database has no signature for it` : 'no signature matches its file');
+    }
+    if (useAnom && input.baseline) {
+      const base = input.baseline;
+      if (client.days[base.day]?.records.some((r) => r.attack === id)) parts.push(`its traffic matched the ${client.days[base.day].label} baseline`);
+      else {
+        let worst: number | undefined;
+        for (const r of recs) {
+          const rs = buckets.get(`${kindKey(r)}#${hourOf(r)}`);
+          const usual = base.typical[kindKey(r)];
+          if (!rs || !usual) continue;
+          const dev = (rs.reduce((s, x) => s + x.mb, 0) - usual) / usual;
+          if (worst === undefined || Math.abs(dev) > Math.abs(worst)) worst = dev;
+        }
+        parts.push(worst === undefined ? 'its traffic looked normal' : `its hour looked normal: ${signedPct(worst)}, inside ±${input.tolerance}%`);
+      }
+    }
+    if (parts.length) missedWhy[id] = parts.join('; ');
+  }
+
   workQueue(alerts);
-  return { alerts, caught, missed, falseAlarms: alerts.filter((a) => !a.attack).length, cost: client.cost[input.method] };
+  return { alerts, caught, missed, missedWhy, falseAlarms: alerts.filter((a) => !a.attack).length, cost: client.cost[input.method] };
 }
 
 /**

@@ -55,7 +55,11 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
         {inDay.map((a) => {
           const hit = r.caught.find((x) => x.attack === a.id);
           // The alert that caught it first: what the method saw, and when on the replayed day.
-          const why = hit && r.alerts.filter((x) => x.attack === a.id && x.by === hit.by).sort((x, y) => x.at - y.at)[0];
+          const first = (by: string) => r.alerts.filter((x) => x.attack === a.id && x.by === by).sort((x, y) => x.at - y.at)[0];
+          const why = hit && first(hit.by);
+          // Hybrid: the other method may have flagged it too, which is why one attack can raise two alerts.
+          const also = hit && run.method === 'hybrid' ? first(hit.by === 'signature' ? 'anomaly' : 'signature') : undefined;
+          const missWhy = !hit && r.missedWhy?.[a.id];
           return (
             <li key={a.id} class={hit ? 'caught' : 'missed'}>
               <Icon name={hit ? 'check' : 'x'} />
@@ -73,6 +77,12 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
                   <span class="mono">{clock(why.at)}</span> {why.why}
                 </span>
               )}
+              {also && (
+                <span class="small muted bench-why">
+                  <span class="mono">{clock(also.at)}</span> {also.by} also flagged it: {also.why}
+                </span>
+              )}
+              {missWhy && <span class="small muted bench-why">{missWhy}</span>}
             </li>
           );
         })}
@@ -336,7 +346,7 @@ export function BenchPlanCard({ session, spec }: ToolCardProps<'bench-plan'>) {
           <Seg
             label={`Method for ${c.name}`}
             value={b.plan[c.id] ?? ''}
-            opts={(['signature', 'anomaly', 'hybrid'] as BenchMethod[]).map((m) => [m, `${METHOD_NAME[m]} ${dollars(c.cost[m])}`])}
+            opts={(['signature', 'anomaly', 'hybrid'] as BenchMethod[]).map((m) => [m, `${METHOD_NAME[m]}\n${dollars(c.cost[m])}`])}
             onPick={(m) => session.dispatch({ type: 'bench-plan', device: spec.device, client: c.id, method: m as BenchMethod })}
           />
         </div>

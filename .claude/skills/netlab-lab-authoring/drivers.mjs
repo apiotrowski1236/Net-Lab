@@ -53,7 +53,9 @@ async function drive(c, i, step, m) {
     return hit;
   };
 
-  if ('openLog' in m) {
+  // detect-methods opens the line from the bench's analyst queue instead: clickthrough.mjs's openLog does that.
+  const queue = step.tools?.some((t) => t.kind === 'bench' && t.queue && t.device === m.openLog);
+  if ('openLog' in m && !queue) {
     const hit = await logLine(m.openLog, m.where);
     log(`  open log line: ${hit.msg}`);
     return true;

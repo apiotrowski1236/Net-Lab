@@ -6597,6 +6597,10 @@ button.pl-tile:active {
   margin-top: 8px;
   font-size: 12.5px;
 }
+.bench-table th {
+  /* The table has no scroll box of its own: a sticky header would float over the Toolkit's rows. */
+  position: static;
+}
 .bench-table tbody tr {
   cursor: pointer;
 }
@@ -6668,6 +6672,9 @@ button.pl-tile:active {
 .bench-plan-row .seg button {
   padding: 4px 7px;
   font-size: 12.5px;
+  /* Method on one line, price under it, the same for every client. */
+  white-space: pre-line;
+  line-height: 1.25;
 }
 .bench-plan-total {
   margin: 8px 0 0;
