@@ -73,7 +73,7 @@ export const onPathLab: LabDef = {
         - An **IP address**, like \`192.168.1.10\`, says where a device sits on its network. It changes when the device joins a different network.
         - A **MAC address**, like \`0a:11:ce:00:00:10\`, belongs to the network card itself. Devices on the same local network use it to hand each other **frames**: packets with MAC addresses on the outside.
 
-        Click [[alice]], here or on the map, to look inside her laptop. Then click [[mallory]]. Find the two addresses in each one. You can skip the rest for now, like the /24 after the IP address. (Mallory's ARP table is already full because she has been watching the network. You will learn about ARP tables in step 2.)
+        Click [[alice]], here or on the map, to look inside her laptop. Then click [[mallory]]. Find the two addresses in each one. You can skip the rest for now, like the /24 after the IP address and the Port column. (Mallory's ARP table is already full because she has been watching the network. You will learn about ARP tables in step 2.)
 
         > Everything in this lab happens inside a simulation. Capturing other people's traffic on a real network without permission is illegal.
       `,
@@ -180,7 +180,7 @@ export const onPathLab: LabDef = {
           prompt: "What is Alice's password?",
           lines: 1,
           expect: /^\s*pumpkinspice\s*$/,
-          expectHint: 'Open the HTTP layer of the POST packet. The password comes after pass=. Copy it exactly, with no added spaces or capital letters.',
+          expectHint: 'Open the HTTP layer of the POST packet. The password comes after pass=. Copy it exactly. Capital letters count.',
           explain: 'Anyone on this Wi-Fi with a sniffer could read it.',
         },
       ],
@@ -219,7 +219,7 @@ export const onPathLab: LabDef = {
       body: md`
         The café owner turns on **WPA2**, a kind of Wi-Fi encryption. Everyone joins with the password on the chalkboard. Then each device gets its own secret **key**, shared only with the access point (the Café Wi-Fi box).
 
-        The radio still reaches every device. But each device's frames, both to it and from it, are locked with that device's own key. The other devices can't read them. Only the MAC addresses on the outside stay readable, so the frame can be delivered.
+        The radio still reaches every device. But each device's frames, both to it and from it, are locked with that device's own key. The other devices can't read them. Only the MAC addresses on the outside stay readable, so the frame can be delivered. (The map still labels each packet with what is inside, so you can follow it. The other devices get only the locked frame.)
 
         Mallory's capture is still on, and her list starts over in this step. Press **Alice signs in**. Then open one of the dark **WPA2** packets in the Capture tab.
       `,
@@ -261,7 +261,7 @@ export const onPathLab: LabDef = {
             {
               id: 'https',
               text: "WPA2 turned Alice's bank login into an HTTPS login.",
-              feedback: 'The bank connection is still plain HTTP. WPA2 only locks the radio trip between Alice and the access point.',
+              feedback: 'The bank connection is still plain HTTP. That is why her browser still says Not secure. WPA2 only locks the radio trip between Alice and the access point.',
             },
             { id: 'radio', text: "Mallory's radio can no longer hear Alice's laptop.", feedback: "Mallory's capture has Alice's frames, so the radio still reaches her." },
             {
@@ -271,7 +271,7 @@ export const onPathLab: LabDef = {
             },
           ],
           explain:
-            'WPA2 gives each device its own key. Mallory can open frames sent to her, plus broadcasts like ARP requests, which every device on the Wi-Fi can read. (On a real network, someone who knows the Wi-Fi password and catches Alice joining can sometimes figure out her key. WPA3 fixes that.)',
+            'WPA2 gives each device its own key. Mallory can open frames sent to her, plus broadcasts like ARP requests, which every device on the Wi-Fi can read. (On a real network, someone who knows the Wi-Fi password and catches Alice joining can sometimes find her key. WPA3 fixes that.)',
         },
       ],
     },
@@ -287,7 +287,7 @@ export const onPathLab: LabDef = {
         Open [[alice]] and scroll to her **ARP table**.
       `,
       focus: ['alice'],
-      goals: [{ id: 'look', label: 'Open [[alice]] and find her ARP table', check: inspected('alice') }],
+      goals: [{ id: 'look', label: 'Open [[alice]] in the inspector', check: inspected('alice') }],
       questions: [
         {
           id: 'where',
@@ -365,8 +365,8 @@ export const onPathLab: LabDef = {
           kind: 'choice',
           prompt: "Alice's page never loads. Why?",
           options: [
-            { id: 'drop', text: "Mallory's laptop received the packet but isn't set up to pass it on.", correct: true },
-            { id: 'bank', text: 'The bank went down.', feedback: "The packet never left the café. Look where it stopped." },
+            { id: 'drop', text: "Mallory's laptop received the packet and threw it away.", correct: true },
+            { id: 'bank', text: "The bank's website stopped working.", feedback: "The packet never left the café. Look where it stopped." },
             { id: 'wpa2', text: 'WPA2 blocked the forged ARP reply.', feedback: "Open Alice's ARP table. The forged reply worked." },
             { id: 'typo', text: 'Alice typed the wrong password.', feedback: 'The bank never saw her password.' },
           ],
@@ -380,9 +380,12 @@ export const onPathLab: LabDef = {
       id: 'relay',
       title: 'Become the middle',
       body: md`
-        To stay hidden, Mallory has to pass each packet along after she reads it. Turn on **IP forwarding** for Mallory in the Toolkit. Then press **Alice signs in** again, and watch the login go from Alice to Mallory, then on to the router. (Alice's sign-in from step 8 never finished. This one is new.)
+        To stay hidden, Mallory has to pass each packet along after she reads it. Her capture list starts over in this step.
 
-        This is the **on-path attack**, also called a **man-in-the-middle attack**. Mallory sits between Alice and the router, reads everything, and relays it so the connection keeps working.
+        1. Turn on **IP forwarding** for Mallory in the Toolkit.
+        2. Press **Alice signs in** again. (Her sign-in from step 8 never finished.) Use **1×** for this one, and watch the login go from Alice to Mallory, then on to the router.
+
+        This is the **on-path attack**, also called a **man-in-the-middle attack**. Mallory sits between Alice and the router, reads everything, and passes it on so the connection keeps working.
       `,
       setup: (sim) => {
         ensurePoisoned(sim);
@@ -450,7 +453,7 @@ export const onPathLab: LabDef = {
           id: 'metadata',
           kind: 'choice',
           multi: true,
-          prompt: 'Mallory is still in the middle. What can she still learn from the HTTPS packets?',
+          prompt: 'Mallory is still in the middle. Look at every column of her capture. What can she still learn from the HTTPS packets?',
           options: [
             { id: 'ips', text: "Alice's IP address and the bank's IP address", correct: true },
             { id: 'when', text: 'When Alice connected and how many packets she sent', correct: true },
@@ -471,14 +474,14 @@ export const onPathLab: LabDef = {
 
         1. Open [[router]] and read its **ARP table**. Two IP addresses point to the same MAC address: one device is pretending to be two.
         2. In the router's **Addresses** table, find the row with 192.168.1.1 and copy its MAC address.
-        3. In the Toolkit, use **Lock ARP entries** to lock that MAC on Alice. A locked entry, called a **static ARP entry**, ignores ARP replies.
+        3. In the Toolkit, use **Lock ARP entries** to lock 192.168.1.1 to that MAC on Alice. A locked entry, called a **static ARP entry**, ignores ARP replies.
         4. Use the ARP spoofer to poison Alice again. She should ignore it.
       `,
       setup: ensureInTheMiddle,
       focus: ['router', 'alice'],
       tools: [{ kind: 'static-arp', device: 'alice' }, { kind: 'arp-spoof', device: 'mallory', victims: ['alice', 'router'] }],
       goals: [
-        { id: 'spot', label: 'Open [[router]] and find the repeated MAC address', check: inspected('router') },
+        { id: 'spot', label: 'Open [[router]] in the inspector', check: inspected('router') },
         {
           id: 'lock',
           label: "Lock the router's MAC address on [[alice]]",
@@ -508,7 +511,7 @@ export const onPathLab: LabDef = {
             { id: 'dropped', text: 'Nowhere. The router drops it.', feedback: "Mallory's MAC is a real address on this network, so the router hands the reply to her.", last: true },
           ],
           explain:
-            'A lock protects only the device it is on, so Mallory still gets the bank\'s replies to Alice. To close that half too, the café would lock Alice\'s MAC on the router as well, or use Dynamic ARP Inspection, which checks every ARP reply on the network.',
+            'A lock protects only the device it is on, so Mallory still gets the bank\'s replies to Alice. To protect the router\'s side too, the café would lock Alice\'s MAC on the router as well. Or it would turn on Dynamic ARP Inspection, a feature of some switches and access points that checks every ARP reply.',
         },
       ],
     },
@@ -521,7 +524,7 @@ export const onPathLab: LabDef = {
 
         - **WPA2** on the Wi-Fi
         - **HTTPS** on the bank's website
-        - **Static ARP entries** (or Dynamic ARP Inspection) on the network
+        - **Static ARP entries** on the devices
 
         Each one stopped a different part of the attack.
       `,
