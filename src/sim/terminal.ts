@@ -100,6 +100,8 @@ function target(cmd: TermCommand, raw: string | undefined, allowNetwork = false)
  * to type instead. The `line` it returns is the tidied command to record.
  */
 export function parseCommand(raw: string): ParseResult {
+  // Phones, tablets, and some laptops turn a typed -- into one long dash: read it as the two dashes the student typed.
+  raw = raw.replace(/(^|\s)[\u2013\u2014](?=\S)/g, '$1--');
   const words = raw.trim().split(/\s+/).filter(Boolean);
   if (!words.length) return { ok: false, msg: 'Type a command, then press Enter.' };
   const name = words[0].toLowerCase();

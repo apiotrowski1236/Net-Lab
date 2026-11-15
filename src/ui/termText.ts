@@ -231,7 +231,7 @@ export function runMeaning(sim: Sim, devId: string, run: TermRun): string | unde
       const u = run.probes.find((p) => p.status === 'unreachable');
       if (u?.why === 'local') return `${me} couldn't send anything. Check its cable and its address.`;
       if (u?.why === 'host' && u.from && sim.deviceByIp(u.from)?.id === devId) {
-        return `${named}No device has the address ${ip}. ${me} asked its local network "who has ${ip}?" and nobody answered. The "Reply from" lines come from ${me} itself, reporting that it gave up.`;
+        return `${named}No device has the address ${ip}. ${me} asked its local network "who has ${ip}?" and nobody answered. The "Reply from" lines come from ${me} itself, reporting that it stopped trying.`;
       }
       if (u?.why === 'host') return `${named}${who(sim, u.from) ?? u.from} reached ${ip}'s network, but no device there has that address.`;
       if (u?.why === 'net') return `${named}${who(sim, u.from) ?? u.from} has no route to ${ip}'s network.`;
@@ -276,7 +276,7 @@ export function runMeaning(sim: Sim, devId: string, run: TermRun): string | unde
         return `${named}No device answered at ${run.target}. To scan a whole network, add a slash and its size, like ${run.target}/24.`;
       }
       const tail = run.vuln ? ` The vuln check matched ${bad} known problem${bad === 1 ? '' : 's'}.` : '';
-      return `${named}${found.length} device${found.length === 1 ? '' : 's'} answered, with ${open} open port${open === 1 ? '' : 's'} between them. Each open port is a program that accepts connections from anyone who can reach it.${tail}`;
+      return `${named}${found.length} device${found.length === 1 ? '' : 's'} answered, with ${open} open port${open === 1 ? '' : 's'}${found.length === 1 ? '' : ' between them'}. Each open port is a program waiting for connections.${tail}`;
     }
   }
 }
