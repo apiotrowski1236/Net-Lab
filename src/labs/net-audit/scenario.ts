@@ -36,11 +36,11 @@ export const IP = {
 };
 
 /** The router's factory login, printed in its manual. */
-export const ADMIN = { user: 'admin', pass: 'foodbank' };
+export const ADMIN = { user: 'admin', pass: 'admin' };
 
 export const SSID = 'HarborFoodBank';
 /** The Wi-Fi passphrase: long enough to hold up once the encryption is strong. */
-export const WIFI_PASS = 'HarborFoodBank-2019';
+export const WIFI_PASS = 'copper-kettle-meadow-27';
 
 export const OFFICE = { x: 50, y: 30, w: 560, h: 390 };
 export const LOT = { x: 50, y: 450, w: 560, h: 140 };
@@ -53,7 +53,7 @@ export const DESK_PORTS = ['p1', 'p2', 'p3', 'p4'];
 export const EMPTY_PORTS = ['p7', 'p8'];
 
 export function buildOffice(): Sim {
-  const net = new NetBuilder({ linkMs: 500, pingTimeoutMs: 20000 })
+  const net = new NetBuilder({ linkMs: 300, pingTimeoutMs: 20000 })
     .host('pc1', { label: 'Intake PC', sublabel: IP.pc1, icon: 'desktop', x: 130, y: 100, ip: `${IP.pc1}/24`, gateway: IP.router, services: [] })
     .host('pc2', { label: 'Manager PC', sublabel: IP.pc2, icon: 'desktop', x: 130, y: 370, ip: `${IP.pc2}/24`, gateway: IP.router, services: [] })
     .host('fileserver', {
@@ -88,6 +88,7 @@ export function buildOffice(): Sim {
       icon: 'wifi',
       x: 440,
       y: 370,
+      notes: ['The office Wi-Fi. Staff laptops and phones join it.'],
       wifi: { ssid: SSID, bssid: '02:4f:0b:00:00:05', security: 'wep', passphrase: WIFI_PASS, wps: false, auth: 'psk', beacon: true, power: 1, boost: -10, channel: 6 },
     })
     .router('router', {
@@ -101,6 +102,7 @@ export function buildOffice(): Sim {
         { id: 'vpn', ip: `${IP.vpnRouter}/24` },
       ],
       routes: [{ prefix: '0.0.0.0/0', via: IP.ispOffice, iface: 'wan' }],
+      notes: ['Connects the office to the internet. It runs a firewall, the VPN for the bookkeeper, and two ways to log in to it: Telnet and SSH.'],
       services: [MANAGEMENT_SERVICES.ssh, MANAGEMENT_SERVICES.telnet],
       firewall: {
         outside: 'wan',
@@ -178,6 +180,21 @@ export function buildOffice(): Sim {
   // Something on the shared laptop sends office-bound traffic to the bookkeeper's laptop.
   sim.dev('homedev').routes.push({ prefix: OFFICE_NET, via: IP.bookkeeper, iface: 'eth0', source: 'static' });
 
+  // Neighbors on the probe's path already know each other's MAC address, so the
+  // step 9 probe runs without a round of ARP at every hop.
+  const known: [string, string][] = [
+    ['homedev', IP.bookkeeper],
+    ['bookkeeper', IP.homedev],
+    ['bookkeeper', IP.vpnRouter],
+    ['router', IP.vpnClient],
+    ['router', IP.fileserver],
+    ['fileserver', IP.router],
+  ];
+  for (const [id, ip] of known) {
+    const mac = sim.deviceByIp(ip)?.ifaces.find((i) => i.ip === ip)?.mac;
+    if (mac) sim.dev(id).arp[ip] = { mac, at: 0, via: 'auto' };
+  }
+
   sim.configureSwitch('sw');
   sim.dev('sw').hardening = { authServer: false, account: { user: 'admin', pass: 'Sw1tch-closet', factory: false }, portNames: { p7: 'lobby wall jack', p8: 'spare' } };
   sim.dev('router').hardening = { authServer: false, account: { ...ADMIN, factory: true } };
@@ -232,6 +249,12 @@ export function routerHardened(sim: Sim): boolean {
 export function deskPortsSecured(sim: Sim): boolean {
   const sw = sim.dev('sw');
   return DESK_PORTS.every((p) => !!sw.switchSec?.ports[p]?.security);
+}
+
+/** MAC filtering on every desk port: each accepts only the computer plugged in now. */
+export function deskPortsFiltered(sim: Sim): boolean {
+  const sw = sim.dev('sw');
+  return DESK_PORTS.every((p) => !!sw.switchSec?.ports[p]?.security?.allowed?.length);
 }
 
 /** Switch policy: port security on the desk ports, the empty ports shut, and logins through the authentication server. */

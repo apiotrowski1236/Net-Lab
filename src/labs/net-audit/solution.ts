@@ -95,7 +95,7 @@ export const netAuditSolution: LabSolution = {
   reflect: {
     text: {
       summary:
-        'The biggest risk is the office Wi-Fi. It used WEP encryption, which an attacker in the parking lot can crack in seconds, and the whole office sits on one network with the donor records server. I rated it high: the attack is easy, so the likelihood is high, and exposed donor records would be a serious breach of confidentiality, so the impact is high. The fix is to switch the Wi-Fi to WPA3 encryption, which we did. As a longer-term project, splitting the donor server onto its own network segment would lower the risk further.',
+        'The biggest risk is the office Wi-Fi. It used WEP encryption, which an attacker in the parking lot can crack in under a minute, and the whole office sits on one network with the donor records server. I rated it high: the attack is easy, so the likelihood is high, and exposed donor records would be a serious breach of confidentiality, so the impact is high. The fix is to switch the Wi-Fi to WPA3 encryption, which we did. As a longer-term project, splitting the donor server onto its own network segment would lower the risk further.',
     },
   },
 };

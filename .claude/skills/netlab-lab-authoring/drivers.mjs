@@ -7,7 +7,8 @@
 // IP forwarding, the ARP spoofer, ARP locks (on-path), Cables > Unplug,
 // shutting a switch port, the wireless alarms card, and the
 // Logs tab (open a line, cite a line), and the smurf Echo tool and
-// Directed broadcasts switch.
+// Directed broadcasts switch, and net-audit's vulnerability scanner, risk
+// register, and Security settings.
 
 const SECURITY = { open: 'Open', wep: 'WEP', wpa: 'WPA', wpa2: 'WPA2', wpa3: 'WPA3' };
 const POWER = { 1: 'Lowest', 2: 'Low', 3: 'High', 4: 'Highest' };
@@ -65,9 +66,20 @@ async function drive(c, i, step, m) {
     log(`  cite log line: ${hit.msg}`);
     return true;
   }
+  if ('openFinding' in m) {
+    // net-audit: open a finding in the scanner's newest report.
+    await tab('Toolkit');
+    const { findingName } = await c.vite.ssrLoadModule('/src/sim/audit.ts');
+    const btn = card('Vulnerability scanner').locator('.audit-finding-row', { hasText: findingName(m.id) });
+    if (!(await btn.count())) await fail(i, `the scanner's report has no ${findingName(m.id)} finding`);
+    if ((await btn.getAttribute('aria-expanded')) !== 'true') await btn.click();
+    log(`  open finding: ${findingName(m.id)}`);
+    return true;
+  }
   if (!('tool' in m)) return false;
 
   const a = m.tool;
+  if (await auditMove(c, i, step, a)) return true;
   switch (a.type) {
     case 'wifi-scan': {
       await tab('Toolkit');
@@ -224,4 +236,72 @@ async function drive(c, i, step, m) {
     default:
       return false;
   }
+}
+
+const HARDEN_ROW = { telnet: /^Telnet/, ssh: /^SSH/ };
+const VPN_AUTH = { password: 'Password only', key: 'Key file', mfa: 'Password + MFA' };
+
+/**
+ * net-audit. The scanner and the risk register are Toolkit cards. Security
+ * settings (Hardening.tsx) is an inspector section where one switch sends
+ * several actions: MAC filtering sets port security on every desk port, and
+ * Shut ports nobody uses shuts every empty port. The answer key lists each
+ * action, so the first move flips the switch and the rest find it already set.
+ */
+async function auditMove(c, i, step, a) {
+  const { page, log, fail, tab, device, labels } = c;
+  const card = (text) => page.locator('.tool-card', { hasText: text }).first();
+  if (a.type === 'audit-scan') {
+    await tab('Toolkit');
+    const btn = card('Vulnerability scanner').locator('.btn.primary');
+    await btn.click();
+    // The next move may rate the findings, so wait for the report.
+    await page.waitForFunction((el) => !el.disabled, await btn.elementHandle(), { timeout: 90000 });
+    log(`  run the vulnerability scan from ${labels[a.device]}`);
+    return true;
+  }
+  if (a.type === 'rate-risk') {
+    await tab('Toolkit');
+    const { findingName } = await c.vite.ssrLoadModule('/src/sim/audit.ts');
+    const name = findingName(a.finding);
+    const k = card('Risk register');
+    if (a.likelihood) await k.getByLabel(`Likelihood: ${name}`, { exact: true }).selectOption(a.likelihood);
+    if (a.impact) await k.getByLabel(`Impact: ${name}`, { exact: true }).selectOption(a.impact);
+    log(`  rate ${name}: likelihood ${a.likelihood}, impact ${a.impact}`);
+    return true;
+  }
+  const hardening = step.tools?.some((t) => t.kind === 'hardening' && t.device === a.device);
+  if (!hardening || !['harden', 'fw-add-rule', 'port-security', 'port-shutdown', 'vpn-config'].includes(a.type)) return false;
+  if (a.type === 'fw-add-rule' && a.rule?.note !== 'Policy: drop pings from the internet') return false;
+  await device(a.device).locator('rect.device-card').first().click({ force: true });
+  await tab('Inspect');
+  const sec = page.locator('section.hardening');
+  await sec.waitFor({ timeout: 5000 });
+  const row = (label) => sec.locator('.harden-row').filter({ has: page.locator('.harden-label strong', { hasText: label }) }).getByRole('switch');
+  const flip = async (label, on) => {
+    const sw = row(label);
+    if (!(await sw.count())) await fail(i, `Security settings on ${labels[a.device]} has no switch for ${label}`);
+    if ((await sw.getAttribute('aria-checked')) !== String(on)) await sw.click();
+  };
+  if (a.type === 'harden') {
+    if (a.setting === 'auth-server') {
+      await sec.getByRole('group', { name: 'Where logins are checked' }).getByRole('button', { name: a.on ? 'Authentication server' : 'Local account', exact: true }).click();
+    } else await flip(HARDEN_ROW[a.setting], a.on);
+    log(`  ${labels[a.device]}: ${a.setting} ${a.on ? 'on' : 'off'}`);
+  } else if (a.type === 'fw-add-rule') {
+    await flip(/^Drop pings from the internet$/, true);
+    log(`  ${labels[a.device]}: drop pings from the internet`);
+  } else if (a.type === 'port-security') {
+    if (a.config?.allowed?.length) await flip(/^MAC filtering$/, true);
+    else await flip(/^Port security$/, !!a.config);
+    log(`  ${labels[a.device]} ${a.port}: ${a.config ? (a.config.allowed?.length ? 'MAC filtering' : 'port security') : 'port security off'}`);
+  } else if (a.type === 'port-shutdown') {
+    await flip(/^Shut ports nobody uses$/, a.shut);
+    log(`  ${labels[a.device]} ${a.port}: ${a.shut ? 'shut' : 'on'}`);
+  } else {
+    if (a.splitTunneling !== undefined) await flip(/^Split tunneling$/, a.splitTunneling);
+    if (a.auth) await sec.getByRole('group', { name: 'VPN sign-in' }).getByRole('button', { name: VPN_AUTH[a.auth], exact: true }).click();
+    log(`  ${labels[a.device]} VPN: ${a.splitTunneling === false ? 'split tunneling off' : ''}${a.auth ? ` sign-in ${VPN_AUTH[a.auth]}` : ''}`);
+  }
+  return true;
 }

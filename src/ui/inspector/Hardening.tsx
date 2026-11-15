@@ -141,11 +141,11 @@ function RouterSettings(p: Part) {
           <Row
             cls={flash('firewall')}
             label="Drop pings from the internet"
-            why={dropping ? 'A firewall rule drops pings that arrive on the internet side.' : 'Anyone online can ping this router and learn the office is there.'}
+            why={dropping ? 'On: a firewall rule drops pings that arrive on the internet side.' : 'Off: anyone online can ping this router and learn the office is there.'}
             on={dropping}
             edit={edit}
-            onText="Dropping"
-            offText="Answering"
+            onText="On"
+            offText="Off"
             onChange={setDrop}
           />
         </>
@@ -216,8 +216,8 @@ function SwitchSettings({ sim, ...p }: Part & { sim: Sim }) {
             why="A shut port carries nothing, even if someone plugs a laptop into the wall jack."
             on={shut}
             edit={edit}
-            onText="Shut"
-            offText="Live"
+            onText="On"
+            offText="Off"
             onChange={setShut}
           />
         </>
@@ -241,7 +241,7 @@ function VpnSettings({ session, dev, edit, flash }: Part) {
         }
         on={s.splitTunneling}
         edit={edit}
-        onText="Allowed"
+        onText="On"
         offText="Off"
         onChange={(on) => session.dispatch({ type: 'vpn-config', device: dev.id, splitTunneling: on })}
       />

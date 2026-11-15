@@ -7,7 +7,7 @@ import { DROP_PINGS_RULE } from '../../ui/inspector/Hardening';
 import { layersOf } from '../../ui/describe';
 import { isEncrypted, isTelnetLogin } from '../helpers';
 import { netAuditLab } from '.';
-import { ADMIN, buildOffice, DESK_PORTS, edgePingBlocked, EMPTY_PORTS, homeProbe, IP, LOT_SPOT, OFFICE_NET, routerLogin, switchHardened, vpnHardened } from './scenario';
+import { ADMIN, buildOffice, DESK_PORTS, deskPortsFiltered, edgePingBlocked, EMPTY_PORTS, homeProbe, IP, LOT_SPOT, OFFICE_NET, routerLogin, switchHardened, vpnHardened } from './scenario';
 
 /** Run the vulnerability scanner and return the ids in its report. */
 function scan(sim: Sim): string[] {
@@ -114,6 +114,21 @@ describe('net-audit: the risk register', () => {
     expect(riskRating('low', 'low')).toBe('low');
   });
 
+  it('checks each course example by its likelihood and impact, not only its rating', () => {
+    const sim = buildOffice();
+    scan(sim);
+    const goal = (id: string) => netAuditLab.steps.find((x) => x.id === 'register')!.goals!.find((g) => g.id === id)!;
+    const ok = (id: string) => goal(id).check({ sim, since: 0 } as Parameters<ReturnType<typeof goal>['check']>[0]);
+    sim.rateRisk('auditor', 'edge-icmp', 'moderate', 'moderate');
+    expect(riskRating('moderate', 'moderate')).toBe('moderate');
+    expect(ok('pings')).toBe(false);
+    sim.rateRisk('auditor', 'edge-icmp', 'high', 'low');
+    expect(ok('pings')).toBe(true);
+    sim.rateRisk('auditor', 'wifi-weak', 'high', 'high');
+    sim.rateRisk('auditor', 'wifi-beacon', 'low', 'low');
+    expect(ok('wep') && ok('beacon')).toBe(true);
+  });
+
   it('keeps a part left out when only one dropdown changes', () => {
     const sim = buildOffice();
     sim.rateRisk('auditor', 'telnet', 'high');
@@ -137,6 +152,31 @@ describe('net-audit: Telnet and SSH', () => {
     const text = (f: NonNullable<typeof telnet>) => JSON.stringify(layersOf(sim, f));
     expect(text(telnet!)).toContain(ADMIN.pass);
     expect(text(ssh!)).not.toContain(ADMIN.pass);
+  });
+
+  it('says whether the capture caught each login, word for word', () => {
+    const step = netAuditLab.steps.find((x) => x.id === 'telnet')!;
+    const telnet = step.actions!.find((a) => a.id === 'telnet-login')!;
+    const ssh = step.actions!.find((a) => a.id === 'ssh-login')!;
+    const sim = buildOffice();
+    // Capture off: the login works, but nothing is recorded.
+    let since = sim.t;
+    telnet.run(sim);
+    expect(telnet.outcome!(sim, since)).toEqual([{ tone: 'wait', text: 'Logging in…' }]);
+    sim.runUntilIdle();
+    expect(telnet.outcome!(sim, since)).toEqual([
+      { tone: 'bad', text: 'Logged in, but packet capture was off, so nothing was recorded. Turn on Packet capture in the Toolkit, then press this button again.' },
+    ]);
+    // Capture on: each login lands in the capture.
+    sim.dev('auditor').sniffing = true;
+    since = sim.t;
+    telnet.run(sim);
+    sim.runUntilIdle();
+    expect(telnet.outcome!(sim, since)).toEqual([{ tone: 'good', text: 'Logged in. The capture caught it: open the Capture tab and click the TELNET row.' }]);
+    since = sim.t;
+    ssh.run(sim);
+    sim.runUntilIdle();
+    expect(ssh.outcome!(sim, since)).toEqual([{ tone: 'good', text: 'Logged in. The capture caught it: open the Capture tab and click the SSH row.' }]);
   });
 
   it('refuses a Telnet login once Telnet is off', () => {
@@ -178,6 +218,14 @@ describe('net-audit: the switch policy', () => {
     expect(switchHardened(sim)).toBe(false);
     sim.setHardening('sw', 'auth-server', true);
     expect(switchHardened(sim)).toBe(true);
+    // The step's goal also wants MAC filtering: each desk port names its one computer.
+    expect(deskPortsFiltered(sim)).toBe(false);
+    for (const p of DESK_PORTS) {
+      const peer = sim.peer('sw', p)!;
+      const mac = sim.dev(peer.device).ifaces.find((i) => i.id === peer.iface)!.mac;
+      sim.setPortSecurity('sw', p, { maxMacs: 1, violation: 'shutdown', allowed: [mac] });
+    }
+    expect(deskPortsFiltered(sim)).toBe(true);
     // The office still works through the secured ports.
     sim.ping('pc1', IP.fileserver);
     sim.runUntilIdle();

@@ -19,11 +19,12 @@ export function HardeningCard({ session, spec, onSelect }: ToolCardProps<'harden
     const { desk, empty } = switchPorts(sim, d);
     const ports = d.switchSec?.ports ?? {};
     const sec = desk.filter((p) => ports[p]?.security).length;
-    items.push(['Desk ports with port security', `${sec} of ${desk.length}`], ['Empty ports shut', `${empty.filter((p) => ports[p]?.shutdown).length} of ${empty.length}`]);
+    const filtered = desk.filter((p) => ports[p]?.security?.allowed?.length).length;
+    items.push(['Desk ports with port security', `${sec} of ${desk.length}`], ['Desk ports with MAC filtering', `${filtered} of ${desk.length}`], ['Empty ports shut', `${empty.filter((p) => ports[p]?.shutdown).length} of ${empty.length}`]);
   }
   if (h) items.push(['Logins', h.authServer ? 'authentication server' : 'local account']);
   const vpn = d.vpn?.server;
-  if (vpn) items.push(['VPN split tunneling', vpn.splitTunneling ? 'allowed' : 'off'], ['VPN sign-in', VPN_AUTH_LABEL[vpn.auth].toLowerCase()]);
+  if (vpn) items.push(['VPN split tunneling', vpn.splitTunneling ? 'on' : 'off'], ['VPN sign-in', VPN_AUTH_LABEL[vpn.auth].toLowerCase()]);
   return (
     <div class="tool-card defend">
       <div class="tool-title">
