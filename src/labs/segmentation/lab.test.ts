@@ -228,4 +228,20 @@ describe('segmentation lab', () => {
     expect(infected(s.sim)).toEqual([]);
     expectContained(s);
   });
+
+  it('step 7’s log goal takes only a probe from this step, not a step 6 test line', () => {
+    const s = playTo('policy');
+    expect(s.step.id).toBe('contain');
+    const crewDeny = (e: { fields?: Record<string, unknown> }) =>
+      e.fields?.action === 'deny' && e.fields?.dport === 445 && prefixContains(NET.crew, String(e.fields?.src ?? ''));
+    // Crew laptop 1's file-share test from step 6 is still in the log.
+    const old = s.sim.dev('fw').logs.find(crewDeny)!;
+    expect(old.t).toBeLessThan(s.since);
+    s.ui({ type: 'ui:open-log', device: 'fw', entry: old });
+    expect(s.goalDone('contain', 'log')).toBe(false);
+    s.runStepAction('install');
+    s.sim.runUntilIdle();
+    playMove(s, { openLog: 'fw', where: crewDeny });
+    expect(s.goalDone('contain', 'log')).toBe(true);
+  });
 });

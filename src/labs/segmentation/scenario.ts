@@ -135,7 +135,7 @@ export function buildSub(): Sim {
         name: 'Media server',
         title: 'Crew movie list',
         https: false,
-        page: 'Tonight in the crew mess: a double feature at 2000. Requests go to the morale officer.',
+        page: 'Tonight in the crew lounge: two movies, starting at 8 p.m. Send movie requests to the crew office.',
       },
     })
     .switch('sw', { label: 'Main switch', x: 500, y: 290, ports: 12 })

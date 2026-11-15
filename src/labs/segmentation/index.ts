@@ -2,7 +2,7 @@ import { prefixContains } from '../../sim/addr';
 import type { Conn } from '../../sim/services';
 import type { Sim } from '../../sim/sim';
 import type { LogEntry } from '../../sim/types';
-import { happened, inspected, loggedSince, openedLog, pageSince } from '../helpers';
+import { happened, inspected, loggedSince, pageSince } from '../helpers';
 import { md } from '../md';
 import type { ActionDef, LabDef, ToolSpec } from '../types';
 import {
@@ -108,18 +108,20 @@ export const segmentationLab: LabDef = {
         - **Operations**: [[command]], [[nav]], and [[chart]] run the ship and plot its course.
         - **Crew recreation**: [[crew1]], [[crew2]], and [[media]] are for the crew's time off: games, email, and movies.
 
-        All of them plug into one switch, [[sw]], and share one network, \`10.0.0.0/24\`. A network with no walls inside it is called a **flat network**.
+        All of them plug into one switch, [[sw]], and share one network, \`10.0.0.0/24\`. (The /24 means every address on it starts with \`10.0.0\`.) A network with no walls inside it is called a **flat network**.
 
         [[fw]] is the ship's door to [[shore]], a satellite link that works only when the sub is near the surface. [[personal]] belongs to a sailor. It isn't plugged in.
 
-        1. Click [[fire]]. Its **Open ports** list shows the **port numbers** it answers on. A port number names one service on a computer. Port 445 is **file sharing**, which lets other computers copy files to and from this one. A port number is not a switch port. A switch port is a socket for a cable.
+        1. Click [[fire]]. Its **Open ports** list shows the **port numbers** it answers on. A port number names one service on a computer. Port 445 is **file sharing**, which lets other computers copy files to and from this one. A port number is not a switch port. A switch port is a socket for a cable. (In the **Addresses** table, \`eth0\` is the computer's own cable socket.)
         2. Click [[sw]]. Find which device each port leads to.
-        3. Press **Crew laptop 1 pings Fire control**. Watch the path the ping takes.
+        3. Press **Crew laptop 1 pings Fire control**. Watch the path the ping takes. A gray **not for me** tag means a device heard a message meant for someone else and ignored it.
+
+        Packets take a few seconds to cross the map. The speed buttons above the map (\`1×\`, \`2×\`, \`4×\`) make them faster.
       `,
       focus: ['crew1', 'sw', 'fire'],
       actions: [pingFire],
       goals: [
-        { id: 'fire', label: 'Open [[fire]] and read its services', check: inspected('fire') },
+        { id: 'fire', label: 'Open [[fire]] and read its open ports', check: inspected('fire') },
         { id: 'sw', label: 'Open [[sw]]', check: inspected('sw') },
         {
           id: 'ping',
@@ -147,7 +149,7 @@ export const segmentationLab: LabDef = {
 
     {
       id: 'worm',
-      title: 'A game with a passenger',
+      title: 'A game with malware inside',
       setup: (sim) => {
         ensureClean(sim);
         warmArp(sim);
@@ -155,14 +157,14 @@ export const segmentationLab: LabDef = {
       body: md`
         Last night the sub came near the surface, and a sailor downloaded a free game onto [[crew1]] over the shore link. The game hides **malware**: software written to do harm. This kind is a **worm**, malware that spreads across a network on its own. Nobody has to click anything.
 
-        Once it runs, it knocks on port 445 at every address nearby. Every computer with file sharing open gets a copy, and each copy starts knocking too. Spreading from the first device that's taken over to other devices on the same network is called **lateral movement**.
+        Once it runs, it tries port 445 at every address nearby. Every computer with file sharing open gets a copy, and each copy starts trying too. Spreading from the first device that's taken over to other devices on the same network is called **lateral movement**.
 
-        Infected computers turn red, and so do the malware's probes. Real networks don't color anything. This simulator does so you can follow along. It also skips addresses where no device lives, so you don't have to wait.
+        Infected computers turn red, and so do the malware's **probes**, its tries at port 445. Real networks don't color anything. This simulator does so you can follow along. It also skips addresses where no device lives, so you don't have to wait.
 
         > Everything in this lab happens inside a simulation. Releasing malware on a real network without permission is illegal.
 
         1. Press **Crew laptop 1 installs a game**. Watch the map.
-        2. When the map goes quiet, click [[fire]]. Find where its copy came from.
+        2. When the map stops moving, click [[fire]]. Find where its copy came from.
       `,
       focus: ['crew1', 'fire'],
       actions: [install('Crew laptop 1 installs a game')],
@@ -200,11 +202,11 @@ export const segmentationLab: LabDef = {
           kind: 'choice',
           multi: true,
           afterGoals: true,
-          prompt: 'The malware now runs on Fire control. What could an adversary who controls it do?',
+          prompt: 'The malware now runs on Fire control. What could an adversary (an attacker) who controls it do?',
           options: [
             { id: 'read', text: 'Read the targeting data', correct: true },
             { id: 'change', text: 'Change the targeting data', correct: true },
-            { id: 'freeze', text: 'Freeze the console during a drill', correct: true },
+            { id: 'freeze', text: 'Freeze the console so nobody can use it', correct: true },
             { id: 'wait', text: 'Nothing until someone on board clicks on it', feedback: 'A worm needs no clicks. Nobody touched Fire control, and the malware got in anyway.' },
           ],
           explain:
@@ -230,7 +232,7 @@ export const segmentationLab: LabDef = {
 
         Open the **Zone plan** in the Toolkit tab.
 
-        1. Put each computer in the zone that matches its job. The map draws each zone as you fill it in.
+        1. Put each computer in the zone that matches its job. The map draws each zone as you fill it in. ([[personal]] isn't plugged in, so it isn't in the plan.)
         2. Give each zone a security level.
       `,
       open: 'tools',
@@ -248,7 +250,7 @@ export const segmentationLab: LabDef = {
         {
           id: 'strictest',
           kind: 'choice',
-          prompt: 'Which zone needs the strictest policy?',
+          prompt: 'Which zone should get the highest security level?',
           options: [
             { id: 'weapons', text: 'Weapons, because a takeover there does the most harm', correct: true },
             {
@@ -259,7 +261,7 @@ export const segmentationLab: LabDef = {
             { id: 'ops', text: 'Operations, because the captain works there', feedback: 'Who uses a zone doesn’t set its level. Ask what an attacker could do with each zone.' },
             {
               id: 'same',
-              text: 'All three, equally strict',
+              text: 'All three, the same level',
               last: true,
               feedback: 'Then movie night would face the same rules as a torpedo launch. Different zones get different levels, so each one can do its job.',
             },
@@ -292,23 +294,19 @@ export const segmentationLab: LabDef = {
         sim.dev('sw').macTable = {};
       },
       body: md`
-        Your plan needs walls between the zones. New switches and new cables would take weeks to install on a submarine. A **VLAN** (virtual LAN) builds the walls with settings instead.
+        Your plan needs walls between the zones. New switches and cables would take weeks to install on a submarine. A **VLAN** (virtual LAN) builds the walls with settings instead. A **LAN**, or local area network, is the devices joined by one switch.
 
-        A VLAN is a group of switch ports that act like a switch of their own. A frame that comes in a port in VLAN 30 leaves only through other ports in VLAN 30. Broadcasts too. VLANs separate devices **logically**: by the switch's settings, not by its cables.
+        A VLAN is a group of switch ports that act like a switch of their own. A message that comes in a port in VLAN 30 leaves only through other ports in VLAN 30. VLANs separate devices **logically**: by the switch's settings, not by its cables. Every port starts in VLAN 1. That's why the whole ship is one network.
 
-        Every port starts in VLAN 1. That's why the whole ship is one network.
-
-        The computers and the switch have forgotten everything they learned so far.
+        To send to an address on its own network, a computer first needs that device's **MAC address**, the ID built into its network card. It asks with an **ARP request**: "Who has 10.0.0.11?" The request is a **broadcast**, sent to every device that can hear it. Everyone has forgotten the MAC addresses they learned, so you'll see the ARP request on the map.
 
         1. Click [[sw]]. In its **VLANs** table, put each port in its zone's VLAN:
-           - Weapons: VLAN 10. Include port 3, a spare jack in the weapons compartment with nothing plugged in.
+           - Weapons: VLAN 10. Include port 3, a spare wall socket in the weapons compartment with nothing plugged in.
            - Operations: VLAN 20.
            - Crew: VLAN 30.
         2. Leave port 10, the firewall's cable, in VLAN 1 for now.
         3. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes.
         4. Press **Crew laptop 1 pings the media server**.
-
-        Try other pairs with the **Ping** tool in the Toolkit tab.
       `,
       focus: ['sw', 'crew1'],
       open: { inspect: 'sw' },
@@ -394,18 +392,26 @@ export const segmentationLab: LabDef = {
       body: md`
         The VLANs worked. Now no zone can reach any other, and some have to. Command has to send target data to Fire control.
 
-        The fix is to give each VLAN its own **subnet**: its own IP network, like \`10.0.30.0/24\`. Devices on different subnets can't talk directly. They hand everything for another subnet to their default gateway. Every zone's gateway is [[fw]], so traffic between zones has to pass through one place, where it can be checked.
+        The fix is to give each VLAN its own **subnet**: its own IP network, like \`10.0.30.0/24\`. Devices on different subnets can't talk directly. They send everything for another subnet to their **default gateway**, a **router** on their own subnet that passes traffic between networks. [[fw]] is a router with a firewall built in, and it's every zone's gateway. So traffic between zones has to pass through one place, where it can be checked.
 
         The ship's address plan: the third number matches the VLAN, and each device keeps its last number. Fire control's \`10.0.0.11\` becomes \`10.0.10.11\`.
 
-        The ship's IT chief did most of the work. [[fw]] now has a cable into the switch for each zone: its port 1 goes to switch port 10, port 2 to port 11, and port 3 to port 12. Weapons, Operations, [[crew2]], and [[media]] already have their new addresses. Finish the crew zone:
+        The ship's IT chief ran one cable from [[fw]] to the switch for each zone, and moved most devices to their new addresses:
 
-        1. Click [[sw]]. Put port 12 in VLAN 30.
-        2. Click [[fw]]. Give its port 3 the address \`10.0.30.1/24\`.
+        | Zone | Firewall port | Switch port | Gateway address |
+        |---|---|---|---|
+        | Weapons | 1 | 10 | 10.0.10.1 |
+        | Operations | 2 | 11 | 10.0.20.1 |
+        | Crew | 3 | 12 | 10.0.30.1 (you set it) |
+
+        Finish the crew zone:
+
+        1. Click [[sw]]. Put switch port 12 in VLAN 30.
+        2. Click [[fw]]. Give firewall port 3 the address \`10.0.30.1/24\`.
         3. Click [[crew1]]. Change its address to \`10.0.30.31/24\` and its default gateway to \`10.0.30.1\`.
         4. Press **Crew laptop 1 opens the movie list**. Then press **Crew laptop 1 pings Command**.
 
-        Bigger networks often carry every VLAN over one cable, called a **trunk**. This lab uses one cable per VLAN to keep things simple.
+        (Big networks often carry every VLAN over one cable, called a **trunk**. This lab uses one cable per VLAN.)
       `,
       focus: ['sw', 'fw', 'crew1'],
       open: { inspect: 'sw' },
@@ -501,22 +507,22 @@ export const segmentationLab: LabDef = {
         ensureSubnets(sim, true);
       },
       body: md`
-        Every packet between zones now passes through [[fw]]. Tell it what to allow with a **zone policy**: a table of which zone may start a connection to which other zone, and for what.
+        Every packet between zones now passes through [[fw]]. Tell it what to allow with a **zone policy**: a table of which zone may start a connection to which other zone, and on which port.
 
         The captain's orders:
 
         1. Crew devices may not start a connection to Weapons or Operations.
         2. Operations may send target data to Weapons, on port 5001. Nothing else.
         3. Weapons may send status reports to Operations, on port 5002. Nothing else.
-        4. Anything these orders don't list is denied.
+        4. Anything these orders don't list is denied. That includes Weapons to Crew and Operations to Crew.
 
-        Ports 5001 and 5002 belong to the ship's own software.
+        Allowing each zone only what it needs is called **least privilege**. Ports 5001 and 5002 belong to the ship's own software.
 
-        Click [[fw]] and find its **Zone policy**. Each row is the zone a connection starts from. Each column is the zone it goes to. Your security levels from the plan show in the headings. A reply to an allowed connection always gets back.
+        Click [[fw]] and find its **Zone policy**. Each row is the zone a connection starts from. Each column is the zone it goes to. Set all six cells. A reply to an allowed connection always gets back.
 
         Then press each test button. If the firewall stops a packet, a red tag on the map shows where.
 
-        Many networks put a separate firewall in front of each segment. Here one firewall does that job, with its own port and its own rules for each zone. The zone policy writes the firewall's rules for you. You'll write rules by hand in the Firewall Rules and Placement lab.
+        Here one firewall guards every zone, with its own port and its own rules for each. You'll write firewall rules by hand in the Firewall Rules and Placement lab.
       `,
       focus: ['fw'],
       open: { inspect: 'fw' },
@@ -589,10 +595,12 @@ export const segmentationLab: LabDef = {
       body: md`
         Months later, the sub comes near the surface again. The same sailor downloads the same game onto [[crew1]].
 
-        The malware hasn't changed. It knocks on port 445 at every address nearby: its own subnet first, then the subnets next to it.
+        The malware hasn't changed. It tries port 445 at every address nearby: its own subnet first, then the subnets next to it.
 
         1. Press **Crew laptop 1 installs the game**. Watch where the probes go.
-        2. When the map goes quiet, open the **Logs** tab. Click a line in [[fw]]'s log that shows a blocked probe.
+        2. When the map stops moving, open the **Logs** tab. Click one of the malware's blocked probes in [[fw]]'s log.
+
+        A line like \`DENY TCP 10.0.30.31:49166 → 10.0.10.11:445\` means the firewall blocked Crew laptop 1 (\`10.0.30.31\`) from reaching port 445 on Fire control (\`10.0.10.11\`). The number after the first colon is a port the laptop picked for its own end. Your tests from the last step are in the log too, but they don't count here.
       `,
       focus: ['crew1', 'fw'],
       tools: [{ kind: 'logs', devices: ['fw'] }, { kind: 'zone-policy', device: 'fw' }],
@@ -613,9 +621,9 @@ export const segmentationLab: LabDef = {
         },
         {
           id: 'log',
-          label: 'Open a blocked probe in [[fw]]’s log',
-          hint: 'In the **Logs** tab, click a DENY line with port 445.',
-          check: openedLog((e) => e.device === 'fw' && blockedProbe(e)),
+          label: 'Open one of the malware’s blocked probes in [[fw]]’s log',
+          hint: 'In the **Logs** tab, click a DENY line from a crew address (10.0.30.x) to port 445 that came after you installed the game.',
+          check: ({ ev, since }) => ev?.type === 'ui:open-log' && ev.entry.device === 'fw' && ev.entry.t >= since && blockedProbe(ev.entry),
         },
       ],
       questions: [
@@ -667,10 +675,10 @@ export const segmentationLab: LabDef = {
         Remember port 3, the spare jack in the weapons compartment? Nothing is plugged into it, but it's in VLAN 10. Anything plugged in there lands inside the weapons zone. Its traffic to Fire control goes through the switch and never passes the firewall.
 
         1. Press **A sailor plugs a laptop into the spare jack**. Watch the weapons zone on the map.
-        2. Click [[sw]]. Shut down port 3.
+        2. Click [[sw]]. In **Ports and port security**, choose **Edit** on port 3, then **Shut port down**. It takes effect right away.
         3. Press **A sailor plugs a laptop into the spare jack** again.
 
-        Like most laptops, [[personal]] gets an address automatically from the network it joins. Here it gets one on the weapons subnet.
+        [[personal]] gets an address on the weapons subnet when it plugs in. (On a real network, a server would hand it out. The simulator skips that part.)
 
         A switch has a second tool for ports that are in use. **Port security** limits how many MAC addresses a port accepts, and can name which ones. The questions compare the two.
       `,
@@ -707,7 +715,7 @@ export const segmentationLab: LabDef = {
             { id: 'first', text: 'A limit of one still lets the first device in', correct: true },
             {
               id: 'flood',
-              text: 'Port security works only against MAC flooding',
+              text: 'Port security only stops floods of fake MAC addresses',
               feedback: 'Port security also limits which devices may use a port. But a limit of one still lets one device in, and nobody should use this port at all.',
             },
             { id: 'vlan', text: 'Port security would move the port out of VLAN 10', feedback: 'Port security doesn’t change the VLAN. It counts and checks MAC addresses on the port.' },
@@ -727,7 +735,7 @@ export const segmentationLab: LabDef = {
             { id: 'rule', text: 'A firewall rule that blocks the laptop', feedback: 'The laptop would be inside the weapons VLAN. Its traffic to Fire control goes through the switch and never reaches the firewall.' },
           ],
           explain:
-            'Port security limits how many MAC addresses a port accepts, and can name which ones. A swapped-in laptop has a different MAC, so the switch shuts the port and logs it. The same limit stops MAC flooding. A skilled attacker can copy the console’s MAC address, so the ship also keeps the compartment locked.',
+            'Port security limits how many MAC addresses a port accepts, and can name which ones. A swapped-in laptop has a different MAC, so the switch shuts the port and logs it. The same limit stops MAC flooding, where an attacker fills the switch’s table with fake MAC addresses. A skilled attacker can copy the console’s MAC address, so the ship also keeps the compartment locked.',
         },
       ],
     },
@@ -738,9 +746,9 @@ export const segmentationLab: LabDef = {
       body: md`
         When the sub is near the surface, email for the crew arrives over [[shore]]. A **mail relay** is a server that accepts mail from outside and passes it on. It talks to the outside world all day, so it's the server most likely to be attacked.
 
-        A **screened subnet**, also called a **DMZ**, is a zone for servers like this. Firewall rules screen it from both sides. The outside can reach only those servers, and those servers can reach only a little of the inside. If an attacker takes over the mail relay, they're stuck in the screened subnet.
+        A **screened subnet**, also called a **DMZ**, is a zone for servers like this. Firewall rules guard it on both sides, from the outside and from the inside. The outside can reach only those servers, and those servers can reach only a little of the inside. If an attacker takes over the mail relay, they're stuck in the screened subnet.
 
-        [[fw]] also guards [[shore]], the ship's only door to the outside. A network needs a firewall at every point where it meets the outside world, and one for each segment.
+        [[fw]] also guards [[shore]], the ship's only door to the outside. Every place a network meets the outside world needs a firewall. Every segment needs its own firewall rules, whether one firewall holds them all, as on this ship, or each segment has its own.
       `,
       focus: ['fw', 'shore'],
       questions: [
@@ -788,7 +796,7 @@ export const segmentationLab: LabDef = {
           id: 'recommend',
           kind: 'text',
           prompt:
-            'The captain asks for your recommendation. For each of the three LANs (weapons, operations, and crew recreation), give a security level and at least two security features, and explain why that LAN needs them.',
+            'The captain asks for your recommendation. For each of the three zones (weapons, operations, and crew recreation), give a security level and at least two security features from the list above, and explain why that zone needs them.',
           minWords: 45,
           lines: 8,
         },
@@ -800,7 +808,7 @@ export const segmentationLab: LabDef = {
       title: 'Review and submit',
       kind: 'submit',
       body: md`
-        Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+        Look over your summary. You can go back to any step and change an answer, then hand in your work again.
       `,
     },
   ],
