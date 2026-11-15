@@ -57,6 +57,18 @@ describe('setups', () => {
     expect(sim.dev('resolver').logs.length).toBe(lines);
     expect(sim.dev('resolver').logs.some((l) => l.msg === `cached ${SITE} -> ${IP.evil} (was ${IP.grades})`)).toBe(true);
   });
+
+  it("the gradebook's visits start after the first lookup and keep coming until the poisoning", () => {
+    const sim = buildDistrict();
+    expect(sim.dev('grades').logs).toEqual([]); // nobody has looked anything up yet
+    ensurePoisoned(sim);
+    const changed = sim.dev('resolver').logs.find((l) => l.msg.includes('(was '))!.t;
+    const firstQuery = sim.dev('resolver').logs.find((l) => l.msg.startsWith(`query ${SITE}`))!.t;
+    const visits = sim.dev('grades').logs.filter((l) => l.msg.startsWith('GET / from')).map((l) => l.t);
+    expect(visits.length).toBeGreaterThanOrEqual(6);
+    expect(Math.min(...visits)).toBeGreaterThan(firstQuery);
+    expect(changed - Math.max(...visits)).toBeLessThan(2 * 60_000);
+  });
 });
 
 describe('"Mallory sends another forged burst" result line', () => {
@@ -71,7 +83,7 @@ describe('"Mallory sends another forged burst" result line', () => {
     ]);
     sim.runUntilIdle();
     expect(burst.outcome!(sim, since)).toEqual([
-      { tone: 'bad', text: `A forged answer matched the ticket number and port. ${SITE} points at Mallory again.` },
+      { tone: 'bad', text: `A forged answer matched the ticket number and port. ${SITE} points at Mallory again. Flush again, and turn on unpredictable query IDs first.` },
     ]);
   });
 

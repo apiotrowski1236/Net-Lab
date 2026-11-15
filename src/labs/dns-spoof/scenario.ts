@@ -123,31 +123,26 @@ export function buildDistrict(): Sim {
     .link(['inet', 'evil'], 'evil');
   const sim = net.build();
   sim.prelearnSwitch('lan');
-  seedAccessLog(sim);
   return sim;
 }
 
+/** Other school computers that use the gradebook while the lab runs. */
+const VISITORS = ['10.1.0.31', '10.1.0.44', '10.1.0.52', '10.1.0.27', '10.1.0.61', '10.1.0.38'];
+
 /**
- * Give the real gradebook a steady morning of visits before the lab starts, so
- * the drop to zero after the poisoning stands out in its access log. Times are
- * negative: they happened before the lab's clock.
+ * Other computers in the school open the gradebook while time passes. Each
+ * visit is a resolver cache hit plus a line in the gradebook's access log, so
+ * the log shows steady visits right up to the poisoning, then nothing.
  */
-function seedAccessLog(sim: Sim): void {
-  const visitors = [
-    '10.1.0.31',
-    '10.1.0.44',
-    '10.1.0.52',
-    '10.1.0.27',
-    '10.1.0.61',
-    '10.1.0.38',
-    '10.1.0.49',
-    '10.1.0.55',
-  ];
-  visitors.forEach((src, i) => {
-    const at = -((visitors.length - i) * 7000);
-    sim.log('grades', { source: 'web', level: 'info', msg: `GET / from ${src}`, fields: { src, method: 'GET', path: '/', host: SITE } }, at);
+function backgroundVisits(sim: Sim, until: number): void {
+  const from = sim.t;
+  VISITORS.forEach((src, i) => {
+    sim.advanceTo(from + ((i + 1) * (until - from)) / (VISITORS.length + 1));
+    const ip = freshEntry(sim.dev('resolver').resolver!, SITE, sim.t)?.ip;
+    if (ip !== IP.grades) return;
+    sim.log('resolver', { source: 'dns', level: 'info', msg: `cache hit ${SITE} -> ${ip}`, fields: { name: SITE, ip } });
+    sim.log('grades', { source: 'web', level: 'info', msg: `GET / from ${src}`, fields: { src, method: 'GET', path: '/', host: SITE } });
   });
-  sim.events = [];
 }
 
 /** Ensure the resolver is holding the real answer for the gradebook, as if someone just looked it up. */
@@ -170,7 +165,9 @@ export function primeCache(sim: Sim): void {
  */
 export function expireRecord(sim: Sim): void {
   const e = freshEntry(sim.dev('resolver').resolver!, SITE, sim.t);
-  if (e) sim.advanceTo(e.at + e.ttl + 1000);
+  if (!e) return;
+  backgroundVisits(sim, e.at + e.ttl - 1000);
+  sim.advanceTo(e.at + e.ttl + 1000);
 }
 
 /** Step 5's setup: the real answer is cached, and its TTL has run out. */

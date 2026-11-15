@@ -56,7 +56,7 @@ const mallorysBurst: ActionDef = {
       return [{ tone: 'good', text: `The resolver already had a fresh answer for ${SITE}, so it asked nothing. All ${GUESSES} forged answers were thrown away.` }];
     }
     if (!ans) return [{ tone: 'wait', text: `The resolver asked the name server. Mallory's ${GUESSES} forged answers are racing the real one.` }];
-    if (ip === IP.evil) return [{ tone: 'bad', text: `A forged answer matched the ticket number and port. ${SITE} points at Mallory again.` }];
+    if (ip === IP.evil) return [{ tone: 'bad', text: `A forged answer matched the ticket number and port. ${SITE} points at Mallory again. Flush again, and turn on unpredictable query IDs first.` }];
     return [{ tone: 'good', text: `None of the ${GUESSES} forged answers matched the random ticket number and port. The real answer won.` }];
   },
 };
@@ -76,7 +76,7 @@ export const dnsSpoofLab: LabDef = {
   unit: 3,
   codehs: ['3.3 Misdirected and Overwhelmed'],
   ced: ['3.1.A', '3.1.B', '3.1.C', '3.5.E'],
-  minutes: 45,
+  minutes: 48,
   clock: '08:30',
   objectives: [
     'Explain how a resolver turns a name into an address, and why it caches the answer with a TTL.',
@@ -174,7 +174,7 @@ export const dnsSpoofLab: LabDef = {
       id: 'cache',
       title: 'One answer, everyone',
       body: md`
-        A minute later, Ben opens the same site. Before you press the button, guess: will the resolver ask [[ns]] again?
+        A little later, Ben opens the same site. Before you press the button, guess: will the resolver ask [[ns]] again?
 
         Press **Ben opens http://${SITE}** and watch where the question stops.
       `,
@@ -215,7 +215,7 @@ export const dnsSpoofLab: LabDef = {
 
         Nobody types \`${IP.evil}\` into a browser, so the copy does nothing on its own. Mallory needs people to end up there while they think they are at \`${SITE}\`. The resolver's cache can make that happen.
 
-        > Everything in this lab happens inside a simulation. Forging DNS answers on a real network without permission is illegal.
+        > Everything in this lab happens inside a simulation. Sending fake (forged) DNS answers on a real network without permission is illegal.
       `,
       focus: ['alice', 'evil'],
       actions: [aliceOpensByIp],
@@ -245,13 +245,13 @@ export const dnsSpoofLab: LabDef = {
       id: 'poison',
       title: 'Guess the ticket number',
       body: md`
-        Ten minutes have passed. Open [[resolver]]: the gradebook record says **expired**, because its TTL ran out. While a record is fresh, the resolver asks nobody, so a fake answer has nothing to match. Now the next lookup makes the resolver ask [[ns]] again. Mallory waits for this moment.
+        Ten minutes have passed. Open [[resolver]]: the gradebook record says **expired**, because its TTL ran out. While a record is fresh, the resolver asks nobody and throws away any answer that comes in. Now the next lookup makes the resolver ask [[ns]] again, and Mallory has a chance.
 
         Here is the race:
 
         1. The resolver asks [[ns]] a question. It marks the question with a **query ID**, like a numbered ticket, and sends it from a **port**: a numbered door where the answer has to come back.
         2. The resolver accepts the first answer with the right ticket number at the right port, as long as the answer says it is from the name server.
-        3. Mallory sends a burst of fake answers that say they are from \`${IP.ns}\`. This is a **forged source address**, like a false return address on an envelope. If one fake has the right ticket and port and arrives before the real answer, the resolver caches it.
+        3. Mallory sends a **burst**: many fake answers at once, all saying they are from \`${IP.ns}\`. This is a **forged source address**, like a false return address on an envelope. If one fake has the right ticket and port and arrives before the real answer, the resolver caches it. (The map draws the burst as one packet.)
 
         This resolver's query IDs are **predictable**: it uses only ${GUESSES} ticket numbers, always from the same port. One burst can cover them all.
 
@@ -276,7 +276,7 @@ export const dnsSpoofLab: LabDef = {
           afterGoals: true,
           prompt: 'The forged answer came from Mallory, not the name server. Why did the resolver accept it?',
           options: [
-            { id: 'match', text: 'It had the ticket number and port the resolver expected, and it got there before the real answer.', correct: true },
+            { id: 'match', text: 'It had the expected ticket number and port, and it arrived first.', correct: true },
             { id: 'trusted', text: "Mallory's server is on a list of servers that the resolver has been told to trust.", feedback: 'There is no such list. The resolver trusts any answer with the right ticket number and port that says it is from the name server.' },
             { id: 'password', text: 'Mallory guessed the password that the name server uses when it sends answers.', feedback: 'DNS answers carry no password. The resolver checks only the ticket number, the port, and the return address.' },
           ],
@@ -293,7 +293,7 @@ export const dnsSpoofLab: LabDef = {
 
         Press both buttons. Watch each request go to [[evil]] instead of [[grades]]. Then click [[evil]] and scroll down to **Stolen passwords**. Mallory's page shows a normal-looking message after it saves the password, so nobody suspects.
 
-        (A real school shares one public address, so Mallory would see the school's address. The lab shows each laptop's own address to keep it clear.)
+        (In a real school, every laptop shares the school's one internet address, so Mallory would see that address. The lab shows each laptop's own address to keep it clear.)
       `,
       focus: ['alice', 'teacher', 'evil'],
       open: { inspect: 'evil' },
@@ -321,7 +321,7 @@ export const dnsSpoofLab: LabDef = {
             { id: 'typo', text: 'She typed the name wrong, so her browser went to a different site.', feedback: 'She typed the correct name. The lie was one layer down, in the resolver.' },
             { id: 'clicked', text: 'She clicked a bad link in an email instead of typing the name.', feedback: 'No link was involved. She used the name she always uses.' },
           ],
-          explain: 'The name a careful user checks is exactly right. The wrong address hides underneath it. The one hint was the "Not secure" label, because the page used plain HTTP. Step 7 shows what HTTPS adds.',
+          explain: 'The name a careful user checks is exactly right. The wrong address hides underneath it. The only warning was the "Not secure" label, and the real gradebook showed it too, because both used plain HTTP. Step 7 shows what HTTPS adds.',
         },
       ],
     },
@@ -332,9 +332,9 @@ export const dnsSpoofLab: LabDef = {
       body: md`
         Press the button. Alice signs in over **HTTPS** this time. The resolver is still poisoned, so her browser still goes to Mallory.
 
-        An HTTPS site has to show a **certificate**, like an ID card for the site. A company that browsers trust gives it out and **signs** it: it adds a stamp that only that company can make and anyone can check. The certificate names the site it belongs to.
+        An HTTPS site has to show a **certificate**, like an ID card for the site. A company that browsers trust gives it out and **signs** it: it adds a stamp that only that company can make and anyone can check. The certificate names the site it belongs to, and only the real site has the secret **key** that goes with it.
 
-        Mallory copied the page, but no trusted company will give Mallory a certificate for \`${SITE}\`, because Mallory does not own that name. Alice's browser checks the certificate before she types anything, sees that it does not match, and stops.
+        Mallory can copy the page, and even the real certificate, but not the secret key. No trusted company will give Mallory a certificate for \`${SITE}\`, because Mallory does not own that name. Alice's browser has no idea the address is wrong. It checks the certificate before she types anything, sees that this server cannot prove it is \`${SITE}\`, and stops. The server is an **impostor**: it pretends to be a site it is not.
 
         DNS sent Alice to the wrong server. HTTPS noticed that the server could not prove its name.
       `,
@@ -358,7 +358,7 @@ export const dnsSpoofLab: LabDef = {
             { id: 'ip', text: 'The browser noticed that the IP address it got was not the real one.', feedback: "The browser does not know which IP is 'right'. It checks the certificate against the name, and the certificate is what Mallory cannot fake." },
             { id: 'faster', text: 'The HTTPS request reached the real server before the poisoned answer did.', feedback: 'Speed is not involved. The certificate check is what fails.' },
           ],
-          explain: 'Plain DNS has no way to prove an answer is real. HTTPS does: a signed certificate ties the site to its name, and a copied page cannot come with one.',
+          explain: 'Plain DNS has no way to prove an answer is real. HTTPS does: a signed certificate ties the site to its name, and only the real site holds the key that proves it.',
         },
         {
           id: 'past-warning',
@@ -378,12 +378,12 @@ export const dnsSpoofLab: LabDef = {
       id: 'detect',
       title: 'Something is wrong',
       body: md`
-        Now you are the district's IT team. A poisoning makes no noise: no alarm goes off, and the people who signed in saw a page that worked. You have to read the logs.
+        Now you are the district's IT team. Nobody notices a poisoning: no alarm goes off, and the people who signed in saw a page that worked. You have to read the logs.
 
         The **Logs** tab is open. Use its device filter to read one log at a time.
 
-        - [[resolver]] keeps a **DNS log**. Find the orange **notice** line where the record for \`${SITE}\` **changed** to a new address. Click it to open it. Note the time, and who the answer says it came from.
-        - [[grades]], the real gradebook, keeps a **web access log**: one line per visit. Visits come in all morning, then stop after the time the record changed. A busy site going quiet is the clue.
+        - [[resolver]] keeps a **DNS log**. Find the **notice** line where the record for \`${SITE}\` **changed** to a new address. It ends in \`(was ...)\`. Click it to open it. Note the time, and who the answer says it came from.
+        - [[grades]], the real gradebook, keeps a **web access log**: one line per visit. Visits come in steadily, then stop after the time the record changed. A busy site going quiet is the clue.
       `,
       focus: ['resolver', 'grades'],
       open: 'logs',
@@ -393,7 +393,7 @@ export const dnsSpoofLab: LabDef = {
         {
           id: 'changed',
           label: 'Open the resolver log line where the gradebook record changed',
-          hint: 'It is an orange "notice" line: "cached ... (was ...)". The "was" address is the real one it replaced.',
+          hint: 'It is a "notice" line: "cached ... (was ...)". The "was" address is the real one it replaced.',
           check: openedLog((e) => e.source === 'dns' && e.msg.includes(`${SITE} -> ${IP.evil} (was `)),
         },
       ],
@@ -412,7 +412,7 @@ export const dnsSpoofLab: LabDef = {
         {
           id: 'drop-meaning',
           kind: 'text',
-          prompt: "The real gradebook's visits dropped to zero, but the server is up and healthy. In one or two sentences, explain where its visitors went.",
+          prompt: "The real gradebook's visits dropped to zero, but the server is still running. In one or two sentences, explain where its visitors went.",
           lines: 3,
           minWords: 15,
         },
@@ -461,7 +461,7 @@ export const dnsSpoofLab: LabDef = {
           kind: 'choice',
           prompt: 'Why do unpredictable query IDs and source ports stop the forged burst?',
           options: [
-            { id: 'guess', text: 'The forger has to guess both numbers, and a random pick from a huge range is almost never guessed in time.', correct: true },
+            { id: 'guess', text: 'The forger must guess two random numbers from a huge range, and almost never does in time.', correct: true },
             { id: 'block', text: 'They block every packet that comes into the school from outside, including the forged answers.', feedback: 'They do not block anything. They make the right ticket number too hard to guess.' },
             { id: 'encrypt', text: 'They encrypt each DNS answer, so a forger cannot read the real one or make a copy of it.', feedback: 'The answer is not encrypted. The defense is that the matching numbers are unpredictable.' },
           ],
@@ -481,7 +481,11 @@ export const dnsSpoofLab: LabDef = {
       id: 'reflect',
       title: 'Two kinds of poisoning',
       body: md`
-        You poisoned a resolver's cache. The On-Path lab showed a different kind: **ARP poisoning**. Every device on a local network keeps an **ARP table** that says which device (which MAC address) has each IP address. An attacker on the same network sends fake ARP replies that say "that IP address is at my MAC address." Nearby devices then send their traffic to the attacker. It only works on that one local network.
+        You poisoned a resolver's cache. The On-Path lab showed a different kind, **ARP poisoning**:
+
+        - Every device on a local network keeps an **ARP table**: which device (which MAC address) has each IP address.
+        - An attacker on that network sends fake ARP replies that say "that IP address is at my MAC address."
+        - Nearby devices then send their traffic to the attacker. It only works on that one local network.
 
         Both attacks plant a false record so traffic goes to the attacker. They differ in what they change and how far they reach.
       `,
@@ -502,9 +506,9 @@ export const dnsSpoofLab: LabDef = {
             { id: 'ids', text: 'A resolver that uses unpredictable query IDs and source ports.', correct: true },
             { id: 'https', text: 'Users who stop at HTTPS certificate warnings instead of clicking past them.', correct: true },
             { id: 'dnssec', text: 'Signed DNS records (DNSSEC), so the resolver rejects forgeries.', correct: true },
-            { id: 'faster', text: 'A faster internet connection, so real answers always arrive first.', feedback: 'A faster connection does not change whether an answer can be forged, and the forger is often closer.' },
+            { id: 'faster', text: 'A faster internet connection, so real answers always arrive first.', feedback: 'A faster connection does not change whether an answer can be forged. Mallory sends the burst the moment the resolver asks, and one matching fake is enough.' },
           ],
-          explain: 'No single layer is enough. A hardened resolver makes forging hard, DNSSEC lets the resolver reject a forgery, and HTTPS catches the impostor when a bad address still slips through.',
+          explain: 'No single layer is enough. Random IDs and ports make forging hard, DNSSEC lets the resolver reject a forgery, and HTTPS catches the impostor when a bad address still gets through.',
         },
       ],
     },

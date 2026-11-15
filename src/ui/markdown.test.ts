@@ -17,4 +17,14 @@ describe('renderMarkdown', () => {
       expect(html.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))).toContain('Alice opens https://bank.example');
     }
   });
+
+  it('leaves a bare URL as text, so lesson text never links out of the lab', () => {
+    const html = renderMarkdown('Press **Alice opens http://grades.example** or visit www.example.com.', {});
+    expect(html).not.toContain('<a ');
+    expect(html).toContain('<strong>Alice opens http://grades.example</strong>');
+  });
+
+  it('still draws a written link', () => {
+    expect(renderMarkdown('[guide](https://example.com/guide)', {})).toContain('<a href="https://example.com/guide">guide</a>');
+  });
 });

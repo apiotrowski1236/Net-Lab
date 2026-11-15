@@ -32,7 +32,7 @@ export function DnsForge({ session, spec }: ToolCardProps<'dns-forge'>) {
     const r = checkForge(sim, spec.device, spec.resolver, name, ip);
     if (!r.ok) return setMsg({ tone: 'bad', text: r.msg, field: r.field });
     session.dispatch({ type: 'dns-forge', device: spec.device, resolver: spec.resolver, name: r.name, ip: r.ip });
-    setMsg({ tone: 'good', text: `Sent ${guesses} forged answers for ${r.name} to ${resolver.label}, one for each ticket number, all to its usual port. If one matched, ${r.name} now points at ${r.ip}.` });
+    setMsg({ tone: 'good', text: `Sent ${guesses} forged answers for ${r.name} to ${resolver.label}, one for each ticket number, all to its usual port. The list below shows whether one matched.` });
   };
   const edit = (set: (v: string) => void) => (e: Event) => {
     set((e.target as HTMLInputElement).value);

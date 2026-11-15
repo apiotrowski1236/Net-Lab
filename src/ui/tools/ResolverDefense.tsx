@@ -21,7 +21,6 @@ export function ResolverDefense({ session, spec }: ToolCardProps<'resolver-defen
       <div class="tool-row">
         <span>
           Unpredictable query IDs and source ports
-          {r?.hardened && <span class="pill good tiny">on</span>}
         </span>
         <Toggle
           on={!!r?.hardened}
