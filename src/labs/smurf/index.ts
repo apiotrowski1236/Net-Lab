@@ -34,14 +34,6 @@ const fanTrafficJammed = (e: SimEvent): boolean =>
 
 const fanFloodFailed = ({ sim, since }: CheckCtx): boolean => happened(sim, since, fanTrafficJammed);
 
-/** When `device`'s firewall rules last changed, or 0 if they never did. */
-function lastRuleChange(sim: Sim, device: string): number {
-  for (let i = sim.events.length - 1; i >= 0; i--) {
-    const e = sim.events[i];
-    if (e.type === 'config' && e.what === 'firewall-rules' && e.device === device) return e.t;
-  }
-  return 0;
-}
 
 type Reply = Extract<SimEvent, { type: 'ping-reply' }>;
 
@@ -597,12 +589,14 @@ and keep the other ICMP messages a network needs.)`,
           id: 'still-fails',
           label: 'With your rule in place, a fan tries to buy a ticket',
           hint: 'Press **Botnet attacks**, then **Fan buys a ticket**.',
-          // Only a purchase started after the latest rule change counts, so the rule was in place for it.
+          // After the latest rule change, the edge drops the bots' pings and a purchase started then
+          // still fails, so step 9 can say the firewall dropped the pings and the fan still couldn't buy.
           check: ({ sim, since }) => {
             if (!deniesInboundIcmp(sim, 'edge')) return false;
-            const ruleAt = Math.max(since, lastRuleChange(sim, 'edge'));
+            const ruleAt = Math.max(since, sim.dev('edge').firewall?.changedAt ?? 0);
+            const dropped = happened(sim, ruleAt, (e) => e.type === 'firewall' && e.device === 'edge' && e.verdict.action === 'deny' && e.pkt.proto === 'icmp');
             const b = sim.dev('fan').browser;
-            return !!b && b.startedAt >= ruleAt && happened(sim, ruleAt, fanTrafficJammed);
+            return dropped && !!b && b.startedAt >= ruleAt && happened(sim, ruleAt, fanTrafficJammed);
           },
         },
       ],

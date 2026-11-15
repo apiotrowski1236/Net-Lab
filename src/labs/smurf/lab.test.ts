@@ -330,7 +330,14 @@ describe('smurf lab', () => {
     s.missing();
     expect(s.goalDone('guard-your-edge', 'rule')).toBe(true);
     expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(false);
-    // Buying again with the rule in place finishes it.
+    // Buying again doesn't count either: the edge never dropped a ping with the rule in place.
+    playMove(s, { press: 'fan-buy' });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('guard-your-edge', 'still-fails')).toBe(false);
+    // The bots attack again, the rule drops their pings, and the next purchase still fails.
+    playMove(s, { press: 'botnet' });
+    s.sim.runUntilIdle();
     playMove(s, { press: 'fan-buy' });
     s.sim.runUntilIdle();
     s.missing();

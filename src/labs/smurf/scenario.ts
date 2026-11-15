@@ -59,10 +59,10 @@ export function startSmurfFloodAsItArrives(sim: Sim): void {
   scheduleFlood(sim, 3 * hop, () => sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE));
 }
 
-/** Bumped by stopFloods, so a flood scheduled before a step began never starts inside it. */
+/** Bumped by cancelPendingFloods, so a flood scheduled before a step began never starts inside it. */
 const floodEpoch = new WeakMap<Sim, number>();
 
-/** Run `start` after `ms`, unless a step setup calls stopFloods first. */
+/** Run `start` after `ms`, unless a step setup calls cancelPendingFloods first. */
 export function scheduleFlood(sim: Sim, ms: number, start: () => void): void {
   const epoch = floodEpoch.get(sim) ?? 0;
   sim.schedule(ms, () => {
