@@ -53,7 +53,7 @@ export const netAuditLab: LabDef = {
   unit: 3,
   codehs: [],
   ced: ['3.1.B', '3.1.C', '3.2.A'],
-  minutes: 55,
+  minutes: 60,
   objectives: [
     'Run an automated vulnerability scanner and read its report of findings, severity, and fixes.',
     'Rate each risk by likelihood and impact, using exploit difficulty and the CIA triad.',
@@ -90,7 +90,7 @@ export const netAuditLab: LabDef = {
         - **When:** today, 09:00 to 17:00.
         - **Not allowed:** changing donor records, or testing anything outside the list.
 
-        Your audit laptop, [[auditor]], is already plugged into the office switch. Look around first. Click [[router]], then [[fileserver]], then [[wap]]. Read the top of each panel: what the device is and what it runs. You can skip the tables for now. Later steps point you to the parts you need.
+        Your audit laptop, [[auditor]], is already plugged into the office switch. Look around first. Click [[router]], then [[fileserver]], then [[wap]]. Read the top of each panel: what the device is and what it does. You can skip the tables for now. Later steps point you to the parts you need.
 
         > Everything in this lab happens inside a simulation. Running a vulnerability scanner against a network you do not own or have written permission to test is illegal.
       `,
@@ -216,23 +216,21 @@ export const netAuditLab: LabDef = {
       body: md`
         Every finding is a risk. **Risk** has two parts: how **likely** it is that someone uses the weakness to cause harm, and how much **impact** (damage) that would do.
 
-        **Likelihood** depends on how hard the weakness is to reach and how much skill it takes. To **exploit** a weakness means to use it to break in or cause harm. A weakness with a well-known exploit that takes little skill gets used more often, because more people can do it. For example, the office Wi-Fi uses **WEP**, an old kind of Wi-Fi encryption that a free tool cracks in under a minute from the parking lot. A weakness that needs rare skill is less likely, even when the impact would be large.
+        **Likelihood** depends on how hard the weakness is to reach and how much skill it takes. To **exploit** a weakness means to use it to break in or cause harm. Well-known exploits that take little skill get used more, because more people can do them. For example, the office Wi-Fi uses **WEP**, an old kind of Wi-Fi encryption that a free tool cracks in under a minute. A weakness that needs rare skill is less likely.
 
-        **Impact** depends on what an attacker could break. Security teams use the **CIA triad** to name it:
+        **Impact** depends on what an attacker could break. Security teams use the **CIA triad** (a set of three) to name it:
 
         - **Confidentiality:** only the right people can read the data.
         - **Integrity:** nobody changes the data without permission.
         - **Availability:** the system works when people need it.
 
-        The risk register in the next step combines the two parts like this:
+        The risk register in the next step combines the two parts with this table. Find the likelihood row, then the impact column. For example, moderate likelihood and high impact gives High.
 
         | Likelihood ↓ / Impact → | Low | Moderate | High |
         | --- | --- | --- | --- |
         | **Low** | Low | Low | Moderate |
         | **Moderate** | Low | Moderate | High |
         | **High** | Moderate | High | High |
-
-        The scanner's report is still in the **Toolkit** if you want to look again.
       `,
       tools: [{ kind: 'scanner', device: 'auditor' }],
       questions: [
@@ -273,7 +271,7 @@ export const netAuditLab: LabDef = {
         Three findings match examples from the AP Cybersecurity course. Rate them to match:
 
         - **Weak Wi-Fi encryption** (WEP): the high example. A free tool cracks it, so likelihood is high. The office is a **flat network**: every device is on one network, so anyone who cracks the Wi-Fi can reach the donor server. Impact is high.
-        - The router **answering pings from the internet**: the moderate example. It takes no skill, so likelihood is high. It only tells an outsider the office is there, so impact is low.
+        - The router **answering pings from the internet** (a ping is a small "are you there?" message): the moderate example. It takes no skill, so likelihood is high. It only tells an outsider the office is there, so impact is low.
         - The **Wi-Fi beacon**: the low example. The beacon is the message the Wi-Fi sends out to announce its name. Anyone can see the name, but a name alone is not a way in, so harm is unlikely: likelihood is low. Impact is low too.
 
         The other four have no single right answer. Rate them with your own judgment. You will see the VPN finding up close in a later step.
@@ -366,7 +364,7 @@ export const netAuditLab: LabDef = {
       id: 'switch-policy',
       title: 'Write the switch policy',
       body: md`
-        Now [[sw]]. The report found no **port security**. It also found a **wall jack** (a network socket in the wall) in the lobby, on port 7. Nothing is plugged in, but the port is turned on, so anyone could plug in a laptop and join the office network.
+        Now [[sw]]. The report found no **port security**. It also found a **wall jack** (a network socket in the wall) in the lobby, on port 7. Nothing is plugged in, so the switch's port table says "no cable". The port is not shut, though, so anyone could plug in a laptop and join the office network.
 
         Every network card has a **MAC address**, a hardware ID that the switch sees in every message. The switch settings use it two ways:
 
@@ -394,11 +392,11 @@ export const netAuditLab: LabDef = {
           multi: true,
           prompt: 'Which statements belong in the switch security policy?',
           options: [
-            { id: 'aaa', text: 'Ban local accounts. Switch logins go through the authentication server.', correct: true },
+            { id: 'aaa', text: 'Ban local accounts for everyday logins. They go through the authentication server.', correct: true },
             { id: 'port-sec', text: 'Turn on port security so each port accepts only a limited set of MAC addresses.', correct: true },
             { id: 'mac', text: 'Use MAC filtering to allow only known devices.', correct: true },
             { id: 'unplug', text: 'Unplug the switch overnight.', feedback: 'That stops the office, not an attacker during the day.' },
-            { id: 'closet', text: 'Hide the switch in a locked closet instead of setting port security.', feedback: 'A locked closet does not help against the wall jack out in the lobby. Do both.' },
+            { id: 'closet', text: 'Hide the switch in a locked closet instead of setting port security.', feedback: 'This choice says "instead of" port security. A locked closet does not stop someone at the lobby wall jack, so the policy still needs port security.' },
             { id: 'public', text: 'Give the switch a public internet address so admins can manage it from home.', feedback: 'That exposes management to the whole internet. Hardening points the other way.' },
           ],
           explain: 'A switch security policy may ban local accounts, require port security, and use MAC filtering.',
@@ -465,7 +463,7 @@ export const netAuditLab: LabDef = {
         2. Click [[router]] and find **VPN** in its **Security settings**. Turn split tunneling off. Set sign-in to **Password + MFA**: a code from a phone as well as the password, so a stolen password is not enough. The VPN already lets in only the Bookkeeper role.
         3. Press **Home device probes the office** again.
 
-        With split tunneling off, all of the laptop's traffic goes through the tunnel and the office firewall. The laptop stops taking traffic from the home network, so the bridge is gone. This does not help if the laptop itself is infected.
+        With split tunneling off, all of the laptop's traffic goes through the tunnel and the office firewall. This VPN also blocks traffic from the home network, so the bridge is gone. This does not help if the laptop itself is infected.
       `,
       focus: ['homedev', 'bookkeeper', 'router'],
       tools: [{ kind: 'hardening', device: 'router', vpn: true }],
@@ -498,7 +496,7 @@ export const netAuditLab: LabDef = {
             { id: 'fast', text: "Allow split tunneling so the bookkeeper's home videos load faster.", feedback: 'You watched split tunneling open a path from a home device into the office. Speed is not worth that.' },
             { id: 'wifi', text: 'Let anyone with the office Wi-Fi password connect to the VPN.', feedback: 'A VPN policy names roles and requires strong authentication, not a shared password.' },
           ],
-          explain: 'A VPN policy may list the roles allowed to use it, require strong authentication like keys or MFA, and prohibit split tunneling.',
+          explain: 'A VPN policy may list the roles allowed to use it, require strong authentication like keys or MFA, and ban split tunneling.',
         },
         {
           id: 'split-why',
@@ -518,7 +516,7 @@ export const netAuditLab: LabDef = {
 
         You do not have to fix every finding. A **low risk** that costs more to fix than the harm it could cause can be **accepted**: written down, and kept by choice. The beacon is one. The fix would be to hide the Wi-Fi name, but a patient scanner still finds a hidden network, and staff have a harder time joining it.
 
-        (This scanner checks seven things, to keep the lab short. A real scanner checks thousands. It would also report that the donor web page has no encryption.)
+        (This scanner checks seven things, to keep the lab short. A real scanner checks thousands. It would also report that the donor records web page on [[fileserver]] has no encryption.)
       `,
       focus: ['auditor'],
       open: 'tools',
@@ -554,7 +552,7 @@ export const netAuditLab: LabDef = {
       body: md`
         Write the audit summary for the food bank's director, who is not technical.
 
-        - Name the **top risk** you found.
+        - Name the **top risk** you found: one you rated high.
         - Give its **rating** and why it earned that rating (likelihood and impact).
         - Name the **control** (the setting or policy) that fixes it.
 

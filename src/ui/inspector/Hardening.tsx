@@ -241,7 +241,7 @@ function VpnSettings({ session, dev, edit, flash }: Part) {
         }
         on={s.splitTunneling}
         edit={edit}
-        onText="Allowed"
+        onText="On"
         offText="Off"
         onChange={(on) => session.dispatch({ type: 'vpn-config', device: dev.id, splitTunneling: on })}
       />
