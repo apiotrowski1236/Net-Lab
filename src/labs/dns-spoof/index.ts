@@ -44,6 +44,17 @@ const aliceSignsInHttps: ActionDef = {
 
 const GUESSES = PREDICTABLE_IDS.length;
 
+/** The address the resolver held for the gradebook just before time t, from its answers and flushes. */
+function heldBefore(sim: Parameters<ActionDef['run']>[0], t: number): string | undefined {
+  let ip: string | undefined;
+  for (const e of sim.events) {
+    if (e.t >= t) break;
+    if (e.type === 'dns-answer' && e.device === 'resolver' && e.name === SITE) ip = e.ip ?? undefined;
+    if (e.type === 'config' && e.device === 'resolver' && e.what === 'resolver-flush') ip = undefined;
+  }
+  return ip;
+}
+
 const mallorysBurst: ActionDef = {
   id: 'forge-again',
   label: 'Mallory sends another forged burst',
@@ -53,6 +64,9 @@ const mallorysBurst: ActionDef = {
     const ans = sim.events.find((e) => e.t >= since && e.type === 'dns-answer' && e.device === 'resolver' && e.name === SITE);
     const ip = ans?.type === 'dns-answer' ? ans.ip : undefined;
     if (!asked && !ans) {
+      if (heldBefore(sim, since) === IP.evil) {
+        return [{ tone: 'bad', text: `The resolver asked nothing, because it already has a fresh answer for ${SITE}: Mallory's. Flush the cache first.` }];
+      }
       return [{ tone: 'good', text: `The resolver already had a fresh answer for ${SITE}, so it asked nothing. All ${GUESSES} forged answers were thrown away.` }];
     }
     if (!ans) return [{ tone: 'wait', text: `The resolver asked the name server. Mallory's ${GUESSES} forged answers are racing the real one.` }];
@@ -76,7 +90,7 @@ export const dnsSpoofLab: LabDef = {
   unit: 3,
   codehs: ['3.3 Misdirected and Overwhelmed'],
   ced: ['3.1.A', '3.1.B', '3.1.C', '3.5.E'],
-  minutes: 48,
+  minutes: 50,
   clock: '08:30',
   objectives: [
     'Explain how a resolver turns a name into an address, and why it caches the answer with a TTL.',
@@ -236,7 +250,7 @@ export const dnsSpoofLab: LabDef = {
             { id: 'slow', text: 'To slow the real gradebook down so students give up on it.', feedback: 'A copy of a page does nothing to the real site. It collects what visitors type.' },
             { id: 'virus', text: 'To install a virus on every laptop that opens the page.', feedback: 'This page does one thing: it saves whatever is typed into it.' },
           ],
-          explain: 'This is credential harvesting. The page looks real, so visitors hand over their passwords.',
+          explain: 'This is called credential harvesting: collecting usernames and passwords. The page looks real, so visitors hand over their passwords.',
         },
       ],
     },
@@ -251,7 +265,7 @@ export const dnsSpoofLab: LabDef = {
 
         1. The resolver asks [[ns]] a question. It marks the question with a **query ID**, like a numbered ticket, and sends it from a **port**: a numbered door where the answer has to come back.
         2. The resolver accepts the first answer with the right ticket number at the right port, as long as the answer says it is from the name server.
-        3. Mallory sends a **burst**: many fake answers at once, all saying they are from \`${IP.ns}\`. This is a **forged source address**, like a false return address on an envelope. If one fake has the right ticket and port and arrives before the real answer, the resolver caches it. (The map draws the burst as one packet.)
+        3. Mallory sends a **burst**: many fake answers at once, all saying they are from \`${IP.ns}\`. This is a **forged source address**, like a false return address on an envelope. If one fake has the right ticket and port and arrives before the real answer, the resolver caches it. (The answers all leave at the same moment, so on the map they can look like one packet.)
 
         This resolver's query IDs are **predictable**: it uses only ${GUESSES} ticket numbers, always from the same port. One burst can cover them all.
 
@@ -334,7 +348,9 @@ export const dnsSpoofLab: LabDef = {
 
         An HTTPS site has to show a **certificate**, like an ID card for the site. A company that browsers trust gives it out and **signs** it: it adds a stamp that only that company can make and anyone can check. The certificate names the site it belongs to, and only the real site has the secret **key** that goes with it.
 
-        Mallory can copy the page, and even the real certificate, but not the secret key. No trusted company will give Mallory a certificate for \`${SITE}\`, because Mallory does not own that name. Alice's browser has no idea the address is wrong. It checks the certificate before she types anything, sees that this server cannot prove it is \`${SITE}\`, and stops. The server is an **impostor**: it pretends to be a site it is not.
+        Mallory can copy the page, and even the real certificate, but not the secret key. No trusted company will give Mallory a certificate for \`${SITE}\`, because Mallory does not own that name.
+
+        Alice's browser has no idea the address is wrong. It checks the certificate before she types anything, sees that this server cannot prove it is \`${SITE}\`, and stops. The server is an **impostor**: it pretends to be a site it is not.
 
         DNS sent Alice to the wrong server. HTTPS noticed that the server could not prove its name.
       `,
@@ -383,7 +399,7 @@ export const dnsSpoofLab: LabDef = {
         The **Logs** tab is open. Use its device filter to read one log at a time.
 
         - [[resolver]] keeps a **DNS log**. Find the **notice** line where the record for \`${SITE}\` **changed** to a new address. It ends in \`(was ...)\`. Click it to open it. Note the time, and who the answer says it came from.
-        - [[grades]], the real gradebook, keeps a **web access log**: one line per visit. Visits come in steadily, then stop after the time the record changed. A busy site going quiet is the clue.
+        - [[grades]], the real gradebook, keeps a **web access log**: one line per visit (\`GET /\` means someone opened the home page). Visits come in steadily, then stop after the time the record changed. A busy site going quiet is the clue.
       `,
       focus: ['resolver', 'grades'],
       open: 'logs',
@@ -426,7 +442,7 @@ export const dnsSpoofLab: LabDef = {
         Two jobs: end this poisoning, and stop the next one. Use the **Resolver defenses** card in the Toolkit.
 
         1. **Flush the cache.** Flushing empties it. Otherwise the poisoned record stays until its TTL runs out.
-        2. **Turn on unpredictable query IDs and source ports.** The resolver then picks a random ticket number (out of 65,536) and a random port for every question. A forged burst would have to guess both, and it almost never does before the real answer arrives.
+        2. **Turn on unpredictable query IDs and source ports.** The resolver then picks a random ticket number (out of 65,536) and a random port for every question. A forged burst would have to guess both. Even thousands of guesses almost never match before the real answer arrives.
 
         Then press **Mallory sends another forged burst**, and send Alice back with **Alice signs in at https://${SITE}**.
 
@@ -472,7 +488,7 @@ export const dnsSpoofLab: LabDef = {
           kind: 'text',
           prompt: 'In your own words, why is a signature (DNSSEC) a stronger defense than a hard-to-guess number?',
           lines: 4,
-          minWords: 20,
+          minWords: 15,
         },
       ],
     },
@@ -487,7 +503,7 @@ export const dnsSpoofLab: LabDef = {
         - An attacker on that network sends fake ARP replies that say "that IP address is at my MAC address."
         - Nearby devices then send their traffic to the attacker. It only works on that one local network.
 
-        Both attacks plant a false record so traffic goes to the attacker. They differ in what they change and how far they reach.
+        Both attacks plant a false record so traffic goes to the attacker. They differ in what they change and how far they reach: one resolver can answer for many networks, like every school in a district.
       `,
       questions: [
         {
@@ -508,7 +524,7 @@ export const dnsSpoofLab: LabDef = {
             { id: 'dnssec', text: 'Signed DNS records (DNSSEC), so the resolver rejects forgeries.', correct: true },
             { id: 'faster', text: 'A faster internet connection, so real answers always arrive first.', feedback: 'A faster connection does not change whether an answer can be forged. Mallory sends the burst the moment the resolver asks, and one matching fake is enough.' },
           ],
-          explain: 'No single layer is enough. Random IDs and ports make forging hard, DNSSEC lets the resolver reject a forgery, and HTTPS catches the impostor when a bad address still gets through.',
+          explain: 'No single defense is enough. Random IDs and ports make forging hard, DNSSEC lets the resolver reject a forgery, and HTTPS catches the impostor when a bad address still gets through.',
         },
       ],
     },

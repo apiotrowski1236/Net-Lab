@@ -101,6 +101,17 @@ describe('"Mallory sends another forged burst" result line', () => {
     ]);
   });
 
+  it("warns when the fresh answer the resolver holds is Mallory's", () => {
+    const sim = buildDistrict();
+    ensurePoisoned(sim);
+    const since = sim.t;
+    burst.run(sim);
+    sim.runUntilIdle();
+    expect(burst.outcome!(sim, since)).toEqual([
+      { tone: 'bad', text: `The resolver asked nothing, because it already has a fresh answer for ${SITE}: Mallory's. Flush the cache first.` },
+    ]);
+  });
+
   it('says the resolver asked nothing while it holds a fresh answer', () => {
     const sim = buildDistrict();
     primeCache(sim);
