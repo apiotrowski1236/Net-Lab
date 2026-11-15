@@ -153,7 +153,7 @@ export function buildUtility(): Sim {
       y: 110,
       ...host(IP.nids),
       notes: [
-        "Plugged into the switch's mirror port, which copies every frame the switch handles to the sensor. It also has a tap on the firewall's internet line.",
+        "Plugged into the switch's mirror port, which copies every frame the switch handles to the sensor. It also gets a copy of everything on the firewall's internet line.",
         'The simulation hands the sensor each frame directly instead of drawing the copies.',
       ],
     })
@@ -374,7 +374,7 @@ function seedHistory(sim: Sim): void {
   log('backup', at(16, 31, 0), { source: 'backup', level: 'info', msg: 'afternoon snapshot of the records server OK (1.8 MB changed)', fields: { src: IP.files } });
 
   // --- 02:24: someone plugs into the spare jack. 02:45: the switch's table overflows. ---
-  log('sw', at(2, 24, 31), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 9, changed state to up', fields: { port: PORT.mal, state: 'up' } });
+  log('sw', at(2, 24, 31), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 9, changed state to up', fields: { port: PORT.mal, state: 'up' } });
   log('sw', at(2, 45, 2), {
     source: 'mac-table',
     level: 'warn',
@@ -382,10 +382,10 @@ function seedHistory(sim: Sim): void {
     fields: { port: PORT.mal, count: 200, evicted: 147, size: TABLE_SIZE },
   });
   log('sw', at(16, 12, 40), { source: 'system', level: 'notice', msg: '%SYS-5-CONFIG_I: Configured from console by admin', fields: { user: 'admin' } });
-  log('sw', at(17, 32, 15), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 6, changed state to down', fields: { port: PORT.pc1, state: 'down' } });
-  log('sw', at(7, 36, 2), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 6, changed state to up', fields: { port: PORT.pc1, state: 'up' } });
-  log('sw', at(4, 10, 9), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 10, changed state to down', fields: { port: PORT.plant, state: 'down' } });
-  log('sw', at(4, 10, 21), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 10, changed state to up', fields: { port: PORT.plant, state: 'up' } });
+  log('sw', at(17, 32, 15), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 6, changed state to down', fields: { port: PORT.pc1, state: 'down' } });
+  log('sw', at(7, 36, 2), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 6, changed state to up', fields: { port: PORT.pc1, state: 'up' } });
+  log('sw', at(4, 10, 9), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 10, changed state to down', fields: { port: PORT.plant, state: 'down' } });
+  log('sw', at(4, 10, 21), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 10, changed state to up', fields: { port: PORT.plant, state: 'up' } });
 
   // --- I6, I7: Raj's PC, 03:11 and 03:12 ---
   log('pc2', at(3, 11, 48), { source: 'host', level: 'notice', msg: 'process start svc-update.exe user=raj', fields: { user: 'raj', proc: 'svc-update.exe' } });

@@ -74,7 +74,7 @@ function anomalyAtMedium(sim: Sim): void {
 
 export const logsLab: LabDef = {
   id: 'logs',
-  version: 3,
+  version: 4,
   title: 'Log Analysis and Intrusion Detection',
   tagline: 'Read a night of logs, turn on IDS signatures and anomaly detection, and tune them so real attacks stand out from false alarms.',
   unit: 3,
@@ -163,7 +163,7 @@ export const logsLab: LabDef = {
         2. Check **Warnings and alerts only** to hide the routine lines.
         3. Type \`fail\` in the search box.
 
-        Open one of the failed sign-in lines. They all come from the same outside address, over **SSH**, a remote login program. Rule 1 on [[fw]] lets SSH in to this server so a vendor can do remote support. That open door is how the sign-in attempts got through.
+        Open one of the failed sign-in lines. They all come from the same outside address, over **SSH**, a remote login program. Rule 1 on [[fw]] lets SSH in to this server so an outside support company can fix it from far away. That open door is how the sign-in attempts got through.
       `,
       open: 'logs',
       focus: ['files'],
@@ -261,7 +261,7 @@ export const logsLab: LabDef = {
       goals: [
         {
           id: 'missed',
-          label: 'The upload replays and no signature matches',
+          label: 'Replay the 3 a.m. upload with the signature set on',
           hint: 'Keep the signature set on, press Replay the 3 a.m. upload, and watch the sensor’s alerts. Nothing new should appear.',
           check: ({ sim, since }) =>
             sensor(sim).signatures && loggedSince(sim, 'fw', since, (e) => e.fields?.dst === EXFIL) && !sensorLogged(sim, since, (e) => e.level === 'alert'),
@@ -289,7 +289,7 @@ export const logsLab: LabDef = {
       id: 'baseline',
       title: 'Baseline',
       body: md`
-        **Anomaly-based** detection works the other way. First it records a **baseline** from a clean, normal week of saved traffic: who talks to whom, how much, and at what hours. Then it gives each connection a **deviation** score, a count of how far it is from that picture, and alerts when the score is high.
+        **Anomaly-based** detection works the other way. First it records a **baseline** from a clean, normal week of saved traffic. The baseline shows who talks to whom, how much, and at what hours. Then it gives each connection a **deviation** score. The score adds 1 for each odd thing: outside office hours, an address the computer never uses, and an upload over 10 times its usual size.
 
         1. Press **Record a clean-week baseline** below.
         2. In [[nids]]'s **Detection** section, set the **tolerance** to **Medium**. The tolerance is the deviation that sets off an alert.
@@ -346,7 +346,7 @@ export const logsLab: LabDef = {
       id: 'nips',
       title: 'From alarm to action',
       body: md`
-        A NIDS only warns. A **NIPS**, a network intrusion prevention system (IPS for short), can also act. It can close a switch port, block an IP address or a MAC address, or reject a protocol. [[nids]] only gets copies of traffic, so it cannot drop a packet itself. In **prevention mode** it tells [[sw]] to close a port, or adds a block rule at the top of [[fw]]'s list, so the block becomes rule 1.
+        A NIDS only warns. A **NIPS**, a network intrusion prevention system (IPS for short), can also act. [[nids]] only gets copies of traffic, so it cannot drop a packet itself. In **prevention mode** it tells [[sw]] to close a port, or adds a block rule at the top of [[fw]]'s list, so the block becomes rule 1.
 
         1. Turn on **Prevention mode** in [[nids]]'s Detection section.
         2. Press **Replay the MAC flood**.
@@ -397,7 +397,7 @@ export const logsLab: LabDef = {
       id: 'correlate',
       title: 'Connect the dots',
       body: md`
-        The SIEM's real power is tying lines together. On their own, a blocked packet, a port scan, and a few failed sign-ins each look minor. The SIEM noticed all three came from one address, \`${SCANNER}\`, within twenty minutes, and opened a single **incident**. Tying lines together like this is called **correlation**.
+        The SIEM's real power is tying lines together. On their own, a blocked packet, a **port scan** (one address trying many ports), and a few failed sign-ins each look minor. The SIEM noticed all three came from one address, \`${SCANNER}\`, within twenty minutes, and opened a single **incident**. Tying lines together like this is called **correlation**.
 
         Open incident **${INCIDENT}** on [[siem]]: filter the Logs tab to the SIEM server, search for \`${INCIDENT}\`, and click the \`INCIDENT ${INCIDENT}\` line. Read its three parts: the firewall denies, the port-scan alert, and the failed sign-ins on [[files]] you found earlier.
 
@@ -462,7 +462,7 @@ export const logsLab: LabDef = {
       id: 'threshold',
       title: 'Set the threshold',
       body: md`
-        There is still too much to read by hand. An **AI** model helps: it gives every event a score from 0.00 to 1.00 for how likely it is to be an attack. You set the **threshold**. Any event scored at or above it becomes an alert.
+        There is still too much to read by hand. An **AI** model helps: it gives every event a score from 0.00 to 1.00 for how sure it is that the event is an attack. You set the **threshold**. Any event scored at or above it becomes an alert.
 
         1. Press **Score the night's events**. The scores appear in [[siem]]'s inspector.
         2. Drag the threshold slider to **1.00** and watch the two counters: real attacks caught, and false alerts.
@@ -477,15 +477,15 @@ export const logsLab: LabDef = {
         { id: 'scored', label: 'Score the night’s events', hint: 'Press Score the night’s events.', check: ({ sim }) => !!siem(sim).ai },
         {
           id: 'tried-high',
-          label: 'Try a threshold of 0.95 or higher',
+          label: 'Try a threshold of 1.00',
           hint: 'Score the events first, then drag the slider all the way right.',
-          check: ({ sim, since }) => triedThreshold(sim, since, (v) => v >= 0.95),
+          check: ({ sim, since }) => triedThreshold(sim, since, (v) => v >= 0.999),
         },
         {
           id: 'tried-low',
-          label: 'Try a threshold of 0.05 or lower',
+          label: 'Try a threshold of 0.00',
           hint: 'Score the events first, then drag the slider all the way left.',
-          check: ({ sim, since }) => triedThreshold(sim, since, (v) => v <= 0.05),
+          check: ({ sim, since }) => triedThreshold(sim, since, (v) => v <= 0.001),
         },
         {
           id: 'good-threshold',
@@ -493,7 +493,7 @@ export const logsLab: LabDef = {
           hint: 'Try both ends first. Then look at the scores of the three real attacks and the harmless events right below them. Try between 0.70 and 0.75.',
           check: ({ sim, since }) => {
             const q = siem(sim);
-            if (!q.ai || !triedThreshold(sim, since, (v) => v >= 0.95) || !triedThreshold(sim, since, (v) => v <= 0.05)) return false;
+            if (!q.ai || !triedThreshold(sim, since, (v) => v >= 0.999) || !triedThreshold(sim, since, (v) => v <= 0.001)) return false;
             const c = aiCounts(q);
             return c.caught === c.attacks && c.falseAlerts <= 1;
           },
@@ -536,12 +536,12 @@ export const logsLab: LabDef = {
       body: md`
         An **indicator of compromise**, or IoC, is a clue an attack leaves in the logs. Clear your filters. For each IoC below, type the word shown into the Logs search box, then open one matching line.
 
-        1. A connection to a **known malicious IP**. Search \`threat-feed\`. A **threat feed** is a shared list of bad addresses, and [[fw]] tags any match. This one is \`known-c2\`, a server that sends orders to computers an attacker controls. No rule blocks that address, so the connection went through.
+        1. A connection to a **known malicious IP**. Search \`threat-feed\`. A **threat feed** is a shared list of bad addresses, and [[fw]] tags any match. This one is \`known-c2\`, a command-and-control server that sends orders to computers an attacker controls. No rule blocks that address, so the connection went through.
         2. An **unauthorized scan**, one outside address trying many ports in a row. Search \`port-scan\`.
-        3. Pings to the **broadcast address**, which reaches every device on the network. Search \`${BROADCAST}\`. Every device answers at once, so an attacker can use this to flood a target with replies. Ping uses the **ICMP** protocol.
+        3. Pings to the **broadcast address**, which reaches every device on the network. Search \`${BROADCAST}\`. Every device answers at once. In a **smurf attack**, the attacker fakes the target's address as the sender, so all those replies flood the target. Here rule 5 on [[fw]] blocked these pings. Ping uses the **ICMP** protocol.
         4. **SSH** on port **443**, the usual port for HTTPS, secure web traffic. Search \`app=ssh\`.
 
-        The first and fourth clues come from [[pc2]], which points to malware on Raj's PC. Signatures have a rule for the first three. For the fourth, [[fw]] already labels the program \`app=ssh\`, but rule 3 only checks the port, so it takes a rule that checks the program too. An attack with no known pattern, like Raj's 3 a.m. upload, needs the anomaly baseline.
+        The first and fourth clues come from [[pc2]], which points to malware on Raj's PC. Signatures have a rule for the first three. For the fourth, [[fw]] already labels the program \`app=ssh\`, but rule 3, which lets anything out to port 443, only checks the port. Stopping it takes a rule that checks the program too. An attack with no known pattern, like Raj's 3 a.m. upload, needs the anomaly baseline.
       `,
       open: 'logs',
       focus: ['fw', 'pc2'],
@@ -579,7 +579,7 @@ export const logsLab: LabDef = {
         {
           id: 'why-mismatch',
           kind: 'choice',
-          prompt: 'Why is SSH running on port 443 a red flag?',
+          prompt: 'Why is SSH running on port 443 suspicious?',
           options: [
             { id: 'hiding', text: 'Port 443 is meant for HTTPS, so another program there is often hiding from firewalls that only check ports.', correct: true },
             { id: 'email', text: 'Port 443 is only ever used for email.', feedback: 'Port 443 is HTTPS, not email. The flag is that SSH is wearing the HTTPS port.' },

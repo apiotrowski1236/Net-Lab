@@ -239,6 +239,12 @@ describe('logs lab: goals', () => {
     // A good setting straight away is not enough: the student has not seen either end.
     sim.aiSetThreshold('siem', 0.7);
     expect(check()).toBe(false);
+    // 0.95 still alerts on the ARP spoof, so it is not the "1.00" the questions ask about.
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0.95);
+    sim.aiSetThreshold('siem', 0.05);
+    expect(goal('threshold', 'tried-high').check({ sim, since: 0 })).toBe(false);
+    expect(goal('threshold', 'tried-low').check({ sim, since: 0 })).toBe(false);
     sim.t += 1000;
     sim.aiSetThreshold('siem', 1);
     expect(goal('threshold', 'tried-high').check({ sim, since: 0 })).toBe(true);
