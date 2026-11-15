@@ -16,7 +16,7 @@ export function MirrorPortSection({ sim, dev }: InspectorSectionProps) {
         Mirror port <span class="muted">a copy of everything</span>
       </h4>
       <p>
-        Port <strong class="mono">{dev.mirror}</strong> is the <strong>mirror port</strong>
+        Port <strong class="mono">{/^p(\d+)$/.exec(dev.mirror)?.[1] ?? dev.mirror}</strong> is the <strong>mirror port</strong>
         {who ? (
           <>
             , cabled to <strong>{who}</strong>

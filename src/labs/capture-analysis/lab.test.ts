@@ -197,14 +197,16 @@ describe('capture-analysis: cited packets', () => {
     expect(say('flood', 'cite-flood', [flood[0].no - 1, ...flood.slice(0, 10).map((c) => c.no)].join(', '))).toMatch(/from before or after the flood/);
   });
 
-  it('cite-orders takes the cmd= replies, not the server’s “received” after the upload', () => {
+  it('cite-commands takes two different cmd= replies, not the server’s “received” after the upload', () => {
     const replies = file('night').frames.filter((c) => toC2(c.frame) && c.frame.ip!.src === IP.c2 && payloadLen(c.frame.ip!) > 0);
     const text = (c: (typeof replies)[number]) => (c.frame.ip!.app.kind === 'svc' ? (c.frame.ip!.app.text ?? '') : '');
-    const cmds = replies.filter((c) => text(c).includes('cmd=')).map((c) => c.no);
+    const sleeps = replies.filter((c) => text(c).includes('cmd=sleep')).map((c) => c.no);
+    const upload = replies.find((c) => text(c).includes('cmd=upload'))!.no;
     const ok = replies.find((c) => /received/.test(text(c)))!.no;
-    expect(cmds.length).toBeGreaterThanOrEqual(2);
-    expect(say('c2', 'cite-orders', `${cmds[0]}, ${cmds[1]}`)).toBeUndefined();
-    expect(say('c2', 'cite-orders', `${cmds[0]}, ${ok}`)).toBe(`Packet ${ok} is the server confirming the upload, not a command. A command reply has cmd= in it.`);
+    expect(sleeps.length).toBeGreaterThanOrEqual(2);
+    expect(say('c2', 'cite-commands', `${sleeps[0]}, ${upload}`)).toBeUndefined();
+    expect(say('c2', 'cite-commands', `${sleeps[0]}, ${sleeps[1]}`)).toMatch(/same command/);
+    expect(say('c2', 'cite-commands', `${sleeps[0]}, ${ok}`)).toBe(`Packet ${ok} is the server confirming the upload, not a command. A command reply has cmd= in it.`);
   });
 
   it('turns away numbers that are not in the file', () => {
@@ -217,11 +219,7 @@ describe('capture-analysis: cited packets', () => {
     expect(say('scan', 'cite-open', `${syn}, ${syn + 1}`)).toMatch(/is the scanner’s SYN/);
   });
 
-  it('checks the scanner and C2 addresses, with a nudge for the target', () => {
-    expect(say('scan', 'scanner-ip', ' 203.0.113.66 ')).toBeUndefined();
-    expect(say('scan', 'scanner-ip', IP.fares)).toMatch(/the target/);
-    expect(say('c2', 'c2-ip', IP.c2)).toBeUndefined();
-    expect(say('c2', 'c2-ip', IP.cams)).toMatch(/recorder itself/);
+  it('takes the Telnet password only with the right capital letters', () => {
     expect(say('telnet', 'password', 'bus$top42')).toMatch(/capital letters/);
   });
 });
@@ -260,6 +258,63 @@ describe('capture-analysis: fixing the live network', () => {
     play(sim, replayFlood);
     expect(check('fix', 'port-sec', undefined, sim, since)).toBe(true);
     expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
+  });
+
+  it('says the flood stopped again when port 7 is still shut from the last replay', () => {
+    const sim = build();
+    sim.setPortSecurity('switch', BREAKROOM_PORT, { maxMacs: 1, violation: 'shutdown' });
+    play(sim, replayFlood);
+    const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
+    const since = sim.t;
+    replayFlood(sim);
+    sim.runUntilIdle();
+    const [line] = act.outcome!(sim, since);
+    expect(line.tone).toBe('good');
+    expect(line.text).toMatch(/still shut/);
+    expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
+  });
+
+  it('a port 7 shut by hand does not count as port security stopping the flood', () => {
+    const sim = build();
+    sim.setPortSecurity('switch', BREAKROOM_PORT, { maxMacs: 1, violation: 'restrict' });
+    sim.setPortShutdown('switch', BREAKROOM_PORT, true);
+    const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
+    const since = sim.t;
+    play(sim, act.run);
+    expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(false);
+    const line = act.outcome!(sim, since)[0];
+    expect(line.text).toMatch(/shut by hand/);
+    expect(line.text).not.toMatch(/went into the switch/);
+  });
+
+  it('the result line keeps the port state from the replay, not from a later button press', () => {
+    const sim = build();
+    sim.setPortSecurity('switch', BREAKROOM_PORT, { maxMacs: 1, violation: 'shutdown' });
+    const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
+    play(sim, act.run);
+    const since = sim.t;
+    play(sim, act.run);
+    expect(act.outcome!(sim, since)[0].text).toMatch(/still shut/);
+    // Turning the port on and shutting it by hand after the replay doesn't rewrite what happened.
+    sim.setPortShutdown('switch', BREAKROOM_PORT, false);
+    sim.setPortShutdown('switch', BREAKROOM_PORT, true);
+    expect(act.outcome!(sim, since)[0].text).toMatch(/still shut/);
+    expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
+    // Shut by hand, then replayed: not port security's doing.
+    const since2 = sim.t;
+    play(sim, act.run);
+    expect(act.outcome!(sim, since2)[0].text).toMatch(/shut by hand/);
+    expect(check('fix', 'flood-blocked', undefined, sim, since2)).toBe(false);
+  });
+
+  it('with restrict, the flood line says port security dropped the MACs and left the port up', () => {
+    const sim = build();
+    sim.setPortSecurity('switch', BREAKROOM_PORT, { maxMacs: 1, violation: 'restrict' });
+    const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
+    const since = sim.t;
+    play(sim, replayFlood);
+    expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
+    expect(act.outcome!(sim, since)[0].text).toMatch(/left the port up/);
   });
 
   it('a deny rule below allow out does nothing; above it, the check-in is blocked', () => {

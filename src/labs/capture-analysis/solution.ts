@@ -1,6 +1,5 @@
 import type { LabSolution } from '../solution';
 import type { FwRuleInput } from '../../sim/firewall';
-import { payloadLen } from '../../sim/tcp';
 import { BREAKROOM_PORT, file, firstNo, IP, isEchoRequest, isFloodFrame, isPoison, isRst, isSynAck, KIOSKS, TELNET_PASSWORD, toC2 } from './scenario';
 
 /** Answer key for "Finding Attacks in Packet Captures". Choice answers come from the lab itself. */
@@ -13,8 +12,7 @@ const c2Stream = () => file('night').frames.find((c) => toC2(c.frame))!.frame.ip
 const floodFrom = () => firstNo('flood', (c) => isFloodFrame(c.frame));
 
 export const captureAnalysisSolution: LabSolution = {
-  ticket: { moves: [{ inspect: 'switch' }, { capfile: 'morning' }, { capfile: 'morning', packet: 1 }] },
-  normal: { moves: [{ capfile: 'morning', stats: 'endpoints-ip' }, { capfile: 'morning', stats: 'conversations' }] },
+  ticket: { moves: [{ inspect: 'switch' }, { capfile: 'morning' }, { capfile: 'morning', stats: 'endpoints-ip' }] },
   outage: {
     moves: [{ capfile: 'outage', filter: 'tcp.flags.reset == 1' }],
     get text() {
@@ -48,7 +46,7 @@ export const captureAnalysisSolution: LabSolution = {
   scan: {
     moves: [{ capfile: 'scan', stats: 'conversations' }, { capfile: 'scan', filter: 'tcp.flags.syn == 1' }],
     get text() {
-      return { 'scanner-ip': IP.scanner, 'cite-open': nos('scan', (c) => isSynAck(c.frame) && c.frame.ip!.dst === IP.scanner).join(', ') };
+      return { 'cite-open': nos('scan', (c) => isSynAck(c.frame) && c.frame.ip!.dst === IP.scanner).join(', ') };
     },
   },
   c2: {
@@ -56,8 +54,8 @@ export const captureAnalysisSolution: LabSolution = {
       return [{ capfile: 'night', stats: 'conversations' as const }, { capfile: 'night', follow: c2Stream() }];
     },
     get text() {
-      const orders = nos('night', (c) => c.frame.ip?.src === IP.c2 && payloadLen(c.frame.ip) > 0);
-      return { 'c2-ip': IP.c2, 'cite-orders': orders.slice(0, 3).join(', ') };
+      const orders = nos('night', (c) => c.frame.ip?.src === IP.c2 && c.frame.ip.app.kind === 'svc' && /cmd=/.test(c.frame.ip.app.text ?? ''));
+      return { 'cite-commands': orders.join(', ') };
     },
   },
   fix: {

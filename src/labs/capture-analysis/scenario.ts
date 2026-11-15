@@ -106,7 +106,7 @@ export function build(opts: Partial<SimOptions> = {}): Sim {
         mode: 'stateless',
         rules: [
           { dir: 'out', proto: 'any', src: 'any', dst: 'any', dport: 'any', action: 'allow', note: 'Depot to the internet' },
-          { dir: 'in', proto: 'any', src: 'any', dst: 'any', dport: 'any', action: 'allow', note: 'Set up in a hurry: lets everything in' },
+          { dir: 'in', proto: 'any', src: 'any', dst: 'any', dport: 'any', action: 'allow', note: 'Lets everything in' },
         ],
       },
     })
