@@ -94,16 +94,25 @@ export function idsOutcomeLines(sim: Sim, since: number): OutcomeLine[] {
  */
 function quietLines(label: string, s: IdsSensor, judged: Judgment[], since: number): OutcomeLine[] {
   const scanned = s.lastScanned !== undefined && s.lastScanned >= since;
-  const waiting = s.anomaly && !s.baseline;
+  const unscored = s.unscored && s.unscored.t >= since ? s.unscored.why : undefined;
+  const waiting = unscored === 'no-baseline' && !judged.length;
   if (!scanned && !judged.length && !waiting) {
     if (!s.signatures && !s.anomaly) return [{ tone: 'bad', text: `${label} saw the traffic, but its detection is off. No alert.` }];
     return [{ tone: 'bad', text: `${label} saw the traffic while its detection was off. No alert. Replay it to check it with detection on.` }];
   }
   const out: OutcomeLine[] = [];
   if (scanned) out.push({ tone: 'bad', text: `${label} saw the traffic. No signature matched it, so no alert.` });
-  if (!judged.length && !s.anomaly && s.baseline) out.push({ tone: 'bad', text: `${label}: anomaly detection is off, so it did not score this.` });
-  else if (s.anomaly && !s.baseline) out.push({ tone: 'bad', text: `${label}: anomaly detection has no baseline yet, so it could not score this.` });
-  else {
+  // Present tense while the setting is still that way; past tense, with what to do, once the student has changed it.
+  if (!judged.length && unscored === 'off' && s.baseline) {
+    out.push({ tone: 'bad', text: s.anomaly ? `${label}: anomaly detection was off, so it did not score this. Replay it to score it.` : `${label}: anomaly detection is off, so it did not score this.` });
+  } else if (waiting) {
+    out.push({
+      tone: 'bad',
+      text: s.baseline
+        ? `${label}: anomaly detection had no baseline yet, so it could not score this. Replay it to score it.`
+        : `${label}: anomaly detection has no baseline yet, so it could not score this.`,
+    });
+  } else {
     const j = judged.at(-1);
     if (j) out.push({ tone: 'bad', text: `${label}: deviation ${j.deviation} (${deviationWhy(j)}). ${judgedText(j, s.tolerance)}, so no alert.` });
   }

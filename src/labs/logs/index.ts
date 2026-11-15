@@ -1,7 +1,7 @@
 import { aiCounts } from '../../sim/ids';
 import type { Sim } from '../../sim/sim';
 import type { LogEntry } from '../../sim/types';
-import { happened, loggedSince, openedLog } from '../helpers';
+import { loggedSince, openedLog } from '../helpers';
 import { md } from '../md';
 import type { ActionDef, LabDef } from '../types';
 import {
@@ -46,13 +46,65 @@ const siem = (sim: Sim) => sim.dev('siem').ids!.siem!;
 
 /** The sensor wrote a line matching `pred` since the step started. */
 const sensorLogged = (sim: Sim, since: number, pred: (e: LogEntry) => boolean) => loggedSince(sim, 'nids', since, pred);
-/** Since the step started and after the events were scored, the student set the AI threshold to a value matching `pred`. */
+/** Since the step started and after the events were scored, the student set the AI threshold to a value matching `pred`, or scored the events at one. */
 function triedThreshold(sim: Sim, since: number, pred: (v: number) => boolean): boolean {
   const ai = siem(sim).ai;
   if (!ai) return false;
   const from = Math.max(since, ai.scoredAt);
-  return happened(sim, from, (e) => e.type === 'config' && e.device === 'siem' && e.what === 'ai-threshold' && pred(Number(e.detail)));
+  // The Score event carries the threshold it was scored at, so scoring again at 1.00 counts as trying 1.00.
+  // Read back only to that event, so a value passed through before it at the same moment doesn't count.
+  let hit = false;
+  for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= from; i--) {
+    const e = sim.events[i];
+    if (e.type !== 'config' || e.device !== 'siem' || (e.what !== 'ai-score' && e.what !== 'ai-threshold')) continue;
+    hit ||= e.detail !== undefined && pred(Number(e.detail));
+    if (e.what === 'ai-score') return hit;
+  }
+  // No Score event found. Either the events were scored before the step (then any try since counts), or a
+  // Score is half done: its scores are stored but its event isn't out yet, so goals checked now wait for it.
+  return ai.scoredAt < since && hit;
 }
+/**
+ * Whether the signature set was on at every moment from `from` until `to`,
+ * read from the sensor's own "signature set enabled/disabled" lines. Not from
+ * the setting now: goals are checked on every sim event, and the setting
+ * changes a moment before its config event is emitted. A line at `from`
+ * itself counts as before the frames moved, since nothing moves until time
+ * passes.
+ */
+function signaturesOnThroughout(sim: Sim, from: number, to: number): boolean {
+  const logs = sim.dev('nids').logs;
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const e = logs[i];
+    if (e.fields?.setting !== 'ids-signatures' || e.t >= to) continue;
+    if (e.t > from) {
+      if (e.fields.state === 'off') return false;
+      continue;
+    }
+    return e.fields.state === 'on';
+  }
+  return false;
+}
+
+/**
+ * Step 4: an upload replay pressed in this step went past with the signature
+ * set on the whole time, and the sensor raised no alert about it. Judged from
+ * the replay's own connection record, so an alert left over from a step 3
+ * replay can't block it.
+ */
+function missedUpload(sim: Sim, since: number): boolean {
+  const named = (e: LogEntry) => Object.values(e.fields ?? {}).some((v) => v === IP.pc2 || v === EXFIL);
+  for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= since; i--) {
+    const e = sim.events[i];
+    if (e.type !== 'conn-result' || e.device !== 'pc2' || e.conn.to !== EXFIL || e.conn.t < since) continue;
+    const { t: start } = e.conn;
+    const end = e.conn.doneAt ?? e.t;
+    if (!signaturesOnThroughout(sim, start, end)) continue;
+    if (!loggedSince(sim, 'nids', start, (x) => x.t <= end && x.level === 'alert' && named(x))) return true;
+  }
+  return false;
+}
+
 const alertFor = (signature: string, pred: (e: LogEntry) => boolean = () => true) => (e: LogEntry) =>
   e.level === 'alert' && e.fields?.signature === signature && pred(e);
 
@@ -263,8 +315,7 @@ export const logsLab: LabDef = {
           id: 'missed',
           label: 'Replay the 3 a.m. upload with the signature set on',
           hint: 'Keep the signature set on, press Replay the 3 a.m. upload, and watch the sensor’s alerts. Nothing new should appear.',
-          check: ({ sim, since }) =>
-            sensor(sim).signatures && loggedSince(sim, 'fw', since, (e) => e.fields?.dst === EXFIL) && !sensorLogged(sim, since, (e) => e.level === 'alert'),
+          check: ({ sim, since }) => missedUpload(sim, since),
         },
       ],
       questions: [
@@ -307,7 +358,7 @@ export const logsLab: LabDef = {
         { id: 'baseline-set', label: 'Record the clean-week baseline', hint: 'Press Record a clean-week baseline.', check: ({ sim }) => !!sensor(sim).baseline },
         {
           id: 'anomaly-on',
-          label: 'Turn on anomaly detection at Medium tolerance',
+          label: 'Turn on anomaly detection at Medium or Strict tolerance',
           hint: 'If you leave it on Loose, the upload slips through again. Medium catches it.',
           check: ({ sim }) => sensor(sim).anomaly && sensor(sim).tolerance !== 'loose',
         },

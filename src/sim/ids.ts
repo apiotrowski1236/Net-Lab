@@ -161,6 +161,8 @@ export interface IdsSensor {
   lastSeen?: number;
   /** When a frame last went past with the signature set on. A result line uses it to tell "nothing matched" from "detection was off". */
   lastScanned?: number;
+  /** The latest connection anomaly detection would score but didn't: it was off, or had no baseline. A result line uses it, like `lastScanned`. */
+  unscored?: { t: number; why: 'off' | 'no-baseline' };
   /** The latest anomaly judgments (newest last). */
   judged: Judgment[];
   /** Recent sightings for the windowed signatures: key -> [time, value] pairs. */
@@ -409,6 +411,12 @@ export function observe(sim: Sim, sensorId: string, tap: Device, ifaceId: string
     matchSignatures(sim, dev, s, tap, ifaceId, frame);
   }
   if (s.anomaly) checkAnomaly(sim, dev, s, frame);
+  else if (scorable(s, frame.ip)) s.unscored = { t: sim.t, why: 'off' };
+}
+
+/** A new connection from a home host: what the anomaly rule scores. */
+function scorable(s: IdsSensor, p: IpPacket | undefined): p is IpPacket {
+  return !!p && p.app.kind === 'svc' && !p.app.reply && inNet(s.home, p.src);
 }
 
 interface Response {
@@ -459,7 +467,11 @@ function matchSignatures(sim: Sim, dev: Device, s: IdsSensor, tap: Device, iface
 
 function checkAnomaly(sim: Sim, dev: Device, s: IdsSensor, frame: Frame): void {
   const p = frame.ip;
-  if (!p || p.app.kind !== 'svc' || p.app.reply || !s.baseline || !inNet(s.home, p.src)) return;
+  if (!scorable(s, p)) return;
+  if (!s.baseline) {
+    s.unscored = { t: sim.t, why: 'no-baseline' };
+    return;
+  }
   const j = judge(s, p, sim.t);
   s.judged.push(j);
   if (s.judged.length > MAX_JUDGED) s.judged.splice(0, s.judged.length - MAX_JUDGED);

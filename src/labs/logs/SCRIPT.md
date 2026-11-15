@@ -261,7 +261,7 @@ The trade-off: prevention stops R3 with no human in the loop, and it also cuts o
 
 ### AI scores and threshold
 
-Pressing "Score this morning's events" assigns each event a fixed probability that it is malicious. An alert is raised when a score is at or above the threshold.
+Pressing "Score the night's events" assigns each event a fixed probability that it is malicious. An alert is raised when a score is at or above the threshold.
 
 | Event | Score | Truth |
 |---|---|---|
@@ -418,7 +418,7 @@ Logs tool device list (step 1):
 
 **Goals:**
 
-- `missed` — "The upload replays and no signature fires" — hint: "Press Replay the 3 a.m. upload and watch the sensor's alerts. Nothing new should appear." — completes when the upload's firewall line was written since step start (`fw` line with `fields.dst === '45.77.12.9'`) and `nids` logged no alert since step start.
+- `missed` — "Replay the 3 a.m. upload with the signature set on" — hint: "Keep the signature set on, press Replay the 3 a.m. upload, and watch the sensor's alerts. Nothing new should appear." — completes when an upload replay started in this step finishes (`conn-result` from `pc2` to `45.77.12.9` with `conn.t` at or after step start), the signature set stayed on from the replay's start to its end (worked out from the `ids-signatures` config events), and `nids` logged no alert naming `pc2` or `45.77.12.9` during it. An alert left over from a step 3 replay doesn't count against it.
 
 **Questions:**
 
@@ -459,7 +459,7 @@ Logs tool device list (step 1):
 **Goals:**
 
 - `baseline-set` — "Record the clean-week baseline" — completes when `nids` has a stored baseline.
-- `anomaly-on` — "Turn on anomaly detection at Medium tolerance" — hint: "If you leave it on Loose, the upload slips through again. Medium catches it." — completes when anomaly is on and tolerance is Medium or Strict.
+- `anomaly-on` — "Turn on anomaly detection at Medium or Strict tolerance" — hint: "If you leave it on Loose, the upload slips through again. Medium catches it." — completes when anomaly is on and tolerance is Medium or Strict.
 - `catch-upload` — "An anomaly alert names Raj's PC upload" — completes when `nids` logged an alert since step start with `fields.signature === 'anomaly' && fields.host === '10.10.20.22'`.
 - `catch-backup` — "An anomaly alert names the backup" — hint: "Run the scheduled backup after anomaly detection is on." — completes when `nids` logged an alert since step start with `fields.signature === 'anomaly' && fields.host === '10.10.20.11'`.
 
@@ -552,7 +552,7 @@ Logs tool device list (step 1):
 
 > There is still too much to read by hand. An **AI** model helps: it gives every event a score from 0.00 to 1.00 for how likely it is to be malicious. You set the **threshold**. Any event scored at or above it becomes an alert.
 >
-> Press **Score this morning's events**. Then move the threshold slider. Watch the two counters: real attacks caught, and false alerts raised.
+> Press **Score the night's events**. Then move the threshold slider. Watch the two counters: real attacks caught, and false alerts raised.
 >
 > Find a threshold that catches all three real attacks (the ARP poisoning, the 3 a.m. upload, and the overnight scan) without burying you in false alerts.
 
@@ -562,11 +562,11 @@ Logs tool device list (step 1):
 
 **Actions:**
 
-- `score-morning` "Score this morning's events" — assigns the fixed scores from the table above.
+- `score-morning` "Score the night's events" — assigns the fixed scores from the table above.
 
 **Goals:**
 
-- `scored` — "Score this morning's events" — completes when scores are populated on `siem`.
+- `scored` — "Score the night's events" — completes when scores are populated on `siem`.
 - `good-threshold` — "Set a threshold that catches all three real attacks with few false alerts" — hint: "Too high and you miss the scan. Too low and the backup and more noise flood in. Try between 0.70 and 0.75." — completes when the threshold yields all three real attacks caught and no more than one false alert.
 
 **Questions:**
@@ -691,7 +691,7 @@ Logs tool device list (step 1):
 2. **Baseline + seeded history generator.** A deterministic generator (uses `sim.rand`, never `Math.random`) that writes the benign overnight lines and the seeded indicators with backdated `at`. Lives in `scenario.ts`.
 3. **Recorded attacks R1 to R4.** Functions in `scenario.ts` that replay each attack through the live sensor carrying its original overnight fields (`hour`, `bytes`, `src`, `dst`). The Replay buttons are `ActionDef`s that call them.
 4. **SIEM correlation + incidents.** A `Device.siem` state holding incidents (a group of log lines sharing a source address and time window) with a triage state `{ verdict?: 'real'|'false', action?: 'escalate'|'close' }`. Incident 1041 is pre-built from the seeded scan/deny/auth-fail lines. New `SimAction`: `{ type:'siem-triage', incident, verdict, action }`.
-5. **AI scoring + threshold.** A per-event score map (fixed values in the table), a threshold on `Device.siem`, and live counts of real-caught and false-raised. New `SimAction`: `{ type:'ai-threshold', device, value }`. The "Score this morning's events" action populates the scores.
+5. **AI scoring + threshold.** A per-event score map (fixed values in the table), a threshold on `Device.siem`, and live counts of real-caught and false-raised. New `SimAction`: `{ type:'ai-threshold', device, value }`. The "Score the night's events" action populates the scores.
 6. **New `SimAction`s** (add to `src/runtime/actions.ts`, `applyAction`, and the `assertTypable` default-ok path in `src/labs/solution.ts`): `ids-signatures`, `ids-anomaly` (carries `tolerance`), `ids-prevention`, `siem-triage`, `ai-threshold`. None take typed addresses, so `assertTypable` needs no new address checks. Baseline recording and the replays are `step-action`s, so no new action type.
 7. **New `Move` variant for opening an incident** (or reuse `openLog` if incidents surface as log lines). Add to `src/labs/solution.ts`.
 8. **Detection controls UI.** A `ToolSpec` kind `{ kind: 'ids'; device: 'nids' }` that unlocks a Detection inspector section (`src/ui/inspector/Detection.tsx`, listed in `INSPECTOR_SECTIONS`) with the signature, anomaly, tolerance, and prevention controls revealed progressively. Add its name to `TOOL_NAME` in `src/ui/Guide.tsx`.

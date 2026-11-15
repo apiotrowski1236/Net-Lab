@@ -2863,7 +2863,7 @@ export class Sim {
     const q = this.siemOf(devId);
     q.ai = { events: events.map((e) => ({ ...e })), scoredAt: this.t };
     this.log(devId, { source: 'ai', level: 'notice', msg: `AI model scored ${events.length} events`, fields: { count: events.length } });
-    this.emit({ t: this.t, type: 'config', device: devId, what: 'ai-score' });
+    this.emit({ t: this.t, type: 'config', device: devId, what: 'ai-score', detail: q.threshold.toFixed(2) });
   }
 
   /** Set the AI alert threshold (0 to 1, in steps of 0.05). */
