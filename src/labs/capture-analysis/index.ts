@@ -230,7 +230,7 @@ export const captureAnalysisLab: LabDef = {
               : f.ip!.src !== IP.fares || !kioskIps.includes(f.ip!.dst)
                 ? 'is a reset, but not one from the fare server to a kiosk.'
                 : true,
-          explain: 'Each kiosk SYN to port 443 gets an RST, ACK from 198.51.100.20 a fraction of a millisecond later.',
+          explain: 'Each kiosk SYN to port 443 gets an RST, ACK from 198.51.100.20 less than a millisecond later.',
         }),
         {
           id: 'attack-or-not',
@@ -272,7 +272,9 @@ export const captureAnalysisLab: LabDef = {
 
         The matching packets turn darker on the graph, so you can see the filter covers the spike. An **echo request** is a ping, and an **echo reply** answers it. To list only the requests, filter \`icmp.type == 8\`.
 
-        The requests go to 198.51.100.255, the depot's **broadcast address**, so every depot computer gets a copy. Each one sends its echo reply to the address in the request's Source column. Pings sent to a broadcast address like this are a **smurf attack**. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
+        The requests go to 198.51.100.255, the depot's **broadcast address**, so every depot computer gets a copy. Each one sends its echo reply to the address in the request's Source column.
+
+        Pings sent to a broadcast address like this are a **smurf attack**. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
 
         Now read the Source. Anyone who builds a packet can write any address there. Faking it is called **spoofing**, and the fake address is **forged**.
       `,
@@ -332,9 +334,9 @@ export const captureAnalysisLab: LabDef = {
       body: md`
         Now the second spike, at about 38 to 47 seconds. Open **Conversations**: it lists each pair of addresses that talked, busiest first.
 
-        The top pair is two depot computers. Press **Filter** on that row to show only their packets, and read a few. They use port 873, **rsync**: a program that copies files from one computer to another.
+        The top pair is two depot computers, 198.51.100.20 and 198.51.100.50. Press **Filter** on that row to show only their packets, and read a few. They use port 873, **rsync**: a program that copies files from one computer to another.
 
-        A detector watches traffic and raises an alert when something looks wrong. "True" or "false" says whether there really was an attack:
+        A detector watches traffic and raises an alert when something looks wrong. **Positive** means it raised an alert, and **negative** means it didn't. **True** means the detector was right, and **false** means it was wrong:
 
         - **True positive**: an alert, and a real attack.
         - **False positive**: an alert, but the traffic was harmless.
@@ -365,7 +367,7 @@ export const captureAnalysisLab: LabDef = {
             { id: 'tn', text: 'A true negative', feedback: 'A true negative is no alert for harmless traffic. Here the detector did alert.' },
           ],
           explain:
-            'One known pair, the backup program’s port, and a steady stream of full-size packets: this is a backup, not an attack. Backups here run at night, so it’s worth asking who ran this one at lunch. A spike alone doesn’t prove an attack, so this alert is a **false positive**. Too many of them, and analysts start ignoring alerts. (rsync on port 873 doesn’t encrypt what it copies. That’s a weakness worth fixing, but it isn’t an attack.)',
+            'Two depot servers, the backup program’s port, and a steady stream of full-size packets: this is a backup, not an attack. The depot schedules its backups for the night, so it’s worth asking who ran this one at lunch. A spike alone doesn’t prove an attack, so this alert is a **false positive**. Too many of them, and analysts start ignoring alerts. (rsync on port 873 doesn’t encrypt what it copies. That’s a weakness worth fixing, but it isn’t an attack.)',
         },
       ],
     },
@@ -485,7 +487,9 @@ export const captureAnalysisLab: LabDef = {
 
         \`tcp.flags.syn == 1\`
 
-        One outside address sends a SYN to port 1 on the fare server, then port 2, then 3, and on up. This is a **port scan**: the scanner tries port after port to learn which ones are open. A closed port answers RST. An open port answers SYN, ACK, and the scanner ends it with RST before the handshake finishes. (Real scanners like nmap try ports in a random order. This one goes in order, so the pattern is clear.) The scanner isn't on the threat list. A threat list only names attackers someone has already seen.
+        One outside address sends a SYN to port 1 on the fare server, then port 2, then 3, and on up. This is a **port scan**: the scanner tries port after port to learn which ones are open. A closed port answers RST. An open port answers SYN, ACK, and the scanner ends it with RST before the handshake finishes.
+
+        (Real scanners like nmap try ports in a random order. This one goes in order, so the pattern is clear.) The scanner isn't on the threat list. A threat list only names attackers someone has already seen.
 
         To find the open ports, show only packets with both flags on. \`&&\` means "and": a packet has to match both sides. Normal kiosk connections have SYN, ACK packets too, so also match the scanner's address. Copy this filter, then type the scanner's address at the end:
 
@@ -574,7 +578,7 @@ export const captureAnalysisLab: LabDef = {
                     ? 'is the server confirming the upload, not a command. A command reply has cmd= in it.'
                     : true,
           explain:
-            'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. One reply said to upload a garage camera video, and the next connection sent it. A firewall rule on the router that denies traffic out to 192.0.2.44 would cut it off, but the recorder still needs to be wiped and set up again.',
+            'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. One reply said to upload a garage camera video, and the next connection sent it. A firewall rule on the router that denies traffic out to 192.0.2.44 would cut it off, but the recorder still needs to be erased and set up again.',
         }),
       ],
     },
@@ -605,11 +609,11 @@ export const captureAnalysisLab: LabDef = {
           id: 'attacks',
           kind: 'choice',
           multi: true,
-          prompt: 'Which findings are attacks? Choose every one.',
+          prompt: 'Which findings are attacks? Choose every one. An attack still counts if the depot wasn’t its target, or if nothing broke.',
           options: [
             { id: 'rst', text: '08:00: RSTs from the fare server', feedback: 'The fare program crashed. That’s an outage.' },
             { id: 'smurf', text: '12:00: pings to the broadcast address', correct: true },
-            { id: 'rsync', text: '12:00: the rsync burst', feedback: 'That was the backup, started early. A false alarm.' },
+            { id: 'rsync', text: '12:00: the rsync burst', feedback: 'That was the backup. Its alert was a false positive.' },
             { id: 'arp', text: '13:00: the forged ARP replies', correct: true },
             { id: 'flood', text: '14:00: the made-up MACs', correct: true },
             { id: 'scan', text: '15:00: the SYNs to 1,024 ports', correct: true },
@@ -690,9 +694,13 @@ export const captureAnalysisLab: LabDef = {
       body: md`
         Two of the attacks can be stopped right here, on the live depot network. **Port security** limits how many MACs one switch port may use.
 
-        1. **The MAC flood.** Click [[switch]]. In **Ports and port security**, press **Edit** on **port 7**, the [[breakroom]]'s port. Turn port security on with its switch (not the **Shut port down** button), keep **Most MACs** at 1, keep **If another MAC shows up** on **Shut the port down**, and press **Save port 7**.
-        2. **The C2 traffic.** Click [[gw]] and press **Add a rule**: **deny**, direction **out**, protocol **any**, destination 192.0.2.44, port **any**. Press **Add rule**.
-        3. The router checks its rules from the top. Use the arrows to move your rule above **allow out**, the out rule named **Depot to the internet**.
+        1. **The MAC flood.** Click [[switch]]. In **Ports and port security**, press **Edit** on **port 7**, the [[breakroom]]'s port. Then:
+           - Turn port security on with its switch, not the **Shut port down** button.
+           - Keep **Most MACs** at 1.
+           - Keep **If another MAC shows up** on **Shut the port down**.
+           - Press **Save port 7**.
+        2. **The C2 traffic.** Click [[gw]] and press **Add a rule**. Pick **DENY**, **out**, and **any protocol**. Type 192.0.2.44 in the **to** address box. Leave the other boxes as **any**, and press **Add rule**.
+        3. The router checks its rules from the top. Use the arrows to move your rule above **Depot to the internet**, the ALLOW out rule.
         4. Press **Start** in the Capture tab to capture live on [[analyst]]. Then press each button below and watch what happens. Each button replays a short sample of that attack.
 
         If port security stops the flood, the capture stays empty: the frames never get past port 7. The check-in is different. The capture still shows the recorder's first SYN, because the switch copies it to the mirror port before the router drops it.
