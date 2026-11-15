@@ -88,6 +88,7 @@ export function buildOffice(): Sim {
       icon: 'wifi',
       x: 440,
       y: 370,
+      notes: ['The office Wi-Fi. Staff laptops and phones join it.'],
       wifi: { ssid: SSID, bssid: '02:4f:0b:00:00:05', security: 'wep', passphrase: WIFI_PASS, wps: false, auth: 'psk', beacon: true, power: 1, boost: -10, channel: 6 },
     })
     .router('router', {
@@ -101,6 +102,7 @@ export function buildOffice(): Sim {
         { id: 'vpn', ip: `${IP.vpnRouter}/24` },
       ],
       routes: [{ prefix: '0.0.0.0/0', via: IP.ispOffice, iface: 'wan' }],
+      notes: ['Connects the office to the internet. It runs a firewall, the VPN for the bookkeeper, and two ways to log in to it: Telnet and SSH.'],
       services: [MANAGEMENT_SERVICES.ssh, MANAGEMENT_SERVICES.telnet],
       firewall: {
         outside: 'wan',
@@ -177,6 +179,21 @@ export function buildOffice(): Sim {
   sim.dev('bookkeeper').routes.push({ prefix: OFFICE_NET, via: IP.vpnRouter, iface: 'vpn', source: 'static' });
   // Something on the shared laptop sends office-bound traffic to the bookkeeper's laptop.
   sim.dev('homedev').routes.push({ prefix: OFFICE_NET, via: IP.bookkeeper, iface: 'eth0', source: 'static' });
+
+  // Neighbors on the probe's path already know each other's MAC address, so the
+  // step 9 probe runs without a round of ARP at every hop.
+  const known: [string, string][] = [
+    ['homedev', IP.bookkeeper],
+    ['bookkeeper', IP.homedev],
+    ['bookkeeper', IP.vpnRouter],
+    ['router', IP.vpnClient],
+    ['router', IP.fileserver],
+    ['fileserver', IP.router],
+  ];
+  for (const [id, ip] of known) {
+    const mac = sim.deviceByIp(ip)?.ifaces.find((i) => i.ip === ip)?.mac;
+    if (mac) sim.dev(id).arp[ip] = { mac, at: 0, via: 'auto' };
+  }
 
   sim.configureSwitch('sw');
   sim.dev('sw').hardening = { authServer: false, account: { user: 'admin', pass: 'Sw1tch-closet', factory: false }, portNames: { p7: 'lobby wall jack', p8: 'spare' } };

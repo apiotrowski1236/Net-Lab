@@ -216,8 +216,8 @@ function SwitchSettings({ sim, ...p }: Part & { sim: Sim }) {
             why="A shut port carries nothing, even if someone plugs a laptop into the wall jack."
             on={shut}
             edit={edit}
-            onText="Shut"
-            offText="Live"
+            onText="On"
+            offText="Off"
             onChange={setShut}
           />
         </>

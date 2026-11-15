@@ -47,13 +47,13 @@ const onlyLowLeft = scanned((_f, e, sim) => {
 
 export const netAuditLab: LabDef = {
   id: 'net-audit',
-  version: 2,
+  version: 3,
   title: 'Vulnerability Scan and Risk Assessment',
   tagline: 'Scan a small office for weaknesses, rate each risk high, moderate, or low, and write the policies that fix them.',
   unit: 3,
   codehs: [],
   ced: ['3.1.B', '3.1.C', '3.2.A'],
-  minutes: 45,
+  minutes: 55,
   objectives: [
     'Run an automated vulnerability scanner and read its report of findings, severity, and fixes.',
     'Rate each risk by likelihood and impact, using exploit difficulty and the CIA triad.',
@@ -111,7 +111,7 @@ export const netAuditLab: LabDef = {
             { id: 'more', text: 'It makes the scan find more vulnerabilities.', feedback: 'Permission does not change what the scan finds. It changes whether you are allowed to run it.' },
             { id: 'skip', text: 'It lets you skip the parts of the network you dislike.', feedback: 'The scope says what you may test. It is a limit, not a shortcut.' },
           ],
-          explain: "A scan probes other people's systems. Doing that without written authorization is illegal, even when you mean well. The scope letter sets what you may test and when.",
+          explain: "A scan tests other people's systems. Doing that without written authorization is illegal, even when you mean well. The scope letter sets what you may test and when.",
         },
       ],
     },
@@ -123,7 +123,7 @@ export const netAuditLab: LabDef = {
         An **automated vulnerability scanner** looks for known weaknesses on a network. It sends small test messages, called **probes**, to every device. It checks which devices answer, which services each one runs, and whether their settings are safe. Then it writes a **report**: each weakness (a **finding**), its **severity** (how serious it is), and a suggested fix.
 
         1. Open the **Toolkit** tab and press **Run scan** on the scanner.
-        2. Watch the probes cross the map from [[auditor]] to each device. The labels that pop up, like ARP and TCP, name kinds of network messages. You do not need them for this lab.
+        2. Watch the probes cross the map from [[auditor]] to each device. The labels that pop up on the map, like ARP, TCP, and "learned a MAC", name network messages and what each device learned. You do not need them for this lab.
         3. Read the report below the scanner. Click a finding to see its evidence and fix.
       `,
       focus: ['auditor'],
@@ -150,7 +150,7 @@ export const netAuditLab: LabDef = {
           id: 'mapping',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'The scan did more than flag weak settings. What else could an attacker learn from a scan like this?',
+          prompt: 'The scan did more than point out weak settings. What else could an attacker learn from a scan like this?',
           options: [
             { id: 'map', text: 'A map of the office: which devices exist and what each one runs.', correct: true },
             { id: 'decrypt', text: 'The donor records, decrypted from the file server.', feedback: 'The scanner reads open ports and settings. It broke no encryption.' },
@@ -166,16 +166,16 @@ export const netAuditLab: LabDef = {
       id: 'telnet',
       title: 'See it for yourself',
       body: md`
-        The report says [[router]] still runs **Telnet**, an old way to log in to a device over the network. The scope letter lets you confirm it. The scanner already found the password: \`admin\` / \`admin\`, the factory default that every router of this model ships with. Default passwords are printed in manuals and posted online, so anyone can look them up.
+        The report says [[router]] still runs **Telnet**, an old way to log in to a device over the network. The scope letter lets you confirm it. The scanner already found the password: \`admin\` / \`admin\`, the factory default that comes on every router of this model. Default passwords are printed in manuals and posted online, so anyone can look them up.
 
         1. In the **Toolkit**, turn on **Packet capture** for [[auditor]].
         2. Press **Log in over Telnet**. You sign in to the router.
-        3. Open the **Capture** tab and click the Telnet packet. Read the password.
+        3. Open the **Capture** tab and click the Telnet packet you sent. Read the password. The router's reply below it shows its login prompt. On a real router, that prompt comes first.
         4. Press **Log in over SSH** and open that packet. Compare the two.
 
         **SSH** does the same job as Telnet, but it encrypts the session.
 
-        (The map shows each login as one packet each way, to keep it clear. A real login has more packets, such as the router's prompt first and, for SSH, a key exchange. On a real office switch, an attacker would need a spot on the path, such as the Wi-Fi or a switch port that copies traffic, to capture this.)
+        (To keep the map clear, it shows each login as one packet each way. A real login has more packets. To capture a login on a real office network, an attacker has to be somewhere the traffic passes, such as the Wi-Fi.)
       `,
       focus: ['auditor', 'router'],
       open: 'tools',
@@ -216,7 +216,7 @@ export const netAuditLab: LabDef = {
       body: md`
         Every finding is a risk. **Risk** has two parts: how **likely** it is that someone uses the weakness to cause harm, and how much **impact** (damage) that would do.
 
-        **Likelihood** depends on skill. To **exploit** a weakness means to use it to break in or cause harm. A weakness with a well-known exploit that takes little skill gets used more often, because more people can do it. A weakness that needs rare skill is less likely, even when the impact would be large.
+        **Likelihood** depends on how hard the weakness is to reach and how much skill it takes. To **exploit** a weakness means to use it to break in or cause harm. A weakness with a well-known exploit that takes little skill gets used more often, because more people can do it. For example, the office Wi-Fi uses **WEP**, an old kind of Wi-Fi encryption that a free tool cracks in under a minute from the parking lot. A weakness that needs rare skill is less likely, even when the impact would be large.
 
         **Impact** depends on what an attacker could break. Security teams use the **CIA triad** to name it:
 
@@ -247,7 +247,7 @@ export const netAuditLab: LabDef = {
             { id: 'wep', text: 'Cracking the WEP Wi-Fi from the parking lot with a free tool.', correct: true },
             { id: 'newbug', text: 'Finding a brand-new flaw in the router’s SSH software that nobody has found before.', feedback: 'Finding a new flaw takes rare skill and a lot of time, so its likelihood is low.' },
           ],
-          explain: 'Exploit difficulty changes likelihood. Well-known attacks that take little skill are more likely, so they push a risk up. Telnet, the default password, and WEP all have free tools and step-by-step guides online.',
+          explain: 'How hard a weakness is to exploit changes its likelihood. Well-known attacks that take little skill are more likely, so they push a risk up. Telnet, the default password, and WEP all have free tools and step-by-step guides online.',
         },
         {
           id: 'combine',
@@ -272,9 +272,9 @@ export const netAuditLab: LabDef = {
 
         Three findings match examples from the AP Cybersecurity course. Rate them to match:
 
-        - **Weak Wi-Fi encryption** (WEP): the high example. The office is a **flat network**: every device is on one network, so anyone who cracks the Wi-Fi can reach the donor server.
-        - The router **answering pings from the internet**: the moderate example. It takes no skill, but it only tells an outsider the office is there.
-        - The **Wi-Fi beacon**: the low example. The beacon is the message the Wi-Fi sends out to announce its name. Anyone can see it, but a name alone is not a way in, so it rarely leads to harm.
+        - **Weak Wi-Fi encryption** (WEP): the high example. A free tool cracks it, so likelihood is high. The office is a **flat network**: every device is on one network, so anyone who cracks the Wi-Fi can reach the donor server. Impact is high.
+        - The router **answering pings from the internet**: the moderate example. It takes no skill, so likelihood is high. It only tells an outsider the office is there, so impact is low.
+        - The **Wi-Fi beacon**: the low example. The beacon is the message the Wi-Fi sends out to announce its name. Anyone can see the name, but a name alone is not a way in, so harm is unlikely: likelihood is low. Impact is low too.
 
         The other four have no single right answer. Rate them with your own judgment. You will see the VPN finding up close in a later step.
       `,
@@ -283,8 +283,8 @@ export const netAuditLab: LabDef = {
       goals: [
         {
           id: 'anchors',
-          label: 'Rate the three framework examples high, moderate, and low',
-          hint: 'WEP: high likelihood, high impact. Pings: high likelihood, low impact. Beacon: low likelihood, low impact. Check each row in the table.',
+          label: 'Rate the three course examples high, moderate, and low',
+          hint: 'Each example above says its likelihood and its impact. Set both on each row, then check the rating against the table.',
           check: ({ sim }) => rating(sim, 'wifi-weak') === 'high' && rating(sim, 'edge-icmp') === 'moderate' && rating(sim, 'wifi-beacon') === 'low',
         },
         {
@@ -303,14 +303,14 @@ export const netAuditLab: LabDef = {
           id: 'cia',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'You rated the WEP Wi-Fi finding high. An attacker who cracks it can read the donor records as they cross the network. Which part of the CIA triad does that break first?',
+          prompt: 'You rated the WEP Wi-Fi finding high. An attacker who cracks it can open the donor records on the server. Which part of the CIA triad does that break first?',
           options: [
             { id: 'c', text: 'Confidentiality.', correct: true },
             { id: 'i', text: 'Integrity.', feedback: 'Integrity is about changing data. Reading it breaks confidentiality first.' },
             { id: 'a', text: 'Availability.', feedback: 'Availability is about keeping the service up. Reading records does not take it down.' },
             { id: 'none', text: 'None. Reading data is not a security problem.', feedback: 'Donor records are private. Reading them is a confidentiality breach.', last: true },
           ],
-          explain: 'Network weaknesses threaten confidentiality, integrity, and availability. Listening in on traffic breaks confidentiality, changing records breaks integrity, and knocking a service offline breaks availability.',
+          explain: 'Network weaknesses threaten confidentiality, integrity, and availability. Reading private data breaks confidentiality, changing records breaks integrity, and taking a service down breaks availability.',
         },
       ],
     },
@@ -324,7 +324,7 @@ export const netAuditLab: LabDef = {
         First, pick the statements that belong in a **router security policy**. Then click [[router]] to jump to its **Security settings**, apply them, and run the scanner again.
 
         - Turn **Telnet** off and keep **SSH** on.
-        - Send **logins** to the **authentication server**, one approved computer (not on this map) that checks every login. That removes the local account with the factory password.
+        - Send **logins** to the **authentication server**, one approved computer (not on this map) that checks every login. That removes the **local account** (a login stored on the router itself) with the factory password.
         - Switch on **Drop pings from the internet**. It adds a rule to the top of the router's firewall, under **Firewall rules**. The old rule that answers pings stays below it, but the router follows the first rule that matches.
       `,
       focus: ['router'],
@@ -338,7 +338,7 @@ export const netAuditLab: LabDef = {
         {
           id: 'apply',
           label: 'Apply the router policy: Telnet off, SSH on, logins through the authentication server, and pings from the internet dropped',
-          hint: 'Open [[router]] and use the Security settings section.',
+          hint: 'In the Security settings of [[router]], check all four: Telnet off, SSH on, logins through the authentication server, and Drop pings on.',
           check: ({ sim }) => routerHardened(sim),
         },
         { id: 'rescan', label: 'Re-scan and clear the router’s findings', hint: 'Apply the settings first, then press **Run scan again** in the Toolkit.', check: without('telnet', 'default-admin', 'edge-icmp') },
@@ -350,7 +350,7 @@ export const netAuditLab: LabDef = {
           multi: true,
           prompt: 'Which statements belong in the router security policy?',
           options: [
-            { id: 'aaa', text: 'Ban local accounts. All router logins go through the approved authentication server.', correct: true },
+            { id: 'aaa', text: 'Ban local accounts for everyday logins. They go through the approved authentication server.', correct: true },
             { id: 'services', text: 'Disable services the router does not need, such as Telnet.', correct: true },
             { id: 'firewall', text: 'Require a firewall, and set it to drop traffic that should not reach the router.', correct: true },
             { id: 'share', text: 'Share the admin password with every staff member so they can help.', feedback: 'A shared password is the opposite of a policy, and the policy bans local accounts anyway.' },
@@ -366,9 +366,9 @@ export const netAuditLab: LabDef = {
       id: 'switch-policy',
       title: 'Write the switch policy',
       body: md`
-        Now [[sw]]. The report found no **port security**. It also found a working **wall jack** (a network socket in the wall) in the lobby, on port 7. Anyone could plug a laptop into it and join the office network.
+        Now [[sw]]. The report found no **port security**. It also found a **wall jack** (a network socket in the wall) in the lobby, on port 7. Nothing is plugged in, but the port is turned on, so anyone could plug in a laptop and join the office network.
 
-        Every network card has a **MAC address**, a hardware ID that the switch sees in each frame. The switch settings use it two ways:
+        Every network card has a **MAC address**, a hardware ID that the switch sees in every message. The switch settings use it two ways:
 
         - **Port security** limits how many devices a port accepts. Here it is one: a second MAC address shuts the port down.
         - **MAC filtering** names which device each port accepts: only the computer plugged in now.
@@ -398,7 +398,7 @@ export const netAuditLab: LabDef = {
             { id: 'port-sec', text: 'Turn on port security so each port accepts only a limited set of MAC addresses.', correct: true },
             { id: 'mac', text: 'Use MAC filtering to allow only known devices.', correct: true },
             { id: 'unplug', text: 'Unplug the switch overnight.', feedback: 'That stops the office, not an attacker during the day.' },
-            { id: 'closet', text: 'Hide the switch in a locked closet instead of setting port security.', feedback: 'A locked closet does not help against the working jack out in the lobby. Do both.' },
+            { id: 'closet', text: 'Hide the switch in a locked closet instead of setting port security.', feedback: 'A locked closet does not help against the wall jack out in the lobby. Do both.' },
             { id: 'public', text: 'Give the switch a public internet address so admins can manage it from home.', feedback: 'That exposes management to the whole internet. Hardening points the other way.' },
           ],
           explain: 'A switch security policy may ban local accounts, require port security, and use MAC filtering.',
@@ -433,7 +433,7 @@ export const netAuditLab: LabDef = {
       open: { inspect: 'wap' },
       tools: [{ kind: 'wifi-config', device: 'wap' }, { kind: 'scanner', device: 'auditor' }],
       goals: [
-        { id: 'wpa3', label: 'Set [[wap]] to WPA2 or WPA3', hint: 'Open [[wap]] and change the security mode. WEP is broken; pick WPA3.', check: ({ sim }) => wifiStrong(sim) },
+        { id: 'wpa3', label: 'Replace WEP on [[wap]] with WPA3', hint: 'Open [[wap]] and change the security mode. WEP is broken; pick WPA3.', check: ({ sim }) => wifiStrong(sim) },
         { id: 'rescan', label: 'Re-scan and clear the high finding', hint: 'Change the setting first, then press **Run scan again**.', check: without('wifi-weak') },
       ],
       questions: [
@@ -459,13 +459,13 @@ export const netAuditLab: LabDef = {
       body: md`
         The bookkeeper works from home on [[bookkeeper]], over a **VPN**: an encrypted tunnel into the office network, drawn as a dashed line on the map. The VPN allows **split tunneling**: only office traffic goes through the tunnel. The laptop stays on the home network at the same time, and everything else goes straight to the internet.
 
-        That makes the laptop a bridge between two networks. The family shares [[homedev]], and it may be infected. Malware on it can reach the laptop over the home network, then use the laptop's tunnel to reach the office. (In real life the malware would first break into the bookkeeper's laptop. The map skips that and shows the laptop passing the traffic along.)
+        That makes the laptop a bridge between two networks. The family shares [[homedev]], and it may be infected. Malware on it can reach the laptop, then use the laptop's tunnel to reach the office. (In real life the malware would first break into the laptop. The map skips that step.)
 
         1. Press **Home device probes the office**. Follow the path with split tunneling on.
-        2. Click [[router]] and find **VPN** in its **Security settings**. Turn split tunneling off. Set sign-in to **Password + MFA** (a code from a phone as well as the password).
+        2. Click [[router]] and find **VPN** in its **Security settings**. Turn split tunneling off. Set sign-in to **Password + MFA**: a code from a phone as well as the password, so a stolen password is not enough. The VPN already lets in only the Bookkeeper role.
         3. Press **Home device probes the office** again.
 
-        With split tunneling off, all of the laptop's traffic goes through the tunnel, and the laptop stops taking traffic from the home network. The bridge is gone. The router's settings also list who may use the VPN: only the Bookkeeper role. MFA does not change the probe. It protects the VPN if someone steals the password.
+        With split tunneling off, all of the laptop's traffic goes through the tunnel and the office firewall. The laptop stops taking traffic from the home network, so the bridge is gone. This does not help if the laptop itself is infected.
       `,
       focus: ['homedev', 'bookkeeper', 'router'],
       tools: [{ kind: 'hardening', device: 'router', vpn: true }],
@@ -494,7 +494,7 @@ export const netAuditLab: LabDef = {
           options: [
             { id: 'roles', text: 'List which roles may use the VPN.', correct: true },
             { id: 'auth', text: 'Require strong authentication, such as keys or MFA.', correct: true },
-            { id: 'split', text: 'Prohibit split tunneling.', correct: true },
+            { id: 'split', text: 'Ban split tunneling.', correct: true },
             { id: 'fast', text: "Allow split tunneling so the bookkeeper's home videos load faster.", feedback: 'You watched split tunneling open a path from a home device into the office. Speed is not worth that.' },
             { id: 'wifi', text: 'Let anyone with the office Wi-Fi password connect to the VPN.', feedback: 'A VPN policy names roles and requires strong authentication, not a shared password.' },
           ],
@@ -516,9 +516,9 @@ export const netAuditLab: LabDef = {
       body: md`
         Run the scanner one last time. The high and moderate findings should be gone. One low finding remains: the Wi-Fi still sends its beacon.
 
-        You do not have to fix every finding. A **low risk** that costs more to fix than the harm it could cause can be **accepted**: written down, and kept by choice.
+        You do not have to fix every finding. A **low risk** that costs more to fix than the harm it could cause can be **accepted**: written down, and kept by choice. The beacon is one. The fix would be to hide the Wi-Fi name, but a patient scanner still finds a hidden network, and staff have a harder time joining it.
 
-        (This scanner checks seven things, to keep the lab short. A real scanner checks thousands. It would also flag the donor web page on port 80, which has no encryption.)
+        (This scanner checks seven things, to keep the lab short. A real scanner checks thousands. It would also report that the donor web page has no encryption.)
       `,
       focus: ['auditor'],
       open: 'tools',
