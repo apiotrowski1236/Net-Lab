@@ -183,7 +183,7 @@ export const netAuditLab: LabDef = {
 
         **SSH** does the same job as Telnet, but it encrypts the session.
 
-        (To keep the map clear, it shows each login as one packet each way. A real login has more packets. To capture a login on a real office network, an attacker has to be somewhere the traffic passes, such as the Wi-Fi.)
+        (To keep the map clear, it shows each login as one packet each way. A real login has more packets. To capture a login on a real office network, an attacker has to be somewhere the traffic passes, such as the Wi-Fi. Capture tools like this one are free and take no skill to run.)
       `,
       focus: ['auditor', 'router'],
       open: 'tools',
@@ -199,7 +199,7 @@ export const netAuditLab: LabDef = {
         {
           id: 'telnet-why',
           kind: 'choice',
-          prompt: 'You read the admin password straight out of the Telnet capture. SSH showed only scrambled text. Why should the router turn Telnet off?',
+          prompt: 'You read the admin password straight out of the Telnet capture. SSH showed the login only as scrambled text. Why should the router turn Telnet off?',
           options: [
             { id: 'plain', text: 'Telnet sends the login as plain text, so anyone on the path can read the password.', correct: true },
             { id: 'slow', text: 'Telnet is slower than SSH.', feedback: 'Speed is not the issue. Compare what you could read in each capture.' },
@@ -278,11 +278,11 @@ export const netAuditLab: LabDef = {
 
         Three findings match examples from the AP Cybersecurity course. Rate them to match:
 
-        - **Weak Wi-Fi encryption** (WEP): the high example. A free tool cracks it, so likelihood is high. The office is a **flat network**: every device is on one network, so anyone who cracks the Wi-Fi can reach the donor server. Impact is high.
-        - The router **answering pings from the internet** (a ping is a small "are you there?" message): the moderate example. It takes no skill, so likelihood is high. It only tells an outsider the office is there, so impact is low.
-        - The **Wi-Fi beacon**: the low example. The beacon is the message the Wi-Fi sends out to announce its name. Anyone can see the name, but a name alone is not a way in, so harm is unlikely: likelihood is low. Impact is low too.
+        - **Weak Wi-Fi encryption** (WEP): the course's example of a high rating. A free tool cracks it, so likelihood is high. The office is a **flat network**: every device is on one network, so anyone who cracks the Wi-Fi can reach the donor server. Impact is high.
+        - The router **answering pings from the internet** (a ping is a small "are you there?" message): the course's example of a moderate rating. It takes no skill, so likelihood is high. It only tells an outsider the office is there, so impact is low.
+        - The **Wi-Fi beacon**: the course's example of a low rating. The beacon is the message the Wi-Fi sends out to announce its name. Anyone can see the name, but a name alone is not a way in, so harm is unlikely: likelihood is low. Impact is low too.
 
-        The other four have no single right answer. Rate them with your own judgment. You will see the VPN finding up close in a later step.
+        The other four have no single right answer. Rate them with your own judgment. Any rating you can explain counts. You will see the VPN finding up close in a later step.
       `,
       open: 'tools',
       tools: [{ kind: 'risk-register', device: 'auditor' }],
@@ -321,7 +321,7 @@ export const netAuditLab: LabDef = {
           id: 'cia',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'You rated the WEP Wi-Fi finding high. An attacker who cracks it can open the donor records on the server. Which part of the CIA triad does that break first?',
+          prompt: 'You rated the WEP Wi-Fi finding high. An attacker who cracks it can reach the donor records server. Which part of the CIA triad does that break first?',
           options: [
             { id: 'c', text: 'Confidentiality.', correct: true },
             { id: 'i', text: 'Integrity.', feedback: 'Integrity is about changing data. Reading it breaks confidentiality first.' },
@@ -359,7 +359,7 @@ export const netAuditLab: LabDef = {
           hint: 'In the Security settings of [[router]], check all four: Telnet off, SSH on, logins through the authentication server, and Drop pings on.',
           check: ({ sim }) => routerHardened(sim),
         },
-        { id: 'rescan', label: 'Re-scan and clear the router’s findings', hint: 'Apply the settings first, then press **Run scan again** in the Toolkit.', check: without('telnet', 'default-admin', 'edge-icmp') },
+        { id: 'rescan', label: 'Re-scan and clear the router’s login and ping findings', hint: 'Apply the settings first, then press **Run scan again** in the Toolkit.', check: without('telnet', 'default-admin', 'edge-icmp') },
       ],
       questions: [
         {
@@ -431,7 +431,7 @@ export const netAuditLab: LabDef = {
             { id: 'encrypt', text: 'MAC filtering encrypts the network.', feedback: 'It decides who may connect. It does not encrypt anything.' },
             { id: 'only', text: 'It is the only control a switch needs.', feedback: 'On its own it is weak. Port security and shut ports back it up.' },
           ],
-          explain: 'No single control is enough. MAC filtering stops casual devices and adds a layer. Port security and shutting unused ports cover what it misses.',
+          explain: 'No single control is enough. MAC filtering stops casual devices. A copied MAC on a desk port still gets through, so it is one layer among several. Shutting unused ports closes the lobby jack.',
         },
       ],
     },
@@ -442,7 +442,7 @@ export const netAuditLab: LabDef = {
       body: md`
         Next is the Wi-Fi, the course's high example. [[wap]] uses **WEP**, an old encryption that a free tool cracks in under a minute. Its signal reaches the parking lot. The office is one flat network, so once someone is on the Wi-Fi they can reach [[fileserver]] and its donor records.
 
-        1. Click [[wap]] and change its security from WEP to **WPA3**, the strongest setting.
+        1. Click [[wap]] and change its security from WEP to **WPA3**, the strongest setting. (WPA2 also clears the finding.)
         2. Re-scan.
 
         WPA3 closes the quick way in. The network is still flat, so a break-in could still spread. Splitting it into zones is a separate project: that is **network segmentation**, a later lab.
@@ -451,7 +451,7 @@ export const netAuditLab: LabDef = {
       open: { inspect: 'wap' },
       tools: [{ kind: 'wifi-config', device: 'wap' }, { kind: 'scanner', device: 'auditor' }],
       goals: [
-        { id: 'wpa3', label: 'Replace WEP on [[wap]] with WPA3', hint: 'Open [[wap]] and change the security mode. WEP is broken; pick WPA3.', check: ({ sim }) => wifiStrong(sim) },
+        { id: 'wpa3', label: 'Replace WEP on [[wap]] with WPA3 (or WPA2)', hint: 'Open [[wap]] and change the security mode. WEP is broken; pick WPA3.', check: ({ sim }) => wifiStrong(sim) },
         { id: 'rescan', label: 'Re-scan and clear the high finding', hint: 'Change the setting first, then press **Run scan again**.', check: without('wifi-weak') },
       ],
       questions: [

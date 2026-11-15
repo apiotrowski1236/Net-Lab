@@ -47,7 +47,7 @@ export function RiskRegisterTool({ session, spec }: ToolCardProps<'risk-register
                     {rating ? <RiskPill level={rating} /> : <span class="pill muted">not rated</span>}
                   </div>
                   <div class="small muted">
-                    {session.sim.devices[f.device]?.label ?? f.device}. Scanner says {RISK_LABEL[f.severity].toLowerCase()}.
+                    {session.sim.devices[f.device]?.label ?? f.device}. Scanner's overall rating: {RISK_LABEL[f.severity].toLowerCase()}.
                     {fixed && <span class="pill good tiny">Fixed</span>}
                   </div>
                   <div class="risk-selects">
