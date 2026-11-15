@@ -77,13 +77,15 @@ function connLines(sim: Sim, since: number, from: string, tag: string, who: stri
   const c = lastConn(sim, from, since, tag);
   if (!c) return [{ tone: 'wait', text: 'On its way…' }];
   const v = verdictWords(sim, c);
-  if (c.status === 'pending') {
-    if (connVerdict(sim, c)?.action === 'deny') return [{ tone: 'wait', text: `${v}. ${who} waits for an answer that never comes…` }];
-    return [{ tone: 'wait', text: v ? `${v}. Waiting for an answer…` : 'On its way…' }];
-  }
+  if (!settled(sim, c)) return [{ tone: 'wait', text: v ? `${v}. Waiting for an answer…` : 'On its way…' }];
   if (c.status === 'open') return [{ tone: friend ? 'good' : 'bad', text: `${v ?? 'Allowed'}. ${answered(c.banner ?? '')}` }];
-  return [{ tone: friend ? 'bad' : 'good', text: `${v ?? 'Blocked'}. ufw dropped it and wrote a line in ufw.log. ${who} got no answer.` }];
+  return [{ tone: friend ? 'bad' : 'good', text: `${v ?? 'Blocked'}. ufw dropped it and wrote a line in ufw.log. ${who} gets no answer.` }];
 }
+
+/** ufw dropped the connection's first packet. No answer will ever come, so the result is in. */
+const dropped = (sim: Sim, c: Conn) => connVerdict(sim, c)?.action === 'deny';
+/** The connection's result is in: it ended, or ufw dropped it. */
+const settled = (sim: Sim, c: Conn) => c.status !== 'pending' || dropped(sim, c);
 
 const customer: ActionDef = {
   id: 'customer',
@@ -131,12 +133,10 @@ function guessLines(sim: Sim, since: number, from: string, tag: string, n: numbe
   // A press during a run is ignored, so its lines follow the run it landed in.
   const start = guessRunStart(sim, tag, since);
   const cs = (sim.dev(from).conns ?? []).filter((c) => c.t >= start && c.tag === tag);
-  const done = cs.length === n && cs.every((c) => c.status !== 'pending');
+  const done = cs.length === n && cs.every((c) => settled(sim, c));
   const reached = cs.filter((c) => c.status === 'open').length;
-  const blocked = cs.filter((c) => c.status === 'no-answer').length;
-  const dropped = cs.some((c) => connVerdict(sim, c)?.action === 'deny');
-  const why = dropped ? ' ufw dropped a guess, and the attacker waits for an answer that never comes.' : '';
-  return { done, reached, blocked, cs, lines: done ? [] : [{ tone: 'wait', text: `Guessing… ${cs.filter((c) => c.status !== 'pending').length} of ${n} done.${why}` }] };
+  const blocked = cs.filter((c) => c.status === 'no-answer' || dropped(sim, c)).length;
+  return { done, reached, blocked, cs, lines: done ? [] : [{ tone: 'wait', text: `Guessing… ${cs.filter((c) => settled(sim, c)).length} of ${n} done.` }] };
 }
 
 const spray: ActionDef = {
@@ -164,7 +164,12 @@ const bot: ActionDef = {
     const ip = botIp(sim);
     if (!g.blocked) {
       if (lx(sim).f2b.banned.includes(ip))
-        return [{ tone: 'bad', text: `All 8 guesses from ${ip} reached sshd before any ban. fail2ban banned ${ip} later, from the lines it read back when it started. Next time, turn fail2ban on first and watch it ban during the attack.` }];
+        return [
+          {
+            tone: 'bad',
+            text: `All 8 guesses from ${ip} reached sshd before any ban. fail2ban banned ${ip} later, from the lines it read back when it started. Press the button again: the bot comes back from a new address, and you can watch fail2ban stop it.`,
+          },
+        ];
       return [{ tone: 'bad', text: `All 8 guesses from ${ip} reached sshd. Nothing stopped them: fail2ban is off.` }];
     }
     if (!g.reached) {
@@ -172,7 +177,8 @@ const bot: ActionDef = {
       const v = g.cs[0] ? verdictWords(sim, g.cs[0]) : undefined;
       return [{ tone: 'bad', text: `${v ?? 'Blocked'}. ufw blocked all 8 guesses before sshd saw them, so fail2ban had nothing to count.` }];
     }
-    return [{ tone: 'good', text: `${g.reached} guesses reached sshd. Then fail2ban banned ${ip}, and ufw blocked the last ${g.blocked}.` }];
+    const back = ip === IP.bot ? '' : `The bot came back from a new address, ${ip}. `;
+    return [{ tone: 'good', text: `${back}${g.reached} guesses reached sshd. Then fail2ban banned ${ip}, and ufw blocked the last ${g.blocked}.` }];
   },
 };
 
@@ -209,7 +215,7 @@ const rescan: ActionDef = {
     return [
       {
         tone: 'good',
-        text: `The scan pinged web01 to check it was up (ufw lets ping through), then knocked on ${RESCAN_PORTS.length} ports. ufw blocked ${blocked} packets and wrote a line for each in ufw.log. Ports ${open.join(', ')} answered, and ufw wrote nothing about them.`,
+        text: `The scan pinged web01 to check it was up. (ufw has built-in rules, checked before the numbered list, that let ping through.) Then it tried ${RESCAN_PORTS.length} ports. ufw blocked ${blocked} packets and wrote a line for each in ufw.log. Ports ${open.join(', ')} answered, and ufw wrote nothing about them.`,
       },
     ];
   },
@@ -221,8 +227,24 @@ const rescan: ActionDef = {
 
 const tested = (from: string, tag: string) => ({ sim, since }: CheckCtx) => {
   const c = lastConn(sim, from, since, tag);
-  return !!c && c.status !== 'pending';
+  return !!c && settled(sim, c);
 };
+
+/**
+ * Addresses fail2ban banned since `since` while it was already running: a ban
+ * during an attack. A ban from the lines fail2ban reads back when it starts
+ * happens at the same moment it's turned on, so it doesn't count.
+ */
+function liveBans(sim: Sim, since: number): Set<string> {
+  const out = new Set<string>();
+  let onAt: number | undefined;
+  for (const e of sim.events) {
+    if (e.type !== 'config' || e.device !== WEB) continue;
+    if (e.what === 'fail2ban') onAt = e.on ? e.t : undefined;
+    else if (e.what === 'fail2ban-ban' && e.detail && e.t >= since && onAt !== undefined && e.t > onAt) out.add(e.detail);
+  }
+  return out;
+}
 
 /** A finished terminal command on web01 since the step began. */
 const ran = (pred: (cmd: string, line: string, out: string) => boolean) => ({ sim, since }: CheckCtx) =>
@@ -259,7 +281,7 @@ const cite = (id: string, prompt: string, file: LogFile, want: number[], what: s
 
 export const deviceAnalysisLab: LabDef = {
   id: 'device-analysis',
-  version: 1,
+  version: 2,
   title: 'Device Security Analysis',
   tagline: "Read a web server's firewall rules and logs, find two attacks, change the rules, and stop the next attack while it happens.",
   unit: 3,
@@ -280,9 +302,9 @@ export const deviceAnalysisLab: LabDef = {
       id: 'case',
       title: 'The case',
       body: md`
-        Harbor Food Co-op sells groceries online at shop.harborfood.example. One Ubuntu Linux server runs the site: [[web01]]. Jo, the co-op's part-time admin, takes care of it from [[jo]] at the office. Every night at 2:10, the farm that supplies the co-op, [[vendor]], uploads the next day's order file to it.
+        Harbor Food Co-op sells groceries online at shop.harborfood.example. One Ubuntu Linux server, web01, runs the site. Jo, the co-op's part-time admin, takes care of it from [[jo]] at the office. Every night at 2:10, the farm that supplies the co-op, [[vendor]], uploads the next day's order file to it.
 
-        It's Monday morning. Over the weekend, something hammered the server. You have Jo's evidence: the server's firewall rules, its log files, and the co-op's server policy. Your job is the one on the AP exam's free-response question: read the evidence, find the attacks, and fix what let them in.
+        It's Monday morning. Over the weekend, someone attacked the server again and again. You have Jo's evidence: the server's firewall rules, its log files, and the co-op's server policy. Your job is the one on the AP exam's free-response question: read the evidence, find the attacks, and fix what let them in.
 
         Everything in this lab happens inside a simulation. Attacking or scanning a real server without permission is illegal.
 
@@ -290,15 +312,15 @@ export const deviceAnalysisLab: LabDef = {
 
         1. Only the website (ports 80 and 443) is open to everyone on the internet.
         2. Remote administration (SSH, remote desktop, screen sharing) is allowed only from the office network, 192.0.2.0/24.
-        3. Files move only over encrypted connections: **SFTP** (file transfer over SSH), never FTP. Bayline Farms uploads the nightly order file this way, from its own network.
-        4. Security updates are installed within 7 days.
-        5. Someone reviews the server's logs every Monday.
+        3. Files from outside the office move only over encrypted connections: **SFTP** (file transfer over SSH), never FTP. Bayline Farms uploads its nightly order file this way.
 
-        Click **web01** on the map. Scroll to **Firewall rules (ufw)**. This is a **host-based firewall**: a firewall that runs on the computer it protects and checks every packet that arrives for it. ufw checks the rules from the top, and the first rule that matches a packet decides. Rule 10 denies everything, so anything the rules above it don't allow is blocked.
+        The /24 in 192.0.2.0/24 means the first three numbers stay the same. So the office network is every address that starts with 192.0.2, like Jo's laptop, 192.0.2.15.
 
-        Next, see which programs are waiting for connections. A program that waits on a port is **listening**. The **Terminal** in the Toolkit is signed in to web01 as Jo. Type \`ss -tuln\` and press Enter. (\`-t\` means TCP, \`-u\` UDP, \`-l\` listening, \`-n\` numbers instead of names.) If the Terminal is too short to read, press **Bigger**.
+        Click **web01** on the map. Scroll to **Firewall rules (ufw)**. This is a **host-based firewall**: it runs on the computer it protects and checks every packet that arrives. ufw checks the rules from the top, and the first rule that matches a packet decides. Rule 10 denies everything, so anything the rules above it don't allow is blocked.
 
-        ss shows more than the **Open ports** table in Inspect does. It also lists programs that listen only on 127.0.0.1, the server's address for talking to itself. Nothing outside the server can reach those.
+        Next, see which programs are **listening**: waiting for connections on a port. In the Toolkit's **Terminal**, type \`ss -tuln\` and press Enter. (\`-t\` means TCP, \`-u\` UDP, \`-l\` listening, \`-n\` numbers instead of names.) Press **Bigger** if the output doesn't fit.
+
+        Some programs listen only on 127.0.0.1, the server's address for talking to itself. Nothing outside the server can reach those.
       `,
       focus: [WEB],
       tools: [term(['ss', 'ufw'])],
@@ -313,16 +335,29 @@ export const deviceAnalysisLab: LabDef = {
       ],
       questions: [
         {
-          id: 'site-rule',
+          id: 'local-port',
           kind: 'choice',
-          prompt: 'Customers order on the co-op’s website, which uses HTTPS on port 443. Which rule lets them in?',
+          afterGoals: true,
+          prompt: 'ss lists 127.0.0.1:25. That is the server’s mail program. Can a computer on the internet connect to it?',
           options: [
-            { id: 'r4', text: 'Rule 4: ALLOW 443/tcp from Anywhere', correct: true },
-            { id: 'r3', text: 'Rule 3: ALLOW 80/tcp from Anywhere', feedback: 'Port 80 is HTTP, the unencrypted web. The order site uses HTTPS on 443.' },
-            { id: 'r5', text: 'Rule 5: ALLOW 22/tcp from Anywhere', feedback: 'Port 22 is SSH, for remote administration. The website doesn’t use it.' },
-            { id: 'r10', text: 'Rule 10: DENY everything from Anywhere', feedback: 'Rule 10 blocks. A packet only gets to rule 10 when no rule above it matched, and rule 4 matches HTTPS first.' },
+            { id: 'local', text: 'No. It listens only on 127.0.0.1, so only web01 can reach it', correct: true },
+            {
+              id: 'listening',
+              text: 'Yes. A listening program takes connections from any address',
+              feedback: 'Look at the address in front of the port. A program on 0.0.0.0 listens on every address. One on 127.0.0.1 listens only to the server itself.',
+            },
+            {
+              id: 'rule',
+              text: 'Yes, as soon as someone adds a ufw rule that allows port 25',
+              feedback: 'A rule could let the packet in, but nothing would answer it. The mail program listens only on 127.0.0.1, not on the address the internet uses.',
+            },
+            {
+              id: 'r10',
+              text: 'Yes. Rule 10 only blocks ports that nobody is listening on',
+              feedback: 'Rule 10 blocks every packet that the rules above it don’t allow, whether a program listens on that port or not.',
+            },
           ],
-          explain: 'ufw reads down the list. Rules 1 to 3 don’t match a packet for port 443. Rule 4 does, so it decides: allow.',
+          explain: 'A packet from the internet is addressed to web01’s public address, 198.51.100.10. The mail program listens only on 127.0.0.1, so it never hears that packet, whatever the firewall rules say.',
         },
       ],
     },
@@ -388,17 +423,17 @@ export const deviceAnalysisLab: LabDef = {
       body: md`
         Linux servers keep **log files** in /var/log. Each line records one event, starting with the date and time. **/var/log/auth.log** records sign-ins: who, from which address, and whether it worked.
 
-        Open the **Log files** card in the Toolkit and pick **auth.log**. The number at the left of each line is its **row**. On the exam, you cite rows like these as evidence. (In this simulation, each failed sign-in writes one line. A real server writes two or three.)
+        Open the **Log files** card in the Toolkit and pick **auth.log**. The number at the left of each line is its **row**. On the exam, you cite rows as evidence. (Here each failed sign-in writes one line. A real server writes two or three.)
 
-        Three kinds of lines matter here:
+        Three kinds of lines matter:
 
-        - \`Accepted publickey for bayline\` means Bayline Farms signed in with its **key**: a secret file on its computer that proves who it is, in place of a password.
-        - \`Failed password for invalid user admin\` means someone guessed a password for an account that doesn't exist on this server.
-        - \`Failed password for root\` has no "invalid user", because root is a real account: the administrator account on every Linux server.
+        - \`Accepted publickey for bayline\`: Bayline Farms signed in with its **key**, a secret file on its own computer that proves who it is. The server keeps only the matching public half, so there is no password to guess.
+        - \`Failed password for invalid user admin\`: someone guessed a password for an account that doesn't exist on this server.
+        - \`Failed password for root\`: no "invalid user", because root is a real account, the administrator account on every Linux server.
 
-        A **brute-force attack** tries many passwords on one account. A **password spray** turns that around: it tries one or two common passwords on many usernames. Each account sees only one wrong guess, so a rule like "lock the account after 5 wrong passwords" never kicks in. A spray usually aims at accounts that exist. This one also tried common default usernames that don't exist here, which is why most of its lines say invalid user.
+        A **brute-force attack** tries many passwords on one account. A **password spray** is the opposite: one guess on each of many usernames. Each account sees only one wrong password, so a rule like "lock the account after 5 wrong passwords" never starts.
 
-        You can search from the Terminal too. \`grep\` prints the lines of a file that contain some text, and \`-n\` adds the row numbers:
+        You can also search from the Terminal. \`grep\` prints the lines of a file that contain some text, and \`-n\` adds the row numbers (the Terminal calls them line numbers):
 
         \`\`\`sh
         grep -n "Failed password" /var/log/auth.log
@@ -446,7 +481,7 @@ export const deviceAnalysisLab: LabDef = {
       id: 'ufw-log',
       title: 'Blocked at the door',
       body: md`
-        **/var/log/ufw.log** has a line for every packet the firewall blocked. (This server's ufw is set to log every block.) Here's how to read one:
+        **/var/log/ufw.log** has a line for every packet the firewall blocked. Here's how to read one:
 
         | Part | What it means |
         |---|---|
@@ -454,16 +489,16 @@ export const deviceAnalysisLab: LabDef = {
         | IN=eth0 | it came in on eth0, the server's **network interface** (its network card) |
         | SRC= | the address it came from |
         | DST= | the address it was going to: web01 |
-        | SPT= and DPT= | the source port, and the destination port: the door it knocked on |
+        | SPT= and DPT= | the source port, and the destination port: the service it tried to reach |
         | SYN | the first packet of a new connection |
 
-        Open **ufw.log**. Look for a burst of lines from one address that knock on many different ports in a second or two. That's a **port scan**: a program like nmap trying door after door to see which ones answer. A scan is often the first step of an attack, because it shows the attacker which services to go after.
+        Open **ufw.log**. Look for a burst of lines from one address that try many different ports within a second or two. That's a **port scan**: a program like nmap tries port after port to see which ones answer. A scan often comes first in an attack, because it shows the attacker which services to go after.
 
-        Some of the scan's knocks aren't in ufw.log at all. Ports the rules allow, like 80 and 443, answered, and ufw writes nothing when it allows a packet. To see this happen, replay the scan: [[button:rescan]]
+        Some of the scan's tries aren't in ufw.log. Ports the rules allow, like 80 and 443, answered, and ufw writes nothing when it allows a packet. See it happen: [[button:rescan]]
 
-        Your tests in step 2 and this replay add new lines at the bottom of ufw.log, with today's date. Scroll down to see them. The questions ask about the weekend's lines, above them.
+        Your tests in step 2 and this replay add new lines at the bottom of ufw.log. The questions ask about the weekend's lines, above them.
       `,
-      tools: [logs(['auth', 'ufw']), term(['grep', 'tail'])],
+      tools: [logs(['auth', 'ufw'])],
       actions: [rescan],
       questions: [
         {
@@ -501,13 +536,13 @@ export const deviceAnalysisLab: LabDef = {
 
         ufw changes the rules from the Terminal. Changing them takes administrator rights, so on a real server the command starts with \`sudo\`. (Here you can leave it off.)
 
-        1. Type \`sudo ufw deny from 203.0.113.77\`. Then type \`ufw status numbered\` to see where the new rule went.
+        1. Press **Bigger** on the Terminal, so the whole rule list fits. Type \`sudo ufw deny from 203.0.113.77\`. Then type \`ufw status numbered\` to see where the new rule went.
         2. Replay the spray: [[button:spray]]
         3. Read the result under the button. Did your rule stop it?
 
         If the spray still got through, the problem is the order of the rules. Delete your rule first: \`ufw delete N\` deletes rule number N. (A real server asks you to confirm a delete with y. This one skips that.) Then \`ufw insert N\` followed by a rule puts it at position N, like \`ufw insert 1 deny from 203.0.113.77\`. Replay the spray again.
       `,
-      tools: [term(['ufw', 'grep', 'tail']), logs(['auth', 'ufw'])],
+      tools: [term(['ufw', 'grep', 'tail'])],
       actions: [spray],
       goals: [
         {
@@ -537,7 +572,7 @@ export const deviceAnalysisLab: LabDef = {
           options: [
             { id: 'order', text: 'ufw put the rule at the bottom, and the rule allowing 22/tcp from Anywhere matches first', correct: true },
             { id: 'restart', text: 'New ufw rules only work after the server restarts', feedback: 'ufw changes work at once. Look at where the new rule landed in ufw status numbered.' },
-            { id: 'moved', text: 'The attacker switched to a new address', feedback: 'Every replay came from 203.0.113.77. Check the SRC in ufw.log, or the from in auth.log.' },
+            { id: 'moved', text: 'The attacker switched to a new address', feedback: 'Every replay came from 203.0.113.77. The result under the button names the rule that let it in.' },
             { id: 'ssh', text: 'A deny rule can’t block SSH', feedback: 'It can, once it’s above the rule that allows SSH. Order is the problem.' },
           ],
           explain: 'A new rule goes at the bottom, after rule 10. ufw stops at the first match, and the SSH rule above matches first, so the new rule never gets checked. ufw insert 1 puts it at the top.',
@@ -549,23 +584,22 @@ export const deviceAnalysisLab: LabDef = {
       id: 'fail2ban',
       title: 'Stop it while it happens',
       body: md`
-        Blocking an address after the attack is over is slow, and attackers have many addresses. An **intrusion detection system** (IDS) watches for an attack and alerts a person, who then acts. An **intrusion prevention system** (IPS) goes further: it stops the attack while it happens, with no person in the loop.
+        Blocking an address after the attack is over is slow, and attackers have many addresses. An **intrusion detection system** (IDS) watches for an attack and alerts a person, who then acts. An **intrusion prevention system** (IPS) stops the attack by itself, while it happens.
 
-        **fail2ban** is a small IPS for Linux servers. It reads auth.log as the lines are written. When one address fails to sign in 5 times within 10 minutes, fail2ban adds a ufw rule at the top that blocks that address.
+        **fail2ban** is a small IPS for Linux servers. It reads auth.log as the lines are written. When one address fails to sign in 5 times within 10 minutes, fail2ban adds a ufw rule at the top that blocks that address. It can watch other logs too, like a web or mail server's.
 
         1. In the **Sign-in defenses** card, turn on **fail2ban**.
-        2. Press [[button:bot]]. A new computer, [[bot]], starts guessing passwords.
-        3. Read **fail2ban.log**, then **ufw.log**. Open the **Inspect** tab and scroll to web01's firewall rules to see the new rule at the top.
+        2. Press [[button:bot]]. [[bot]] starts guessing passwords.
+        3. Read **fail2ban.log**, then **ufw.log**. Then open the **Inspect** tab and find the new rule at the top of web01's firewall rules.
 
-        (If your rule from step 5 blocked the whole 203.0.113.0/24 network, it now blocks only 203.0.113.77. [[bot]] is in that network too, and it has to reach SSH for this step to work.)
+        When fail2ban starts, it reads back through the last 10 minutes of auth.log. So your replays from step 5 can show up as Found lines for 203.0.113.77. That's fewer than 5, so no ban. In fail2ban.log, \`maxRetry: 5\` is the limit, \`findtime: 600\` is 600 seconds (10 minutes), and \`banTime: 600\` is how long a ban lasts. fail2ban calls each service it watches a **jail**. Here the jail is sshd.
 
-        fail2ban.log calls each service it watches a **jail**. Here the jail is sshd. \`maxRetry: 5\` and \`findtime: 600\` mean 5 failures within 600 seconds, which is 10 minutes. \`banTime: 600\` means a ban lasts 10 minutes. When fail2ban starts, it also reads back through auth.log for failures from the last 10 minutes, so your own replays from step 5 can show up as Found lines.
-
-        fail2ban can watch other logs too, like the website's access.log.
+        (If your step 5 rule blocked all of 203.0.113.0/24, it now covers only 203.0.113.77, so [[bot]] can reach SSH.)
       `,
       setup: (sim) => {
         ensureSprayBlocked(sim);
-        ensureBotReachesSsh(sim, [botIp(sim)]);
+        // A banned bot comes back from the next address, so that one has to reach SSH too.
+        ensureBotReachesSsh(sim, [botIp(sim), ...nextBotnetIps(sim, 2)]);
       },
       tools: [guard(['fail2ban']), logs(ALL_LOGS)],
       actions: [bot],
@@ -575,7 +609,7 @@ export const deviceAnalysisLab: LabDef = {
           id: 'banned',
           label: 'fail2ban bans the bot',
           hint: 'With fail2ban on, press the button and wait for all 8 guesses.',
-          check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'config' && e.device === WEB && e.what === 'fail2ban-ban' && e.detail === botIp(sim)),
+          check: ({ sim, since }) => liveBans(sim, since).has(botIp(sim)),
         },
         {
           id: 'after',
@@ -583,7 +617,7 @@ export const deviceAnalysisLab: LabDef = {
           check: ({ sim, since }) =>
             happened(sim, since, (e) => {
               if (e.type !== 'firewall' || e.device !== WEB || e.verdict.action !== 'deny' || e.pkt.src !== botIp(sim)) return false;
-              return fw(sim).rules.find((r) => r.id === e.verdict.ruleId)?.note === 'fail2ban';
+              return fw(sim).rules.find((r) => r.id === e.verdict.ruleId)?.note === 'fail2ban' && liveBans(sim, since).has(e.pkt.src);
             }),
         },
       ],
@@ -600,9 +634,9 @@ export const deviceAnalysisLab: LabDef = {
               text: 'It sent Jo an alert, and Jo blocked the address',
               feedback: 'That would be an intrusion detection system (IDS): it detects and alerts, and a person acts. fail2ban acted by itself, in seconds.',
             },
-            { id: 'slow', text: 'It slowed the server down until the bot gave up', feedback: 'Look at fail2ban.log: “Ban 203.0.113.201”. Then look at the top rule in web01’s firewall.' },
+            { id: 'slow', text: 'It slowed the server down until the bot gave up', feedback: 'Look for the Ban line in fail2ban.log. Then look at the top rule in web01’s firewall.' },
           ],
-          explain: 'fail2ban found 5 failures from 203.0.113.201 in auth.log, banned the address, and inserted DENY from 203.0.113.201 as rule 1. Every guess after that matched rule 1 and never reached sshd.',
+          explain: 'fail2ban found 5 failures from the bot’s address in auth.log, banned it, and inserted a DENY for that address as rule 1. Every guess after that matched rule 1 and never reached sshd.',
         },
       ],
     },
@@ -611,7 +645,7 @@ export const deviceAnalysisLab: LabDef = {
       id: 'keys',
       title: 'Another countermeasure',
       body: md`
-        fail2ban counts failures from each address. But [[bot]] is part of a **botnet**: thousands of infected computers that take turns, each making only a few guesses. Press [[button:botnet]] once or twice. Each press comes from a new address and makes 3 guesses, under fail2ban's limit of 5.
+        fail2ban counts failures from each address. But [[bot]] is part of a **botnet**: thousands of infected computers that take turns, each making only a few guesses. Press [[button:botnet]] once. Each press comes from a new address and makes 3 guesses, under fail2ban's limit of 5.
 
         A **countermeasure** is anything that defends against an attack. The strongest one here takes away what the attack needs: passwords. Jo and Bayline Farms already sign in with keys, so nobody needs a password to reach this server.
 
@@ -619,9 +653,9 @@ export const deviceAnalysisLab: LabDef = {
         2. Press [[button:botnet]] one more time. Scroll to the bottom of auth.log and read the new lines.
         3. Check that Jo can still get in: [[button:jo]]
 
-        Turning off password sign-in makes sshd reload its settings: that's the "Received SIGHUP" line. After that, each try ends with [preauth], which means sshd closed the connection before any password was checked.
+        Turning off password sign-in makes sshd reload its settings: that's the "Received SIGHUP" line. After that, each try ends with [preauth]: sshd closed the connection before anyone signed in, without checking a password.
 
-        Two more countermeasures for SSH: **multi-factor authentication** (MFA), which asks for a second proof, like a code from a phone, as well as a password. And a **VPN** (virtual private network), an encrypted connection into the office network from outside: the firewall allows SSH only from office and VPN addresses.
+        Two other countermeasures for SSH: **multi-factor authentication** (MFA) asks for a second proof, like a code from a phone. A **VPN** (virtual private network) is an encrypted connection into the office network from outside, so the firewall can keep SSH open to office addresses only.
       `,
       setup: (sim) => {
         ensureSprayBlocked(sim);
@@ -676,11 +710,11 @@ export const deviceAnalysisLab: LabDef = {
       id: 'policy',
       title: 'Change a rule, predict the impact',
       body: md`
-        Here are the parts of the co-op's policy that cover the firewall:
+        Here's the co-op's policy again:
 
         1. Only the website (ports 80 and 443) is open to everyone on the internet.
         2. Remote administration (SSH, remote desktop, screen sharing) is allowed only from the office network, 192.0.2.0/24.
-        3. Files move only over encrypted connections: SFTP (file transfer over SSH), never FTP. Bayline Farms uploads the nightly order file this way, from its own network.
+        3. Files from outside the office move only over encrypted connections: SFTP (file transfer over SSH), never FTP. Bayline Farms uploads its nightly order file this way.
 
         Compare the policy with [[web01]]'s rules. Type \`ufw status numbered\` to list them in the Terminal.
 
@@ -698,9 +732,9 @@ export const deviceAnalysisLab: LabDef = {
 
         Answer the prediction question before you test. Then test: [[button:jo]] [[button:vendor]]
 
-        If a test fails, fix it with one more rule above the last rule, the DENY for everything else.
+        If a test fails, add one more rule above the final DENY. Use the same command as the office rule, with the network that lost access in place of 192.0.2.0/24. The map shows each network's address.
       `,
-      tools: [term(['ufw', 'ss', 'grep', 'tail']), logs(ALL_LOGS)],
+      tools: [term(['ufw', 'ss', 'grep', 'tail'])],
       actions: [jo, vendor],
       goals: [
         {
@@ -733,7 +767,7 @@ export const deviceAnalysisLab: LabDef = {
             { id: 'https', text: 'ALLOW 443/tcp from Anywhere (HTTPS)', feedback: 'The website is the one thing the policy opens to the internet.' },
             { id: 'vnc', text: 'ALLOW 5900/tcp from 192.0.2.15 (screen sharing)', feedback: '192.0.2.15 is Jo’s laptop, inside the office network. That fits the policy.' },
           ],
-          explain: 'This step fixes SSH and FTP. Remote desktop stays open: closing it is the optional extra challenge after you submit.',
+          explain: 'Rules 6 and 9 (MySQL and file sharing) allow only the office, which fits. This step fixes SSH and FTP. Remote desktop stays open: closing it is the optional extra challenge after you submit.',
         },
         {
           id: 'predict',
@@ -743,7 +777,7 @@ export const deviceAnalysisLab: LabDef = {
             { id: 'vendor', text: 'Bayline Farms', correct: true },
             { id: 'jo', text: 'Jo', feedback: 'Jo’s laptop is 192.0.2.15, inside 192.0.2.0/24.' },
             { id: 'customers', text: 'Customers ordering on the website', feedback: 'Customers use port 443. This change touches only port 22.' },
-            { id: 'nobody', text: 'Nobody, since only attackers use SSH from outside', feedback: 'Read policy rule 3 again. Who else connects from outside the office?' },
+            { id: 'nobody', text: 'Nobody, since only attackers use SSH from outside', feedback: 'Read point 3 of the policy again. Who else connects from outside the office?' },
           ],
           explain: 'SFTP is file transfer over SSH, port 22. Closing SSH to the internet closes it for Bayline Farms too, until a rule allows their network.',
         },
@@ -780,7 +814,7 @@ export const deviceAnalysisLab: LabDef = {
           kind: 'text',
           label: 'A',
           prompt:
-            'Pick one blocked connection from the weekend in ufw.log. Cite its row, name the rule in the table that blocked it, and explain how. Then describe a rule change that would allow it, and the impact of that change.',
+            `Pick one of rows ${ROWS.served.slice(0, -1).join(', ')}, or ${ROWS.served.at(-1)} of ufw.log: weekend tries on ports where a program is listening. Cite the row and name the rule in the table that blocked it. Explain how that rule matched. Then suppose the co-op needed that service open: describe a rule change that would allow it, and the impact of that change.`,
           minWords: 25,
           lines: 5,
         },
@@ -789,7 +823,7 @@ export const deviceAnalysisLab: LabDef = {
           kind: 'text',
           label: 'B',
           prompt:
-            'Describe the password spray in auth.log. Cite the rows and the attacker’s IP address. Then explain how an automated system could stop an attack like it while it happens, and name a different countermeasure.',
+            'Describe the password spray in auth.log. Cite the rows and the attacker’s IP address. Explain how an automated system could stop an attack like it while it happens. Then name a different countermeasure.',
           minWords: 25,
           lines: 5,
         },
@@ -810,7 +844,7 @@ export const deviceAnalysisLab: LabDef = {
       title: 'Optional extra challenge: Close the remote desktop hole',
       extra: true,
       body: md`
-        Policy rule 2 covers remote desktop too, but the rule allowing 3389/tcp from Anywhere is still there. Change the rules so remote desktop is closed to the internet. Then test it: [[button:scan-rdp]]
+        Point 2 of the co-op's policy covers remote desktop too, but the rule allowing 3389/tcp from Anywhere is still there. Change the rules so remote desktop is closed to the internet. Then test it: [[button:scan-rdp]]
 
         This challenge earns no points. Hand in your work again when you're done so your teacher sees it.
       `,
@@ -823,7 +857,7 @@ export const deviceAnalysisLab: LabDef = {
           label: 'Test it: 203.0.113.140 gets no answer on 3389',
           check: ({ sim, since }) => {
             const c = lastConn(sim, 'scanner', since, 'scanner-rdp');
-            return rdpClosed(sim) && !!c && c.status === 'no-answer';
+            return rdpClosed(sim) && !!c && (c.status === 'no-answer' || dropped(sim, c));
           },
         },
       ],
@@ -844,9 +878,9 @@ export const deviceAnalysisLab: LabDef = {
 
         Open **access.log**. Most lines are customers using web browsers. Then find the lines from 203.0.113.140, the address from ufw.log. Its user agent is curl, a command-line tool, not a browser.
 
-        First, it asked for files that websites sometimes leave out by mistake: /.env (passwords and settings), /.git/config (the site's code history), /wp-login.php and /phpmyadmin/ (admin pages). Every answer was 404. Probing for weak spots like this is **reconnaissance**.
+        First, it asked for files that websites sometimes leave out by mistake: /.env (passwords and settings), /.git/config (the site's code history), and admin pages. Every answer was 404. Looking for weak spots like this is **reconnaissance**.
 
-        Then it tried something else. Look at the requests with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them climb out of the web folder to the top of the disk. There, /etc/passwd lists the server's accounts, and /etc/shadow holds their passwords as **hashes**, a one-way scrambled form. Only the administrator account can read /etc/shadow. Using \`..\` to read files outside the web folder is **directory traversal**.
+        Then it asked for paths with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them lead out of the web folder to the top of the disk, where /etc/passwd lists the server's accounts. Using \`..\` to read files outside the web folder is **directory traversal**.
 
         This challenge earns no points. Hand in your work again when you're done so your teacher sees it.
       `,

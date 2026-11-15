@@ -252,6 +252,8 @@ export const ROWS = {
   scan: rowsWhere('ufw', (f) => f.src === IP.scanner),
   scan22: rowsWhere('ufw', (f) => f.src === IP.scanner && f.dport === 22)[0],
   scan25: rowsWhere('ufw', (f) => f.src === IP.scanner && f.dport === 25)[0],
+  /** Scan rows on ports where a program listens for the internet (MySQL, SMB, VNC, SSH): Part A's choices. */
+  served: rowsWhere('ufw', (f) => f.src === IP.scanner && [3306, 445, 5900, 22].includes(Number(f.dport))),
   probes: rowsWhere('access', (f) => f.src === IP.scanner && f.status === 404),
   traversal: rowsWhere('access', (f) => String(f.path).includes('..')),
   /** How many rows each file had before the lab began. */
@@ -400,7 +402,18 @@ export const replaySpray = (sim: Sim) => void (guessing(sim, 'spray') || guess(s
 
 /** The bot's run of guesses: more than fail2ban's limit of 5. */
 export const BOT_USERS = ['admin', 'root', 'test', 'ubuntu', 'user', 'administrator', 'support', 'guest'];
-export const botAttack = (sim: Sim) => void (guessing(sim, 'bot') || guessing(sim, 'botnet') || guess(sim, 'bot', BOT_USERS, 300, 'bot'));
+export function botAttack(sim: Sim): void {
+  if (guessing(sim, 'bot') || guessing(sim, 'botnet')) return;
+  // Once banned, the bot comes back from a new address, so fail2ban has a new attack to stop while it happens.
+  if (lx(sim).f2b.banned.includes(botIp(sim))) moveBot(sim);
+  guess(sim, 'bot', BOT_USERS, 300, 'bot');
+}
+
+/** The bot takes the next address in 203.0.113.0/24. */
+function moveBot(sim: Sim): void {
+  const n = Number(botIp(sim).split('.')[3]);
+  sim.setIp('bot', 'eth0', `203.0.113.${n + 1}`, 24);
+}
 
 /**
  * Step 8: the bot is one of many. Each press comes from the next address,
@@ -409,8 +422,7 @@ export const botAttack = (sim: Sim) => void (guessing(sim, 'bot') || guessing(si
 export const BOTNET_USERS = ['admin', 'root', 'deploy'];
 export function botnetAttack(sim: Sim): void {
   if (guessing(sim, 'botnet') || guessing(sim, 'bot')) return;
-  const n = Number(botIp(sim).split('.')[3]);
-  sim.setIp('bot', 'eth0', `203.0.113.${n + 1}`, 24);
+  moveBot(sim);
   guess(sim, 'bot', BOTNET_USERS, 300, 'botnet');
 }
 export const botIp = (sim: Sim): Ip => sim.dev('bot').ifaces[0].ip ?? IP.bot;

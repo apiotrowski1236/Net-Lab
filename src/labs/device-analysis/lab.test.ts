@@ -90,6 +90,11 @@ describe('device-analysis: the weekend in the logs', () => {
 });
 
 describe('device-analysis: citing rows', () => {
+  it('offers Part A only scan rows where a program listens for the internet', () => {
+    expect(ROWS.served).toEqual([4, 7, 10, 11]);
+    expect(deviceAnalysisLab.steps.find((s) => s.id === 'write-up')!.questions![0].prompt).toMatch(/^Pick one of rows 4, 7, 10, or 11 of ufw\.log:/);
+  });
+
   it('reads ranges and lists however they are written', () => {
     for (const v of ['11-24', 'rows 11 to 24', '11–24', 'Rows 11 through 24', '11, 12-24', '11 - 24']) expect(parseRows(v)).toEqual(ROWS.spray);
     expect(parseRows('4, 5 and 9')).toEqual([4, 5, 9]);
@@ -225,6 +230,8 @@ describe('device-analysis: a step 6 rule for the whole network', () => {
     return since;
   };
   const goals = (sim: Sim, id: string, since: number) => Object.fromEntries(step(id).goals!.map((g) => [g.id, g.check({ sim, since })]));
+  const outcome = (sim: Sim, id: string, action: string, since: number) =>
+    step(id).actions!.find((a) => a.id === action)!.outcome!(sim, since).map((l) => l.text).join(' | ');
   const press = (sim: Sim, id: string, action: string) => {
     step(id).actions!.find((a) => a.id === action)!.run(sim);
     sim.runUntilIdle();
@@ -265,6 +272,42 @@ describe('device-analysis: a step 6 rule for the whole network', () => {
     enter(sim, 'keys');
     expect(allows(sim, IP.bot, 22)).toBe(false);
     expect(allows(sim, '203.0.113.202', 22)).toBe(true);
+  });
+
+  it('a ban from the lines fail2ban reads back at start doesn’t count; the bot comes back from a new address', () => {
+    const sim = buildCoop();
+    const s7 = enter(sim, 'fail2ban');
+    // Out of order: the bot first, with fail2ban off. Turning it on then bans the bot from the old lines.
+    press(sim, 'fail2ban', 'bot');
+    sim.linuxSet(WEB, 'fail2ban', true);
+    sim.runUntilIdle();
+    expect(lx(sim).f2b.banned).toEqual([IP.bot]);
+    expect(goals(sim, 'fail2ban', s7)).toEqual({ on: true, banned: false, after: false });
+    expect(outcome(sim, 'fail2ban', 'bot', s7)).toMatch(/^All 8 guesses from 203\.0\.113\.201 reached sshd before any ban\. .* Press the button again: the bot comes back from a new address/);
+
+    const t = sim.t;
+    press(sim, 'fail2ban', 'bot');
+    expect(botIp(sim)).toBe('203.0.113.202');
+    expect(lx(sim).f2b.banned).toEqual([IP.bot, '203.0.113.202']);
+    expect(goals(sim, 'fail2ban', s7)).toEqual({ on: true, banned: true, after: true });
+    expect(outcome(sim, 'fail2ban', 'bot', t)).toBe('The bot came back from a new address, 203.0.113.202. 5 guesses reached sshd. Then fail2ban banned 203.0.113.202, and ufw blocked the last 3.');
+  });
+
+  it('a guess or test that ufw drops has its result within a second', () => {
+    const sim = buildCoop();
+    const s6 = enter(sim, 'command');
+    sh(sim, 'ufw insert 1 deny from 203.0.113.77');
+    const t = sim.t;
+    replaySpray(sim);
+    sim.advance(1500);
+    expect(outcome(sim, 'command', 'spray', t)).toBe('All 4 guesses were blocked. Blocked by rule 1 (DENY everything from 203.0.113.77). sshd never saw them, so auth.log has no new lines from 203.0.113.77.');
+    expect(goals(sim, 'command', s6)).toEqual({ deny: true, blocked: true });
+
+    const s2 = enter(sim, 'trace');
+    scannerSsh(sim);
+    sim.advance(1000);
+    expect(goals(sim, 'trace', s2)['scan-ssh']).toBe(true);
+    expect(outcome(sim, 'trace', 'scan-ssh', s2)).toBe('Blocked by rule 2 (DENY 22/tcp from 203.0.113.140). ufw dropped it and wrote a line in ufw.log. 203.0.113.140 gets no answer.');
   });
 
   it('the ban goal needs the bot, not the sprayer', () => {

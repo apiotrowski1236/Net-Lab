@@ -78,5 +78,14 @@ All checks in the authoring skill pass (typecheck, tests, walkthrough, playthrou
 - **Botnet.** Each press of **The botnet tries again** moves Unknown C to the next address and makes 3 guesses, under fail2ban's maxretry of 5, so fail2ban never bans it. Only turning off password sign-in stops it.
 - **Log rows.** Every log line goes through `sim.log` with `fields.file`; row N is the Nth entry for that file. The weekend history is a pure generator (`weekend()`), so the row constants (`ROWS`) are fixed at module load and the tests check them.
 - **Typed rows.** `src/runtime/citeRows.ts` reads "11-24", "11 to 24", "11–24", "11, 12, 13" and explains a wrong citation ("Row 9 isn't part of the spray: ..."). capture-analysis and watch-the-air check citations too; the three could share this module.
-- **Left out for later.** File permissions (`chmod`, `ls -l`) and the update policy (rule 4) have no step. A permissions part could be added to the write-up later.
+- **Left out for later.** File permissions (`chmod`, `ls -l`) and an update policy have no step. A permissions part could be added to the write-up later.
 - **Map.** One router, "Internet", joins the co-op server, the office, Bayline Farms, a customer, and a switch for the three unknown addresses.
+
+### Version 2 (student panel, November 2026)
+
+- **Step 1** explains /24 in one sentence and asks about the `ss` output (can the internet reach 127.0.0.1:25?) in place of the "which rule allows 443" warm-up. The policy shows only its three firewall points; points 4 (updates) and 5 (Monday log review) are gone, since nothing used them.
+- **Policy point 3** reads "Files from outside the office", so rule 9 (SMB from the office) fits the policy.
+- **fail2ban step:** the ban goal and the "next guesses blocked" goal count only a ban made while fail2ban was already running (`liveBans`). A ban from the lines fail2ban reads back when it starts happens at the moment it is turned on, so it doesn't count. Once the bot's address is banned, **A bot starts guessing passwords** moves the bot to the next address first, so a student who pressed it before turning fail2ban on can still watch a ban during the attack.
+- **Results come in when ufw drops a packet** (`settled`), not when the client gives up.
+- **Fewer cards per step:** the scan step has only Log files, and the command and policy steps only the Terminal, so the Terminal keeps its height.
+- **Write-up part A** offers rows 4, 7, 10, and 11 (ports where a program listens), so no one writes an impact for port 25, which listens only on 127.0.0.1.
