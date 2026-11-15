@@ -232,6 +232,21 @@ describe('route-hijack lab details', () => {
     expect(s.goalDone('rov', 'real')).toBe(true);
   });
 
+  it('turning West off after both validated does not count, and the fake route comes back', () => {
+    const s = playThrough(lab, lab.steps.findIndex((x) => x.id === 'impersonate'));
+    s.goTo(s.progress.step + 1);
+    playMove(s, { tool: { type: 'validate', device: 'home', on: true } });
+    playMove(s, { tool: { type: 'validate', device: 'west', on: true } });
+    playMove(s, { press: 'open-https' });
+    expect(s.goalDone('rov', 'real')).toBe(false);
+    // Only HomeNet is left. The page Alice loaded before the change doesn't count.
+    playMove(s, { tool: { type: 'validate', device: 'west', on: false } });
+    expect(s.goalDone('rov', 'real')).toBe(false);
+    // West hears Shady Net's routes again, and HomeNet rejects them, so Alice has no route.
+    playMove(s, { press: 'open-https' });
+    expect(s.goalDone('rov', 'real')).toBe(false);
+  });
+
   it('the AS path answer accepts common formats', () => {
     const q = lab.steps.find((x) => x.id === 'learn')!.questions!.find((x) => x.id === 'west-path')!;
     if (q.kind !== 'text' || !q.expect) throw new Error('expected an auto-checked text question');
@@ -500,6 +515,14 @@ describe('typed tool inputs', () => {
     });
     for (const junk of ['', '203.0.113.0', '203.0.113.0/33', 'bank', '0.0.0.0/0']) expect(checkPrefix(sim, 'shady', junk).ok, junk).toBe(false);
     expect(checkPrefix(sim, 'shady', '203.0.113.0/24')).toEqual({ ok: true, prefix: '203.0.113.0/24' });
+    // Once Shady Net announces the /24, a bare address doesn't suggest it again.
+    sim.announce('shady', '203.0.113.0/24');
+    const again = checkPrefix(sim, 'shady', '203.0.113.10');
+    expect(again.ok).toBe(false);
+    if (!again.ok) {
+      expect(again.suggest).toBeUndefined();
+      expect(again.msg).toContain('already announces 203.0.113.0/24');
+    }
   });
 
   it('any more-specific prefix that contains the bank finishes the "specific" step', () => {

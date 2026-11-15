@@ -27,6 +27,14 @@ const moreSpecifics = (sim: Sim) => sim.dev('shady').bgp!.origins.filter((p) => 
 const BANK_TARGET = { ip: BANK_IP, label: 'the bank' };
 const DEFENDERS = ['home', 'west', 'east', 'bankhost'];
 const validating = (sim: Sim) => DEFENDERS.filter((id) => sim.dev(id).bgp?.validate);
+/** When validation was last turned on or off anywhere, so a page load from before the change doesn't count. */
+const lastValidationChange = (sim: Sim) => {
+  for (let i = sim.events.length - 1; i >= 0; i--) {
+    const e = sim.events[i];
+    if (e.type === 'config' && e.what === 'validate') return e.t;
+  }
+  return 0;
+};
 
 // Step setups restore what a step needs if the student reset the network or
 // skipped ahead in an unexpected way. Each checks first, so it is safe to repeat.
@@ -371,7 +379,7 @@ export const routeHijackLab: LabDef = {
       body: md`
         Now defend. The **origin** of a route is the last AS number in its path: the network that started the announcement.
 
-        BankHost has published a signed record that says: only AS400 may be the origin for 203.0.113.0/24, or any smaller block inside it. A router that turns on **route origin validation** checks each announcement against records like this one. If the origin isn't allowed, the router rejects the announcement. (The records are called ROAs, and they are kept in a public registry called the RPKI.)
+        BankHost has published a signed record that says: only AS400 may be the origin for 203.0.113.0/24. An announcement for that block, or for any smaller block inside it, from any other origin fails the check. A router that turns on **route origin validation** checks each announcement against records like this one. If the origin isn't allowed, the router rejects the announcement. (The records are called ROAs, and they are kept in a public registry called the RPKI.)
 
         1. In the Toolkit, turn on validation for one network. Then press [[button:open-https]] and see if Alice reaches the real bank.
         2. If she doesn't, turn that network off and try another. Find the one network that protects everyone.
@@ -392,7 +400,9 @@ export const routeHijackLab: LabDef = {
           id: 'real',
           label: 'Alice reaches the real bank with only one network validating',
           hint: 'Turn validation off everywhere except one network. Which network hears from Shady Net first?',
-          check: ({ sim, since }) => validating(sim).length === 1 && pageSince(sim, 'alice', since, (b) => b.status === 'loaded' && !b.fake),
+          check: ({ sim, since }) =>
+            validating(sim).length === 1 &&
+            pageSince(sim, 'alice', Math.max(since, lastValidationChange(sim)), (b) => b.status === 'loaded' && !b.fake),
         },
       ],
       questions: [

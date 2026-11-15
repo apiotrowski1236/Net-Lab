@@ -67,6 +67,10 @@ export function checkPrefix(sim: Sim, deviceId: string, raw: string): Checked<{ 
     // Suggest the /24 block the address sits in, so the example passes the next check too.
     const net = normalizePrefix(`${p}/24`);
     const start = net.split('.').slice(0, 3).join('.');
+    const dev = sim.dev(deviceId);
+    if (dev.bgp?.origins.includes(net)) {
+      return { ok: false, msg: `Add a prefix length after a slash, like /24. ${dev.label} already announces ${net}, so pick a different length.` };
+    }
     return { ok: false, msg: `Add a prefix length after a slash. For example, ${net} covers every address that starts with ${start}.`, suggest: net };
   }
   if (!isPrefix(p)) return { ok: false, msg: 'Type a prefix: an IP address, a slash, and a length from 8 to 32. For example, 10.20.0.0/16.' };
