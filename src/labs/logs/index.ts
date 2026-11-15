@@ -196,7 +196,7 @@ export const logsLab: LabDef = {
       id: 'signatures',
       title: 'Signatures',
       body: md`
-        A **NIDS**, a network intrusion detection system, watches traffic and raises an **alert** when it sees something it knows is bad. [[nids]] is a NIDS. Its rules have been off since 02:00, when a signature update failed. That is why nothing caught the intruder overnight.
+        A **NIDS**, a network intrusion detection system, watches traffic and raises an **alert** when it sees something it knows is bad. [[nids]] is a NIDS. Its rules have been off since 02:00, when a signature update failed. That is why nothing caught the intruder after 2 a.m.
 
         Click [[nids]] and find the **Detection** section in its inspector. Turn on the **signature set**. A signature is a stored pattern for a known attack, the way antivirus knows a known virus.
 
@@ -250,7 +250,7 @@ export const logsLab: LabDef = {
       body: md`
         At 03:12 last night, [[pc2]] in finance sent a large upload to \`${EXFIL}\`. Nobody was at work. No list of known-bad addresses has ever seen that IP.
 
-        Press **Replay the 3 a.m. upload**. Watch the signature set. It stays silent.
+        Press **Replay the 3 a.m. upload**. Watch whether the signature set raises an alert.
 
         A detector can be wrong in two ways. A **false positive** is an alert on something harmless. A **false negative** is a real attack that raises no alert.
       `,
@@ -289,7 +289,7 @@ export const logsLab: LabDef = {
       id: 'baseline',
       title: 'Baseline',
       body: md`
-        **Anomaly-based** detection works the other way. First it records a **baseline**, a picture of the network on a clean, normal week: who talks to whom, how much, and at what hours. Then it gives each connection a **deviation** score, a count of how far it is from that picture, and alerts when the score is high.
+        **Anomaly-based** detection works the other way. First it records a **baseline** from a clean, normal week of saved traffic: who talks to whom, how much, and at what hours. Then it gives each connection a **deviation** score, a count of how far it is from that picture, and alerts when the score is high.
 
         1. Press **Record a clean-week baseline** below.
         2. In [[nids]]'s **Detection** section, set the **tolerance** to **Medium**. The tolerance is the deviation that sets off an alert.
@@ -349,10 +349,10 @@ export const logsLab: LabDef = {
         A NIDS only warns. A **NIPS**, a network intrusion prevention system (IPS for short), can also act. It can close a switch port, block an IP address or a MAC address, or reject a protocol. [[nids]] only gets copies of traffic, so it cannot drop a packet itself. In **prevention mode** it tells [[sw]] to close a port, or adds a block rule at the top of [[fw]]'s list, so the block becomes rule 1.
 
         1. Turn on **Prevention mode** in [[nids]]'s Detection section.
-        2. Press **Replay the MAC flood**. [[mal]] sends [[sw]] frames from many made-up MAC addresses. The switch keeps an **address table** of which MAC is on which port. When the table fills up, the switch forgets the real devices and sends their frames out every port, so the laptop sees everyone's traffic.
+        2. Press **Replay the MAC flood**.
         3. Press **Replay the 2 a.m. backup** again.
 
-        Watch what the sensor does to each one.
+        Watch what the sensor does to each one. In the MAC flood, [[mal]] sends [[sw]] frames from many made-up MAC addresses. The switch keeps an **address table** of which MAC is on which port. When the table fills up, the switch forgets the real devices and sends their frames out every port, so the laptop sees everyone's traffic.
       `,
       setup: anomalyAtMedium,
       open: { inspect: 'nids' },
@@ -467,7 +467,7 @@ export const logsLab: LabDef = {
         1. Press **Score the night's events**. The scores appear in [[siem]]'s inspector.
         2. Drag the threshold slider to **1.00** and watch the two counters: real attacks caught, and false alerts.
         3. Drag it to **0.00** and watch again.
-        4. Set a threshold that catches all three real attacks in the score table with at most one false alert.
+        4. Set a threshold that catches all three real attacks in the score table with at most one false alert. The table holds a sample of the night's events.
       `,
       open: { inspect: 'siem' },
       focus: ['siem'],
@@ -534,16 +534,14 @@ export const logsLab: LabDef = {
       id: 'ioc-hunt',
       title: 'IoC hunt',
       body: md`
-        An **indicator of compromise**, or IoC, is a clue an attack leaves in the logs. Two of these clues, the known-c2 connection and the SSH line, come from [[pc2]]. That points to malware on Raj's PC.
+        An **indicator of compromise**, or IoC, is a clue an attack leaves in the logs. Clear your filters. For each IoC below, type the word shown into the Logs search box, then open one matching line.
 
-        Clear your filters, then search for one line of each IoC and open it:
+        1. A connection to a **known malicious IP**. Search \`threat-feed\`. A **threat feed** is a shared list of bad addresses, and [[fw]] tags any match. This one is \`known-c2\`, a server that sends orders to computers an attacker controls. No rule blocks that address, so the connection went through.
+        2. An **unauthorized scan**, one outside address trying many ports in a row. Search \`port-scan\`.
+        3. Pings to the **broadcast address**, which reaches every device on the network. Search \`${BROADCAST}\`. Every device answers at once, so an attacker can use this to flood a target with replies. Ping uses the **ICMP** protocol.
+        4. **SSH** on port **443**, the usual port for HTTPS, secure web traffic. Search \`app=ssh\`.
 
-        1. A connection to a **known malicious IP**. A **threat feed** is a shared list of bad addresses. [[fw]] tags a match \`threat-feed\`, but its rule 3 lets all traffic out to port 443, so the connection still went through. This one is \`known-c2\`, a server that sends orders to computers an attacker controls.
-        2. An **unauthorized scan**: one outside address trying many ports in a row.
-        3. Pings sent to the **broadcast address** \`${BROADCAST}\`, which reaches every device on the network. Ping uses the **ICMP** protocol.
-        4. **SSH** on port **443**. Port 443 is the usual port for HTTPS, secure web traffic.
-
-        Signatures have a rule for the first three. For the fourth, [[fw]] already labels the program \`app=ssh\`, but rule 3 only checks the port. Stopping it takes a rule that checks the program too. An attack with no known pattern, like Raj's 3 a.m. upload, needs the anomaly baseline.
+        The first and fourth clues come from [[pc2]], which points to malware on Raj's PC. Signatures have a rule for the first three. For the fourth, [[fw]] already labels the program \`app=ssh\`, but rule 3 only checks the port, so it takes a rule that checks the program too. An attack with no known pattern, like Raj's 3 a.m. upload, needs the anomaly baseline.
       `,
       open: 'logs',
       focus: ['fw', 'pc2'],

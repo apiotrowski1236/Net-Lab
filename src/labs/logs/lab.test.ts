@@ -297,4 +297,15 @@ describe('logs lab: result lines', () => {
     const j = sim.dev('nids').ids!.sensor!.judged.find((x) => x.host === IP.pc2)!;
     expect(deviationWhy(j)).toBe(`outside office hours (03:12), never-used address ${EXFIL}, 90 MB, over 10x usual`);
   });
+
+  it('names the tolerance the upload was scored at, even if the student changes it afterward', () => {
+    const sim = withAnomaly('loose');
+    const t = sim.t;
+    play(sim, replayUpload);
+    const quiet = () => idsOutcomeLines(sim, t).map((l) => l.text).find((x) => x.includes('deviation 3'));
+    expect(quiet()).toContain('Loose alerts at a deviation of 4 or more, so no alert.');
+    sim.idsSetAnomaly('nids', true, 'medium');
+    expect(quiet()).toContain('Loose alerts at a deviation of 4 or more (the tolerance when this was scored; replay it to score it at Medium), so no alert.');
+    expect(quiet()).not.toContain('Medium alerts at a deviation of 2');
+  });
 });

@@ -323,7 +323,7 @@ function seedHistory(sim: Sim): void {
     if (extra.threat) {
       msg += ` threat-feed=${extra.threat}`;
       fields.threat = extra.threat;
-      level = 'notice';
+      level = 'warn';
     }
     log('fw', t, { source: 'firewall', level, msg, fields });
   };
