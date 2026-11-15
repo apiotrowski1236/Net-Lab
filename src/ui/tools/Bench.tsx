@@ -1,5 +1,6 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
+  analystFound,
   clientOf,
   clock,
   dbSignatures,
@@ -40,7 +41,7 @@ function Seg<T extends string | number>({ label, value, opts, onPick }: { label:
 }
 
 /** Each attack in a run: caught by what, how fast, or missed. */
-function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
+function RunDetail({ b, run, queue }: { b: BenchState; run: BenchRun; queue?: boolean }) {
   const c = clientOf(b, run.client);
   const r = run.result;
   if (!r) return <p class="small muted">Run {run.no} is replaying the day…</p>;
@@ -49,19 +50,53 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
   return (
     <div class="bench-detail">
       <p class="small">
-        <strong>Run {run.no}</strong>: {METHOD_NAME[run.method]} on {day.label} ({runSettings(b, run)})
+        <strong>Run {run.no}</strong>: {METHOD_NAME[run.method]} on {day.label}, {runSettings(b, run)}
       </p>
       <ul class="bench-attacks">
         {inDay.map((a) => {
           const hit = r.caught.find((x) => x.attack === a.id);
+          // The alert that caught it first: what the method saw, and when on the replayed day.
+          const first = (by: string) => r.alerts.filter((x) => x.attack === a.id && x.by === by).sort((x, y) => x.at - y.at)[0];
+          const why = hit && first(hit.by);
+          // Hybrid: the other method may have flagged it too, which is why one attack can raise two alerts.
+          const also = hit && run.method === 'hybrid' ? first(hit.by === 'signature' ? 'anomaly' : 'signature') : undefined;
+          const missWhy = !hit && r.missedWhy?.[a.id];
+          // With the analyst queue: the bench caught it, and the person never read it.
+          const closedUnread = queue && hit && r.alerts.some((x) => x.attack === a.id && x.queue === 'closed') && !analystFound(r, a.id);
+          // Hybrid caught by one half: say why the other half stayed quiet.
+          const other = hit?.by === 'signature' ? 'anomaly' : 'signature';
+          const quiet = hit && run.method === 'hybrid' && !also ? r.notBy?.[a.id]?.[other] : undefined;
           return (
             <li key={a.id} class={hit ? 'caught' : 'missed'}>
               <Icon name={hit ? 'check' : 'x'} />
               <span>
                 {a.name}
-                {a.novel && <span class="pill tiny muted">new</span>}
+                {a.novel && (
+                  <span class="pill tiny muted" title="Nobody had seen this attack before, so no signature exists for it">
+                    new attack
+                  </span>
+                )}
               </span>
-              <span class="small">{hit ? `caught by ${hit.by} in ${duration(hit.detectMs)}` : 'missed'}</span>
+              <span class="small">
+                {hit ? `caught by ${hit.by}, ${duration(hit.detectMs)} after it started` : 'missed'}
+              </span>
+              {closedUnread && <span class="small bench-why bench-closed">The analyst closed this alert unread.</span>}
+              {why && (
+                <span class="small muted bench-why">
+                  <span class="mono">{clock(why.at)}</span> {why.why}
+                </span>
+              )}
+              {also && (
+                <span class="small muted bench-why">
+                  <span class="mono">{clock(also.at)}</span> {also.by} also flagged it. {also.why.charAt(0).toUpperCase() + also.why.slice(1)}
+                </span>
+              )}
+              {quiet && (
+                <span class="small muted bench-why">
+                  {other} missed it: {quiet}
+                </span>
+              )}
+              {missWhy && <span class="small muted bench-why">{missWhy}</span>}
             </li>
           );
         })}
@@ -90,6 +125,11 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
   void session.simRev.value;
   const [pick, setPick] = useState(spec.clients[0]);
   const [shown, setShown] = useState<number | null>(null);
+  // A row click changes the result card above the table: bring it into view.
+  const detailRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (shown !== null) detailRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [shown]);
   const b = session.sim.devices[spec.device]?.bench;
   if (!b) return null;
   const cid = spec.clients.includes(pick) ? pick : spec.clients[0];
@@ -103,7 +143,8 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
   const busy = b.runs.some((r) => r.client === cid && !r.result);
   const needsBaseline = uses(set.method, 'anomaly') && !set.baseline;
   const runs = b.runs.filter((r) => r.client === cid);
-  const detail = runs.find((r) => r.no === shown) ?? runs[runs.length - 1];
+  // With the analyst queue, the card always shows the newest run, the one the queue is reading.
+  const detail = (!spec.queue && runs.find((r) => r.no === shown)) || runs[runs.length - 1];
   const dayLabel = c.days[set.day].label;
   return (
     <div class="tool-card defend bench-card">
@@ -183,7 +224,9 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
         </div>
         <div class="bench-results">
           {spec.queue && <AnalystQueue key={lastRun(b, (r) => r.client === cid)?.no ?? 0} session={session} devId={spec.device} client={cid} />}
-          {detail ? <RunDetail b={b} run={detail} /> : !spec.queue && <p class="small muted">No runs on {c.name} yet. Results show here.</p>}
+          <div ref={detailRef}>
+            {detail ? <RunDetail b={b} run={detail} queue={spec.queue} /> : !spec.queue && <p class="small muted">No runs on {c.name} yet. Results show here.</p>}
+          </div>
           {runs.length > 1 && !spec.queue && (
             <table class="table bench-table">
               <thead>
@@ -242,8 +285,10 @@ function AnalystQueue({ session, devId, client }: { session: ToolCardProps['sess
   const run = lastRun(b, (r) => r.client === client);
   const replaying = b.runs.find((r) => r.client === client && !r.result);
   const name = (id: string) => b.config.names?.[id] ?? sim.devices[id]?.label ?? id;
-  const pick = (a: BenchAlert, i: number) => {
+  const pick = (a: BenchAlert, i: number, el: HTMLElement) => {
     setOpen(open === i ? null : i);
+    // The detail opens under the row, inside a short scroll box: bring it into view.
+    if (open !== i) requestAnimationFrame(() => el.closest('li')?.scrollIntoView({ block: 'nearest' }));
     const entry = dev.logs.find((e) => e.no === a.logNo);
     if (entry) session.ui({ type: 'ui:open-log', device: dev.id, entry });
   };
@@ -262,7 +307,13 @@ function AnalystQueue({ session, devId, client }: { session: ToolCardProps['sess
       ) : (
         <>
           <p class="small">
-            Run {run.no}: {r.alerts.length} alert{r.alerts.length === 1 ? '' : 's'}. Checked {q.checked}, with {q.falseMinutes} minutes spent on false alarms.
+            {r.alerts.length === 0 ? (
+              <>Run {run.no}: no alerts to check.</>
+            ) : (
+              <>
+                Run {run.no}: {r.alerts.length} alert{r.alerts.length === 1 ? '' : 's'}. Checked {q.checked}, with {q.falseMinutes} minutes spent on false alarms.
+              </>
+            )}
             {q.closed > 0 && (
               <>
                 {' '}
@@ -281,7 +332,7 @@ function AnalystQueue({ session, devId, client }: { session: ToolCardProps['sess
             <ol class="bench-alerts" aria-label={`Run ${run.no} alerts`}>
               {r.alerts.map((a, i) => (
                 <li key={`${run.no}-${i}`} class={open === i ? 'open' : ''}>
-                  <button class="bench-alert" onClick={() => pick(a, i)} aria-expanded={open === i}>
+                  <button class="bench-alert" onClick={(e) => pick(a, i, e.currentTarget)} aria-expanded={open === i}>
                     <span class="mono">{clock(a.at)}</span>
                     <span>{name(a.host)}</span>
                     <span class={`pill tiny ${QUEUE_TONE[a.queue ?? 'false']}`}>{QUEUE_TEXT[a.queue ?? 'false']}</span>
@@ -323,7 +374,7 @@ export function BenchPlanCard({ session, spec }: ToolCardProps<'bench-plan'>) {
           <Seg
             label={`Method for ${c.name}`}
             value={b.plan[c.id] ?? ''}
-            opts={(['signature', 'anomaly', 'hybrid'] as BenchMethod[]).map((m) => [m, `${METHOD_NAME[m]} ${dollars(c.cost[m])}`])}
+            opts={(['signature', 'anomaly', 'hybrid'] as BenchMethod[]).map((m) => [m, `${METHOD_NAME[m]}\n${dollars(c.cost[m])}`])}
             onPick={(m) => session.dispatch({ type: 'bench-plan', device: spec.device, client: c.id, method: m as BenchMethod })}
           />
         </div>

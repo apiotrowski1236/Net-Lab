@@ -1,5 +1,5 @@
 import type { LabSolution } from '../solution';
-import { BENCH, DISPATCH, DISPATCH_BASE, LEAK, LOCKDOWN, OCT, PLANT, PLANT_CLEAN, PLANT_INFECTED, RENAMED, STREAM, STREAM_BASE } from './scenario';
+import { BENCH, DISPATCH, DISPATCH_BASE, LEAK, OCT, PLANT, PLANT_CLEAN, PLANT_INFECTED, STREAM, STREAM_BASE } from './scenario';
 
 const D = BENCH;
 
@@ -54,9 +54,7 @@ export const detectMethodsSolution: LabSolution = {
       { tool: { type: 'bench-run', device: D, client: DISPATCH } },
       { tool: { type: 'bench-set', device: D, client: DISPATCH, method: 'hybrid' } },
       { tool: { type: 'bench-run', device: D, client: DISPATCH } },
-      { openLog: D, where: (e) => e.fields?.attack === LOCKDOWN && e.fields?.day === RENAMED },
     ],
-    text: { when: '10:42' },
   },
   recommend: {
     moves: [

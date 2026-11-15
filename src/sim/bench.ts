@@ -80,7 +80,7 @@ export interface BenchRecord {
   at: number;
   /** The map device that sent or received it. */
   host: string;
-  /** Who's on the other end, in words: "viewers", "185.220.101.4". */
+  /** Who's on the other end, in words: "viewers", "198.51.100.4". */
   peer: string;
   where: 'inside' | 'internet';
   port: number;
@@ -151,6 +151,8 @@ export interface BenchConfig {
   budget: number;
   /** Device id -> its name on screen, for alert text. */
   names?: Record<string, string>;
+  /** Port -> what it's for, in a few words ("file sharing"), for alert text. */
+  ports?: Record<number, string>;
 }
 
 /** A baseline: each kind of traffic's typical hourly amount. */
@@ -196,6 +198,10 @@ export interface BenchResult {
   caught: CaughtAttack[];
   /** Attack ids with no alert: false negatives. */
   missed: string[];
+  /** Missed attack id -> why each method let it through, in words. */
+  missedWhy?: Record<string, string>;
+  /** Attack id -> why a method that ran raised no alert on it (hybrid: one half can miss while the other catches). */
+  notBy?: Record<string, Partial<Record<'signature' | 'anomaly', string>>>;
   falseAlarms: number;
   cost: number;
 }
@@ -293,6 +299,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
   const day = client.days[input.day];
   if (!day) throw new Error(`${client.name} has no recorded day "${input.day}"`);
   const name = (id: string) => config.names?.[id] ?? id;
+  const port = (n: number) => (config.ports?.[n] ? `port ${n} (${config.ports[n]})` : `port ${n}`);
   const alerts: BenchAlert[] = [];
   const useSig = input.method !== 'anomaly';
   const useAnom = input.method !== 'signature';
@@ -301,15 +308,15 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
     const sigs = dbSignatures(config, input.db).filter((s) => s.file);
     for (const r of day.records) {
       const s = sigs.find((x) => x.file === r.file);
-      if (s) alerts.push({ at: r.at, host: r.host, by: 'signature', why: `matched signature "${s.name}" (${s.file})`, attack: r.attack });
+      if (s) alerts.push({ at: r.at, host: r.host, by: 'signature', why: `matched the "${s.name}" signature (${shortDetail(s.file!)})`, attack: r.attack });
     }
   }
 
+  const buckets = new Map<string, BenchRecord[]>();
   if (useAnom && input.baseline) {
     const typical = input.baseline.typical;
     const tol = input.tolerance / 100;
     const seenNew = new Set<string>();
-    const buckets = new Map<string, BenchRecord[]>();
     for (const r of day.records) {
       const k = kindKey(r);
       if (typical[k] === undefined) {
@@ -319,7 +326,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
           at: r.at,
           host: r.host,
           by: 'anomaly',
-          why: `new kind of traffic: ${name(r.host)} ${r.where === 'internet' ? 'to the internet' : 'inside'} (${r.peer}) on port ${r.port}`,
+          why: `new kind of traffic, not in the baseline: ${name(r.host)} to ${r.peer}${r.where === 'internet' ? ' on the internet' : ''}, ${port(r.port)}`,
           attack: r.attack,
         });
         continue;
@@ -339,7 +346,7 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
         at: bad ? bad.at : h * 60 + 30,
         host: rs[0].host,
         by: 'anomaly',
-        why: `${name(rs[0].host)} to ${rs[0].peer}, port ${rs[0].port}: on pace for ${amount(total)} in the hour starting ${clock(h * 60)}, usual ${amount(usual)} (${signedPct(dev)}, outside ±${input.tolerance}%)`,
+        why: `${name(rs[0].host)} to ${rs[0].peer}, ${port(rs[0].port)}: at this rate, ${clock(h * 60)} to ${clock(h * 60 + 60)} adds up to ${amount(total)}, usual ${amount(usual)} (${amount(Math.abs(total - usual))} ${total >= usual ? 'more' : 'less'}, ${signedPct(dev)}, outside ±${input.tolerance}%)`,
         attack: bad?.attack,
       });
     }
@@ -362,8 +369,46 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
     else missed.push(atk.id);
   }
 
+  // Why each method let an attack through: for every attack a method that ran raised no alert on.
+  const notBy: Record<string, Partial<Record<'signature' | 'anomaly', string>>> = {};
+  for (const atk of client.attacks) {
+    const recs = day.records.filter((r) => r.attack === atk.id);
+    if (!recs.length) continue;
+    const flagged = (by: 'signature' | 'anomaly') => alerts.some((a) => a.attack === atk.id && a.by === by);
+    const why: Partial<Record<'signature' | 'anomaly', string>> = {};
+    if (useSig && !flagged('signature')) {
+      const files = recs.flatMap((r) => (r.file ? [r.file] : []));
+      const later = config.signatures.some((s) => s.file && files.includes(s.file));
+      const db = config.versions.find((v) => v.id === input.db)?.label ?? input.db;
+      why.signature = atk.novel ? 'no signature exists for it yet' : later ? `the ${db} database has no signature for it` : 'no signature matches its file';
+    }
+    if (useAnom && input.baseline && !flagged('anomaly')) {
+      const base = input.baseline;
+      if (client.days[base.day]?.records.some((r) => r.attack === atk.id)) why.anomaly = `its traffic matched the ${client.days[base.day].label} baseline`;
+      else {
+        let worst: number | undefined;
+        for (const r of recs) {
+          const rs = buckets.get(`${kindKey(r)}#${hourOf(r)}`);
+          const usual = base.typical[kindKey(r)];
+          if (!rs || !usual) continue;
+          const dev = (rs.reduce((s, x) => s + x.mb, 0) - usual) / usual;
+          if (worst === undefined || Math.abs(dev) > Math.abs(worst)) worst = dev;
+        }
+        why.anomaly =
+          worst === undefined
+            ? 'its traffic stayed inside the tolerance'
+            : Math.round(worst * 100) === 0
+              ? `it added almost no traffic: its hour was +0%, inside the ±${input.tolerance}% tolerance`
+              : `its hour was ${signedPct(worst)}, inside the ±${input.tolerance}% tolerance`;
+      }
+    }
+    if (why.signature || why.anomaly) notBy[atk.id] = why;
+  }
+  const missedWhy: Record<string, string> = {};
+  for (const id of missed) if (notBy[id]) missedWhy[id] = [notBy[id].signature, notBy[id].anomaly].filter(Boolean).join('; ');
+
   workQueue(alerts);
-  return { alerts, caught, missed, falseAlarms: alerts.filter((a) => !a.attack).length, cost: client.cost[input.method] };
+  return { alerts, caught, missed, missedWhy, notBy, falseAlarms: alerts.filter((a) => !a.attack).length, cost: client.cost[input.method] };
 }
 
 /**
@@ -431,6 +476,9 @@ export function amount(mb: number): string {
   if (mb >= 10) return `${Math.round(mb)} MB`;
   return `${mb.toFixed(1)} MB`;
 }
+
+/** A signature's detail as an alert shows it: a 64-character hash cut to its first 8. */
+export const shortDetail = (file: string): string => file.replace(/^hash ([0-9a-f]{8})[0-9a-f]{56}$/, 'file hash $1…');
 
 const signedPct = (dev: number) => `${dev >= 0 ? '+' : '−'}${Math.round(Math.abs(dev) * 100)}%`;
 

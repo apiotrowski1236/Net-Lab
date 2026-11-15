@@ -198,7 +198,7 @@ const beacon = (fromHour: number): BenchRecord[] =>
   Array.from({ length: 24 - fromHour }, (_, i) => ({
     at: (fromHour + i) * 60 + 15,
     host: 'rb-filler',
-    peer: '185.220.101.4',
+    peer: '198.51.100.4',
     where: 'internet' as const,
     port: 4444,
     mb: 0.4,
@@ -251,7 +251,7 @@ export const CLIENTS: BenchClient[] = [
     attacks: [
       { id: STUFFBOT, name: 'StuffBot password-guessing bot' },
       { id: VIDJACK, name: 'VidJack video player exploit' },
-      { id: LEAK, name: 'Unreleased shows copied out', novel: true },
+      { id: LEAK, name: 'Unreleased shows stolen', novel: true },
     ],
     days: { [TODAY]: streamToday, [STREAM_BASE]: evenDay(STREAM_BASE, 'Nov 5', SC_STREAMS, 0.9, 5) },
     today: TODAY,
@@ -314,6 +314,7 @@ export const BENCH_CONFIG: BenchConfig = {
   db: SEP,
   budget: BUDGET,
   names: NAMES,
+  ports: { 443: 'secure web', 445: 'file sharing', 502: 'machine control', 4444: 'no common service', 5060: 'calls', 9001: 'no common service' },
 };
 
 // ---------------------------------------------------------------------------
@@ -386,7 +387,7 @@ export function buildDetect(): Sim {
       y: TOP,
       notes: [
         'County 911 Dispatch answers emergency calls and sends police, fire, and ambulances. If it goes down, help arrives late.',
-        'Its sensor sees about 15,000 connections a minute.',
+        'Its traffic rises and falls as calls come in, but much less than StreamCo’s. Its sensor sees about 15,000 connections a minute.',
       ],
     })
     .host('cd-console', { label: NAMES['cd-console'], icon: 'desktop', x: 1170, y: ROW, ip: '10.3.0.21/24', notes: ['Where a dispatcher takes calls and assigns units.'] })
