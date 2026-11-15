@@ -150,7 +150,7 @@ function markerFor(
         'no-ip': 'no IP address',
         'no-link': 'no cable',
         'no-gateway': 'no gateway: dropped',
-        'gateway-off-net': 'gateway not on my network',
+        'gateway-off-net': "address and gateway don't match",
         'port-shutdown': 'port is off: dropped',
         'port-security': 'MAC not allowed: dropped',
         'vpn-split-off': 'VPN: home device blocked',

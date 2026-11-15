@@ -317,7 +317,10 @@ function usualOutcomeLines(sim: Sim, t: number): { tone: 'good' | 'bad' | 'wait'
     if (lost && (b.status === 'resolving' || b.status === 'loading')) lines.push({ tone: 'bad', text: `${who} still loading. ${dropText(sim, lost)}` });
     else if (b.status === 'resolving' || b.status === 'loading') lines.push({ tone: 'wait', text: `${who} loading…` });
     else if (b.status === 'loaded') lines.push({ tone: 'good', text: `${who} loaded "${b.title}".` });
-    else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost && (lost.reason === 'firewall' || lost.reason === 'congestion') ? ` ${dropText(sim, lost)}` : ''}` });
+    else if (lost && lost.reason !== 'firewall' && lost.reason !== 'congestion') {
+      // The browser gave up because a router dropped the traffic: keep saying where, not "the server never answered".
+      lines.push({ tone: 'bad', text: `${who} no connection. ${dropText(sim, lost)}` });
+    } else lines.push({ tone: 'bad', text: `${who} ${b.error ?? 'no connection.'}${lost ? ` ${dropText(sim, lost)}` : ''}` });
   }
   lines.push(...connOutcomeLines(sim, t));
   lines.push(...outbreakLines(sim, t));

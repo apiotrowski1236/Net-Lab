@@ -295,6 +295,22 @@ describe('build-network lab details', () => {
     expect(lastPingFail(s)).toMatchObject({ device: 'alice', reason: 'no-ip', at: 'alice' });
   });
 
+  it('the switch goal counts a switch panel already open when the reply comes in, but not a click before the ping', () => {
+    const early = openStep('mac');
+    playMove(early, { inspect: 'sw' });
+    expect(early.goalDone('mac', 'switch')).toBe(false);
+    playMove(early, { press: 'ping-ben' });
+    expect(early.goalDone('mac', 'switch')).toBe(true);
+
+    const away = openStep('mac');
+    playMove(away, { inspect: 'sw' });
+    playMove(away, { inspect: 'alice' });
+    playMove(away, { press: 'ping-ben' });
+    expect(away.goalDone('mac', 'switch')).toBe(false);
+    playMove(away, { inspect: 'sw' });
+    expect(away.goalDone('mac', 'switch')).toBe(true);
+  });
+
   it('without a gateway the request dies at Alice; with one it dies at the office router', () => {
     const s = openStep('gateway');
     playMove(s, { press: 'open' });

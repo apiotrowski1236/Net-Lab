@@ -7301,3 +7301,8 @@ button.pl-tile:active {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* build-network (student panel): a tool message scrolled into view stops above the "More below" pill instead of under it. */
+.tool-msg {
+  scroll-margin-bottom: 44px;
+}
