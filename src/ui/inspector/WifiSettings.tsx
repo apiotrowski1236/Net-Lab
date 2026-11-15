@@ -1,5 +1,5 @@
 import { checkWifiPassphrase } from '../../runtime/toolInput';
-import { passphraseStrength, SECURITY_LABEL, type WifiSecurity } from '../../sim/wifi';
+import { isCommonPassphrase, passphraseStrength, passphraseWeakness, SECURITY_LABEL, type WifiSecurity } from '../../sim/wifi';
 import type { InspectorSection, InspectorSectionProps } from './registry';
 import { Toggle, ToolMsg, useDraft, type Msg } from '../tools/parts';
 import { useState } from 'preact/hooks';
@@ -40,6 +40,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
 
   const strength = passphraseStrength(ap.passphrase);
   const needsKey = ap.security !== 'open' && ap.auth === 'psk';
+  const weakness = passphraseWeakness(ap.passphrase);
 
   return (
     <section class="wifi-settings">
@@ -71,7 +72,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
               key={m}
               class={`btn tiny ${ap.security === m ? 'on' : ''}`}
               disabled={!edit}
-              onClick={() => session.dispatch({ type: 'wifi-security', device: dev.id, security: m })}
+              onClick={() => (setMsg(null), session.dispatch({ type: 'wifi-security', device: dev.id, security: m }))}
             >
               {SECURITY_LABEL[m].replace(' (no encryption)', '')}
             </button>
@@ -84,11 +85,15 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
               ? 'WEP is broken. It falls in under a minute.'
               : ap.security === 'wpa'
                 ? 'The original WPA is broken too.'
-                : ap.security === 'wpa2'
-                  ? `WPA2 holds with a long passphrase${needsKey && strength !== 'strong' ? ' (yours is short)' : ''}.`
+                : ap.security === 'wpa2' && ap.auth === 'eap'
+                  ? 'WPA2 with per-user logins: each person signs in with their own account, so there is no shared passphrase to guess.'
+                  : ap.security === 'wpa2'
+                  ? `WPA2 holds with a long passphrase that is hard to guess${needsKey && weakness ? (weakness === 'short' ? ' (yours is short)' : ' (yours is a common password)') : ''}.`
                   : ap.auth === 'eap'
                     ? 'WPA3 is the strongest. Each person signs in with their own login.'
-                    : 'WPA3 is the strongest. It resists guessing even with a short passphrase.'}
+                    : needsKey && ap.passphrase && isCommonPassphrase(ap.passphrase)
+                      ? 'WPA3 is the strongest, but yours is a common password, one of the first guesses an attacker tries.'
+                      : 'WPA3 is the strongest. An attacker cannot test guesses against a recording, but a long passphrase still matters.'}
         </p>
       </div>
 
@@ -101,6 +106,9 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
               value={pass.value}
               disabled={!edit}
               onInput={(e) => pass.set((e.target as HTMLInputElement).value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && edit && pass.edited) savePass();
+              }}
               placeholder="the key families type to join"
             />
             <button class="btn tiny" disabled={!edit || !pass.edited} onClick={savePass}>
@@ -108,7 +116,11 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
             </button>
           </div>
           <p class="small muted">
-            {ap.passphrase ? `${ap.passphrase.length} characters, ${strength}.` : 'No passphrase set.'}
+            {!ap.passphrase
+              ? 'No passphrase set. Type one and press Save.'
+              : ap.security === 'wep'
+                ? `${ap.passphrase.length} characters. On WEP the length does not help.`
+                : `${ap.passphrase.length} characters, ${strength}${weakness === 'common' ? ' (a common password with characters added)' : ''}.`}
           </p>
           <ToolMsg msg={msg} />
         </div>
@@ -117,17 +129,19 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
       <div class="wifi-field">
         <label>Who may join</label>
         <div class="seg">
-          <button class={`btn tiny ${ap.auth === 'psk' ? 'on' : ''}`} disabled={!edit} onClick={() => session.dispatch({ type: 'wifi-auth', device: dev.id, auth: 'psk' })}>
+          <button class={`btn tiny ${ap.auth === 'psk' && ap.security !== 'open' ? 'on' : ''}`} disabled={!edit} onClick={() => session.dispatch({ type: 'wifi-auth', device: dev.id, auth: 'psk' })}>
             Shared passphrase
           </button>
-          <button class={`btn tiny ${ap.auth === 'eap' ? 'on' : ''}`} disabled={!edit} onClick={() => session.dispatch({ type: 'wifi-auth', device: dev.id, auth: 'eap' })}>
+          <button class={`btn tiny ${ap.auth === 'eap' && ap.security !== 'open' ? 'on' : ''}`} disabled={!edit} onClick={() => session.dispatch({ type: 'wifi-auth', device: dev.id, auth: 'eap' })}>
             Per-user login (EAP)
           </button>
         </div>
         <p class="small muted">
-          {ap.auth === 'eap'
-            ? 'Each family signs in to an authentication server with its own login. A copied MAC address is not enough.'
-            : 'Everyone shares one passphrase. Anyone who has it (or copies an allowed MAC) can join.'}
+          {ap.security === 'open'
+            ? 'Open: anyone in range can join. A passphrase or login matters once you pick a security setting.'
+            : ap.auth === 'eap'
+              ? 'Each family signs in to an authentication server with its own login. A copied MAC address is not enough.'
+              : 'Everyone shares one passphrase. Anyone who has it (or copies an allowed MAC) can join.'}
         </p>
       </div>
 
@@ -150,7 +164,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
       </div>
 
       <div class="wifi-field">
-        <Toggle on={ap.beacon} label={ap.beacon ? 'Broadcasting the name' : 'Name hidden'} onChange={(on) => edit && session.dispatch({ type: 'wifi-beacon', device: dev.id, on })} />
+        <Toggle on={ap.beacon} label={ap.beacon ? 'Broadcast the name: on' : 'Broadcast the name: off (hidden)'} onChange={(on) => edit && session.dispatch({ type: 'wifi-beacon', device: dev.id, on })} />
         <p class="small muted">A beacon announces the SSID to anyone nearby. Hiding it stops casual scans only; a patient scanner still finds it.</p>
       </div>
 

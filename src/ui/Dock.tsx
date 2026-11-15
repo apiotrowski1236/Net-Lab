@@ -536,11 +536,18 @@ export function Inspector({ session, deviceId }: { session: LabSession; deviceId
 
       {tables && !layer3 && ports}
 
-      {dev.kind === 'hub' && (
+      {dev.wifi && (dev.kind === 'hub' || dev.kind === 'switch') ? (
         <p class="insp-note">
-          A hub (or open Wi-Fi) has no table. Every frame goes out to <strong>every</strong> device. Each device is trusted
-          to ignore frames that aren't addressed to it.
+          Radio reaches <strong>every</strong> device in range, whatever the security setting. Each device is trusted to ignore
+          frames that aren't addressed to it, and encryption decides who can read them.
         </p>
+      ) : (
+        dev.kind === 'hub' && (
+          <p class="insp-note">
+            A hub has no table. Every frame goes out to <strong>every</strong> device. Each device is trusted to ignore frames
+            that aren't addressed to it.
+          </p>
+        )
       )}
 
       {dev.kind !== 'router' && routing}
@@ -1213,39 +1220,46 @@ function CableTool({ session, refuse }: { session: LabSession; refuse?: CableRef
     set((e.target as HTMLSelectElement).value);
     setMsg(null);
   };
-  // A built-in cable (Link.fixed) can't be unplugged.
-  const links = Object.values(sim.links).filter((l) => !l.fixed);
+  // A built-in cable (Link.fixed) can't be unplugged, and a Wi-Fi link is not a cable.
+  const links = Object.values(sim.links).filter((l) => !l.fixed && !l.wireless);
+  // With free ports on fewer than two devices there is nothing to plug together.
+  const canPlug = new Set(ends.map((e) => e.device)).size > 1;
   return (
     <div class="tool-card">
       <div class="tool-title">
         <Icon name="cable" /> Cables
       </div>
-      <p class="tool-desc">Drag from one device to another on the map to plug in a cable, or pick both ends here. No cable, no signal: this is the physical layer.</p>
-      <div class="sentence">
-        Plug
-        <select value={a} onChange={pick(setA)} aria-label="First end of the cable">
-          <option value="">choose…</option>
-          {ends.map((e) => (
-            <option key={e.key} value={e.key}>
-              {e.label}
-            </option>
-          ))}
-        </select>
-        into
-        <select value={b} onChange={pick(setB)} aria-label="Second end of the cable">
-          <option value="">choose…</option>
-          {ends
-            .filter((e) => e.device !== ea?.device)
-            .map((e) => (
+      <p class="tool-desc">
+        Drag from one device to another on the map to plug in a cable{canPlug ? ', or pick both ends here' : ''}. No cable, no signal: this is the
+        physical layer.
+      </p>
+      {canPlug && (
+        <div class="sentence">
+          Plug
+          <select value={a} onChange={pick(setA)} aria-label="First end of the cable">
+            <option value="">choose…</option>
+            {ends.map((e) => (
               <option key={e.key} value={e.key}>
                 {e.label}
               </option>
             ))}
-        </select>
-        <button class="btn" onClick={connect}>
-          Connect
-        </button>
-      </div>
+          </select>
+          into
+          <select value={b} onChange={pick(setB)} aria-label="Second end of the cable">
+            <option value="">choose…</option>
+            {ends
+              .filter((e) => e.device !== ea?.device)
+              .map((e) => (
+                <option key={e.key} value={e.key}>
+                  {e.label}
+                </option>
+              ))}
+          </select>
+          <button class="btn" onClick={connect}>
+            Connect
+          </button>
+        </div>
+      )}
       <ToolMsg msg={msg} />
       <div class="small muted">Cables plugged in:</div>
       <ul class="tool-list">

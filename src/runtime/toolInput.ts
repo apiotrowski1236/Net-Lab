@@ -2,7 +2,7 @@ import { intToIp, ipToInt, isIp, isPrefix, maskBits, networkOf, normalizePrefix,
 import { freshEntry, ttlLeft } from '../sim/dns';
 import type { Sim } from '../sim/sim';
 import type { Device, Iface } from '../sim/types';
-import { passphraseStrength, STRONG_PASSPHRASE_LEN } from '../sim/wifi';
+import { isCommonPassphrase, passphraseWeakness, STRONG_PASSPHRASE_LEN } from '../sim/wifi';
 import { sameVlan, vlanOf } from '../sim/vlan';
 import type { CableRefusal } from '../labs/types';
 
@@ -471,19 +471,34 @@ export function checkEcho(sim: Sim, deviceId: string, rawTarget: string, rawSour
 // ---------------------------------------------------------------------------
 
 /**
- * Wi-Fi passphrase: the shared key families type to join. Any non-blank key
- * saves; a short one gets a heads-up (not a block) so a student can see for
- * themselves that a short key falls to guessing. `note` doesn't stop saving.
+ * Wi-Fi passphrase: the shared key families type to join. Real passphrases
+ * are 8 to 63 characters and may hold spaces. A weak one (short, or a common
+ * password with numbers added) saves with a heads-up, not a block, so a
+ * student can see for themselves that it falls to guessing. `note` doesn't
+ * stop saving.
  */
-export function checkWifiPassphrase(_sim: Sim, _apId: string, raw: string): Checked<{ passphrase: string; note?: string }> {
+export function checkWifiPassphrase(sim: Sim, apId: string, raw: string): Checked<{ passphrase: string; note?: string }> {
   const pass = raw.trim();
   if (!pass) return { ok: false, msg: 'Type a passphrase for families to join with.' };
-  if (/\s/.test(pass)) return { ok: false, msg: 'A Wi-Fi passphrase has no spaces. Join the words together or use dashes.' };
   if (pass.length < 8) return { ok: false, msg: 'Wi-Fi passphrases are at least 8 characters. Make it longer.' };
+  if (pass.length > 63) return { ok: false, msg: 'Wi-Fi passphrases are at most 63 characters. Make it shorter.' };
+  if (sim.devices[apId]?.wifi?.security === 'wep') {
+    return { ok: true, passphrase: pass, note: 'Saved. On WEP the length of the key does not help: WEP itself is broken.' };
+  }
+  // WPA3 stops guessing against a recording, so its notes talk about guesses made by trying to join.
+  const wpa3 = sim.devices[apId]?.wifi?.security === 'wpa3';
+  // On WPA3 a common password falls to a few joins at any length, so that note wins over "short".
+  const weak = wpa3 && isCommonPassphrase(pass) ? 'common' : passphraseWeakness(pass);
   const note =
-    passphraseStrength(pass) === 'weak'
-      ? `Heads up: ${pass.length} characters is short. An attacker who captures the handshake can guess it. ${STRONG_PASSPHRASE_LEN} or more holds up.`
-      : undefined;
+    weak === 'short'
+      ? wpa3
+        ? `Saved, but ${pass.length} characters is short. WPA3 blocks guessing from a recording, but an attacker can still try guesses one join at a time. ${STRONG_PASSPHRASE_LEN} or more holds up.`
+        : `Saved, but ${pass.length} characters is short. An attacker who records a device joining can test guesses against it. ${STRONG_PASSPHRASE_LEN} or more holds up.`
+      : weak === 'common'
+        ? wpa3
+          ? 'Saved, but that is a common password with a few characters added. It is one of the first guesses anyone tries.'
+          : 'Saved, but that is a common password with a few characters added. Guessing tools try those first, so it falls fast at any length.'
+        : undefined;
   return { ok: true, passphrase: pass, note };
 }
 
@@ -504,14 +519,22 @@ export function checkWifiSsid(sim: Sim, apId: string, raw: string): Checked<{ ss
 
 /** Wi-Fi password: the passphrase rules (checkWifiPassphrase), in a home's words. */
 export function checkWifiPassword(sim: Sim, apId: string, raw: string): Checked<{ passphrase: string; note?: string }> {
+  // The home router's setup page keeps its own no-spaces rule.
+  if (/\s/.test(raw.trim())) return { ok: false, msg: 'A Wi-Fi password has no spaces. Join the words together or use dashes.' };
   const r = checkWifiPassphrase(sim, apId, raw);
   if (!r.ok) {
     const pass = raw.trim();
     if (!pass) return { ok: false, msg: 'Type a password for the family to join with.' };
-    if (/\s/.test(pass)) return { ok: false, msg: 'A Wi-Fi password has no spaces. Join the words together or use dashes.' };
+    if (pass.length > 63) return { ok: false, msg: 'A Wi-Fi password can be up to 63 characters. Make it shorter.' };
     return { ok: false, msg: 'A Wi-Fi password needs at least 8 characters. Make it longer.' };
   }
-  const note = r.note ? `Saved. ${r.passphrase.length} characters is short, so it's quicker to guess. ${STRONG_PASSPHRASE_LEN} or more is safer.` : undefined;
+  const weak = passphraseWeakness(r.passphrase);
+  const note =
+    weak === 'short'
+      ? `Saved. ${r.passphrase.length} characters is short, so it's quicker to guess. ${STRONG_PASSPHRASE_LEN} or more is safer.`
+      : weak === 'common'
+        ? "Saved. That's a common password with a few characters added, so it's quick to guess. Pick words nobody would connect to you."
+        : undefined;
   return { ok: true, passphrase: r.passphrase, note };
 }
 

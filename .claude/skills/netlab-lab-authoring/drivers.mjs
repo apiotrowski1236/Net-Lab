@@ -169,6 +169,14 @@ async function drive(c, i, step, m) {
       log(`  ${a.shut ? 'shut' : 'turn on'} ${where} on ${labels[a.device]}`);
       return true;
     }
+    case 'wifi-passphrase': {
+      await inspector(a.device);
+      const pass = page.locator('section.wifi-settings .wifi-field', { has: page.locator('label', { hasText: /^Passphrase$/ }) });
+      await pass.locator('input').fill(a.passphrase);
+      await pass.getByRole('button', { name: 'Save', exact: true }).click();
+      log(`  save passphrase on ${labels[a.device]}`);
+      return true;
+    }
     case 'wifi-power':
     case 'wifi-security':
     case 'wifi-auth':
@@ -183,7 +191,7 @@ async function drive(c, i, step, m) {
       if (a.type === 'wifi-power') await field('Signal strength').getByRole('button', { name: POWER[a.power], exact: true }).click();
       else if (a.type === 'wifi-auth') await field('Who may join').getByRole('button', { name: a.auth === 'eap' ? 'Per-user login (EAP)' : 'Shared passphrase', exact: true }).click();
       else if (a.type === 'wifi-wps') await toggle(sw(/^WPS/), a.on);
-      else if (a.type === 'wifi-beacon') await toggle(sw(/Broadcasting the name|Name hidden/), a.on);
+      else if (a.type === 'wifi-beacon') await toggle(sw(/Broadcast the name|Broadcasting the name|Name hidden/), a.on);
       else if (a.type === 'wifi-macfilter') await toggle(sw(/^MAC filter/), a.on);
       else {
         await field('Security').getByRole('button', { name: SECURITY[a.security], exact: true }).click();

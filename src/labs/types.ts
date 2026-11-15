@@ -484,6 +484,8 @@ export interface MapZone {
   tone?: 'neutral' | 'info' | 'good' | 'warn' | 'bad';
   /** Dashed outline, e.g. for a radio signal's reach or a logical zone like a VLAN. */
   dashed?: boolean;
+  /** false: the map frames the devices without this zone, so a large zone can run off the edge instead of shrinking the map. */
+  fit?: false;
 }
 
 export interface LabStub {

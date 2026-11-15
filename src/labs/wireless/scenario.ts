@@ -38,8 +38,12 @@ export const IP = {
 
 /** A short passphrase an attacker can guess. */
 export const WEAK_PASS = 'shelter1';
-/** A long passphrase that holds up. */
-export const STRONG_PASS = 'RidgeviewShelter2024';
+/** A long passphrase that holds up: four unrelated words, not the shelter's name and a year. */
+export const STRONG_PASS = 'cot-lantern-river-blanket';
+/** The passphrase saved after WPS is turned off, since the cracked PIN gave Mallory the first one. */
+export const NEW_PASS = 'harbor-violet-tin-meadow';
+/** A second short passphrase for WPA2: Mallory learned the WEP one when she broke it. */
+export const SHORT_PASS = 'shelter2';
 
 /** The shelter's own wireless devices that must stay in range. */
 export const FAMILIES = ['desk', 'phone1', 'laptop1', 'phonelot'] as const;
@@ -55,7 +59,7 @@ export const WAP_POS = { x: 320, y: 300 };
 export const LOGIN_BODY = 'user=rivera&pass=welcome123';
 
 export function buildShelter(): Sim {
-  const net = new NetBuilder({ linkMs: 700, httpTimeoutMs: 12000 })
+  const net = new NetBuilder({ linkMs: 300, httpTimeoutMs: 12000 })
     .hub('wap', {
       label: 'Shelter Wi-Fi',
       sublabel: SSID,
@@ -70,20 +74,22 @@ export function buildShelter(): Sim {
         auth: 'psk',
         users: ['rivera', 'chen', 'patel', 'desk'],
         beacon: true,
-        power: 4,
+        power: 3,
+        // A small indoor access point: its reach circle stays near the gym, so the map draws large.
+        boost: -15,
         channel: 6,
       },
     })
-    .host('desk', { label: 'Volunteer desk', sublabel: IP.desk, icon: 'laptop', x: 300, y: 200, ip: `${IP.desk}/24`, gateway: IP.gw, mac: MAC.desk, wifiClient: { ssid: SSID, user: 'desk' } })
-    .host('phone1', { label: 'Rivera phone', sublabel: IP.phone1, icon: 'phone', x: 180, y: 220, ip: `${IP.phone1}/24`, gateway: IP.gw, mac: MAC.phone1, wifiClient: { ssid: SSID, user: 'rivera' } })
+    .host('desk', { label: 'Volunteer desk', sublabel: IP.desk, icon: 'laptop', x: 290, y: 170, ip: `${IP.desk}/24`, gateway: IP.gw, mac: MAC.desk, wifiClient: { ssid: SSID, user: 'desk' } })
+    .host('phone1', { label: 'Rivera phone', sublabel: IP.phone1, icon: 'phone', x: 160, y: 240, ip: `${IP.phone1}/24`, gateway: IP.gw, mac: MAC.phone1, wifiClient: { ssid: SSID, user: 'rivera' } })
     .host('laptop1', { label: 'Chen laptop', sublabel: IP.laptop1, icon: 'laptop', x: 430, y: 230, ip: `${IP.laptop1}/24`, gateway: IP.gw, mac: MAC.laptop1, wifiClient: { ssid: SSID, user: 'chen' } })
     .host('phonelot', { label: 'Patel phone', sublabel: IP.phonelot, icon: 'phone', x: 560, y: 430, ip: `${IP.phonelot}/24`, gateway: IP.gw, mac: MAC.phonelot, wifiClient: { ssid: SSID, user: 'patel' } })
     .host('mallory', {
       label: 'Mallory',
       sublabel: 'parking lot',
       icon: 'attacker',
-      x: 860,
-      y: 360,
+      x: 700,
+      y: 330,
       ip: `${IP.mallory}/24`,
       gateway: IP.gw,
       mac: MAC.mallory,
@@ -94,7 +100,7 @@ export function buildShelter(): Sim {
       label: 'Unknown box',
       sublabel: 'hallway jack',
       icon: 'wifi',
-      x: 540,
+      x: 420,
       y: 500,
       wifi: { ssid: 'Shelter-Setup', bssid: BSSID.rogue, security: 'open', wps: false, auth: 'psk', beacon: true, power: 2, channel: 11, off: true, rogue: true },
     })
