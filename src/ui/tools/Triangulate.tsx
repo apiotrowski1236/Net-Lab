@@ -80,16 +80,20 @@ export function Triangulate({ session, spec, onSelect }: ToolCardProps<'triangul
 
       {loc && near && (
         <p class="tool-msg good" role="status">
-          <Icon name="check" size={14} /> The three distances meet {place ? `${place.label}, where the map shows ` : 'near '}
-          <button class="linklike" onClick={() => onSelect(near.id)}>
-            {sim.dev(near.id).label}
-          </button>
-          .
+          <Icon name="check" size={14} />
+          <span>
+            The three distances meet {place ? `${place.label}, where the map shows ` : 'near '}
+            <button class="linklike" onClick={() => onSelect(near.id)}>
+              {sim.dev(near.id).label}
+            </button>
+            .
+          </span>
         </p>
       )}
       {loc && !near && (
         <p class="tool-msg good" role="status">
-          <Icon name="check" size={14} /> The three distances meet {place ? place.label : 'at one spot'}. Nothing on the map is there now.
+          <Icon name="check" size={14} />
+          <span>The three distances meet {place ? place.label : 'at one spot'}. Nothing on the map is there now.</span>
         </p>
       )}
     </div>

@@ -74,10 +74,12 @@ function SwitchPortsInner({ session, sim, dev, has }: InspectorSectionProps) {
           {dev.ifaces.map((i) => {
             const peer = sim.peer(dev.id, i.id);
             const n = macsOnPort(dev, i.id).length;
+            // An access point's port carries every Wi-Fi device behind it, so many MACs there are normal (watch-the-air).
+            const many = n >= MANY_MACS && !(peer && sim.devices[peer.device].wifi && !sim.devices[peer.device].wifi!.off);
             const p = dev.switchSec?.ports[i.id];
             const flash = recentlyChanged(sim, (e) => e.device === dev.id && (e.type === 'port-security' || (e.type === 'config' && (e.what === 'port' || e.what === 'port-security'))) && (('iface' in e && e.iface === i.id) || ('detail' in e && !!e.detail?.startsWith(i.id))));
             return (
-              <tr key={i.id} class={`${n >= MANY_MACS ? 'dup' : ''} ${flash ? 'flash' : ''} ${sel === i.id ? 'selected' : ''}`}>
+              <tr key={i.id} class={`${many ? 'dup' : ''} ${flash ? 'flash' : ''} ${sel === i.id ? 'selected' : ''}`}>
                 <td>{portLabel(i.id)}</td>
                 <td>{peer ? sim.devices[peer.device].label : <span class="muted">nothing</span>}</td>
                 <td class="num">{n}</td>

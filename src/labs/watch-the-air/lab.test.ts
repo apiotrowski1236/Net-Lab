@@ -4,7 +4,7 @@ import type { LabProgress } from '../../store/progress';
 import type { ActionDef } from '../types';
 import { signalAt } from '../../sim/wifi';
 import { replayRecord } from '../../sim/wids';
-import { playStep } from '../solution';
+import { playMove, playStep } from '../solution';
 import { watchTheAirLab } from './index';
 import { watchTheAirSolution } from './solution';
 import { BSSID, buildWatch, isMovieNight, ROGUE_PORT, SSID, STAFF, STAFF_PROFILE } from './scenario';
@@ -166,9 +166,9 @@ describe('watch-the-air lab', () => {
     expect(Math.abs(heard.t - min('18:05'))).toBeLessThan(5 * 60 * 1000);
     expect(Math.abs(jam.t - min('19:30'))).toBeLessThan(5 * 60 * 1000);
     expect(Math.abs(movie.t - min('20:00'))).toBeLessThan(5 * 60 * 1000);
-    // The jam ends right after it starts, so movie night is "half an hour later".
+    // The jam lasts about ten minutes, and movie night is "twenty minutes later".
     const quiet = wap.slice(wap.indexOf(jam)).find((e) => e.fields?.action === 'noise' && Number(e.fields?.noise) <= 10)!;
-    expect(quiet.t).toBeLessThan(min('19:35'));
+    expect(Math.abs(quiet.t - min('19:40'))).toBeLessThan(60 * 1000);
   });
 
   it('movie night raises the noise a little and keeps everyone connected', () => {
@@ -194,6 +194,8 @@ describe('watch-the-air lab', () => {
       const r = at(level);
       expect(r.missed).toEqual([]);
       expect(r.falseAlarms).toEqual(["a volunteer's new laptop"]);
+      // The recommend step tells students this count.
+      expect(r.alerts.length).toBe(8);
     }
   });
 
@@ -291,6 +293,29 @@ describe('watch-the-air lab', () => {
     const saved = JSON.stringify(find.sim.dev('visitor').wifiClient!.profile);
     rerunSetup(find, 'jam');
     expect(JSON.stringify(find.sim.dev('visitor').wifiClient!.profile)).toBe(saved);
+  });
+
+  it('draws a circle on the map for each reading of the newest network measured, until the radio is unplugged', () => {
+    const zones = (s: LabSession) => watchTheAirLab.map!.zones!(s.sim).filter((z) => z.id.startsWith('reach-'));
+    const s = enter('find');
+    expect(zones(s)).toEqual([]);
+    const moves = watchTheAirSolution.find.moves!;
+    for (const m of moves.slice(0, 2)) playMove(s, m);
+    expect(zones(s).length).toBe(2);
+    expect(zones(s).every((z) => z.fit === false)).toBe(true);
+    // Measuring a different network switches the map to that network's circles.
+    s.dispatch({ type: 'wifi-measure', device: 'desk', bssid: BSSID.wap, x: 100, y: 200 });
+    expect(zones(s).length).toBe(1);
+    for (const m of moves.slice(2, 3)) playMove(s, m);
+    expect(zones(s).length).toBe(3);
+    s.runStepAction('unplug');
+    expect(zones(s)).toEqual([]);
+  });
+
+  it('says a device with a profile checked the copy for the certificate and sent no login', () => {
+    const s = playThrough('lookalike');
+    const lines = watchTheAirLab.steps.find((st) => st.id === 'lookalike')!.actions![0].outcome!(s.sim, 0);
+    expect(lines[0].text).toBe("Volunteer desk stayed on the real network. Its profile asked the copy for radius.shelter's certificate, got none, and sent no login.");
   });
 
   it('replays the same network and citations after a reload', () => {

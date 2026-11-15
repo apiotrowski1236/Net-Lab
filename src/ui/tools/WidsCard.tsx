@@ -1,8 +1,16 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { RULE_TEXT, settingsKey, WIDS_RULES } from '../../sim/wids';
+import { RULE_TEXT, settingsKey, WIDS_RULES, type WidsReplay, type WidsRule } from '../../sim/wids';
 import { Icon } from '../icons';
 import { Toggle } from './parts';
 import type { ToolCardProps } from './registry';
+
+/** Short names for the rules, to say which one raised a false alarm. */
+const RULE_SHORT: Record<WidsRule, string> = {
+  'unknown-ap': 'not-on-the-list rule',
+  lookalike: 'lookalike-name rule',
+  noise: 'noise rule',
+  'new-mac': 'new-device rule',
+};
 
 /** The noise levels the alarm can be set to fire above. */
 export const NOISE_LEVELS = [10, 20, 40, 60, 80, 95];
@@ -67,6 +75,7 @@ export function WidsCard({ session, spec }: ToolCardProps<'wids'>) {
                 <td>Attacks caught</td>
                 <td>
                   {last.caught.length} of {last.caught.length + last.missed.length}
+                  {last.caught.length > 0 && `: ${last.caught.join(', ')}`}
                 </td>
               </tr>
               <tr>
@@ -75,7 +84,7 @@ export function WidsCard({ session, spec }: ToolCardProps<'wids'>) {
               </tr>
               <tr>
                 <td>False alarms</td>
-                <td class={last.falseAlarms.length ? 'warn' : ''}>{last.falseAlarms.length ? last.falseAlarms.join(', ') : 'none'}</td>
+                <td class={last.falseAlarms.length ? 'warn' : ''}>{last.falseAlarms.length ? last.falseAlarms.map((f) => `${f} (${raisedBy(last, f)})`).join(', ') : 'none'}</td>
               </tr>
               <tr>
                 <td>Alert lines</td>
@@ -87,4 +96,10 @@ export function WidsCard({ session, spec }: ToolCardProps<'wids'>) {
       )}
     </div>
   );
+}
+
+/** Which rules raised the alerts for one record in a replay ("noise rule"). */
+function raisedBy(run: WidsReplay, what: string): string {
+  const rules = [...new Set(run.alerts.filter((a) => a.record.what === what).map((a) => a.rule))];
+  return rules.map((r) => RULE_SHORT[r]).join(' and ');
 }

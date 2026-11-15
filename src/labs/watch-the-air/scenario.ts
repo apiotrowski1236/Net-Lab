@@ -62,8 +62,8 @@ export const TWIN_POS = { x: 600, y: 410 };
 
 /** Three spots to take a signal reading from (for triangulation). */
 export const SPOTS = [
-  { label: 'the north wall', x: 100, y: 200 },
-  { label: 'the south wall', x: 100, y: 530 },
+  { label: 'the north wall', x: 330, y: 185 },
+  { label: 'the south wall', x: 300, y: 540 },
   { label: 'the east door', x: 640, y: 260 },
 ];
 
@@ -81,8 +81,8 @@ export const ROGUE_PORT = 'p7';
 /** The lab's clock: the evening of day 14. */
 export const CLOCK = '18:00';
 
-/** When tonight's events start (the clock opens at 18:00): the lookalike, the jammer, movie night. */
-export const TONIGHT = { lookalike: '18:05', jam: '19:30', movie: '20:00' } as const;
+/** When tonight's events happen (the clock opens at 18:00): the lookalike, the jammer and when it stops, movie night. */
+export const TONIGHT = { lookalike: '18:05', jam: '19:30', jamEnds: '19:40', movie: '20:00' } as const;
 
 /** Phones and laptops online on a usual evening, and on movie night. */
 export const USUAL_CROWD = 20;

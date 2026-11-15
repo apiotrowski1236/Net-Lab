@@ -70,7 +70,7 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
         <table class="table wifi-scan">
           <thead>
             <tr>
-              <th>Network</th>
+              <th>{watch ? 'Network and BSSID' : 'Network'}</th>
               <th>Security</th>
               {watch && <th>Channel</th>}
               <th>Signal</th>
