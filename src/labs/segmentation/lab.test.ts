@@ -228,4 +228,61 @@ describe('segmentation lab', () => {
     expect(infected(s.sim)).toEqual([]);
     expectContained(s);
   });
+
+  it('step 6’s tests answer quickly, so one finishes before the next is pressed', () => {
+    const s = playTo('subnets');
+    setOnly(s, 'policy');
+    for (const [id, port, status] of [['target', 5001, 'open'], ['share', 445, 'no-answer'], ['status', 5002, 'open'], ['crew-share', 445, 'no-answer']] as const) {
+      const t0 = s.sim.t;
+      s.runStepAction(id);
+      s.sim.runUntilIdle();
+      const end = s.sim.events.find((e) => e.t >= t0 && e.type === 'conn-result' && e.conn.port === port);
+      expect(end && end.type === 'conn-result' && end.conn.status, id).toBe(status);
+      // No ARP wait in front: one round trip through the firewall, about 15 seconds at 1×.
+      expect(end!.t - t0, id).toBeLessThanOrEqual(5000);
+    }
+  });
+
+  it('step 7: a step 6 test pressed just before Continue does not count as the malware’s probe', () => {
+    const s = fresh();
+    for (let i = 0; i < index('policy'); i++) {
+      playStep(s, sol[s.step.id]);
+      s.goTo(i + 1);
+    }
+    playStep(s, sol[s.step.id]);
+    expect(s.step.id).toBe('policy');
+    // Press the file-share test and continue before its deny lands.
+    s.runStepAction('crew-share');
+    s.goTo(index('policy') + 1);
+    expect(s.step.id).toBe('contain');
+    s.sim.runUntilIdle();
+    const late = s.sim.dev('fw').logs.find((e) => e.t >= s.since && e.fields?.action === 'deny' && e.fields?.dport === 445);
+    expect(late, 'the test’s deny lands in step 7').toBeTruthy();
+    s.ui({ type: 'ui:open-log', device: 'fw', entry: late! });
+    s.missing();
+    expect(s.goalDone('contain', 'blocked')).toBe(false);
+    expect(s.goalDone('contain', 'log')).toBe(false);
+    s.runStepAction('install');
+    s.sim.runUntilIdle();
+    playStep(s, sol.contain);
+    s.missing();
+    expect(s.goalDone('contain', 'blocked')).toBe(true);
+    expect(s.goalDone('contain', 'log')).toBe(true);
+  });
+
+  it('step 7’s log goal takes only a probe from this step, not a step 6 test line', () => {
+    const s = playTo('policy');
+    expect(s.step.id).toBe('contain');
+    const crewDeny = (e: { fields?: Record<string, unknown> }) =>
+      e.fields?.action === 'deny' && e.fields?.dport === 445 && prefixContains(NET.crew, String(e.fields?.src ?? ''));
+    // Crew laptop 1's file-share test from step 6 is still in the log.
+    const old = s.sim.dev('fw').logs.find(crewDeny)!;
+    expect(old.t).toBeLessThan(s.since);
+    s.ui({ type: 'ui:open-log', device: 'fw', entry: old });
+    expect(s.goalDone('contain', 'log')).toBe(false);
+    s.runStepAction('install');
+    s.sim.runUntilIdle();
+    playMove(s, { openLog: 'fw', where: crewDeny });
+    expect(s.goalDone('contain', 'log')).toBe(true);
+  });
 });

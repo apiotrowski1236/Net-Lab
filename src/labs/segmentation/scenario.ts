@@ -135,7 +135,7 @@ export function buildSub(): Sim {
         name: 'Media server',
         title: 'Crew movie list',
         https: false,
-        page: 'Tonight in the crew mess: a double feature at 2000. Requests go to the morale officer.',
+        page: 'Tonight in the crew lounge: two movies, starting at 8 p.m. Send movie requests to the crew office.',
       },
     })
     .switch('sw', { label: 'Main switch', x: 500, y: 290, ports: 12 })
@@ -250,9 +250,13 @@ export function ensureClean(sim: Sim): void {
   sim.cleanMalware();
 }
 
-/** Every inside computer already knows its neighbors' MACs, so the outbreak's tries don't each start with an ARP broadcast. */
+/**
+ * Every inside computer and the firewall already know their neighbors' MACs, so the outbreak's
+ * tries and the step tests don't each start with an ARP broadcast (at linkMs 500, one costs
+ * seconds at 1×).
+ */
 export function warmArp(sim: Sim): void {
-  sim.prewarmArp([...INSIDE]);
+  sim.prewarmArp(['fw', ...INSIDE]);
 }
 
 /** The zone plan as the lesson needs it: every computer in its job's zone, every zone with a level. */
