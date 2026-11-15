@@ -13,8 +13,7 @@ const c2Stream = () => file('night').frames.find((c) => toC2(c.frame))!.frame.ip
 const floodFrom = () => firstNo('flood', (c) => isFloodFrame(c.frame));
 
 export const captureAnalysisSolution: LabSolution = {
-  ticket: { moves: [{ inspect: 'switch' }, { capfile: 'morning' }, { capfile: 'morning', packet: 1 }] },
-  normal: { moves: [{ capfile: 'morning', stats: 'endpoints-ip' }, { capfile: 'morning', stats: 'conversations' }] },
+  ticket: { moves: [{ inspect: 'switch' }, { capfile: 'morning' }, { capfile: 'morning', stats: 'endpoints-ip' }] },
   outage: {
     moves: [{ capfile: 'outage', filter: 'tcp.flags.reset == 1' }],
     get text() {
