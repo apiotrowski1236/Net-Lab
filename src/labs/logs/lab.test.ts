@@ -370,6 +370,21 @@ describe('logs lab: goals', () => {
     expect(tried('tried-low', since2)).toBe(false);
   });
 
+  it('scoring again after trying both ends does not make the last threshold goal start over', () => {
+    const sim = buildUtility();
+    const check = (id: string) => goal('threshold', id).check({ sim, since: 0 });
+    sim.aiScore('siem', AI_EVENTS);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 1);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0);
+    sim.t += 1000;
+    sim.aiScore('siem', AI_EVENTS);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0.75);
+    expect(check('good-threshold')).toBe(true);
+  });
+
   it('a goal check in the middle of a Score does not count the values from before it', () => {
     const sim = buildUtility();
     const since = sim.t;

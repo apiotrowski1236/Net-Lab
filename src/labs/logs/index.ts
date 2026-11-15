@@ -65,6 +65,25 @@ function triedThreshold(sim: Sim, since: number, pred: (v: number) => boolean): 
   return ai.scoredAt < since && hit;
 }
 /**
+ * Whether the student tried a threshold matching `pred` at any point in this step, once the events were
+ * scored, even if they pressed Score again afterwards. The last goal uses it, so re-scoring after trying
+ * both ends doesn't make the student drag to both ends again; the two "Try" goals already stay checked.
+ */
+function triedInStep(sim: Sim, since: number, pred: (v: number) => boolean): boolean {
+  const ai = siem(sim).ai;
+  if (!ai) return false;
+  let start = sim.events.length;
+  while (start > 0 && sim.events[start - 1].t >= since) start--;
+  let scored = ai.scoredAt < since;
+  for (let i = start; i < sim.events.length; i++) {
+    const e = sim.events[i];
+    if (e.type !== 'config' || e.device !== 'siem' || (e.what !== 'ai-score' && e.what !== 'ai-threshold')) continue;
+    if (e.what === 'ai-score') scored = true;
+    if (scored && e.detail !== undefined && pred(Number(e.detail))) return true;
+  }
+  return false;
+}
+/**
  * Whether the signature set was on at every moment from `from` until `to`,
  * read from the sensor's own "signature set enabled/disabled" lines. Not from
  * the setting now: goals are checked on every sim event, and the setting
@@ -544,7 +563,7 @@ export const logsLab: LabDef = {
           hint: 'Try both ends first. Then look at the scores of the three real attacks and the harmless events right below them. Try between 0.70 and 0.75.',
           check: ({ sim, since }) => {
             const q = siem(sim);
-            if (!q.ai || !triedThreshold(sim, since, (v) => v >= 0.999) || !triedThreshold(sim, since, (v) => v <= 0.001)) return false;
+            if (!q.ai || !triedInStep(sim, since, (v) => v >= 0.999) || !triedInStep(sim, since, (v) => v <= 0.001)) return false;
             const c = aiCounts(q);
             return c.caught === c.attacks && c.falseAlerts <= 1;
           },

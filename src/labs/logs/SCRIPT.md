@@ -418,7 +418,7 @@ Logs tool device list (step 1):
 
 **Goals:**
 
-- `missed` — "Replay the 3 a.m. upload with the signature set on" — hint: "Keep the signature set on, press Replay the 3 a.m. upload, and watch the sensor's alerts. Nothing new should appear." — completes when an upload replay started in this step finishes (`conn-result` from `pc2` to `45.77.12.9` with `conn.t` at or after step start), the signature set stayed on from the replay's start to its end (worked out from the `ids-signatures` config events), and `nids` logged no alert naming `pc2` or `45.77.12.9` during it. An alert left over from a step 3 replay doesn't count against it.
+- `missed` — "Replay the 3 a.m. upload with the signature set on" — hint: "Keep the signature set on, press Replay the 3 a.m. upload, and watch the sensor's alerts. Nothing new should appear." — completes when an upload replay started in this step finishes (`conn-result` from `pc2` to `45.77.12.9` with `conn.t` at or after step start), the signature set stayed on from the replay's start to its end (worked out from the sensor's own "signature set enabled/disabled" log lines), and `nids` logged no alert naming `pc2` or `45.77.12.9` during it. An alert left over from a step 3 replay doesn't count against it.
 
 **Questions:**
 
@@ -584,7 +584,7 @@ Logs tool device list (step 1):
   - D. "It blocks the whole network." — feedback: "The threshold raises alerts; it does not block. A low bar means far too many alerts."
   - explain: "A low threshold alerts on everything, so the team drowns in false positives and misses the few that matter. The organization picks the threshold to balance the two, and a critical network like a water utility leans toward catching more and tolerating some false alerts."
 
-**Answer-key moves:** `{ press: 'score-morning' }`, `{ tool: { type: 'ai-threshold', device: 'siem', value: 0.75 } }`.
+**Answer-key moves:** `{ press: 'score-morning' }`, `{ tool: { type: 'ai-threshold', device: 'siem', value: 1 } }`, `{ tool: { type: 'ai-threshold', device: 'siem', value: 0 } }`, `{ tool: { type: 'ai-threshold', device: 'siem', value: 0.75 } }`.
 
 ---
 
