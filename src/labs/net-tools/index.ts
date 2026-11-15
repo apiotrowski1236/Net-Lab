@@ -127,7 +127,7 @@ const watchButton: ActionDef = {
     const c = (sim.dev('pc2').conns ?? []).filter((x) => x.t >= since && x.to === IP.remote).pop();
     if (!c || c.status === 'pending') return [{ tone: 'wait', text: 'Public PC 2 is sending something…' }];
     if (c.status !== 'open') return [{ tone: 'bad', text: 'Public PC 2 tried to reach 203.0.113.66, but nothing came back.' }];
-    return [{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it sent packets to 203.0.113.66, out on the internet, and got answers back.' }];
+    return [{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it sent packets out to the internet and got answers back.' }];
   },
 };
 
@@ -173,7 +173,7 @@ const scanned = ({ sim, since }: CheckCtx) => nmaps(sim, 'laptop', since).some(w
 
 export const netToolsLab: LabDef = {
   id: 'net-tools',
-  version: 5,
+  version: 6,
   title: 'Network Command-Line Tools',
   tagline:
     'Solve three help desk tickets at a public library with ping, traceroute, nslookup, and netstat. Then, with written permission, map the network with nmap and find services that should be turned off.',
@@ -210,11 +210,11 @@ export const netToolsLab: LabDef = {
         | netstat | What is this computer connected to right now? |
         | nmap | Which computers are on this network, and which of their ports are open? |
 
-        A **port** is a numbered door into a computer, one for each service. Secure websites use port 443, for example. (The **Port** column in a device's details, like eth0 or lan, is something else: the place where a cable plugs in.)
+        A **port** is a numbered door into a computer, one for each service. Secure websites use port 443, for example.
 
         **The rule: nmap only with written permission.** The first four look at your own computer or ask one simple question. nmap knocks on the doors of other people's computers. Scanning a network without its owner's written permission can be a crime, even if you mean no harm. Everything in this lab happens inside a simulation.
 
-        Click [[router]]. It connects the library to the internet, and it's the library's **DNS server**: it turns names like catalog.lakeside.example into addresses. Then click [[catalog]]. Its details open under the map. You don't need most of them today: scroll down to **Open ports**, the doors this server has open. In step 8, nmap finds the same list from outside.
+        Click [[router]]. It connects the library to the internet, and it's the library's **DNS server**: it turns names like catalog.lakeside.example into addresses. Then click [[catalog]]. Its details open under the map. Scroll down to **Open ports**, the doors this server has open. In step 8, nmap finds the same list from outside. (The **Port** column in the Addresses table, like eth0, is a different thing: the place where a cable plugs in.)
       `,
       focus: ['router', 'catalog'],
       goals: [
@@ -257,14 +257,14 @@ export const netToolsLab: LabDef = {
 
         **ping** sends a tiny "are you there?" message, and the other computer sends one back.
 
-        1. The **Terminal**, in the **Toolkit** tab, is sitting at [[pc1]].
+        1. The **Terminal**, in the **Toolkit** tab, is sitting at [[pc1]]. Click [[pc1]] any time to jump back to it.
         2. Type \`ping 10.0.0.1\` and press Enter. That's the library router.
-        3. Then ping [[catalog]] at 10.0.0.20. Watch the map, not the Terminal: first, **ARP** asks the network "who has 10.0.0.20?" The **learned a MAC** tag means Public PC 1 now knows the catalog server's hardware address. Then the pings go.
+        3. Then ping [[catalog]] at 10.0.0.20. Before the pings go, **ARP** asks the network "who has 10.0.0.20?" On the map, both computers get a **learned a MAC** tag: each now knows the other's hardware address, called a **MAC address**.
 
         Each reply line shows:
 
         - **time**: how long the round trip took, in **milliseconds** (ms). 1,000 ms is one second.
-        - **TTL** (time to live): starts at 64 or 128, and each router on the way lowers it by 1. At 0 the packet is thrown away. Ticket 2's tool, traceroute, uses this.
+        - **TTL** (time to live): a number that each router on the way lowers by 1. Step 5 uses it.
 
         (The map moves packets slowly so you can watch. The terminal prints real-world times.)
       `,
@@ -311,9 +311,7 @@ export const netToolsLab: LabDef = {
         People don't type addresses. The public computers open the catalog by its name. Try what they do.
 
         1. Type \`ping catalog.lakeside.example\`.
-        2. The first line of the output shows, in square brackets, where the name led. Compare it with [[catalog]]'s address on the map.
-
-        **Destination host unreachable** means nobody answered "who has this address?". The "Reply from" lines come from Public PC 1 itself, reporting that it gave up.
+        2. The first line of the output, **Pinging**, shows in square brackets where the name led. (Scroll up in the Terminal if it's out of view.) Compare it with [[catalog]]'s address on the map.
       `,
       focus: ['pc1', 'catalog'],
       open: 'tools',
@@ -330,18 +328,19 @@ export const netToolsLab: LabDef = {
         {
           id: 'wrong',
           kind: 'choice',
-          prompt: 'What went wrong?',
+          prompt: 'What would fix this ticket?',
           options: [
-            { id: 'address', text: 'The name leads to 10.0.0.21, but the catalog server is at 10.0.0.20', correct: true },
-            { id: 'off', text: 'The catalog server is turned off', feedback: 'You pinged 10.0.0.20 a minute ago, and it answered.' },
-            { id: 'cable', text: "Public PC 1's cable is unplugged", feedback: 'Public PC 1 reached the router and the catalog server in the last step, so its cable works.' },
+            { id: 'address', text: 'Make the name lead to 10.0.0.20', correct: true },
+            { id: 'off', text: 'Turn the catalog server back on', feedback: 'You pinged 10.0.0.20 a minute ago, and it answered. It is on.' },
+            { id: 'cable', text: "Replace Public PC 1's cable", feedback: 'Public PC 1 reached the router and the catalog server in the last step, so its cable works.' },
             {
               id: 'spelling',
-              text: 'The name is spelled wrong',
+              text: 'Fix the spelling of the name',
               feedback: 'A misspelled name finds no address at all: "could not find host". This name found one. It was the wrong one.',
             },
           ],
-          explain: 'The server is fine at 10.0.0.20. The name sends everyone to 10.0.0.21, where no device lives, so the problem is the name, not the server.',
+          explain:
+            'The server is fine at 10.0.0.20. The DNS record for the name sends everyone to 10.0.0.21, where no device lives. Change the record to 10.0.0.20, and the name leads to the server again. In the next step, you check that record yourself.',
           afterGoals: true,
         },
       ],
@@ -353,7 +352,7 @@ export const netToolsLab: LabDef = {
       body: md`
         A ping by name has two parts. First the computer asks a **DNS server** which address goes with the name. Then it pings that address. **nslookup** does only the first part, so you see exactly what the DNS server says.
 
-        1. Type \`nslookup catalog.lakeside.example\`. The first two lines name the DNS server that answered, [[router]]. (#53 means port 53, the DNS port.)
+        1. Type \`nslookup catalog.lakeside.example\`. The first two lines name the DNS server that answered: 10.0.0.1, which is [[router]]. (#53 means port 53, the DNS port.)
         2. The last **Address** line is the answer. Is it the catalog server's address? If not, the record is wrong.
         3. The library pays an **IT contractor**, an outside company, to manage the router. Press [[button:report-dns]].
         4. Check their fix with the same nslookup. (The up arrow key brings back the command.)
@@ -410,10 +409,10 @@ export const netToolsLab: LabDef = {
       body: md`
         Ticket 2: the e-book site, ebooks.example, won't load.
 
-        1. Type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. The map shows where the ping stopped, but a real technician has no map. They use traceroute to find the spot.
+        1. Type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. A real technician has no map to show where the ping stopped. They use traceroute to find the spot.
         2. Type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map.
 
-        traceroute sends pings with a small TTL. (Linux sends a different kind of packet, with the same TTL trick.) The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
+        traceroute sends packets with a small TTL. The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
 
         | Try | TTL sent | Where it hits 0 | Shows up as |
         |---|---|---|---|
@@ -421,9 +420,7 @@ export const netToolsLab: LabDef = {
         | 2 | 2 | 2nd router | line 2 |
         | 3 | 3 | 3rd router | line 3, and so on |
 
-        Each line is one **hop**: a stop on the way. Every stop is a router (the internet provider's box is one too), except the site itself: when the trace gets there, it's the last line. A \`*\` means nothing answered. Some routers ignore traceroute, so one \`*\` isn't proof. When the trace never gets past it and pings fail too, the path is broken there.
-
-        The blue tags at [[router]] are **address sharing**: every library computer goes out with the same internet address. This ticket doesn't need them.
+        Each line is one **hop**: a stop on the way. Each stop is a router, except the last line of a finished trace. That line is the site itself. A \`*\` means nothing answered. Some routers ignore traceroute, so one \`*\` isn't proof. When the trace never gets past it and pings fail too, the path is broken there.
 
         3. Answer **In the first trace, where is the problem?** below.
         4. Press [[button:call-isp]].
@@ -493,7 +490,7 @@ export const netToolsLab: LabDef = {
       id: 'netstat',
       title: 'netstat: who is connected?',
       body: md`
-        Ticket 3: a library visitor saw the mouse on [[pc2]] move by itself. Someone far away may be using a **remote-control program**: software that shows them the screen and moves the mouse. An attacker who hides one can see every password typed.
+        Ticket 3: a library visitor saw the mouse on [[pc2]] move by itself. Nobody is using it now, but the last visitor left the browser open. Someone far away may be using a **remote-control program**: software that shows them the screen and moves the mouse. An attacker who hides one can see every password typed.
 
         **netstat** lists a computer's open connections. Here is one normal line of \`netstat -b\`, and what each part means:
 
@@ -505,7 +502,7 @@ export const netToolsLab: LabDef = {
         | State | ESTABLISHED | connected right now |
         | Program | browser.exe | what opened it |
 
-        Port 443 is the usual door for secure websites.
+        Port 443 is the usual door for secure websites. A connection to a computer you don't know, on a port you don't recognize, is a warning sign.
 
         1. Press [[button:watch-pc2]] and watch the map.
         2. The Terminal is sitting at Public PC 2. Type \`netstat -b\`.
@@ -611,8 +608,8 @@ export const netToolsLab: LabDef = {
         Now you have permission. An **open** port means a program is answering there, ready for connections. Every open port is a door into that computer, so IT staff keep open only the ones they need.
 
         1. The Terminal is on [[laptop]], the only computer the letter lets you scan from. Type \`nmap 10.0.0.0/24\`.
-        2. nmap asks for every address on the network, then knocks on 10 common ports at each computer it finds. (A real nmap checks 1,000.) A red **no ARP answer** tag on [[laptop]] means it asked for an empty address: no computer has it.
-        3. Press **Bigger** on the Terminal, and read the report: one block for each computer that answered. **Host is up** means it answered. The **latency** is how long the answer took, in seconds: 0.00038s is less than a millisecond.
+        2. nmap asks for every address on the network, then knocks on 10 common ports at each computer it finds. (A real nmap checks 1,000.) A tag like TELNET on a packet names the door nmap knocks on. A red **no ARP answer** tag on [[laptop]] isn't a problem with the laptop: it asked for an address no computer has.
+        3. Press **Bigger** on the Terminal, and read the report: one block for each computer that answered. **Host is up** means it answered. Public PC 2 is unplugged, so it isn't there.
 
         | Service | Port | What it does |
         |---|---|---|
@@ -656,6 +653,8 @@ export const netToolsLab: LabDef = {
 
         1. Type \`nmap -sV --script vuln 10.0.0.0/24\`. **-sV** asks each open port which program and version answers. **--script vuln** tests for known vulnerabilities. Some tests try the weakness for real, so the letter had to allow them.
         2. The report is long: use **Bigger** and **More below**. Read the new **VERSION** column, and the lines that start with a bar, \`|\`. A **backdoor** is a secret way in that skips the password.
+
+        This lab's vuln check knows only a few problems. A real one checks for thousands, and a program it doesn't flag isn't proven safe.
       `,
       focus: ['laptop', 'catalog', 'printer'],
       open: 'tools',
@@ -732,7 +731,14 @@ export const netToolsLab: LabDef = {
       id: 'reflect',
       title: 'Reflect',
       body: md`
-        You solved three tickets by asking the network simple questions: is it there (ping), where does the path break (traceroute), what address goes with a name (nslookup), and what is this computer connected to (netstat). Then, with written permission, you found two risky services with nmap and got them turned off.
+        You solved three tickets by asking the network simple questions:
+
+        - ping: is it there?
+        - nslookup: which address goes with this name?
+        - traceroute: where does the path break?
+        - netstat: what is this computer connected to?
+
+        Then, with written permission, you found two risky services with nmap and got them turned off.
 
         In class, we'll try ping, traceroute, nslookup, and netstat on real computers. They're safe to run on your own computer. Don't run nmap on any network you don't own, including the school's, without written permission from its owner. Scanning without permission can get you suspended from school, taken to court, or in trouble with the police.
 

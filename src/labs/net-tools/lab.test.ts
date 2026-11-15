@@ -227,7 +227,7 @@ describe('net-tools buttons', () => {
     watch.run(sim);
     expect(watch.outcome!(sim, 0)).toEqual([{ tone: 'wait', text: 'Public PC 2 is sending something…' }]);
     sim.runUntilIdle();
-    expect(watch.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it sent packets to 203.0.113.66, out on the internet, and got answers back.' }]);
+    expect(watch.outcome!(sim, 0)).toEqual([{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it sent packets out to the internet and got answers back.' }]);
   });
 });
 
