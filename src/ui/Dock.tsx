@@ -20,6 +20,7 @@ import {
   checkRoute,
   checkSpoofClaim,
   checkStaticArp,
+  staticArpIpError,
   covers,
   portName,
 } from '../runtime/toolInput';
@@ -1087,6 +1088,8 @@ function StaticArpTool({ session, spec }: { session: LabSession; spec: Extract<T
   const [mac, setMac] = useKept(session, `${session.step.id}/static-arp/${spec.device}/mac`);
   const [msg, setMsg] = useState<Msg>(null);
   const locked = Object.entries(d.arp).filter(([, e]) => e.via === 'static');
+  // Only the box at fault turns red: the MAC box once the IP address names a device.
+  const bad = msg?.tone === 'bad' ? (staticArpIpError(sim, spec.device, ip) ? 'ip' : 'mac') : null;
   const lock = () => {
     const r = checkStaticArp(sim, spec.device, ip, mac);
     if (!r.ok) return setMsg({ tone: 'bad', text: r.msg });
@@ -1108,7 +1111,7 @@ function StaticArpTool({ session, spec }: { session: LabSession; spec: Extract<T
       <div class="sentence">
         Lock
         <input
-          class={`mono ${msg?.tone === 'bad' ? 'invalid' : ''}`}
+          class={`mono ${bad === 'ip' ? 'invalid' : ''}`}
           value={ip}
           placeholder="IP address"
           inputMode="decimal"
@@ -1121,7 +1124,7 @@ function StaticArpTool({ session, spec }: { session: LabSession; spec: Extract<T
         />
         to
         <input
-          class={`mono ${msg?.tone === 'bad' ? 'invalid' : ''}`}
+          class={`mono ${bad === 'mac' ? 'invalid' : ''}`}
           value={mac}
           placeholder="MAC address"
           autoComplete="off"

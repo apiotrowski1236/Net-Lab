@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LabSession } from '../../runtime/session';
 import type { LabProgress } from '../../store/progress';
 import { infoOf, layersOf, protoOf } from '../../ui/describe';
+import { checkStaticArp, staticArpIpError } from '../../runtime/toolInput';
 import { isPlainLogin } from '../helpers';
 import { playMove, playStep } from '../solution';
 import { onPathLab as lab } from '.';
@@ -118,6 +119,34 @@ describe('on-path: WPA2 seals other devices’ frames', () => {
     expect(sim.dev('mallory').capture.some((c) => isPlainLogin(c.frame))).toBe(true);
   });
 
+  it('frames between two Wi-Fi devices stay off the wired port to the router', () => {
+    const sim = buildCafe();
+    enableWpa2(sim);
+    sim.setSniffing('router', true);
+    sim.setSniffing('mallory', true);
+    sim.setForwarding('mallory', true);
+    sim.arpSpoof('mallory', 'alice', IP.router);
+    sim.arpSpoof('mallory', 'router', IP.alice);
+    sim.runUntilIdle();
+    sim.browse('alice', 'http://bank.example/login', LOGIN_BODY);
+    sim.runUntilIdle();
+    expect(sim.dev('alice').browser?.status).toBe('loaded');
+    const atRouter = sim.dev('router').capture.map((c) => c.frame);
+    // Alice to Mallory and Mallory to Alice never reach the router. Mallory to the router does.
+    expect(atRouter.some((f) => f.dst === MAC.alice || f.src === MAC.alice)).toBe(false);
+    expect(atRouter.some((f) => f.src === MAC.mallory && f.dst === MAC.router && isPlainLogin(f))).toBe(true);
+    expect(sim.dev('mallory').capture.some((c) => isPlainLogin(c.frame))).toBe(true);
+  });
+
+  it('the ARP lock blames the IP box only when the IP is wrong', () => {
+    const sim = buildCafe();
+    expect(staticArpIpError(sim, 'alice', IP.router)).toBeUndefined();
+    expect(staticArpIpError(sim, 'alice', '192.168.1.99')).toMatch(/No device/);
+    // A flipped MAC fails with a good IP, so only the MAC box should turn red.
+    const r = checkStaticArp(sim, 'alice', IP.router, '0c:af:e0:00:00:10');
+    expect(r.ok).toBe(false);
+  });
+
   it('turning WPA2 on is quiet and idempotent', () => {
     const sim = buildCafe();
     sim.quiet = true;
@@ -140,6 +169,15 @@ describe('on-path lab steps', () => {
     expect(s.goalDone('wpa2', 'sealed')).toBe(false);
     playMove(s, { openFrame: 'mallory', match: (f) => !!f.sealed });
     expect(s.goalDone('wpa2', 'sealed')).toBe(true);
+  });
+
+  it('a cleared capture numbers its packets from 1 again', () => {
+    const s = openStep('wpa2');
+    playMove(s, { press: 'login' });
+    s.sim.runUntilIdle();
+    const nos = s.sim.dev('mallory').capture.map((c) => c.no);
+    expect(nos[0]).toBe(1);
+    expect(nos).toEqual(nos.map((_, i) => i + 1));
   });
 
   it('the password answer must match case, but spaces around it are fine', () => {

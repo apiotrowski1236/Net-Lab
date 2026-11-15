@@ -112,7 +112,7 @@ async function seeded(progress, who = {}) {
   const now = Date.now();
   const full = {
     labId: 'on-path',
-    labVersion: 2,
+    labVersion: 3,
     studentId: 'e2e',
     startedAt: now,
     updatedAt: now,

@@ -16,7 +16,9 @@ import type { Frame } from './types';
  * two MAC addresses (real WPA2 leaves them readable) and drops everything
  * inside, so nothing can leak through the capture, filters, or file export. A
  * wired port (the router behind the access point) gets the frame as it is,
- * because the access point decrypts frames before it passes them on.
+ * because the access point decrypts frames before it passes them on. A frame
+ * from one Wi-Fi device to another stays on the air: the access point knows
+ * which devices have joined, so it doesn't send that frame out the wired port.
  *
  * Simplified: one key per device, no four-way handshake, and no key cracking.
  */
@@ -35,6 +37,11 @@ export interface SealedFrame {
 export function mustSeal(seal: AirSeal | undefined, frame: Frame, peerMac: Mac | undefined, wireless: boolean): boolean {
   if (!seal || !wireless || frame.sealed) return false;
   return frame.dst !== BROADCAST_MAC && frame.dst !== peerMac;
+}
+
+/** Whether an encrypted access point keeps `frame` off a wired port, because it is for a device on the air (`onAir`). */
+export function staysOnAir(seal: AirSeal | undefined, frame: Frame, wireless: boolean, onAir: (mac: Mac) => boolean): boolean {
+  return !!seal && !wireless && frame.dst !== BROADCAST_MAC && onAir(frame.dst);
 }
 
 /** The copy a device that isn't the addressee receives: the MAC addresses, and nothing it can read. */

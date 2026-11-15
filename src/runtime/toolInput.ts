@@ -84,18 +84,26 @@ export function covers(prefix: string, ip: Ip): boolean {
 }
 
 /** Static ARP: the IP address and the correct MAC for it. */
+/** What's wrong with the IP address half of a static ARP entry, or undefined when it names a device on the local network. */
+export function staticArpIpError(sim: Sim, deviceId: string, rawIp: string): string | undefined {
+  const ip = rawIp.trim();
+  const dev = sim.dev(deviceId);
+  const me = lanIface(dev);
+  if (!ip) return 'Type the IP address to lock.';
+  if (!isIp(ip)) return IP_FORMAT;
+  if (me.prefix === undefined || !sameSubnet(ip, me.ip!, me.prefix)) return `ARP entries are only for this local network (${lanOf(me)}). ${ip} is not on it.`;
+  if (ip === me.ip) return `${ip} is ${dev.label}'s own address. Lock the address of a device ${dev.label} talks to.`;
+  if (!ownerOnLan(sim, me, ip)) return `No device on this network uses ${ip}.`;
+  return undefined;
+}
+
 export function checkStaticArp(sim: Sim, deviceId: string, rawIp: string, rawMac: string): Checked<{ ip: Ip; mac: Mac }> {
   const ip = rawIp.trim();
   const dev = sim.dev(deviceId);
   const me = lanIface(dev);
-  if (!ip) return { ok: false, msg: 'Type the IP address to lock.' };
-  if (!isIp(ip)) return { ok: false, msg: IP_FORMAT };
-  if (me.prefix === undefined || !sameSubnet(ip, me.ip!, me.prefix)) {
-    return { ok: false, msg: `ARP entries are only for this local network (${lanOf(me)}). ${ip} is not on it.` };
-  }
-  if (ip === me.ip) return { ok: false, msg: `${ip} is ${dev.label}'s own address. Lock the address of a device ${dev.label} talks to.` };
-  const owner = ownerOnLan(sim, me, ip);
-  if (!owner) return { ok: false, msg: `No device on this network uses ${ip}.` };
+  const ipError = staticArpIpError(sim, deviceId, rawIp);
+  if (ipError) return { ok: false, msg: ipError };
+  const owner = ownerOnLan(sim, me, ip)!;
   if (!rawMac.trim()) return { ok: false, msg: `Type ${owner.dev.label}'s MAC address.` };
   const mac = normalizeMac(rawMac);
   if (!mac) return { ok: false, msg: MAC_FORMAT };

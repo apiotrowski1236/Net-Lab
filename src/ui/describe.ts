@@ -281,7 +281,7 @@ export function layersOf(sim: Sim, f: Frame): Layer[] {
       color: LAYER_COLOR.HTTPS,
       rows: [['Data', gibberish(f.id)]],
       locked: true,
-      note: 'This frame is locked with the Wi-Fi key of the device it is for. Everything inside is hidden, even the IP addresses. Only the MAC addresses stay readable.',
+      note: 'This frame is locked with another device’s Wi-Fi key, the key for everything that device sends and receives. Everything inside is hidden, even the IP addresses. Only the MAC addresses stay readable.',
     });
     return layers;
   }

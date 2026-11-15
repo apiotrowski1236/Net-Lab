@@ -29,7 +29,7 @@ import type {
 import { forgedGuesses, freshEntry, nextQueryParams, type Waiter } from './dns';
 import { burstIp, burstMac, burstSize, type Burst } from './burst';
 import { broadcastAddr, directedBroadcastIface } from './broadcast';
-import { mustSeal, sealedCopy, type AirSeal } from './airseal';
+import { mustSeal, sealedCopy, staysOnAir, type AirSeal } from './airseal';
 import { payloadLen, scriptTurns, SYN_TRIES, tcpKey, type TcpFlags, type TcpScript, type TcpSession } from './tcp';
 import { clearAllFloods, clearFlood, linkLoad, newCongestion, setFlood, type CongestionState, type FloodKind } from './congestion';
 import {
@@ -484,7 +484,11 @@ export class Sim {
       return;
     }
     if (dev.kind === 'hub') {
-      for (const i of dev.ifaces) if (i.id !== ifaceId && i.linkId) this.transmit(dev.id, i.id, this.airCopy(dev, i, frame), this.opts.l2Ms);
+      for (const i of dev.ifaces) {
+        if (i.id === ifaceId || !i.linkId) continue;
+        const copy = this.airCopy(dev, i, frame);
+        if (copy) this.transmit(dev.id, i.id, copy, this.opts.l2Ms);
+      }
       return;
     }
     if (dev.kind === 'switch') {
@@ -4148,16 +4152,25 @@ export class Sim {
   /** Empty a device's packet capture, so a new lesson step starts with a clean list. Capture stays on or off as it was. */
   clearCapture(devId: string): void {
     const dev = this.dev(devId);
-    if (!dev.capture.length) return;
+    if (!dev.capture.length && dev.captureRun?.next === 1) return;
     dev.capture = [];
+    // Number the new list from 1 and time it from now, as a fresh Wireshark capture does.
+    dev.captureRun = newCaptureRun(this.t);
     this.emit({ t: this.t, type: 'config', device: devId, what: 'clear-capture' });
   }
 
-  /** The copy of a frame a hub sends out one port: sealed when the Wi-Fi is encrypted and the frame is for someone else. */
-  private airCopy(hub: Device, port: Iface, frame: Frame): Frame {
-    const wireless = !!(port.linkId && this.links[port.linkId]?.wireless);
+  /**
+   * The copy of a frame a hub sends out one port: sealed when the Wi-Fi is encrypted and the frame
+   * is for someone else, or none at all on the wired port when the frame is for another Wi-Fi device.
+   */
+  private airCopy(hub: Device, port: Iface, frame: Frame): Frame | null {
+    const wirelessPort = (i: Iface) => !!(i.linkId && this.links[i.linkId]?.wireless);
+    const wireless = wirelessPort(port);
+    if (!hub.airSeal) return frame;
+    const onAir = (mac: Mac) => hub.ifaces.some((i) => wirelessPort(i) && this.peerMac(hub.id, i.id) === mac);
+    if (staysOnAir(hub.airSeal, frame, wireless, onAir)) return null;
     if (!mustSeal(hub.airSeal, frame, this.peerMac(hub.id, port.id), wireless)) return frame;
-    return sealedCopy(frame, hub.airSeal!);
+    return sealedCopy(frame, hub.airSeal);
   }
 }
 
