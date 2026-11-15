@@ -4,6 +4,7 @@ import { fwDenyText } from '../../ui/firewallText';
 import type { Sim } from '../../sim/sim';
 import { firewallLab } from '.';
 import {
+  ISP_ROUTER,
   ATTACKER,
   bothPlaced,
   buildHospital,
@@ -154,6 +155,17 @@ describe('firewall lab feedback', () => {
     );
   });
 
+  it('says when a TCP-only rule on Firewall B is all that stops a ping', () => {
+    const sim = placed();
+    sim.fwAddRule('fwB', { ...STAFF_OUT, proto: 'tcp' });
+    const t = sim.t;
+    sim.ping('nurse', ISP_ROUTER);
+    sim.runUntilIdle();
+    expect(fwDenyText(sim, 'fwB', sim.events.find((e) => e.type === 'firewall' && e.t >= t)!.t)).toBe(
+      'Firewall B blocked it: no rule matched (the implicit deny). Rule 1 would match it, but rule 1 is only for TCP, and this packet is a ping (ICMP).',
+    );
+  });
+
   it('says nothing extra for an implicit deny that no rule would turn around', () => {
     const sim = placed();
     const t = sim.t;
@@ -183,6 +195,19 @@ describe('firewall lab goals', () => {
     sim.fwDeleteRule('fwA', deny.id);
     expect(connect(sim, 'clinic', WEB, 22).status).toBe('open');
     expect(goal.check({ sim, since })).toBe(false);
+  });
+
+  it('needs scans of both networks for the rescan in step 7', () => {
+    const rescan = step('log').goals!.find((g) => g.id === 'rescan')!;
+    const sim = buildHospital();
+    step('log').setup!(sim);
+    const since = sim.t;
+    sim.scan('attacker', SERVER_NET);
+    sim.runUntilIdle();
+    expect(rescan.check({ sim, since })).toBe(false);
+    sim.scan('attacker', STAFF_NET);
+    sim.runUntilIdle();
+    expect(rescan.check({ sim, since })).toBe(true);
   });
 
   it('needs Firewall B to allow every protocol out, not only TCP, for the nurse ping in step 6', () => {

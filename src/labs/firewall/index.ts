@@ -1,3 +1,4 @@
+import { sameSubnet } from '../../sim/addr';
 import { evaluate, type FwRuleInput } from '../../sim/firewall';
 import { scanFindings, type Conn } from '../../sim/services';
 import type { Sim } from '../../sim/sim';
@@ -34,7 +35,7 @@ const attackerSsh: ActionDef = { id: 'attacker-ssh', label: 'Attacker tries SSH 
 const attackerPing: ActionDef = { id: 'attacker-ping', label: 'Attacker pings the web server', run: (sim) => void sim.ping('attacker', WEB) };
 const clinicSsh: ActionDef = { id: 'clinic-ssh', label: 'Clinic admin logs in with SSH', run: (sim) => void sim.connectService('clinic', WEB, 22) };
 const nurseWeb: ActionDef = { id: 'nurse-web', label: 'Nurse station opens the web app', run: (sim) => void sim.connectService('nurse', WEB, 443) };
-const nursePing: ActionDef = { id: 'nurse-ping', label: 'Nurse station pings the internet provider’s router', run: (sim) => void sim.ping('nurse', ISP_ROUTER) };
+const nursePing: ActionDef = { id: 'nurse-ping', label: 'Nurse station pings the internet (10.0.1.1)', run: (sim) => void sim.ping('nurse', ISP_ROUTER) };
 const webToFiles: ActionDef = {
   id: 'web-files',
   label: 'Hacked web server reaches for the records',
@@ -61,6 +62,10 @@ const denied = (pred: (e: FwEvent) => boolean) => (e: FwEvent) => e.verdict.acti
 /** A connection from `device` since `since` that finished and matches. */
 const connected = (sim: Sim, device: string, since: number, pred: (c: Conn) => boolean) =>
   (sim.dev(device).conns ?? []).some((c) => c.t >= since && c.status === 'open' && pred(c));
+
+/** The attacker finished a scan since `since` that covered the /24 network `ip` is on. */
+const scannedNet = (sim: Sim, since: number, ip: string) =>
+  happened(sim, since, (e) => e.type === 'scan-done' && e.device === 'attacker' && e.scan.hosts.some((h) => sameSubnet(h.ip, ip, 24)));
 
 /** Firewall A still has this rule (the student fixed the order instead of deleting it). */
 const hasRule = (sim: Sim, rule: FwRuleInput) => sim.dev('fwA').firewall!.rules.some((r) => sameRule(r, rule));
@@ -162,7 +167,7 @@ export const firewallLab: LabDef = {
         2. Scan the staff network: \`${STAFF_NET}\`.
         3. The file server has port 445 open for file sharing. Press **Connect** next to it.
 
-        The scan also finds two routers. 10.0.1.1 is the internet provider's router, where its cable plugs into the hospital. 10.0.1.2 is the hospital's own router, which also has an address on the staff network, 10.0.2.1. (A real hospital hides its 10.0 addresses behind a public address. This lab skips that, and the scanner skips addresses no computer uses.)
+        The scan also finds routers. 10.0.1.1 is the internet provider's router. 10.0.1.2 and 10.0.2.1 are both the hospital's own router: a router has an address on each network it joins. (The scanner skips addresses no computer uses. A real hospital would also hide these addresses from the internet, which this lab skips.)
       `,
       focus: ['attacker'],
       open: 'tools',
@@ -191,18 +196,6 @@ export const firewallLab: LabDef = {
       ],
       questions: [
         {
-          id: 'cia',
-          kind: 'choice',
-          afterGoals: true,
-          prompt: 'The attacker reached the PatientRecords folder from the internet. Which security goal does that break?',
-          options: [
-            { id: 'c', text: 'Confidentiality: only allowed people can see the data', correct: true },
-            { id: 'i', text: 'Integrity: nobody changes the data without permission', feedback: 'Reading the records doesn’t change them, so integrity is still fine.' },
-            { id: 'a', text: 'Availability: people can get the data when they need it', feedback: 'Staff can still open the records, so availability is still fine.' },
-          ],
-          explain: 'The attacker saw data only staff are allowed to see. Patient records are some of the most private data there is.',
-        },
-        {
           id: 'icmp',
           kind: 'choice',
           prompt: 'Security teams usually rate answering pings from the internet as a moderate (medium) risk, not a high one. Why?',
@@ -213,6 +206,18 @@ export const firewallLab: LabDef = {
             { id: 'encrypted', text: 'Ping is encrypted, so attackers can’t read the replies.', feedback: 'Ping isn’t encrypted. Anyone can read a reply, and the reply itself is the clue.' },
           ],
           explain: 'Attackers often ping every address first, to find where the computers are. Blocking pings from the internet makes that map harder to draw.',
+        },
+        {
+          id: 'cia',
+          kind: 'choice',
+          afterGoals: true,
+          prompt: 'The attacker reached the PatientRecords folder from the internet. Which security goal does that break?',
+          options: [
+            { id: 'c', text: 'Confidentiality: only allowed people can see the data', correct: true },
+            { id: 'i', text: 'Integrity: nobody changes the data without permission', feedback: 'Reading the records doesn’t change them, so integrity is still fine.' },
+            { id: 'a', text: 'Availability: people can get the data when they need it', feedback: 'Staff can still open the records, so availability is still fine.' },
+          ],
+          explain: 'The attacker saw data only staff are allowed to see. Patient records are some of the most private data there is.',
         },
       ],
     },
@@ -405,7 +410,7 @@ export const firewallLab: LabDef = {
         },
         {
           id: 'nurse-ping',
-          label: '[[nurse]] pings the internet provider’s router',
+          label: '[[nurse]] pings the internet (10.0.1.1)',
           hint: 'Requirement 1 says any protocol. A ping isn’t TCP: check the protocol in your Firewall B rule.',
           check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'ping-reply' && e.device === 'nurse' && e.from === ISP_ROUTER),
         },
@@ -463,9 +468,9 @@ export const firewallLab: LabDef = {
       goals: [
         {
           id: 'rescan',
-          label: 'The attacker scans the hospital again',
-          hint: `In the port scanner, scan ${SERVER_NET}.`,
-          check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'scan-done' && e.device === 'attacker'),
+          label: 'The attacker scans both networks again',
+          hint: `In the port scanner, scan ${SERVER_NET}, then ${STAFF_NET}.`,
+          check: ({ sim, since }) => scannedNet(sim, since, WEB) && scannedNet(sim, since, FILES),
         },
         {
           id: 'line',
@@ -526,7 +531,7 @@ export const firewallLab: LabDef = {
           kind: 'text',
           prompt:
             'Write to the board in two parts.\n\n1. Where did you put Firewall A and Firewall B, and what does each one protect?\n2. Click Firewall A on the map and find the coworker’s two rules from step 5. Name them by number. Say what would go wrong if the deny rule were above the clinic’s rule.',
-          minWords: 40,
+          minWords: 30,
           lines: 6,
         },
       ],
