@@ -402,6 +402,7 @@ export const routeHijackLab: LabDef = {
           hint: 'Turn validation off everywhere except one network. Which network hears from Shady Net first?',
           check: ({ sim, since }) =>
             validating(sim).length === 1 &&
+            moreSpecifics(sim).length > 0 &&
             pageSince(sim, 'alice', Math.max(since, lastValidationChange(sim)), (b) => b.status === 'loaded' && !b.fake),
         },
       ],
