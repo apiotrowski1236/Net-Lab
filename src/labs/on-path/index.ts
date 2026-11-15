@@ -132,7 +132,7 @@ export const onPathLab: LabDef = {
           prompt: 'Why did Alice send an ARP request before her login?',
           options: [
             { id: 'mac', text: "She needed the router's MAC address to hand the packet to the router.", correct: true },
-            { id: 'ip', text: "She needed the bank's IP address.", feedback: "ARP only works on the local network. The bank isn't on the café network." },
+            { id: 'ip', text: "She needed to look up the bank's IP address.", feedback: "ARP only works on the local network. The bank isn't on the café network." },
             { id: 'pass', text: 'She was checking her password.', feedback: 'ARP knows nothing about passwords.' },
             { id: 'permission', text: 'She was asking permission to use the Wi-Fi.', feedback: 'Open Wi-Fi asks no permission at all.' },
           ],
@@ -234,7 +234,7 @@ export const onPathLab: LabDef = {
       goals: [
         {
           id: 'quiet',
-          label: 'Alice signs in while Mallory captures no password',
+          label: "Alice signs in, and Mallory's capture shows no password",
           hint: "Leave Mallory's capture on and press **Alice signs in**.",
           check: ({ sim, ev, since }) =>
             ev?.type === 'page' &&
@@ -345,7 +345,7 @@ export const onPathLab: LabDef = {
       body: md`
         Both ARP tables now point at Mallory. Press **Alice signs in** and follow her packets.
 
-        Mallory's capture will show the password, because the login now comes to her. But watch what happens to Alice's page.
+        Mallory's capture will show the password, because the login now comes to her. But watch what happens to Alice's page. A device **drops** a packet when it throws it away.
       `,
       setup: ensurePoisoned,
       focus: ['alice', 'mallory'],
@@ -371,7 +371,7 @@ export const onPathLab: LabDef = {
             { id: 'typo', text: 'Alice typed the wrong password.', feedback: 'The bank never saw her password.' },
           ],
           explain:
-            "A normal computer drops (throws away) packets addressed to someone else's IP. Alice loses her connection. That's a kind of denial of service, and Alice would notice it.",
+            "A normal computer drops packets addressed to someone else's IP. Alice loses her connection. An attack that stops someone from using a service is called a **denial of service**, and Alice would notice it.",
         },
       ],
     },
@@ -380,7 +380,7 @@ export const onPathLab: LabDef = {
       id: 'relay',
       title: 'Become the middle',
       body: md`
-        To stay hidden, Mallory has to pass each packet along after she reads it. Turn on **IP forwarding** for Mallory in the Toolkit. Then press **Alice signs in** again. (Alice's sign-in from step 8 never finished. This one is new.)
+        To stay hidden, Mallory has to pass each packet along after she reads it. Turn on **IP forwarding** for Mallory in the Toolkit. Then press **Alice signs in** again, and watch the login go from Alice to Mallory, then on to the router. (Alice's sign-in from step 8 never finished. This one is new.)
 
         This is the **on-path attack**, also called a **man-in-the-middle attack**. Mallory sits between Alice and the router, reads everything, and relays it so the connection keeps working.
       `,
@@ -469,11 +469,10 @@ export const onPathLab: LabDef = {
       body: md`
         Switch sides. You are now the café's IT person.
 
-        1. Open [[router]] and read its **ARP table**. Two IP addresses point to the same MAC address. One device is pretending to be two, a sign of ARP poisoning.
-        2. Lock the router's real MAC address on Alice's laptop. A **static ARP entry** is a MAC address typed in by hand, and it ignores ARP replies. Copy the MAC from the router's **Addresses** table, on the port with IP address 192.168.1.1. Then use **Lock ARP entries** in the Toolkit.
-        3. Test your lock: use the ARP spoofer to poison Alice again.
-
-        Large networks have their equipment check every ARP reply instead. That feature is called **Dynamic ARP Inspection**.
+        1. Open [[router]] and read its **ARP table**. Two IP addresses point to the same MAC address: one device is pretending to be two.
+        2. In the router's **Addresses** table, find the row with 192.168.1.1 and copy its MAC address.
+        3. In the Toolkit, use **Lock ARP entries** to lock that MAC on Alice. A locked entry, called a **static ARP entry**, ignores ARP replies.
+        4. Use the ARP spoofer to poison Alice again. She should ignore it.
       `,
       setup: ensureInTheMiddle,
       focus: ['router', 'alice'],

@@ -673,7 +673,8 @@ export function CaptureView({ session, deviceId }: { session: LabSession; device
   if (!dev) return null;
   // A packet the filter hides isn't open any more.
   const sel = rows.find((r) => r.no === selected) ?? (lab.wireshark ? undefined : dev.capture.find((r) => r.no === selected));
-  const time = (c: Captured) => (dev.captureRun ? captureSeconds(dev, c).toFixed(3) : fmtTime(c.t));
+  // Wireshark-style labs print bare seconds like Wireshark. Elsewhere a restarted list (on-path) keeps the "s".
+  const time = (c: Captured) => (dev.captureRun ? (lab.wireshark ? captureSeconds(dev, c).toFixed(3) : fmtTime(c.t - dev.captureRun.start)) : fmtTime(c.t));
   const stopped = tool
     ? 'Press Start to capture.'
     : lab.wireshark

@@ -46,6 +46,7 @@ export function staysOnAir(seal: AirSeal | undefined, frame: Frame, wireless: bo
 
 /** The copy a device that isn't the addressee receives: the MAC addresses, and nothing it can read. */
 export function sealedCopy(frame: Frame, seal: AirSeal): Frame {
-  const { id, src, dst, origin, forged } = frame;
-  return { id, src, dst, origin, ...(forged ? { forged } : {}), sealed: { mode: seal.mode } };
+  // No `forged` mark: nobody can see a locked frame is fake, so the map draws it as plain WPA2.
+  const { id, src, dst, origin } = frame;
+  return { id, src, dst, origin, sealed: { mode: seal.mode } };
 }
