@@ -93,9 +93,9 @@ export const AI_EVENTS: AiEvent[] = [
   { id: 'upload', label: "Raj's PC uploads 90 MB to 45.77.12.9", when: '03:12', score: 0.9, truth: 'attack' },
   { id: 'scan', label: 'Port scan from 203.0.113.66', when: '01:02', score: 0.75, truth: 'attack' },
   { id: 'dana', label: 'Dana signs in early for maintenance', when: '07:40', score: 0.7, truth: 'false-alarm' },
-  { id: 'backup', label: 'Monthly backup sends 40 MB offsite', when: '02:00', score: 0.65, truth: 'false-alarm' },
+  { id: 'backup', label: 'Monthly backup sends 40 MB to the backup site', when: '02:00', score: 0.65, truth: 'false-alarm' },
   { id: 'update', label: 'Records server checks for software updates', when: '03:30', score: 0.4, truth: 'normal' },
-  { id: 'poll', label: 'Control room PC polls the plant controller', when: '04:00', score: 0.3, truth: 'normal' },
+  { id: 'poll', label: 'Control room PC checks on the plant controller', when: '04:00', score: 0.3, truth: 'normal' },
   { id: 'browse', label: 'Staff web browsing', when: '07:50', score: 0.2, truth: 'normal' },
   { id: 'read', label: 'Staff open a report on the records server', when: '07:45', score: 0.15, truth: 'normal' },
   { id: 'dns', label: 'DNS lookups', when: '07:55', score: 0.1, truth: 'normal' },
@@ -188,7 +188,7 @@ export function buildUtility(): Sim {
       y: 160,
       ...host(IP.backup),
       services: [{ port: 873, proto: 'tcp', app: 'rsync' }],
-      notes: [`Copies the records server every afternoon. On the first of the month at 02:00 it sends a full backup to the offsite vault ${VAULT}.`],
+      notes: [`Every afternoon it copies the records server and sends the changes to the offsite vault ${VAULT}. On the first of the month at 02:00 it sends a full backup there.`],
     })
     .host('pc1', { label: "Dana's PC", sublabel: IP.pc1, icon: 'desktop', x: 120, y: 330, ...host(IP.pc1) })
     .host('pc2', { label: "Raj's PC", sublabel: IP.pc2, icon: 'desktop', x: 120, y: 500, ...host(IP.pc2) })

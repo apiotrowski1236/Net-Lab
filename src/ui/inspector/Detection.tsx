@@ -14,7 +14,7 @@ export function idsControls(tools: ToolSpec[], devId: string): Set<IdsControl> {
 }
 
 const TOLERANCE_BLURB = {
-  loose: 'Lets more through. A connection scores 3 at most, so Loose never alerts here, even on an attack.',
+  loose: 'Lets more through. A connection’s deviation is 3 at most, so Loose never alerts here, even on an attack.',
   medium: 'A balance.',
   strict: 'Flags more. Fewer missed attacks, more false alerts.',
 };
@@ -71,7 +71,7 @@ export function Detection({ session, sim, dev, replaying }: InspectorSectionProp
             </div>
           )}
           <p class="small muted">
-            Scores each connection against the baseline: +1 outside office hours, +1 to an address the computer never uses, +1 for an upload over 10 times its usual size.
+            Gives each connection a deviation score against the baseline: +1 outside office hours, +1 to an address the computer never uses, +1 for an upload over 10 times its usual size.
           </p>
           <div class="ids-row">
             <span class="small">Tolerance:</span>

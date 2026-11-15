@@ -12,7 +12,7 @@ const KIND_TEXT: Record<string, string> = {
   'auth-fail': 'Failed sign-ins',
 };
 
-const TRUTH_TEXT: Record<AiEvent['truth'], string> = { attack: 'real attack', 'false-alarm': 'harmless', normal: 'normal' };
+const TRUTH_TEXT: Record<AiEvent['truth'], string> = { attack: 'real attack', 'false-alarm': 'odd but harmless', normal: 'normal' };
 
 /** "Escalated: real attack", "Open". */
 export function triageText(inc: Incident): string {
@@ -53,7 +53,7 @@ export function IncidentCard({ session, sim, siemId, inc, edit }: { session: Lab
     session.dispatch({ type: 'siem-triage', device: siemId, incident: inc.id, verdict, action });
     const saved = `Saved. Incident ${inc.id} is ${triageText({ ...inc, verdict, action }).toLowerCase()}.`;
     // A real attack that is closed gets no follow-up: say so, or the choice looks fine.
-    if (verdict === 'real' && action === 'close') setMsg({ tone: 'bad', text: `${saved} Closing it means nobody follows up on a real attack.` });
+    if (verdict === 'real' && action === 'close') setMsg({ tone: 'bad', text: `${saved} Closing it means nobody follows up, and the attacker can try again.` });
     else setMsg({ tone: 'good', text: saved });
   };
   const seg = <T extends string>(label: string, value: T | undefined, set: (v: T) => void, opts: [T, string][]) => (
@@ -120,9 +120,13 @@ export function SiemConsole({ session, sim, dev, replaying }: InspectorSectionPr
     const entry = dev.logs.find((e) => e.no === inc.logNo);
     if (entry && !replaying && open !== inc.id) session.ui({ type: 'ui:open-log', device: dev.id, entry });
   };
-  const ai = session.tools.some((t) => t.kind === 'ai-threshold' && t.device === dev.id) || q.ai;
+  const aiTool = session.tools.some((t) => t.kind === 'ai-threshold' && t.device === dev.id);
+  const ai = aiTool || q.ai;
+  const threshold = ai && <AiThreshold session={session} sim={sim} devId={dev.id} q={q} edit={!replaying && aiTool} />;
   return (
     <>
+      {/* In the threshold step the slider and its counters come first, so they stay on screen while you drag. */}
+      {aiTool && threshold}
       <section class="siem-section">
         <h4>
           Incidents <span class="muted">lines the SIEM tied together</span>
@@ -149,7 +153,7 @@ export function SiemConsole({ session, sim, dev, replaying }: InspectorSectionPr
           </ul>
         )}
       </section>
-      {ai && <AiThreshold session={session} sim={sim} devId={dev.id} q={q} edit={!replaying && session.tools.some((t) => t.kind === 'ai-threshold' && t.device === dev.id)} />}
+      {!aiTool && threshold}
     </>
   );
 }

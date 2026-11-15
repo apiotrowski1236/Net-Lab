@@ -158,6 +158,15 @@ describe('logs lab: the replays', () => {
     expect(lines(sim, 'fw', (e) => e.t >= t && e.fields?.action === 'deny' && e.fields?.src === IP.backup)).not.toHaveLength(0);
   });
 
+  it('puts the prevention block at the top of the firewall list, as rule 1 (step 6 says so)', () => {
+    const sim = withAnomaly('medium');
+    sim.idsSetPrevention('nids', true);
+    play(sim, replayBackup);
+    const top = sim.dev('fw').firewall!.rules[0];
+    expect(top.action).toBe('deny');
+    expect(top.src).toContain(IP.backup);
+  });
+
   it('without prevention, the flood fills the switch table and nothing is shut', () => {
     const sim = buildUtility();
     sim.idsSetSignatures('nids', true);

@@ -69,6 +69,12 @@ export function LogsView({ session }: { session: LabSession }) {
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [rows.length]);
 
+  // A line the filters now hide stays closed, so the details never show a line the table doesn't.
+  const filters = `${only} ${level} ${alertsOnly} ${needle}`;
+  useEffect(() => {
+    if (selected !== null && !matching.some((e) => e.no === selected)) setSelected(null);
+  }, [filters]);
+  const filtered = only !== 'all' || level !== 'all' || (alertsOnly && hasAlerts);
   const sel = all.find((e) => e.no === selected);
   const open = (e: LogEntry) => {
     setSelected(e.no);
@@ -147,7 +153,7 @@ export function LogsView({ session }: { session: LabSession }) {
                 ))}
               </tbody>
             </table>
-            {rows.length === 0 && <p class="muted small logs-more">No lines match.</p>}
+            {rows.length === 0 && <p class="muted small logs-more">No lines match.{filtered && ' Some filters are on, so try clearing them.'}</p>}
           </div>
           <div class="capture-detail">
             {sel ? (
