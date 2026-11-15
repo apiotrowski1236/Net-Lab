@@ -22,6 +22,7 @@ import {
   SERVER_NET,
   STAFF_NET,
   WEB,
+  ISP_ROUTER,
 } from './scenario';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,7 @@ const attackerSsh: ActionDef = { id: 'attacker-ssh', label: 'Attacker tries SSH 
 const attackerPing: ActionDef = { id: 'attacker-ping', label: 'Attacker pings the web server', run: (sim) => void sim.ping('attacker', WEB) };
 const clinicSsh: ActionDef = { id: 'clinic-ssh', label: 'Clinic admin logs in with SSH', run: (sim) => void sim.connectService('clinic', WEB, 22) };
 const nurseWeb: ActionDef = { id: 'nurse-web', label: 'Nurse station opens the web app', run: (sim) => void sim.connectService('nurse', WEB, 443) };
+const nursePing: ActionDef = { id: 'nurse-ping', label: 'Nurse station pings the internet provider’s router', run: (sim) => void sim.ping('nurse', ISP_ROUTER) };
 const webToFiles: ActionDef = {
   id: 'web-files',
   label: 'Hacked web server reaches for the records',
@@ -160,7 +162,7 @@ export const firewallLab: LabDef = {
         2. Scan the staff network: \`${STAFF_NET}\`.
         3. The file server has port 445 open for file sharing. Press **Connect** next to it.
 
-        The scan also finds two routers. 10.0.1.1 is the internet provider's router, where its cable plugs into the hospital. 10.0.1.2 is the hospital's own router. (The scanner skips addresses no computer uses, to keep the map clear.)
+        The scan also finds two routers. 10.0.1.1 is the internet provider's router, where its cable plugs into the hospital. 10.0.1.2 is the hospital's own router, which also has an address on the staff network, 10.0.2.1. (A real hospital hides its 10.0 addresses behind a public address. This lab skips that, and the scanner skips addresses no computer uses.)
       `,
       focus: ['attacker'],
       open: 'tools',
@@ -203,7 +205,7 @@ export const firewallLab: LabDef = {
         {
           id: 'icmp',
           kind: 'choice',
-          prompt: 'Security teams usually rate answering pings from the internet as a moderate risk, not a high one. Why?',
+          prompt: 'Security teams usually rate answering pings from the internet as a moderate (medium) risk, not a high one. Why?',
           options: [
             { id: 'map', text: 'It helps attackers map the network, but it doesn’t let them in.', correct: true },
             { id: 'virus', text: 'Ping packets can carry viruses, but only small ones.', feedback: 'A ping carries no program. The risk is what the reply tells the attacker: a computer is here.' },
@@ -255,7 +257,7 @@ export const firewallLab: LabDef = {
           prompt:
             'The web server now sits between the two firewalls, in a **screened subnet** (also called a DMZ). Why not put it on the staff network, behind both?',
           options: [
-            { id: 'risk', text: 'Anyone can reach it, so it’s likely to be hacked. Keep it apart.', correct: true },
+            { id: 'risk', text: 'Anyone can reach it, so it’s the most exposed. Keep it apart.', correct: true },
             { id: 'speed', text: 'Each firewall slows packets down, so the server runs faster.', feedback: 'Speed isn’t the reason. Patients’ packets still cross Firewall A either way.' },
             { id: 'https', text: 'Firewall B would block HTTPS, so patients couldn’t reach it.', feedback: 'A firewall blocks what its rules say. Firewall B could allow HTTPS, but then the internet could reach the staff network.' },
             { id: 'rule', text: 'Servers and staff computers can’t share one network.', feedback: 'They can, and in many offices they do. The question is which computers you trust.' },
@@ -309,7 +311,7 @@ export const firewallLab: LabDef = {
           id: 'implicit',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'No rule on Firewall A allows pings coming in. Why was the attacker’s ping blocked?',
+          prompt: 'Why was the attacker’s ping blocked?',
           options: [
             { id: 'implicit', text: 'No rule matched it, so the implicit deny blocked it.', correct: true },
             { id: 'rule2', text: 'Your rule allows only TCP, so it denies everything else.', feedback: 'A rule decides only the packets it matches. Your rule didn’t match the ping, so the firewall kept reading.' },
@@ -387,19 +389,25 @@ export const firewallLab: LabDef = {
         1. Staff computers (\`${STAFF_NET}\`) may start conversations going out, with any protocol.
         2. Nothing may start a conversation into the staff network. Not the internet, and not the web server.
 
-        Firewall B's outside is the side toward the web server and the internet. So a packet from the nurse station crosses it going **out**. Write the rule for requirement 1. Requirement 2 needs no rule: the implicit deny covers it. Firewall B is stateful too, so replies come back in.
+        Firewall B's outside is the side toward the web server and the internet. So a packet from the nurse station crosses it going **out**. Write the rule for requirement 1. Requirement 2 needs no rule: the implicit deny covers it. Firewall B is stateful too, so replies come back in. Then test the buttons.
       `,
       setup: (sim) => placeBoth(sim),
       focus: ['fwB', 'nurse', 'files'],
       open: { inspect: 'fwB' },
       tools: [{ kind: 'firewall-rules', devices: ['fwB'] }],
-      actions: [nurseWeb, webToFiles, nurseFiles],
+      actions: [nurseWeb, nursePing, webToFiles, nurseFiles],
       goals: [
         {
           id: 'nurse',
           label: '[[nurse]] opens the web app',
           hint: `The nurse station’s packets cross Firewall B going out. On [[fwB]], add: ALLOW out, any protocol, from ${STAFF_NET} to any.`,
           check: ({ sim, since }) => connected(sim, 'nurse', since, (c) => c.to === WEB && c.port === 443),
+        },
+        {
+          id: 'nurse-ping',
+          label: '[[nurse]] pings the internet provider’s router',
+          hint: 'Requirement 1 says any protocol. A ping isn’t TCP: check the protocol in your Firewall B rule.',
+          check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'ping-reply' && e.device === 'nurse' && e.from === ISP_ROUTER),
         },
         {
           id: 'web',
@@ -517,7 +525,7 @@ export const firewallLab: LabDef = {
           id: 'justify',
           kind: 'text',
           prompt:
-            'Write to the board in two parts.\n\n1. Where did you put Firewall A and Firewall B, and what does each one protect?\n2. Click Firewall A on the map and find the coworker’s two rules from step 5. Name them by number. Say what would go wrong if the deny rule sat above the clinic’s rule.',
+            'Write to the board in two parts.\n\n1. Where did you put Firewall A and Firewall B, and what does each one protect?\n2. Click Firewall A on the map and find the coworker’s two rules from step 5. Name them by number. Say what would go wrong if the deny rule were above the clinic’s rule.',
           minWords: 40,
           lines: 6,
         },

@@ -26,6 +26,10 @@ function connect(sim: Sim, from: string, to: string, port: number, opts: { app?:
   return sim.dev(from).conns!.find((c) => c.id === id)!;
 }
 
+function connected(sim: Sim, from: string, to: string, port: number): boolean {
+  return !!sim.dev(from).conns?.some((c) => c.to === to && c.port === port && c.status === 'open');
+}
+
 function placed(b: [string, string] = INNER[0]): Sim {
   const sim = buildHospital();
   sim.placeFirewall('fwA', ...EDGE, 'inet');
@@ -179,5 +183,21 @@ describe('firewall lab goals', () => {
     sim.fwDeleteRule('fwA', deny.id);
     expect(connect(sim, 'clinic', WEB, 22).status).toBe('open');
     expect(goal.check({ sim, since })).toBe(false);
+  });
+
+  it('needs Firewall B to allow every protocol out, not only TCP, for the nurse ping in step 6', () => {
+    const ping = step('inner').goals!.find((g) => g.id === 'nurse-ping')!;
+    const press = (sim: Sim, id: string) => step('inner').actions!.find((a) => a.id === id)!.run(sim);
+    for (const [proto, want] of [['tcp', false], ['any', true]] as const) {
+      const sim = buildHospital();
+      step('inner').setup!(sim);
+      const since = sim.t;
+      sim.fwAddRule('fwB', { ...STAFF_OUT, proto });
+      press(sim, 'nurse-web');
+      press(sim, 'nurse-ping');
+      sim.runUntilIdle();
+      expect(connected(sim, 'nurse', WEB, 443), proto).toBe(true);
+      expect(ping.check({ sim, since }), proto).toBe(want);
+    }
   });
 });
