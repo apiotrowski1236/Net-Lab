@@ -215,7 +215,7 @@ try {
   await page.locator('.capture-table tr', { hasText: 'POST' }).first().click();
   await goalsDone(3);
   await page.locator('.qcard textarea').fill('pumpkinspice');
-  await page.getByRole('button', { name: 'Check', exact: true }).click();
+  await page.getByRole('button', { name: 'Check', exact: true }).first().click(); // the password question; the second asks why Alice couldn't tell
   await page.waitForSelector('.qcard.correct');
   await shot('capture');
 
@@ -249,7 +249,7 @@ try {
   await expectHash('#/cyber/lab/on-path', 'Guide’s Open the lab link');
   await page.goto(`${url}#/cyber/guide/on-path`);
   await page.waitForSelector('.guide-step');
-  await expectCount('.guide-step', 12, 'Guide steps');
+  await expectCount('.guide-step', 11, 'Guide steps');
   await shot('guide');
   await page.emulateMedia({ media: 'print' });
   await shot('guide-print');
