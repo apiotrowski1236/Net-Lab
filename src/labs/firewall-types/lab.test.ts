@@ -7,6 +7,7 @@ import { playMove, playStep, type Move } from '../solution';
 import { firewallTypesLab as lab } from '.';
 import {
   ATTACKER,
+  BRANCH_LAB_NOTE,
   BRANCH_REPLIES,
   buildHospital2,
   DESK,
@@ -15,6 +16,7 @@ import {
   NO_REMOTE,
   NURSE,
   ODD_PORT,
+  PATIENTS_IN,
   PORTAL_SITE,
   REPLIES_IN,
   WEB,
@@ -145,6 +147,44 @@ describe('firewall-types steps', () => {
     expect(done(s, 'sneak')).toBe(true);
     play(s, { press: 'portal' });
     expect(done(s, 'portal')).toBe(true);
+  });
+
+  it('"Give it a memory": deleting the patients\' rule too doesn\'t finish the step, and "Look inside" puts it back', () => {
+    const s = openAt('stateful');
+    // r2 lets patients reach the web server on port 443. A student who reads "443" in its port column deletes it too.
+    play(
+      s,
+      { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateful' } },
+      { press: 'portal' },
+      { press: 'fake' },
+      { press: 'sneak' },
+      { tool: { type: 'fw-delete-rule', device: 'fwA', id: 'r5' } },
+      { tool: { type: 'fw-delete-rule', device: 'fwA', id: 'r2' } },
+      { press: 'sneak' },
+      { press: 'portal' },
+    );
+    expect(done(s, 'sneak')).toBe(true);
+    expect(done(s, 'portal')).toBe(false);
+    play(s, { tool: { type: 'fw-add-rule', device: 'fwA', rule: PATIENTS_IN } }, { tool: { type: 'fw-move-rule', device: 'fwA', id: 'r6', to: 1 } }, { press: 'portal' });
+    expect(done(s, 'portal')).toBe(true);
+
+    // Deleting it after the goal is checked: step 7's setup puts the rule back, above the deny, so the attack can land.
+    const t = openAt('stateful');
+    playStep(t, sol.stateful);
+    play(t, { tool: { type: 'fw-delete-rule', device: 'fwA', id: 'r2' } });
+    for (let i = index('stateful') + 1; i < index('inspect'); i++) {
+      t.goTo(i);
+      playStep(t, sol[t.step.id]);
+    }
+    t.goTo(index('inspect'));
+    expect(t.step.id).toBe('inspect');
+    t.sim.runUntilIdle();
+    const rules = t.sim.dev('fwA').firewall!.rules;
+    const back = rules.findIndex((r) => r.dst === WEB && r.dport === 443 && r.dir === 'in');
+    expect(back).toBeGreaterThanOrEqual(0);
+    expect(back).toBeLessThan(rules.findIndex((r) => r.dir === 'in' && r.action === 'deny'));
+    play(t, { press: 'exploit' });
+    expect(done(t, 'hit')).toBe(true);
   });
 
   it('"Fake replies": a step 2 rule narrower than the usual one still leaves a hole to test', () => {
@@ -286,12 +326,12 @@ describe('firewall-types steps', () => {
     const start = tryPair('stateful', 'stateful');
     expect(start.out).toEqual([
       'good: Cost: Firewall A stateful ($10,000) + Firewall B stateful ($10,000) = $20,000. Budget: $40,000.',
-      `bad: Fail: The remote-control program got out on port ${ODD_PORT}. It should be blocked.`,
-      'bad: Fail: The attack hidden in a booking lookup reached the web server. It should be blocked.',
-      'good: Pass: The branch front desk opens the web app.',
-      'good: Pass: The nurse station opens the clinic portal.',
-      'good: Pass: A hacked web server can’t reach the patient records, even from port 443.',
-      'good: Pass: A fake reply that claims to come from the clinic portal can’t reach the nurse station.',
+      `bad: Fail (Firewall A): The remote-control program got out on port ${ODD_PORT}. It should be blocked.`,
+      'bad: Fail (Firewall A): The attack hidden in a booking lookup reached the web server. It should be blocked.',
+      'good: Pass (Firewall A): The branch front desk opens the web app.',
+      'good: Pass (Firewall B): The nurse station opens the clinic portal.',
+      'good: Pass (Firewall B): A hacked web server can’t reach the patient records, even from port 443.',
+      'good: Pass (Firewall B): A fake reply that claims to come from the clinic portal can’t reach the nurse station.',
     ]);
     expect(start.ok).toBe(false);
     const both = tryPair('ngfw', 'ngfw');
@@ -300,7 +340,7 @@ describe('firewall-types steps', () => {
     expect(both.s.goalDone('choose', 'b')).toBe(true);
     expect(both.s.goalDone('choose', 'budget')).toBe(false);
     const cheapB = tryPair('ngfw', 'stateless');
-    expect(cheapB.out).toContain('bad: Fail: The nurse station couldn’t open the clinic portal.');
+    expect(cheapB.out).toContain('bad: Fail (Firewall B): The nurse station couldn’t open the clinic portal.');
     expect(cheapB.s.goalDone('choose', 'b')).toBe(false);
     expect(tryPair('ngfw', 'stateful').ok).toBe(true);
     // A stateless B with a step 2 style reply rule lets the nurse's replies in, and a hacked web server too.
@@ -312,8 +352,8 @@ describe('firewall-types steps', () => {
       { tool: { type: 'fw-add-rule', device: 'fwB', rule: { ...REPLIES_IN, dst: '10.0.2.0/24' } } },
       { press: 'tests' },
     );
-    expect(lines(holeB, 'tests')).toContain('good: Pass: The nurse station opens the clinic portal.');
-    expect(lines(holeB, 'tests')).toContain('bad: Fail: A hacked web server reached the patient records from port 443. It should be blocked.');
+    expect(lines(holeB, 'tests')).toContain('good: Pass (Firewall B): The nurse station opens the clinic portal.');
+    expect(lines(holeB, 'tests')).toContain('bad: Fail (Firewall B): A hacked web server reached the patient records from port 443. It should be blocked.');
     expect(holeB.goalDone('choose', 'b')).toBe(false);
     // A reply rule limited to the clinic stops that, but not a fake reply that copies the clinic's address.
     const clinicB = openAt('choose');
@@ -327,15 +367,48 @@ describe('firewall-types steps', () => {
     );
     expect(lines(clinicB, 'tests')).toEqual([
       'good: Cost: Firewall A next-generation ($30,000) + Firewall B stateless ($4,000) = $34,000. Budget: $40,000.',
-      `good: Pass: The remote-control program on port ${ODD_PORT} is blocked.`,
-      'good: Pass: The attack hidden in a booking lookup is blocked.',
-      'good: Pass: The branch front desk opens the web app.',
-      'good: Pass: The nurse station opens the clinic portal.',
-      'good: Pass: A hacked web server can’t reach the patient records, even from port 443.',
-      'bad: Fail: A hacked web server sent the nurse station a fake reply that claimed to come from the clinic portal, and it got in. It should be blocked.',
+      `good: Pass (Firewall A): The remote-control program on port ${ODD_PORT} is blocked.`,
+      'good: Pass (Firewall A): The attack hidden in a booking lookup is blocked.',
+      'good: Pass (Firewall A): The branch front desk opens the web app.',
+      'good: Pass (Firewall B): The nurse station opens the clinic portal.',
+      'good: Pass (Firewall B): A hacked web server can’t reach the patient records, even from port 443.',
+      'bad: Fail (Firewall B): A hacked web server sent the nurse station a fake reply that claimed to come from the clinic portal, and it got in. It should be blocked.',
     ]);
     expect(clinicB.goalDone('choose', 'b')).toBe(false);
     expect(clinicB.goalDone('choose', 'budget')).toBe(false);
+  });
+
+  it('"Choose A and B": the nurse station never shows a fail while a passing run is still going', () => {
+    const s = openAt('choose');
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } });
+    const def = s.step.actions!.find((a) => a.id === 'tests')!;
+    const t0 = s.sim.t;
+    def.run(s.sim);
+    for (let k = 0; k < 80; k++) {
+      s.sim.advance(100);
+      const out = def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`);
+      expect(out.filter((l) => l.startsWith('bad: Fail'))).toEqual([]);
+    }
+    expect(def.outcome!(s.sim, t0).filter((l) => l.tone === 'wait')).toEqual([]);
+  });
+
+  it('"Choose A and B": a worse try after a passing run says to set the types back', () => {
+    const s = openAt('choose');
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } }, { press: 'tests' });
+    expect(s.goalDone('choose', 'budget')).toBe(true);
+    expect(lines(s, 'tests').filter((l) => l.includes('earlier run'))).toEqual([]);
+    play(s, { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateless' } }, { press: 'tests' });
+    expect(lines(s, 'tests')).toContain('bad: An earlier run passed every test. Before you continue, set the firewalls back to types that pass within the budget.');
+    play(s, { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateful' } }, { press: 'tests' });
+    expect(lines(s, 'tests').filter((l) => l.includes('earlier run'))).toEqual([]);
+  });
+
+  it('"The router at the branch" (optional): the rule the lab added for the tests is gone, so the front desk starts cut off', () => {
+    const s = openAt('branch');
+    expect(s.sim.dev('branch').firewall!.rules.map((r) => r.note)).not.toContain(BRANCH_LAB_NOTE);
+    play(s, { press: 'desk' });
+    expect(done(s, 'desk')).toBe(false);
+    expect(lines(s, 'desk')[0]).toMatch(/^bad: Branch router blocked the reply/);
   });
 
   it('"Choose A and B": a test run from before the last change doesn\'t count', () => {
@@ -361,8 +434,8 @@ describe('firewall-types steps', () => {
     s.sim.advance(4000);
     const out = def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`);
     expect(out.filter((l) => l.startsWith('wait'))).toEqual([]);
-    expect(out).toContain('bad: Fail: The nurse station couldn’t open the clinic portal.');
-    expect(out).toContain(`good: Pass: The remote-control program on port ${ODD_PORT} is blocked.`);
+    expect(out).toContain('bad: Fail (Firewall B): The nurse station couldn’t open the clinic portal.');
+    expect(out).toContain(`good: Pass (Firewall A): The remote-control program on port ${ODD_PORT} is blocked.`);
     s.sim.runUntilIdle();
     expect(def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`)).toEqual(out);
   });
