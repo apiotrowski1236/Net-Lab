@@ -86,7 +86,7 @@ export const segmentationLab: LabDef = {
   unit: 3,
   codehs: ['3.8 Network Segmentation'],
   ced: ['3.1.B', '3.1.C', '3.3.A', '3.3.B', '3.4.C'],
-  minutes: 55,
+  minutes: 60,
   objectives: [
     'Explain how malware moves laterally across a flat network.',
     'Divide a network into zones with VLANs and subnets.',
@@ -157,7 +157,7 @@ export const segmentationLab: LabDef = {
       body: md`
         Last night the sub came near the surface, and a sailor downloaded a free game onto [[crew1]] over the shore link. The game hides **malware**: software written to do harm. This kind is a **worm**, malware that spreads across a network on its own. Nobody has to click anything.
 
-        Once it runs, it tries port 445 at every address nearby. Every computer with file sharing open gets a copy, and each copy starts trying too. Spreading from the first device that's taken over to other devices on the same network is called **lateral movement**.
+        Once it runs, it tries port 445 at every address nearby. Every computer with file sharing open gets a copy, and each copy starts trying too. Spreading from the first infected device to other devices on the same network is called **lateral movement**.
 
         Infected computers turn red, and so do the malware's **probes**, its tries at port 445. Real networks don't color anything. This simulator does so you can follow along. It also skips addresses where no device lives, so you don't have to wait.
 
@@ -224,7 +224,7 @@ export const segmentationLab: LabDef = {
 
         **Network segmentation** divides one network into smaller **segments** and keeps them apart, so an attack on one segment can reach the others only through paths you allow. Each segment here is a **zone**: a group of devices that do the same kind of job and follow the same rules.
 
-        Each zone also gets a **security level**: how much harm an attacker could do by taking it over, and so how closely to guard it. Two zones can share a level.
+        Each zone also gets a **security level**: how much harm an attacker could do with control of it, and so how closely to guard it. Two zones can share a level.
 
         - **High**: let in only the traffic it needs.
         - **Medium**: trusted, but still guarded.
@@ -252,7 +252,7 @@ export const segmentationLab: LabDef = {
           kind: 'choice',
           prompt: 'Which zone needs the most protection?',
           options: [
-            { id: 'weapons', text: 'Weapons, because a takeover there does the most harm', correct: true },
+            { id: 'weapons', text: 'Weapons, because an attacker there could do the most harm', correct: true },
             {
               id: 'crew',
               text: 'Crew, because it’s where malware is most likely to get in',
@@ -301,11 +301,11 @@ export const segmentationLab: LabDef = {
         To send to an address on its own network, a computer first needs that device's **MAC address**, the ID built into its network card. It asks with an **ARP request**: "Who has 10.0.0.11?" The request is a **broadcast**, sent to every device that can hear it. Everyone has forgotten the MAC addresses they learned, so you'll see the ARP request on the map.
 
         1. Click [[sw]]. In its **VLANs** table, put each port in its zone's VLAN:
-           - Weapons: VLAN 10. Include port 3, a spare **jack** (a wall socket for a network cable) in the weapons compartment with nothing plugged in.
-           - Operations: VLAN 20.
-           - Crew: VLAN 30.
+           - Weapons, ports 1, 2, and 3: VLAN 10. Port 3 is a spare **jack** (a wall socket for a network cable) in the weapons compartment with nothing plugged in.
+           - Operations, ports 4, 5, and 6: VLAN 20.
+           - Crew, ports 7, 8, and 9: VLAN 30.
         2. Leave port 10, the firewall's cable, in VLAN 1 for now.
-        3. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes.
+        3. Press **Crew laptop 1 pings Fire control**. Watch where its ARP request goes. A ping takes about 15 seconds at 1×.
         4. When that ping's result shows, press **Crew laptop 1 pings the media server**.
       `,
       focus: ['sw', 'crew1'],
@@ -393,7 +393,11 @@ export const segmentationLab: LabDef = {
       body: md`
         The VLANs worked. Now no zone can reach any other, and some have to. Command has to send target data to Fire control.
 
-        The fix is to give each VLAN its own **subnet**: its own IP network, like \`10.0.30.0/24\`. Devices on different subnets can't talk directly. They send everything for another subnet to their **default gateway**, a **router** on their own subnet that passes traffic between networks. [[fw]] is a router with a firewall built in, and it's every zone's gateway. So traffic between zones has to pass through one place, where it can be checked. For now its zone policy, the rules for traffic between zones, allows everything.
+        The fix is to give each VLAN its own **subnet**: its own IP network, like \`10.0.30.0/24\`. Devices on different subnets can't talk directly.
+
+        A device sends everything for another subnet to its **default gateway**, a **router** on its own subnet that passes traffic between networks. [[fw]] is a router with a firewall built in, and it's every zone's gateway.
+
+        So traffic between zones has to pass through one place, the firewall, where it can be checked. For now its zone policy, the rules for traffic between zones, allows everything.
 
         The ship's address plan: the third number matches the VLAN, and each device keeps its last number. Fire control's \`10.0.0.11\` becomes \`10.0.10.11\`.
 
@@ -472,7 +476,7 @@ export const segmentationLab: LabDef = {
           prompt: 'The VLANs already keep the zones apart. What do separate subnets add?',
           options: [
             { id: 'router', text: 'A router can pass chosen traffic between zones', correct: true },
-            { id: 'space', text: 'Room for many more addresses in each zone', feedback: 'One /24 network already had room for 254 devices. The ship has eight.' },
+            { id: 'space', text: 'Room for many more addresses in each zone', feedback: 'One /24 network already had room for hundreds of devices. The ship has eight.' },
             { id: 'encrypt', text: 'Encryption for everything that crosses between zones', feedback: 'Subnets don’t encrypt anything. They decide which traffic has to go through a router.' },
             {
               id: 'novlan',
@@ -516,13 +520,13 @@ export const segmentationLab: LabDef = {
         1. Crew devices may not start a connection to Weapons or Operations.
         2. Operations may send target data to Weapons, on port 5001. Nothing else.
         3. Weapons may send status reports to Operations, on port 5002. Nothing else.
-        4. Anything these orders don't list is denied. That includes Weapons to Crew and Operations to Crew.
+        4. Anything these orders don't list is denied. **That includes Weapons to Crew and Operations to Crew.**
 
         Allowing each zone only what it needs is called **least privilege**. Ports 5001 and 5002 belong to the ship's own software.
 
         Click [[fw]] and find its **Zone policy**. Each row is the zone a connection starts from. Each column is the zone it goes to. Set all six cells. A reply to an allowed connection always gets back.
 
-        Then press each test button. If the firewall stops a packet, a red tag on the map shows where. Wait for each test's result before you press the next one, since only the latest result shows under the buttons. At 1×, an allowed test takes about 15 seconds.
+        Then press each test button. If the firewall stops a packet, a red tag on the map shows where. Wait for each test's result before you press the next one, since only the latest result shows under the buttons. At 1×, an allowed test takes 15 to 20 seconds.
 
         Here one firewall guards every zone, with its own port and its own rules for each. You'll write firewall rules by hand in the Firewall Rules and Placement lab.
       `,
@@ -602,7 +606,7 @@ export const segmentationLab: LabDef = {
         1. Press **Crew laptop 1 installs the game**. Watch where the probes go.
         2. When the map stops moving, open the **Logs** tab. Click one of the malware's blocked probes in the log of [[fw]].
 
-        A DENY line with \`10.0.30.32:49177 -> 10.0.20.21:445\` means the firewall blocked Crew laptop 2 (\`10.0.30.32\`) from reaching port 445 on Command (\`10.0.20.21\`). The number after the first colon is a port the laptop picked for its own end.
+        A DENY line with \`10.0.30.32:49177 -> 10.0.20.21:445\` means the firewall blocked Crew laptop 2 (\`10.0.30.32\`) from reaching port 445 on Command (\`10.0.20.21\`). The \`49177\` is a port number the laptop picked for its own end. You can ignore it.
 
         Your tests from the last step are in the log too, and they look the same. To be sure you pick a probe, choose a line from Crew laptop 2 (\`10.0.30.32\`) or the media server (\`10.0.30.33\`). You never ran a test from those.
       `,
@@ -637,7 +641,7 @@ export const segmentationLab: LabDef = {
           afterGoals: true,
           prompt: 'Why did the malware stop at the edge of the crew zone?',
           options: [
-            { id: 'policy', text: 'The firewall denied every probe from Crew', correct: true },
+            { id: 'policy', text: 'The firewall denied every probe leaving Crew', correct: true },
             { id: 'own', text: 'It only tries addresses on its own subnet', feedback: 'Read the firewall’s log. It tried 10.0.10.11 and 10.0.20.21 too.' },
             { id: 'vlan', text: 'The VLANs blocked it, with no help from the firewall', feedback: 'The VLANs sent its probes to the firewall instead of straight to Fire control. The firewall’s zone policy turned them away.' },
             { id: 'patched', text: 'The weapons consoles got security updates after last time', feedback: 'Nobody changed Fire control. It still has file sharing open on port 445.' },
@@ -748,7 +752,7 @@ export const segmentationLab: LabDef = {
       id: 'dmz',
       title: 'A door to the outside',
       body: md`
-        When the sub is near the surface, email for the crew arrives over [[shore]]. A **mail relay** is a server that accepts mail from outside and passes it on. It talks to the outside world all day, so it's the server most likely to be attacked.
+        When the sub is near the surface, email for the crew arrives over [[shore]]. A **mail relay** is a server that accepts mail from outside and holds it until the crew picks it up. It talks to the outside world all day, so it's the server most likely to be attacked.
 
         A **screened subnet**, also called a **DMZ**, is a zone for servers like this. Firewall rules guard it on both sides, from the outside and from the inside. The outside can reach only those servers, and those servers can reach only a little of the inside. If an attacker gets control of the mail relay, they're stuck in the screened subnet, with only the few doors its rules allow.
 
@@ -776,7 +780,7 @@ export const segmentationLab: LabDef = {
             { id: 'weapons', text: 'In the weapons zone, the best-guarded zone', feedback: 'Then the shore link would need a door straight into Weapons. Servers that face the outside go where a break-in hurts least.' },
             { id: 'outside', text: 'On the shore side, outside the firewall', feedback: 'Then nothing would guard the relay at all. In a screened subnet, the firewall guards it too.' },
           ],
-          explain: 'A screened subnet holds the servers that face the outside, on their own firewall port with their own rules. A break-in there stays there.',
+          explain: 'A screened subnet holds the servers that face the outside, on their own firewall port with their own rules. A break-in there stays there, except through the few doors its rules allow.',
         },
         {
           id: 'deny',
@@ -788,7 +792,7 @@ export const segmentationLab: LabDef = {
             { id: 'crew-dmz', text: 'Crew to screened subnet', feedback: 'The crew picks up their mail there. Allow only mail.' },
             { id: 'ops-dmz', text: 'Operations to screened subnet', feedback: 'Command sends its reports to shore through the relay. Allow only mail.' },
           ],
-          explain: 'Outsiders can reach the screened subnet, so it’s the zone most likely to be taken over. It gets no door into the zones that matter most.',
+          explain: 'Outsiders can reach the screened subnet, so it’s the zone an attacker is most likely to get into. It gets no door into the zones that matter most.',
         },
       ],
     },
