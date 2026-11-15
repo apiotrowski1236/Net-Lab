@@ -12,9 +12,25 @@ export function toleranceText(t: Tolerance): string {
   return `${TOLERANCE_NAME[t]} alerts at a deviation of ${TOLERANCE_MIN[t]} or more`;
 }
 
-/** Why a connection scored its deviation: "outside office hours (03:12), new peer 45.77.12.9, 90 MB (over 10x usual)". */
+/** The tolerance a connection was judged under, from the deviation it needed. */
+function judgedTolerance(j: Judgment): Tolerance {
+  return (Object.keys(TOLERANCE_MIN) as Tolerance[]).find((t) => TOLERANCE_MIN[t] === j.min) ?? 'medium';
+}
+
+/**
+ * "Medium alerts at a deviation of 2 or more", for the tolerance in force when
+ * `j` was scored. A tolerance changed mid-replay leaves an older score behind,
+ * so say how to score it again.
+ */
+function judgedText(j: Judgment, now: Tolerance): string {
+  const t = judgedTolerance(j);
+  const text = toleranceText(t);
+  return t === now ? text : `${text} (the tolerance when this was scored; replay it to score it at ${TOLERANCE_NAME[now]})`;
+}
+
+/** Why a connection scored its deviation: "outside office hours (03:12), never-used address 45.77.12.9, 90 MB (over 10x usual)". */
 export function deviationWhy(j: Judgment): string {
-  const parts = [j.offHours ? `outside office hours (${j.time})` : '', j.newPeer ? `new peer ${j.peer}` : '', j.big ? `${megabytes(j.bytes)}, over 10x usual` : ''];
+  const parts = [j.offHours ? `outside office hours (${j.time})` : '', j.newPeer ? `never-used address ${j.peer}` : '', j.big ? `${megabytes(j.bytes)}, over 10x usual` : ''];
   return parts.filter(Boolean).join(', ') || 'nothing unusual';
 }
 
@@ -57,7 +73,7 @@ export function idsOutcomeLines(sim: Sim, since: number): OutcomeLine[] {
     for (const e of mine) {
       if (e.what === 'alert') {
         const j = e.signature === 'anomaly' ? judged.find((x) => x.alerted && e.detail.includes(x.host)) : undefined;
-        const extra = j ? ` Deviation ${j.deviation}; ${toleranceText(s.tolerance)}.` : '';
+        const extra = j ? ` Deviation ${j.deviation}; ${judgedText(j, s.tolerance)}.` : '';
         lines.push({ tone: 'bad', text: `${d.label}: ${e.detail}.${extra}` });
       } else {
         const sw = e.what === 'shut' ? Object.values(sim.devices).find((x) => x.kind === 'switch' && x.switchSec?.ports[e.target ?? '']?.shutdown) : undefined;
@@ -66,19 +82,39 @@ export function idsOutcomeLines(sim: Sim, since: number): OutcomeLine[] {
       }
     }
     if (mine.length || s.lastSeen === undefined || s.lastSeen < since) continue;
-    lines.push(...quietLines(d.label, s, judged));
+    lines.push(...quietLines(d.label, s, judged, since));
   }
   return lines;
 }
 
-/** The sensor saw traffic and raised nothing. Say why. */
-function quietLines(label: string, s: IdsSensor, judged: Judgment[]): OutcomeLine[] {
-  if (!s.signatures && !s.anomaly) return [{ tone: 'bad', text: `${label} saw the traffic, but its detection is off. No alert.` }];
+/**
+ * The sensor saw traffic and raised nothing. Say why, from what the sensor
+ * did while the traffic went past, not from its settings now: a switch turned
+ * on partway through a replay did not check the frames before it.
+ */
+function quietLines(label: string, s: IdsSensor, judged: Judgment[], since: number): OutcomeLine[] {
+  const scanned = s.lastScanned !== undefined && s.lastScanned >= since;
+  const unscored = s.unscored && s.unscored.t >= since ? s.unscored.why : undefined;
+  const waiting = unscored === 'no-baseline' && !judged.length;
+  if (!scanned && !judged.length && !waiting) {
+    if (!s.signatures && !s.anomaly) return [{ tone: 'bad', text: `${label} saw the traffic, but its detection is off. No alert.` }];
+    return [{ tone: 'bad', text: `${label} saw the traffic while its detection was off. No alert. Replay it to check it with detection on.` }];
+  }
   const out: OutcomeLine[] = [];
-  if (s.signatures) out.push({ tone: 'bad', text: `${label} saw the traffic. No signature matched it, so no alert.` });
-  if (s.anomaly) {
+  if (scanned) out.push({ tone: 'bad', text: `${label} saw the traffic. No signature matched it, so no alert.` });
+  // Present tense while the setting is still that way; past tense, with what to do, once the student has changed it.
+  if (!judged.length && unscored === 'off' && s.baseline) {
+    out.push({ tone: 'bad', text: s.anomaly ? `${label}: anomaly detection was off, so it did not score this. Replay it to score it.` : `${label}: anomaly detection is off, so it did not score this.` });
+  } else if (waiting) {
+    out.push({
+      tone: 'bad',
+      text: s.baseline
+        ? `${label}: anomaly detection had no baseline yet, so it could not score this. Replay it to score it.`
+        : `${label}: anomaly detection has no baseline yet, so it could not score this.`,
+    });
+  } else {
     const j = judged.at(-1);
-    if (j) out.push({ tone: 'bad', text: `${label}: deviation ${j.deviation} (${deviationWhy(j)}). ${toleranceText(s.tolerance)}, so no alert.` });
+    if (j) out.push({ tone: 'bad', text: `${label}: deviation ${j.deviation} (${deviationWhy(j)}). ${judgedText(j, s.tolerance)}, so no alert.` });
   }
   return out;
 }

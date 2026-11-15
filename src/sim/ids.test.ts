@@ -211,7 +211,7 @@ describe('ids anomaly detection', () => {
     sim.idsSetAnomaly('s', true, 'medium');
     upload(sim, 3, 94371840);
     const [a] = alerts(sim, 'anomaly');
-    expect(a.msg).toBe(`ALERT anomaly: ${A} off-baseline (03:00, new peer ${OUT}, 90 MB)`);
+    expect(a.msg).toBe(`ALERT anomaly: ${A} off-baseline (03:00, new address ${OUT}, 90 MB)`);
     expect(a.fields).toMatchObject({ host: A, peer: OUT, hour: 3, bytes: 94371840, deviation: 3 });
   });
 

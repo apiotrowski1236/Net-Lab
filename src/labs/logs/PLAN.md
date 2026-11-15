@@ -1,6 +1,6 @@
 # Log Analysis and Intrusion Detection (`logs`)
 
-Status: built (wave 2). 11 steps, registered in `src/labs/index.ts`. Follows `docs/unit3/ARCHITECTURE.md`. Full lesson in `SCRIPT.md` (its top section lists where the build departs from it). Code: `index.ts` (steps), `scenario.ts` (network and seeded history), `solution.ts` (answer key), `lab.test.ts`; detection engine in `src/sim/ids.ts`.
+Status: built (wave 2). 11 steps, registered in `src/labs/index.ts`. Follows `docs/unit3/ARCHITECTURE.md`. Full lesson in `SCRIPT.md` (its top section lists where the build departs from it, including the student panel review: version 4, 50 minutes). Code: `index.ts` (steps), `scenario.ts` (network and seeded history), `solution.ts` (answer key), `lab.test.ts`; detection engine in `src/sim/ids.ts`.
 
 Tagline: Read a night of logs, turn on IDS signatures and anomaly detection, and tune them so real attacks stand out from false alarms.
 

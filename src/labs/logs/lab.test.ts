@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { aiCounts, type Tolerance } from '../../sim/ids';
 import type { Sim } from '../../sim/sim';
 import type { LogEntry } from '../../sim/types';
+import { deviationWhy, idsOutcomeLines } from '../../ui/idsText';
 import { INCIDENT, logsLab } from '.';
 import {
   AI_EVENTS,
@@ -157,6 +158,25 @@ describe('logs lab: the replays', () => {
     expect(lines(sim, 'fw', (e) => e.t >= t && e.fields?.action === 'deny' && e.fields?.src === IP.backup)).not.toHaveLength(0);
   });
 
+  it('lets the known-c2 and SSH-on-443 connections out through rule 3, the HTTPS rule (step 9 says so)', () => {
+    const sim = buildUtility();
+    const c2 = lines(sim, 'fw', (e) => e.fields?.dst === C2 && e.fields?.threat === 'known-c2');
+    const ssh = lines(sim, 'fw', (e) => e.fields?.app === 'ssh' && e.fields?.dport === 443);
+    expect(c2).toHaveLength(1);
+    expect(ssh).toHaveLength(1);
+    for (const e of [...c2, ...ssh]) expect(e.msg).toMatch(/ALLOW out .* rule 3\b/);
+    expect(sim.dev('fw').firewall!.rules[2]).toMatchObject({ dir: 'out', dport: 443, action: 'allow' });
+  });
+
+  it('puts the prevention block at the top of the firewall list, as rule 1 (step 6 says so)', () => {
+    const sim = withAnomaly('medium');
+    sim.idsSetPrevention('nids', true);
+    play(sim, replayBackup);
+    const top = sim.dev('fw').firewall!.rules[0];
+    expect(top.action).toBe('deny');
+    expect(top.src).toContain(IP.backup);
+  });
+
   it('without prevention, the flood fills the switch table and nothing is shut', () => {
     const sim = buildUtility();
     sim.idsSetSignatures('nids', true);
@@ -177,11 +197,95 @@ describe('logs lab: goals', () => {
     expect(goal('something-new', 'missed').check({ sim, since })).toBe(true);
   });
 
-  it('step 5 does not accept Loose', () => {
+  const missed = (sim: Sim, since: number) => goal('something-new', 'missed').check({ sim, since });
+
+  it('step 4: turning the signature set on after the upload went past does not count', () => {
+    const sim = buildUtility();
+    const since = sim.t;
+    play(sim, replayUpload);
+    sim.idsSetSignatures('nids', true);
+    expect(missed(sim, since)).toBe(false);
+    expect(idsOutcomeLines(sim, since).map((l) => l.text)).toEqual(['NIDS sensor saw the traffic while its detection was off. No alert. Replay it to check it with detection on.']);
+  });
+
+  it('step 4: a goal check during the switch flip itself does not pass it (the player checks goals on every event)', () => {
+    const sim = buildUtility();
+    const since = sim.t;
+    play(sim, replayUpload);
+    let passed = false;
+    const off = sim.on(() => (passed ||= missed(sim, since)));
+    sim.idsSetSignatures('nids', true);
+    off();
+    expect(passed).toBe(false);
+  });
+
+  it('step 4: the signature set has to stay on for the whole upload', () => {
+    const sim = buildUtility();
+    sim.idsSetSignatures('nids', true);
+    const since = sim.t;
+    replayUpload(sim);
+    sim.advance(100);
+    sim.idsSetSignatures('nids', false);
+    sim.advance(500);
+    sim.idsSetSignatures('nids', true);
+    sim.runUntilIdle();
+    expect(missed(sim, since)).toBe(false);
+    // Paused: the replay is pressed, then the set goes off at the same moment.
+    const since2 = sim.t;
+    replayUpload(sim);
+    sim.idsSetSignatures('nids', false);
+    sim.runUntilIdle();
+    sim.idsSetSignatures('nids', true);
+    expect(missed(sim, since2)).toBe(false);
+    // Paused the other way round: off, replay pressed, back on before anything moves. Every frame was checked.
+    sim.t += 1000;
+    const since3 = sim.t;
+    sim.idsSetSignatures('nids', false);
+    replayUpload(sim);
+    sim.idsSetSignatures('nids', true);
+    sim.runUntilIdle();
+    expect(missed(sim, since3)).toBe(true);
+  });
+
+  it('step 4: an upload replayed before the step started does not count', () => {
+    const sim = buildUtility();
+    sim.idsSetSignatures('nids', true);
+    play(sim, replayUpload);
+    expect(missed(sim, 0)).toBe(true);
+    sim.t += 1000;
+    expect(missed(sim, sim.t)).toBe(false);
+  });
+
+  it('step 4: a step 3 replay that lands after Continue does not lock the goal', () => {
+    const sim = buildUtility();
+    sim.idsSetSignatures('nids', true);
+    replayArp(sim);
+    sim.advance(50);
+    // Continue: step 4 starts while the fake ARP replies are still on the way.
+    const since = sim.t;
+    sim.runUntilIdle();
+    expect(alerts(sim, since).some((e) => e.fields?.signature === 'arp-spoof')).toBe(true);
+    expect(missed(sim, since)).toBe(false);
+    play(sim, replayUpload);
+    expect(missed(sim, since)).toBe(true);
+  });
+
+  it('step 4: an alert about the upload means it was not missed', () => {
+    const sim = withAnomaly('medium');
+    const since = sim.t;
+    play(sim, replayUpload);
+    expect(anomalyFor(sim, IP.pc2)).toBe(true);
+    expect(missed(sim, since)).toBe(false);
+  });
+
+  it('step 5 does not accept Loose, and takes Medium or Strict as its label says', () => {
     const sim = withAnomaly('loose');
-    expect(goal('baseline', 'anomaly-on').check({ sim, since: 0 })).toBe(false);
+    const g = goal('baseline', 'anomaly-on');
+    expect(g.check({ sim, since: 0 })).toBe(false);
     sim.idsSetAnomaly('nids', true, 'medium');
-    expect(goal('baseline', 'anomaly-on').check({ sim, since: 0 })).toBe(true);
+    expect(g.check({ sim, since: 0 })).toBe(true);
+    expect(g.label).toBe('Turn on anomaly detection at Medium or Strict tolerance');
+    expect(g.check({ sim: withAnomaly('strict'), since: 0 })).toBe(true);
   });
 
   it('step 6 setup turns on what step 5 left off, and leaves Strict alone', () => {
@@ -204,9 +308,103 @@ describe('logs lab: goals', () => {
     };
     const passing = Array.from({ length: 21 }, (_, i) => i / 20).filter(good);
     expect(passing).toEqual([0.7, 0.75]);
-    expect(goal('threshold', 'good-threshold').check({ sim, since: 0 })).toBe(false);
+  });
+
+  it('the threshold goal needs both ends tried after scoring, then a good setting left in place', () => {
+    const sim = buildUtility();
+    const good = goal('threshold', 'good-threshold');
+    const check = () => good.check({ sim, since: 0 });
+    // Tries before the events are scored do not count.
+    sim.aiSetThreshold('siem', 1);
+    sim.aiSetThreshold('siem', 0);
+    sim.aiSetThreshold('siem', 0.5);
+    sim.t += 1000;
+    sim.aiScore('siem', AI_EVENTS);
+    sim.t += 1000;
+    // A good setting straight away is not enough: the student has not seen either end.
     sim.aiSetThreshold('siem', 0.7);
-    expect(goal('threshold', 'good-threshold').check({ sim, since: 0 })).toBe(true);
+    expect(check()).toBe(false);
+    // 0.95 still alerts on the ARP spoof, so it is not the "1.00" the questions ask about.
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0.95);
+    sim.aiSetThreshold('siem', 0.05);
+    expect(goal('threshold', 'tried-high').check({ sim, since: 0 })).toBe(false);
+    expect(goal('threshold', 'tried-low').check({ sim, since: 0 })).toBe(false);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 1);
+    expect(goal('threshold', 'tried-high').check({ sim, since: 0 })).toBe(true);
+    expect(goal('threshold', 'tried-low').check({ sim, since: 0 })).toBe(false);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0);
+    expect(goal('threshold', 'tried-low').check({ sim, since: 0 })).toBe(true);
+    // Sliding past a good value and stopping at 0.80 misses the scan.
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0.8);
+    expect(check()).toBe(false);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0.75);
+    expect(check()).toBe(true);
+  });
+
+  it('scoring again while the slider already sits at an end counts as trying that end', () => {
+    const sim = buildUtility();
+    const tried = (id: string, since = 0) => goal('threshold', id).check({ sim, since });
+    sim.aiScore('siem', AI_EVENTS);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 1);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0);
+    sim.t += 1000;
+    // A second Score resets the tries. The slider is already at 0.00, so dragging it there again sends nothing.
+    const since = sim.t;
+    sim.aiScore('siem', AI_EVENTS);
+    expect(tried('tried-low', since)).toBe(true);
+    expect(tried('tried-high', since)).toBe(false);
+    // A value the slider passed through at the same moment, before the Score, does not count.
+    sim.t += 1000;
+    const since2 = sim.t;
+    sim.aiSetThreshold('siem', 1);
+    sim.aiSetThreshold('siem', 0.5);
+    sim.aiScore('siem', AI_EVENTS);
+    expect(tried('tried-high', since2)).toBe(false);
+    expect(tried('tried-low', since2)).toBe(false);
+  });
+
+  it('scoring again after trying both ends does not make the last threshold goal start over', () => {
+    const sim = buildUtility();
+    const check = (id: string) => goal('threshold', id).check({ sim, since: 0 });
+    sim.aiScore('siem', AI_EVENTS);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 1);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0);
+    sim.t += 1000;
+    sim.aiScore('siem', AI_EVENTS);
+    sim.t += 1000;
+    sim.aiSetThreshold('siem', 0.75);
+    expect(check('good-threshold')).toBe(true);
+  });
+
+  it('a goal check in the middle of a Score does not count the values from before it', () => {
+    const sim = buildUtility();
+    const since = sim.t;
+    sim.aiSetThreshold('siem', 1);
+    sim.aiSetThreshold('siem', 0.5);
+    let passed = false;
+    const off = sim.on(() => (passed ||= goal('threshold', 'tried-high').check({ sim, since })));
+    sim.aiScore('siem', AI_EVENTS);
+    off();
+    expect(passed).toBe(false);
+  });
+
+  it('tries from before the step started do not count', () => {
+    const sim = buildUtility();
+    sim.aiScore('siem', AI_EVENTS);
+    sim.aiSetThreshold('siem', 1);
+    sim.aiSetThreshold('siem', 0);
+    sim.aiSetThreshold('siem', 0.75);
+    sim.t += 1000;
+    expect(goal('threshold', 'good-threshold').check({ sim, since: sim.t })).toBe(false);
   });
 
   it('the scan IoC goal takes a scan line, not the broadcast pings or the incident', () => {
@@ -217,5 +415,92 @@ describe('logs lab: goals', () => {
     expect(open(lines(sim, 'siem', (e) => e.fields?.incident === INCIDENT)[0])).toBe(false);
     expect(open(lines(sim, 'nids', (e) => e.fields?.signature === 'port-scan')[0])).toBe(true);
     expect(open(lines(sim, 'fw', (e) => e.fields?.src === SCANNER && e.fields?.proto === 'tcp')[0])).toBe(true);
+  });
+});
+
+describe('logs lab: result lines', () => {
+  it('anomaly detection with no baseline says it could not score the upload', () => {
+    const sim = buildUtility();
+    sim.idsSetSignatures('nids', true);
+    sim.idsSetAnomaly('nids', true, 'medium');
+    const t = sim.t;
+    play(sim, replayUpload);
+    expect(idsOutcomeLines(sim, t).map((l) => l.text)).toEqual([
+      'NIDS sensor saw the traffic. No signature matched it, so no alert.',
+      'NIDS sensor: anomaly detection has no baseline yet, so it could not score this.',
+    ]);
+  });
+
+  it('the alert and the score table name a new address, not a "peer"', () => {
+    const sim = withAnomaly('medium');
+    const t = sim.t;
+    play(sim, replayUpload);
+    expect(idsOutcomeLines(sim, t)[0].text).toContain(`new address ${EXFIL}`);
+    const j = sim.dev('nids').ids!.sensor!.judged.find((x) => x.host === IP.pc2)!;
+    expect(deviationWhy(j)).toBe(`outside office hours (03:12), never-used address ${EXFIL}, 90 MB, over 10x usual`);
+  });
+
+  it('a signature set turned on after the replay went past says detection was off, not that nothing matched', () => {
+    const sim = buildUtility();
+    const t = sim.t;
+    play(sim, replayArp);
+    sim.idsSetSignatures('nids', true);
+    expect(idsOutcomeLines(sim, t).map((l) => l.text)).toEqual(['NIDS sensor saw the traffic while its detection was off. No alert. Replay it to check it with detection on.']);
+    // With the set on from the start, the same replay alerts.
+    const t2 = sim.t;
+    play(sim, replayArp);
+    expect(idsOutcomeLines(sim, t2)[0].text).toContain('arp-spoof');
+  });
+
+  it('says anomaly detection is off when the baseline is recorded but the switch is not on', () => {
+    const sim = withAnomaly('medium');
+    sim.idsSetAnomaly('nids', false, 'medium');
+    const t = sim.t;
+    play(sim, replayUpload);
+    expect(idsOutcomeLines(sim, t).map((l) => l.text)).toEqual([
+      'NIDS sensor saw the traffic. No signature matched it, so no alert.',
+      'NIDS sensor: anomaly detection is off, so it did not score this.',
+    ]);
+  });
+
+  it('says what anomaly detection was doing while the upload went past, not what it does now', () => {
+    // Everything off for the replay, then anomaly on with no baseline: the switch was off at the time.
+    const sim = buildUtility();
+    const t = sim.t;
+    play(sim, replayUpload);
+    sim.idsSetAnomaly('nids', true, 'medium');
+    expect(idsOutcomeLines(sim, t).map((l) => l.text)).toEqual(['NIDS sensor saw the traffic while its detection was off. No alert. Replay it to check it with detection on.']);
+    // Anomaly off with a baseline for the replay, then turned on: it still did not score this one.
+    const sim2 = withAnomaly('medium');
+    sim2.idsSetAnomaly('nids', false, 'medium');
+    const t2 = sim2.t;
+    play(sim2, replayUpload);
+    sim2.idsSetAnomaly('nids', true, 'medium');
+    expect(idsOutcomeLines(sim2, t2).map((l) => l.text)).toEqual([
+      'NIDS sensor saw the traffic. No signature matched it, so no alert.',
+      'NIDS sensor: anomaly detection was off, so it did not score this. Replay it to score it.',
+    ]);
+    // On with no baseline for the replay, then the baseline recorded: it could not score this one.
+    const sim3 = buildUtility();
+    sim3.idsSetSignatures('nids', true);
+    sim3.idsSetAnomaly('nids', true, 'medium');
+    const t3 = sim3.t;
+    play(sim3, replayUpload);
+    sim3.idsRecordBaseline('nids', BASELINE);
+    expect(idsOutcomeLines(sim3, t3).map((l) => l.text)).toEqual([
+      'NIDS sensor saw the traffic. No signature matched it, so no alert.',
+      'NIDS sensor: anomaly detection had no baseline yet, so it could not score this. Replay it to score it.',
+    ]);
+  });
+
+  it('names the tolerance the upload was scored at, even if the student changes it afterward', () => {
+    const sim = withAnomaly('loose');
+    const t = sim.t;
+    play(sim, replayUpload);
+    const quiet = () => idsOutcomeLines(sim, t).map((l) => l.text).find((x) => x.includes('deviation 3'));
+    expect(quiet()).toContain('Loose alerts at a deviation of 4 or more, so no alert.');
+    sim.idsSetAnomaly('nids', true, 'medium');
+    expect(quiet()).toContain('Loose alerts at a deviation of 4 or more (the tolerance when this was scored; replay it to score it at Medium), so no alert.');
+    expect(quiet()).not.toContain('Medium alerts at a deviation of 2');
   });
 });

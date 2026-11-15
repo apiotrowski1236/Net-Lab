@@ -87,15 +87,15 @@ export const BASELINE: Baseline = {
   defaultTypical: MB,
 };
 
-/** What the AI model scores when the analyst presses "Score this morning's events". */
+/** What the AI model scores when the analyst presses "Score the night's events". */
 export const AI_EVENTS: AiEvent[] = [
-  { id: 'arp', label: 'Forged ARP replies for the gateway, from the unknown laptop', when: '02:30', score: 0.95, truth: 'attack' },
+  { id: 'arp', label: 'Fake ARP replies for the gateway, from the unknown laptop', when: '02:30', score: 0.95, truth: 'attack' },
   { id: 'upload', label: "Raj's PC uploads 90 MB to 45.77.12.9", when: '03:12', score: 0.9, truth: 'attack' },
   { id: 'scan', label: 'Port scan from 203.0.113.66', when: '01:02', score: 0.75, truth: 'attack' },
   { id: 'dana', label: 'Dana signs in early for maintenance', when: '07:40', score: 0.7, truth: 'false-alarm' },
-  { id: 'backup', label: 'Monthly backup sends 40 MB offsite', when: '02:00', score: 0.65, truth: 'false-alarm' },
+  { id: 'backup', label: 'Monthly backup sends 40 MB to the backup site', when: '02:00', score: 0.65, truth: 'false-alarm' },
   { id: 'update', label: 'Records server checks for software updates', when: '03:30', score: 0.4, truth: 'normal' },
-  { id: 'poll', label: 'Control room PC polls the plant controller', when: '04:00', score: 0.3, truth: 'normal' },
+  { id: 'poll', label: 'Control room PC checks on the plant controller', when: '04:00', score: 0.3, truth: 'normal' },
   { id: 'browse', label: 'Staff web browsing', when: '07:50', score: 0.2, truth: 'normal' },
   { id: 'read', label: 'Staff open a report on the records server', when: '07:45', score: 0.15, truth: 'normal' },
   { id: 'dns', label: 'DNS lookups', when: '07:55', score: 0.1, truth: 'normal' },
@@ -115,7 +115,8 @@ export function at(h: number, m: number, s = 0): number {
 
 export function buildUtility(): Sim {
   const host = (ip: string) => ({ ip: `${ip}/24`, gateway: IP.gateway, dns: DNS });
-  const sim = new NetBuilder({ linkMs: 700 })
+  // Short links: a replay's connection answers in a few seconds, not fifteen.
+  const sim = new NetBuilder({ linkMs: 300, procMs: 80 })
     .router('internet', {
       label: 'Internet',
       icon: 'cloud',
@@ -152,7 +153,7 @@ export function buildUtility(): Sim {
       y: 110,
       ...host(IP.nids),
       notes: [
-        "Plugged into the switch's mirror port, which copies every frame the switch handles to the sensor. It also has a tap on the firewall's internet line.",
+        "Plugged into the switch's mirror port, which copies every frame the switch handles to the sensor. It also gets a copy of everything on the firewall's internet line.",
         'The simulation hands the sensor each frame directly instead of drawing the copies.',
       ],
     })
@@ -187,10 +188,10 @@ export function buildUtility(): Sim {
       y: 160,
       ...host(IP.backup),
       services: [{ port: 873, proto: 'tcp', app: 'rsync' }],
-      notes: [`Copies the records server every afternoon. On the first of the month at 02:00 it sends a full backup to the offsite vault ${VAULT}.`],
+      notes: [`Every afternoon it copies the records server and sends the changes to the offsite vault ${VAULT}. On the first of the month at 02:00 it sends a full backup there.`],
     })
-    .host('pc1', { label: "Dana's PC", sublabel: 'operator', icon: 'desktop', x: 120, y: 330, ...host(IP.pc1) })
-    .host('pc2', { label: "Raj's PC", sublabel: 'finance clerk', icon: 'desktop', x: 120, y: 500, ...host(IP.pc2) })
+    .host('pc1', { label: "Dana's PC", sublabel: IP.pc1, icon: 'desktop', x: 120, y: 330, ...host(IP.pc1) })
+    .host('pc2', { label: "Raj's PC", sublabel: IP.pc2, icon: 'desktop', x: 120, y: 500, ...host(IP.pc2) })
     .host('control', { label: 'Control room PC', icon: 'desktop', x: 330, y: 500, ...host(IP.control) })
     .host('plant', {
       label: 'Plant controller',
@@ -322,7 +323,7 @@ function seedHistory(sim: Sim): void {
     if (extra.threat) {
       msg += ` threat-feed=${extra.threat}`;
       fields.threat = extra.threat;
-      level = 'notice';
+      level = 'warn';
     }
     log('fw', t, { source: 'firewall', level, msg, fields });
   };
@@ -373,7 +374,7 @@ function seedHistory(sim: Sim): void {
   log('backup', at(16, 31, 0), { source: 'backup', level: 'info', msg: 'afternoon snapshot of the records server OK (1.8 MB changed)', fields: { src: IP.files } });
 
   // --- 02:24: someone plugs into the spare jack. 02:45: the switch's table overflows. ---
-  log('sw', at(2, 24, 31), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 9, changed state to up', fields: { port: PORT.mal, state: 'up' } });
+  log('sw', at(2, 24, 31), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 9, changed state to up', fields: { port: PORT.mal, state: 'up' } });
   log('sw', at(2, 45, 2), {
     source: 'mac-table',
     level: 'warn',
@@ -381,10 +382,10 @@ function seedHistory(sim: Sim): void {
     fields: { port: PORT.mal, count: 200, evicted: 147, size: TABLE_SIZE },
   });
   log('sw', at(16, 12, 40), { source: 'system', level: 'notice', msg: '%SYS-5-CONFIG_I: Configured from console by admin', fields: { user: 'admin' } });
-  log('sw', at(17, 32, 15), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 6, changed state to down', fields: { port: PORT.pc1, state: 'down' } });
-  log('sw', at(7, 36, 2), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 6, changed state to up', fields: { port: PORT.pc1, state: 'up' } });
-  log('sw', at(4, 10, 9), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 10, changed state to down', fields: { port: PORT.plant, state: 'down' } });
-  log('sw', at(4, 10, 21), { source: 'link', level: 'notice', msg: '%LINK-3-UPDOWN: Interface port 10, changed state to up', fields: { port: PORT.plant, state: 'up' } });
+  log('sw', at(17, 32, 15), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 6, changed state to down', fields: { port: PORT.pc1, state: 'down' } });
+  log('sw', at(7, 36, 2), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 6, changed state to up', fields: { port: PORT.pc1, state: 'up' } });
+  log('sw', at(4, 10, 9), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 10, changed state to down', fields: { port: PORT.plant, state: 'down' } });
+  log('sw', at(4, 10, 21), { source: 'link', level: 'notice', msg: '%LINEPROTO-5-UPDOWN: Line protocol on Interface port 10, changed state to up', fields: { port: PORT.plant, state: 'up' } });
 
   // --- I6, I7: Raj's PC, 03:11 and 03:12 ---
   log('pc2', at(3, 11, 48), { source: 'host', level: 'notice', msg: 'process start svc-update.exe user=raj', fields: { user: 'raj', proc: 'svc-update.exe' } });
@@ -443,7 +444,7 @@ function seedHistory(sim: Sim): void {
   });
   for (let h = 17; h !== 8; h = (h + 1) % 24) {
     log('nids', at(h, 0, 0), { source: 'ids', level: 'info', msg: h >= 2 && h < 12 ? 'heartbeat OK (detection paused)' : 'heartbeat OK', fields: {} });
-    log('siem', at(h, 0, 30), { source: 'siem', level: 'info', msg: 'ingest OK: firewall, switch, records, backup, sensor', fields: { sources: 5 } });
+    log('siem', at(h, 0, 30), { source: 'siem', level: 'info', msg: `ingest OK: logs from ${LOG_DEVICES.length - 1} devices`, fields: { sources: LOG_DEVICES.length - 1 } });
   }
   log('siem', at(16, 20, 0), { source: 'siem', level: 'notice', msg: 'INCIDENT 1040 closed: false alarm', fields: { incident: 1040, verdict: 'false', action: 'close', triage: 'closed' } });
 }

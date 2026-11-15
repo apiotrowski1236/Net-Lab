@@ -21,6 +21,15 @@ Places where the code departs from this script because the simulation forced it,
 11. **Step bodies were reworded** where a device chip would repeat its own label (a chip renders as "Backup server", so "the [[backup]] server" read "the Backup server server"), and "just" was removed per the house voice.
 12. **Triage happens in an incident card.** Opening the `INCIDENT 1041` line in the Logs tab shows the incident's parts with Verdict, Action, and **Save triage**, so step 7 never leaves the Logs tab. The same card is in the SIEM server's inspector. The Logs tab gained an **Alerts only** filter (item 10 of "Simulator behaviors"), shown only when the current lines include alerts.
 
+13. **Student panel review (rounds 1 to 6).** A simulated student panel reworded most step bodies, goal labels, and feedback; `index.ts` holds the current text. Changes that alter behavior:
+    - `version: 4`, `minutes: 50`. Step 2 is now "Too many lines". The build has 11 steps; this script's pick-method step lives on as step 9's which-detector question.
+    - Replays run on `linkMs: 300`, `procMs: 80`, so each takes about 2.2 s of sim time.
+    - The C2 threat-feed firewall line is level `warn`, not `notice`, so "Warnings and alerts only" keeps it. Switch link lines use `%LINEPROTO-5-UPDOWN`.
+    - IDS result lines name the tolerance the connection was scored at (from `Judgment.min`), and say so when the student has since changed it.
+    - Step 8's `tried-high` and `tried-low` goals need exactly 1.00 and 0.00, the values its questions ask about (0.95 still alerts on the ARP spoof). The good-threshold goal is "Set a threshold that catches all three attacks with at most one false alert".
+    - Step 9 gives a search word per IoC, explains the smurf trick (a faked sender address) and that rule 5 blocked the broadcast pings, and its port-mismatch question asks why SSH on 443 is "suspicious".
+    - The Logs tab closes an open line that the filters now hide (`LogsView.tsx`). The SIEM's AI threshold slider shows above its incident list in step 8.
+
 ## Changes from the plan
 
 The plan's 12 steps, CodeHS lesson, and CED LOs are unchanged. This script fills in the specifics and makes three design decisions the plan left open. None of them change the plan's direction, so `PLAN.md` is not edited.
@@ -35,13 +44,13 @@ The plan's 12 steps, CodeHS lesson, and CED LOs are unchanged. This script fills
 
 ```
 id: 'logs'
-version: 1
+version: 4
 title: 'Log Analysis and Intrusion Detection'
 tagline: 'Read a night of logs, turn on IDS signatures and anomaly detection, and tune them so real attacks stand out from false alarms.'
 unit: 3
 codehs: ['3.18 The Story in the Logs']
 ced: ['3.5.A', '3.5.B', '3.5.C', '3.5.D', '3.5.E']
-minutes: 45
+minutes: 50
 clock: '08:00'
 labelMacs: true
 objectives:
@@ -252,7 +261,7 @@ The trade-off: prevention stops R3 with no human in the loop, and it also cuts o
 
 ### AI scores and threshold
 
-Pressing "Score this morning's events" assigns each event a fixed probability that it is malicious. An alert is raised when a score is at or above the threshold.
+Pressing "Score the night's events" assigns each event a fixed probability that it is malicious. An alert is raised when a score is at or above the threshold.
 
 | Event | Score | Truth |
 |---|---|---|
@@ -409,7 +418,7 @@ Logs tool device list (step 1):
 
 **Goals:**
 
-- `missed` — "The upload replays and no signature fires" — hint: "Press Replay the 3 a.m. upload and watch the sensor's alerts. Nothing new should appear." — completes when the upload's firewall line was written since step start (`fw` line with `fields.dst === '45.77.12.9'`) and `nids` logged no alert since step start.
+- `missed` — "Replay the 3 a.m. upload with the signature set on" — hint: "Keep the signature set on, press Replay the 3 a.m. upload, and watch the sensor's alerts. Nothing new should appear." — completes when an upload replay started in this step finishes (`conn-result` from `pc2` to `45.77.12.9` with `conn.t` at or after step start), the signature set stayed on from the replay's start to its end (worked out from the sensor's own "signature set enabled/disabled" log lines), and `nids` logged no alert naming `pc2` or `45.77.12.9` during it. An alert left over from a step 3 replay doesn't count against it.
 
 **Questions:**
 
@@ -450,7 +459,7 @@ Logs tool device list (step 1):
 **Goals:**
 
 - `baseline-set` — "Record the clean-week baseline" — completes when `nids` has a stored baseline.
-- `anomaly-on` — "Turn on anomaly detection at Medium tolerance" — hint: "If you leave it on Loose, the upload slips through again. Medium catches it." — completes when anomaly is on and tolerance is Medium or Strict.
+- `anomaly-on` — "Turn on anomaly detection at Medium or Strict tolerance" — hint: "If you leave it on Loose, the upload slips through again. Medium catches it." — completes when anomaly is on and tolerance is Medium or Strict.
 - `catch-upload` — "An anomaly alert names Raj's PC upload" — completes when `nids` logged an alert since step start with `fields.signature === 'anomaly' && fields.host === '10.10.20.22'`.
 - `catch-backup` — "An anomaly alert names the backup" — hint: "Run the scheduled backup after anomaly detection is on." — completes when `nids` logged an alert since step start with `fields.signature === 'anomaly' && fields.host === '10.10.20.11'`.
 
@@ -543,7 +552,7 @@ Logs tool device list (step 1):
 
 > There is still too much to read by hand. An **AI** model helps: it gives every event a score from 0.00 to 1.00 for how likely it is to be malicious. You set the **threshold**. Any event scored at or above it becomes an alert.
 >
-> Press **Score this morning's events**. Then move the threshold slider. Watch the two counters: real attacks caught, and false alerts raised.
+> Press **Score the night's events**. Then move the threshold slider. Watch the two counters: real attacks caught, and false alerts raised.
 >
 > Find a threshold that catches all three real attacks (the ARP poisoning, the 3 a.m. upload, and the overnight scan) without burying you in false alerts.
 
@@ -553,11 +562,11 @@ Logs tool device list (step 1):
 
 **Actions:**
 
-- `score-morning` "Score this morning's events" — assigns the fixed scores from the table above.
+- `score-morning` "Score the night's events" — assigns the fixed scores from the table above.
 
 **Goals:**
 
-- `scored` — "Score this morning's events" — completes when scores are populated on `siem`.
+- `scored` — "Score the night's events" — completes when scores are populated on `siem`.
 - `good-threshold` — "Set a threshold that catches all three real attacks with few false alerts" — hint: "Too high and you miss the scan. Too low and the backup and more noise flood in. Try between 0.70 and 0.75." — completes when the threshold yields all three real attacks caught and no more than one false alert.
 
 **Questions:**
@@ -575,7 +584,7 @@ Logs tool device list (step 1):
   - D. "It blocks the whole network." — feedback: "The threshold raises alerts; it does not block. A low bar means far too many alerts."
   - explain: "A low threshold alerts on everything, so the team drowns in false positives and misses the few that matter. The organization picks the threshold to balance the two, and a critical network like a water utility leans toward catching more and tolerating some false alerts."
 
-**Answer-key moves:** `{ press: 'score-morning' }`, `{ tool: { type: 'ai-threshold', device: 'siem', value: 0.75 } }`.
+**Answer-key moves:** `{ press: 'score-morning' }`, `{ tool: { type: 'ai-threshold', device: 'siem', value: 1 } }`, `{ tool: { type: 'ai-threshold', device: 'siem', value: 0 } }`, `{ tool: { type: 'ai-threshold', device: 'siem', value: 0.75 } }`.
 
 ---
 
@@ -603,7 +612,7 @@ Logs tool device list (step 1):
 
 **Questions:**
 
-- `why-mismatch` (choice) — "Why is SSH running on port 443 a red flag?"
+- `why-mismatch` (choice) — "Why is SSH running on port 443 suspicious?"
   - A. "Port 443 is meant for HTTPS, so another service there is often hiding from simple port filters." **(correct)**
   - B. "Port 443 is only ever used for email." — feedback: "Port 443 is HTTPS, not email. The flag is that SSH is wearing the HTTPS port."
   - C. "SSH is banned on every network." — feedback: "SSH is a normal admin tool. The problem is SSH pretending to be web traffic on 443."
@@ -682,7 +691,7 @@ Logs tool device list (step 1):
 2. **Baseline + seeded history generator.** A deterministic generator (uses `sim.rand`, never `Math.random`) that writes the benign overnight lines and the seeded indicators with backdated `at`. Lives in `scenario.ts`.
 3. **Recorded attacks R1 to R4.** Functions in `scenario.ts` that replay each attack through the live sensor carrying its original overnight fields (`hour`, `bytes`, `src`, `dst`). The Replay buttons are `ActionDef`s that call them.
 4. **SIEM correlation + incidents.** A `Device.siem` state holding incidents (a group of log lines sharing a source address and time window) with a triage state `{ verdict?: 'real'|'false', action?: 'escalate'|'close' }`. Incident 1041 is pre-built from the seeded scan/deny/auth-fail lines. New `SimAction`: `{ type:'siem-triage', incident, verdict, action }`.
-5. **AI scoring + threshold.** A per-event score map (fixed values in the table), a threshold on `Device.siem`, and live counts of real-caught and false-raised. New `SimAction`: `{ type:'ai-threshold', device, value }`. The "Score this morning's events" action populates the scores.
+5. **AI scoring + threshold.** A per-event score map (fixed values in the table), a threshold on `Device.siem`, and live counts of real-caught and false-raised. New `SimAction`: `{ type:'ai-threshold', device, value }`. The "Score the night's events" action populates the scores.
 6. **New `SimAction`s** (add to `src/runtime/actions.ts`, `applyAction`, and the `assertTypable` default-ok path in `src/labs/solution.ts`): `ids-signatures`, `ids-anomaly` (carries `tolerance`), `ids-prevention`, `siem-triage`, `ai-threshold`. None take typed addresses, so `assertTypable` needs no new address checks. Baseline recording and the replays are `step-action`s, so no new action type.
 7. **New `Move` variant for opening an incident** (or reuse `openLog` if incidents surface as log lines). Add to `src/labs/solution.ts`.
 8. **Detection controls UI.** A `ToolSpec` kind `{ kind: 'ids'; device: 'nids' }` that unlocks a Detection inspector section (`src/ui/inspector/Detection.tsx`, listed in `INSPECTOR_SECTIONS`) with the signature, anomaly, tolerance, and prevention controls revealed progressively. Add its name to `TOOL_NAME` in `src/ui/Guide.tsx`.
