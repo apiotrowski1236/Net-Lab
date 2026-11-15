@@ -3,7 +3,7 @@ import { CAMPUS_BCAST, PC1, WEB } from './scenario';
 
 /** Answer key for "Smurf Attacks and Amplification". Choice answers come from the lab itself. */
 export const smurfSolution: LabSolution = {
-  echo: { moves: [{ press: 'fan-ping' }, { inspect: 'web' }, { inspect: 'campus' }] },
+  echo: { moves: [{ press: 'fan-ping' }, { inspect: 'campus' }] },
   everyone: { moves: [{ tool: { type: 'echo', device: 'mallory', target: CAMPUS_BCAST } }] },
   'return-to-sender': { moves: [{ tool: { type: 'echo', device: 'mallory', target: PC1, source: WEB } }] },
   'the-storm': { moves: [{ press: 'storm' }, { press: 'fan-buy' }] },

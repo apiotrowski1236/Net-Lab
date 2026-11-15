@@ -3,7 +3,7 @@ import { LabSession } from '../../runtime/session';
 import type { LabProgress } from '../../store/progress';
 import { playMove, playStep } from '../solution';
 import { smurfLab as lab } from '.';
-import { buildEchoStorm, CAMPUS_BCAST, FAN, LAN_HOSTS, PC1, SMURF_RATE, STORM_COUNT, TICKETS, UPLINK_CAP, uplinkId, WEB } from './scenario';
+import { BOTNET, buildEchoStorm, CAMPUS_BCAST, FAN, ispFilterUpstream, LAN_HOSTS, PC1, SMURF_RATE, STORM_COUNT, TICKETS, UPLINK_CAP, uplinkId, WEB } from './scenario';
 import { smurfSolution as sol } from './solution';
 
 class MemoryStorage {
@@ -160,6 +160,53 @@ describe('smurf lab', () => {
     playMove(s, buyAgain);
     expect(s.goalDone('guard-your-edge', 'upstream-fixes')).toBe(true);
     expect(s.sim.dev('fan').browser?.status).toBe('loaded');
+  });
+
+  it('step 7: pressing Mallory tries again before the fix still lets the goal finish once the setting is off', () => {
+    const s = playTo('read-the-spike');
+    expect(s.step.id).toBe('silence-the-amplifier');
+    playMove(s, { press: 'retry' });
+    expect(s.goalDone('silence-the-amplifier', 'fizzle')).toBe(false);
+    const [off, retry] = sol['silence-the-amplifier'].moves!;
+    playMove(s, off);
+    playMove(s, retry);
+    expect(s.goalDone('silence-the-amplifier', 'fizzle')).toBe(true);
+  });
+
+  it('the botnet pings from its own address, not a forged one', () => {
+    const s = playTo('the-storm');
+    expect(s.step.id).toBe('many-attackers');
+    playMove(s, { press: 'botnet' });
+    const sent = s.sim.events.find((e) => e.type === 'ping-sent' && e.device === 'botnet');
+    expect(sent?.type === 'ping-sent' && sent.forged).toBeFalsy();
+    expect(sent?.type === 'ping-sent' ? sent.from : undefined).toBe(BOTNET);
+  });
+
+  it('the ISP filter drops the botnet pings before Hilltop', () => {
+    const sim = buildEchoStorm();
+    ispFilterUpstream(sim);
+    sim.echo('botnet', WEB, { burst: { count: 300 } });
+    sim.runUntilIdle();
+    expect(sim.events.some((e) => e.type === 'drop' && e.device === 'isp' && e.reason === 'firewall')).toBe(true);
+    expect(sim.events.some((e) => e.type === 'ping-reply' && e.device === 'botnet')).toBe(false);
+  });
+
+  it('button results say where the replies went and why a purchase failed', () => {
+    const s = playTo('return-to-sender');
+    const step = lab.steps[index('the-storm')];
+    const storm = step.actions!.find((a) => a.id === 'storm')!;
+    const buy = step.actions!.find((a) => a.id === 'fan-buy')!;
+    const t0 = s.sim.t;
+    playMove(s, { press: 'storm' });
+    expect(storm.outcome!(s.sim, t0)).toEqual([
+      { tone: 'bad', text: `${STORM_COUNT} forged pings became ${STORM_COUNT * LAN_HOSTS} replies, all sent to the ticket server. Mallory got none.` },
+      { tone: 'bad', text: `Hilltop's uplink: ${SMURF_RATE} packets a second, but it carries only ${UPLINK_CAP}. The rest are dropped.` },
+    ]);
+    const t1 = s.sim.t;
+    playMove(s, { press: 'fan-buy' });
+    expect(buy.outcome!(s.sim, t1)).toEqual([
+      { tone: 'bad', text: "The purchase failed. Hilltop's uplink is full of flood traffic, so her request was dropped before it reached Hilltop." },
+    ]);
   });
 
   it('rebuilds identical device state after a reload mid-storm', () => {

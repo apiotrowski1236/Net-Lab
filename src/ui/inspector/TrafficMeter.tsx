@@ -5,7 +5,7 @@ import { Toggle } from '../tools/parts';
 import type { InspectorSectionProps } from './registry';
 
 /** The links this router has that carry a capacity limit, with the peer at the far end. */
-function meteredLinks(sim: Sim, dev: Device): { linkId: string; peer: string; pps: number; cap: number }[] {
+export function meteredLinks(sim: Sim, dev: Device): { linkId: string; peer: string; pps: number; cap: number }[] {
   const out: { linkId: string; peer: string; pps: number; cap: number }[] = [];
   for (const i of dev.ifaces) {
     if (!i.linkId) continue;
@@ -24,7 +24,7 @@ function meteredLinks(sim: Sim, dev: Device): { linkId: string; peer: string; pp
 
 /**
  * This lab's router panel (smurf): a traffic meter on each capacity-limited
- * link, and — on a router that forwards directed broadcasts — the toggle that
+ * link and, on a router that forwards directed broadcasts, the toggle that
  * turns that forwarding off (the fix at the amplifier). Returns nothing for
  * devices that have neither.
  */
@@ -42,31 +42,7 @@ export function RouterPanel({ session, sim, dev, replaying, has }: InspectorSect
           <h4>
             Traffic meter <span class="muted">packets per second on each link</span>
           </h4>
-          <ul class="meter-list">
-            {links.map((l) => {
-              const over = l.pps > l.cap;
-              const pct = Math.min(100, Math.round((l.pps / l.cap) * 100));
-              return (
-                <li key={l.linkId} class={`meter-row ${over ? 'over' : ''}`}>
-                  <div class="meter-head">
-                    <span>to {l.peer}</span>
-                    <span class="mono">
-                      {l.pps} / {l.cap} pps
-                      {over && (
-                        <>
-                          {' '}
-                          <Icon name="warn" size={13} /> full
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <div class="meter-track">
-                    <span class="meter-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <MeterList links={links} />
         </section>
       )}
       {showToggle && (
@@ -93,3 +69,34 @@ export function RouterPanel({ session, sim, dev, replaying, has }: InspectorSect
 }
 
 export const routerPanelSection = { id: 'router-panel', slot: 'settings' as const, Section: RouterPanel };
+
+/** One bar per capacity-limited link: its load against what it can carry. Also drawn on the Toolkit card. */
+export function MeterList({ links }: { links: ReturnType<typeof meteredLinks> }) {
+  return (
+    <ul class="meter-list">
+      {links.map((l) => {
+        const over = l.pps > l.cap;
+        const pct = Math.min(100, Math.round((l.pps / l.cap) * 100));
+        return (
+          <li key={l.linkId} class={`meter-row ${over ? 'over' : ''}`}>
+            <div class="meter-head">
+              <span>Link with {l.peer}</span>
+              <span class="mono">
+                {l.pps} / {l.cap} pps
+                {over && (
+                  <>
+                    {' '}
+                    <Icon name="warn" size={13} /> full
+                  </>
+                )}
+              </span>
+            </div>
+            <div class="meter-track">
+              <span class="meter-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

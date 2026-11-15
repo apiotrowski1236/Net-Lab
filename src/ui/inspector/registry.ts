@@ -72,7 +72,7 @@ export const INSPECTOR_SECTIONS: InspectorSection[] = [
   { id: 'ids-detection', slot: 'settings', Section: Detection, tools: ['ids'] },
   { id: 'siem-console', slot: 'settings', Section: SiemConsole, tools: ['siem', 'ai-threshold'] },
   // smurf
-  { ...routerPanelSection, tools: ['directed-broadcast'] },
+  { ...routerPanelSection, tools: ['traffic-meter', 'directed-broadcast'] },
   // home-network
   { ...wifiSetupSection, tools: ['wifi-config'] },
   wifiSetupSummary,

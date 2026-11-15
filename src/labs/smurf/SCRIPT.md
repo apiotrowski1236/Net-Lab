@@ -41,6 +41,26 @@ student experiences; they are implementation choices the script left open or nam
   restores both braces (and the lost `.port-edit-head` body) so the following rules un-nest correctly; the new
   `congestion-pulse` keyframe animates `opacity` rather than `stroke-dashoffset` (the minifier rejected the latter).
 
+## Student panel changes (version 2)
+
+The student panel reworded most step bodies; `index.ts` is the source of truth for student text. Changes
+that alter what students do or see:
+
+- **A `botnet` device on the map** (`198.18.0.50`, behind a new `isp.bots` port). **Botnet joins in** pings
+  the ticket server from the botnet's own address (`burst`, not forged), so the map no longer draws the
+  DDoS as forged traffic from Mallory. The ISP filter denies ICMP toward `192.0.2.0/24` in both directions,
+  so it drops the botnet burst at the provider.
+- **Toolkit cards** for the **Traffic meter** (steps 4, 5, 6, 8) and **Directed broadcasts** (step 7), so
+  the meter is visible next to the buttons and step 7's Toolkit is not empty.
+- **Step 1** drops the "Open the ticket server" goal and the 0.5× tip. Answer key: `[{ press: 'fan-ping' },
+  { inspect: 'campus' }]`, and the campus goal points at **Directed broadcasts**.
+- **Step 2** explains /24 and the `.0` to `.255` range. **Step 4** defines uplink, pps, and the CIA triad.
+- **Step 7** `fizzle` checks the latest no-broadcast drop since the step began with no reply to the
+  ticket server after it, so pressing **Mallory tries again** before the fix no longer blocks the goal.
+- **Step 9** gives a high / moderate / low rubric, keeps options in that order, and drops "none" from Q1.
+- Button results (`outcome`) say where the replies went and why a purchase failed.
+- Questions that depend on a result are `afterGoals`.
+
 ## What changed from PLAN.md
 
 The plan stands. These are refinements, not a change of course, so `PLAN.md` is unchanged:

@@ -21,6 +21,7 @@ import { RiskRegisterTool } from './RiskRegister';
 import { HardeningCard } from './HardeningCard';
 import { AiThresholdCard, IdsCard, SiemCard } from './DetectionCards';
 import { EchoTool } from './EchoTool';
+import { DirectedBroadcastCard, TrafficMeterCard } from './RouterCards';
 import { TerminalTool } from './Terminal';
 import { BenchCard, BenchPlanCard } from './Bench';
 import { LogFilesTool } from './LogFiles';
@@ -71,6 +72,8 @@ export const TOOL_CARDS: { [K in ToolSpec['kind']]?: ComponentType<ToolCardProps
   'ai-threshold': AiThresholdCard,
   // smurf
   'echo-tool': EchoTool,
+  'directed-broadcast': DirectedBroadcastCard,
+  'traffic-meter': TrafficMeterCard,
   // net-tools
   terminal: TerminalTool,
   // detect-methods

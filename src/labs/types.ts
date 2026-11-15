@@ -275,8 +275,10 @@ export type ToolSpec =
   | { kind: 'bench-plan'; device: string }
   /** Echo tool (smurf): ping from `device`, with an optional forged source address. Its own Toolkit card. */
   | { kind: 'echo-tool'; device: string }
-  /** Turn `device`'s directed-broadcast forwarding on or off, in the inspector (smurf). Not a Toolkit card. */
+  /** Turn `device`'s directed-broadcast forwarding on or off, in the inspector (smurf). Its Toolkit card points there. */
   | { kind: 'directed-broadcast'; device: string }
+  /** Read `device`'s traffic meter (smurf): a live Toolkit card, and its chips jump to the meter in the inspector. */
+  | { kind: 'traffic-meter'; device: string }
   /**
    * Saved capture files to open in the Capture tab instead of a live capture
    * (capture-analysis). `files` are ids from LabDef.captureFiles, in the order

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { checkEcho } from '../../runtime/toolInput';
 import type { SimEvent } from '../../sim/types';
 import { Icon } from '../icons';
@@ -7,7 +7,7 @@ import type { ToolCardProps } from './registry';
 
 /**
  * The attacker's ping tool (smurf). Like Ping, but it can write a forged source
- * address, so the reply lands on whoever that address names — the trick behind
+ * address, so the reply lands on whoever that address names: the trick behind
  * a smurf attack. Sends an `echo` action and reports where the replies went.
  */
 export function EchoTool({ session, spec }: ToolCardProps<'echo-tool'>) {
@@ -27,6 +27,12 @@ export function EchoTool({ session, spec }: ToolCardProps<'echo-tool'>) {
     session.dispatch({ type: 'echo', device: spec.device, target: r.target, source: r.source });
   };
   const since = session.since;
+  // A new step starts with empty boxes, so last step's target isn't sent again by mistake.
+  useEffect(() => {
+    setTarget('');
+    setSource('');
+    setMsg(null);
+  }, [since]);
   const sent = sim.events
     .filter((e): e is Extract<SimEvent, { type: 'ping-sent' }> => e.type === 'ping-sent' && e.device === spec.device && e.t >= since)
     .slice(-4)
@@ -40,7 +46,7 @@ export function EchoTool({ session, spec }: ToolCardProps<'echo-tool'>) {
         <Icon name="ping" /> Echo tool
       </div>
       <p class="tool-desc">
-        Send a ping from {dev?.label ?? spec.device}. The reply goes to the address in the <strong>source</strong> field — leave it blank to use your own, or forge it to send the reply somewhere else.
+        Send a ping from {dev?.label ?? spec.device}. The reply goes to the address in the <strong>source</strong> box. Leave it blank to use your own address, or type another one to <strong>forge</strong> (fake) the source and send the reply there.
       </p>
       <div class="sentence">
         ping
@@ -62,7 +68,7 @@ export function EchoTool({ session, spec }: ToolCardProps<'echo-tool'>) {
         <input
           class={`mono ${invalid('source')}`}
           value={source}
-          placeholder="blank = my address"
+          placeholder="blank = mine"
           inputMode="decimal"
           autoComplete="off"
           spellcheck={false}
@@ -80,7 +86,7 @@ export function EchoTool({ session, spec }: ToolCardProps<'echo-tool'>) {
         <ul class="ping-log" aria-live="polite" ref={log}>
           {sent.map((p) => {
             const end = sim.events.find((e) => (e.type === 'ping-reply' || e.type === 'ping-fail') && e.seq === p.seq);
-            const tone = !end ? 'wait' : end.type === 'ping-reply' ? (p.forged ? 'bad' : 'good') : 'bad';
+            const tone = !end ? 'wait' : end.type === 'ping-reply' ? 'good' : 'bad';
             let text: string;
             if (!end) text = 'Waiting for a reply…';
             else if (end.type === 'ping-reply') {
