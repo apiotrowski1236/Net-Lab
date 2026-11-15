@@ -554,6 +554,32 @@ async function doMove(i, step, m) {
       await pick.selectOption(value);
       await page.locator('.place-row', { has: pick }).getByRole('button', { name: 'Place', exact: true }).click();
       log(`  place ${labels[a.device]} between ${labels[a.a]} and ${labels[a.b]}`);
+    } else if (a.type === 'cable') {
+      // The Cables card: pick both ends (a router port by name, or the device's first free port), then Connect.
+      await tab('Toolkit');
+      const card = page.locator('.tool-card', { has: page.getByLabel('First end of the cable', { exact: true }) });
+      for (const [label, dev, port] of [['First end of the cable', a.a, a.aPort], ['Second end of the cable', a.b, a.bPort]]) {
+        const pick = card.getByLabel(label, { exact: true });
+        const values = await pick.locator('option').evaluateAll((os) => os.map((o) => o.value));
+        const value = port ? values.find((v) => v === `${dev}/${port}` || v === dev) : values.find((v) => v === dev || v.startsWith(`${dev}/`));
+        if (!value) await fail(i, `no free end for ${labels[dev]} in "${label}"`);
+        await pick.selectOption(value);
+      }
+      await card.getByRole('button', { name: 'Connect', exact: true }).click();
+      if (await card.locator('.tool-msg.bad').count()) await fail(i, `the Cables card refused ${labels[a.a]} to ${labels[a.b]}: ${await card.locator('.tool-msg.bad').innerText()}`);
+      log(`  plug ${labels[a.a]} into ${labels[a.b]}`);
+    } else if (a.type === 'add-route') {
+      // The routing table's Add route row in the router's inspector.
+      await device(a.device).locator('rect.device-card').first().click({ force: true });
+      await tab('Inspect');
+      await page.getByLabel('Destination network', { exact: true }).fill(a.prefix);
+      const via = page.getByLabel('Next hop', { exact: true });
+      await via.fill(a.via);
+      await via.press('Enter');
+      if ((await via.getAttribute('aria-invalid')) === 'true' || (await page.getByLabel('Destination network', { exact: true }).getAttribute('aria-invalid')) === 'true') {
+        await fail(i, `${labels[a.device]} turned away the route ${a.prefix} via ${a.via}`);
+      }
+      log(`  route on ${labels[a.device]}: ${a.prefix} via ${a.via}`);
     } else if (a.type === 'scan') {
       await tab('Toolkit');
       const box = page.locator('input[aria-label="Address or network to scan"]');
