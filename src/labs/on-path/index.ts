@@ -240,7 +240,7 @@ export const onPathLab: LabDef = {
       ],
       questions: [
         {
-          id: 'why-blocked',
+          id: 'why-locked',
           kind: 'choice',
           prompt: "Mallory's sniffer caught Alice's frames again. Why can't she read the login this time?",
           options: [
