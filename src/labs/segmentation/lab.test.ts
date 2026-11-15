@@ -229,6 +229,20 @@ describe('segmentation lab', () => {
     expectContained(s);
   });
 
+  it('step 6’s tests answer quickly, so one finishes before the next is pressed', () => {
+    const s = playTo('subnets');
+    setOnly(s, 'policy');
+    for (const [id, port, status] of [['target', 5001, 'open'], ['share', 445, 'no-answer'], ['status', 5002, 'open'], ['crew-share', 445, 'no-answer']] as const) {
+      const t0 = s.sim.t;
+      s.runStepAction(id);
+      s.sim.runUntilIdle();
+      const end = s.sim.events.find((e) => e.t >= t0 && e.type === 'conn-result' && e.conn.port === port);
+      expect(end && end.type === 'conn-result' && end.conn.status, id).toBe(status);
+      // No ARP wait in front: one round trip through the firewall, about 15 seconds at 1×.
+      expect(end!.t - t0, id).toBeLessThanOrEqual(5000);
+    }
+  });
+
   it('step 7’s log goal takes only a probe from this step, not a step 6 test line', () => {
     const s = playTo('policy');
     expect(s.step.id).toBe('contain');

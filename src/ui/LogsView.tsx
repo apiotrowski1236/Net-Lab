@@ -39,6 +39,8 @@ export function logDevices(session: LabSession): string[] {
  * listen for that (helpers.openedLog).
  */
 export function LogsView({ session }: { session: LabSession }) {
+  // New lines arrive while the tab is open: redraw on every network change.
+  void session.simRev.value;
   const sim = session.sim;
   const ids = logDevices(session);
   const [only, setOnly] = useState<string>('all');
