@@ -141,11 +141,11 @@ function RouterSettings(p: Part) {
           <Row
             cls={flash('firewall')}
             label="Drop pings from the internet"
-            why={dropping ? 'A firewall rule drops pings that arrive on the internet side.' : 'Anyone online can ping this router and learn the office is there.'}
+            why={dropping ? 'On: a firewall rule drops pings that arrive on the internet side.' : 'Off: anyone online can ping this router and learn the office is there.'}
             on={dropping}
             edit={edit}
-            onText="Dropping"
-            offText="Answering"
+            onText="On"
+            offText="Off"
             onChange={setDrop}
           />
         </>
