@@ -10,7 +10,7 @@ import { PROTO_COLOR, endpoints, fmtTime, infoOf, layersOf, nameForMac, pingFail
 import { Icon } from './icons';
 import { INSPECTOR_SECTIONS, type InspectorSectionProps } from './inspector/registry';
 import { TOOL_CARDS, type ToolCardProps } from './tools/registry';
-import { recentlyChanged, Toggle, ToolMsg, useDraft, type Msg } from './tools/parts';
+import { recentlyChanged, Toggle, ToolMsg, useDraft, useKept, type Msg } from './tools/parts';
 import {
   checkAddress,
   checkCable,
@@ -939,15 +939,23 @@ function CaptureTools({ session, dev, filter }: { session: LabSession; dev: Devi
 function ArpSpoofTool({ session, spec }: { session: LabSession; spec: Extract<ToolSpec, { kind: 'arp-spoof' }> }) {
   const sim = session.sim;
   const [victim, setVictim] = useState(spec.victims[0]);
-  const [claim, setClaim] = useState('');
+  const [claim, setClaim] = useKept(session, `${session.step.id}/arp-spoof/${spec.device}/claim`);
   const [msg, setMsg] = useState<Msg>(null);
   const me = sim.devices[spec.device];
   const sent = sim.events.filter((e) => e.type === 'config' && e.what === 'arp-spoof' && e.device === spec.device).slice(-4);
   const send = () => {
     const r = checkSpoofClaim(sim, spec.device, victim, claim);
     if (!r.ok) return setMsg({ tone: 'bad', text: r.msg });
+    // A locked (static) entry will ignore the reply, so don't say the victim believes it.
+    const held = sim.devices[victim].arp[r.ip];
+    const locked = held?.via === 'static' && held.mac !== me.ifaces[0].mac;
     session.dispatch({ type: 'arp-spoof', device: spec.device, victim, claimIp: r.ip });
-    setMsg({ tone: 'good', text: `Sent. ${sim.devices[victim].label} now hears that ${r.ip} is at ${me.ifaces[0].mac}.` });
+    setMsg({
+      tone: 'good',
+      text: locked
+        ? `Sent. ${sim.devices[victim].label} has a locked entry for ${r.ip}, so it will ignore this reply.`
+        : `Sent. ${sim.devices[victim].label} now hears that ${r.ip} is at ${me.ifaces[0].mac}.`,
+    });
   };
   return (
     <div class="tool-card attack">
@@ -1075,8 +1083,8 @@ function AnnounceTool({ session, spec }: { session: LabSession; spec: Extract<To
 function StaticArpTool({ session, spec }: { session: LabSession; spec: Extract<ToolSpec, { kind: 'static-arp' }> }) {
   const sim = session.sim;
   const d = sim.devices[spec.device];
-  const [ip, setIp] = useState('');
-  const [mac, setMac] = useState('');
+  const [ip, setIp] = useKept(session, `${session.step.id}/static-arp/${spec.device}/ip`);
+  const [mac, setMac] = useKept(session, `${session.step.id}/static-arp/${spec.device}/mac`);
   const [msg, setMsg] = useState<Msg>(null);
   const locked = Object.entries(d.arp).filter(([, e]) => e.via === 'static');
   const lock = () => {

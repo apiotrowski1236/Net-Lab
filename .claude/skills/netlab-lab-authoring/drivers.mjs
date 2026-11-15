@@ -4,7 +4,8 @@
 //
 // Covers: the Wi-Fi scanner (and its watch mode marks), Wi-Fi settings in the
 // inspector, the Wi-Fi cracker, triangulation, packet capture on/off (sniffer),
-// Cables > Unplug, shutting a switch port, the wireless alarms card, and the
+// IP forwarding, the ARP spoofer, ARP locks (on-path), Cables > Unplug,
+// shutting a switch port, the wireless alarms card, and the
 // Logs tab (open a line, cite a line).
 
 const SECURITY = { open: 'Open', wep: 'WEP', wpa: 'WPA', wpa2: 'WPA2', wpa3: 'WPA3' };
@@ -109,6 +110,32 @@ async function drive(c, i, step, m) {
       await tab('Toolkit');
       await toggle(card(`Packet capture (${labels[a.device]})`).getByRole('switch'), a.on);
       log(`  packet capture on ${labels[a.device]}: ${a.on ? 'on' : 'off'}`);
+      return true;
+    }
+    case 'forward': {
+      await tab('Toolkit');
+      await toggle(card(`IP forwarding (${labels[a.device]})`).getByRole('switch'), a.on);
+      log(`  IP forwarding on ${labels[a.device]}: ${a.on ? 'on' : 'off'}`);
+      return true;
+    }
+    case 'arp-spoof': {
+      await tab('Toolkit');
+      const c = card('ARP spoofer');
+      await c.getByLabel('Device to fool', { exact: true }).selectOption({ label: labels[a.victim] });
+      await c.getByLabel('IP address to claim', { exact: true }).fill(a.claimIp);
+      await c.getByRole('button', { name: 'Send fake ARP reply' }).click();
+      if ((await c.getByLabel('IP address to claim', { exact: true }).getAttribute('aria-invalid')) === 'true') await fail(i, `the ARP spoofer turned away ${a.claimIp}`);
+      log(`  fake ARP reply to ${labels[a.victim]}: ${a.claimIp} is at ${labels[a.device]}`);
+      return true;
+    }
+    case 'static-arp': {
+      await tab('Toolkit');
+      const c = card(`Lock ARP entries (${labels[a.device]})`);
+      await c.getByLabel('IP address to lock', { exact: true }).fill(a.ip);
+      await c.getByLabel('MAC address', { exact: true }).fill(a.mac);
+      await c.getByRole('button', { name: 'Lock it' }).click();
+      if ((await c.locator('.tool-msg.bad, .msg.bad').count()) > 0) await fail(i, `Lock it turned away ${a.ip} at ${a.mac}`);
+      log(`  lock ${a.ip} to ${a.mac} on ${labels[a.device]}`);
       return true;
     }
     case 'unplug': {

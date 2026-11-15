@@ -18,6 +18,7 @@ import type { NatEntry, NatNote, NatState } from './nat';
 import type { CaptureRun } from './capture';
 import type { Socket, TermRun } from './terminal';
 import type { BenchState } from './bench';
+import type { AirSeal, SealedFrame } from './airseal';
 import type { TcpInfo, TcpSession } from './tcp';
 
 // ---------------------------------------------------------------------------
@@ -247,6 +248,8 @@ export interface Device {
   mirror?: string;
   /** A Linux server: its log files, sshd, nginx, and fail2ban (see linux.ts). Its host firewall is `firewall` (ufw.ts). */
   linux?: LinuxState;
+  /** A hub that stands for an access point running WPA2: other devices get sealed copies of frames not meant for them (airseal.ts, on-path). */
+  airSeal?: AirSeal;
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +365,8 @@ export interface Frame {
   burst?: Burst;
   /** Part of the simulated outbreak's spread (see malware.ts). Drawn in red, like forged frames. */
   malware?: true;
+  /** What a sniffer got of a frame encrypted with another device's Wi-Fi key: the MACs and nothing else (airseal.ts). */
+  sealed?: SealedFrame;
 }
 
 export interface Link {

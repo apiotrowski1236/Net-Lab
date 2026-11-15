@@ -41,6 +41,28 @@ export function ToolMsg({ msg }: { msg: Msg }) {
   );
 }
 
+const kept = new WeakMap<object, Map<string, string>>();
+
+/**
+ * Text typed into a tool card that survives a trip to another tab. The Toolkit
+ * unmounts its cards when the student opens the Inspect tab to copy something,
+ * and plain useState would lose the half-typed text. `owner` is the lab session,
+ * so another session (a reset, another student) starts empty.
+ */
+export function useKept(owner: object, key: string): [string, (v: string) => void] {
+  let store = kept.get(owner);
+  if (!store) kept.set(owner, (store = new Map()));
+  const box = store;
+  const [value, setValue] = useState(box.get(key) ?? '');
+  return [
+    value,
+    (v: string) => {
+      box.set(key, v);
+      setValue(v);
+    },
+  ];
+}
+
 /** A text box with a Save button, for one setting. Shows the current value until the student types. */
 export function useDraft(current: string) {
   const [draft, setDraft] = useState<string | null>(null);

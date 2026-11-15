@@ -21,7 +21,7 @@ export const PASSWORD = 'pumpkinspice';
 export const LOGIN_BODY = `user=alice&pass=${PASSWORD}`;
 
 export function buildCafe(): Sim {
-  const net = new NetBuilder({ linkMs: 850, httpTimeoutMs: 12000 })
+  const net = new NetBuilder({ linkMs: 650, httpTimeoutMs: 12000 })
     .host('alice', {
       label: 'Alice',
       sublabel: IP.alice,
@@ -100,9 +100,12 @@ export function buildCafe(): Sim {
   return sim;
 }
 
-/** Switch the café Wi-Fi to WPA2: each device only receives its own traffic (plus broadcasts). */
+/**
+ * Turn on WPA2 for the café Wi-Fi. The radio still reaches every device, but a
+ * frame meant for one device reaches the others sealed with that device's key
+ * (src/sim/airseal.ts), so Mallory captures it and can't read it.
+ */
 export function enableWpa2(sim: Sim): void {
-  if (sim.dev('wifi').kind === 'switch') return;
-  sim.setL2Kind('wifi', 'switch', { sublabel: 'WPA2 · password on the chalkboard' });
-  sim.prelearnSwitch('wifi');
+  if (sim.dev('wifi').airSeal) return;
+  sim.setAirSeal('wifi', { mode: 'WPA2' }, 'WPA2 · password on the chalkboard');
 }
