@@ -21,6 +21,15 @@ Places where the code departs from this script because the simulation forced it,
 11. **Step bodies were reworded** where a device chip would repeat its own label (a chip renders as "Backup server", so "the [[backup]] server" read "the Backup server server"), and "just" was removed per the house voice.
 12. **Triage happens in an incident card.** Opening the `INCIDENT 1041` line in the Logs tab shows the incident's parts with Verdict, Action, and **Save triage**, so step 7 never leaves the Logs tab. The same card is in the SIEM server's inspector. The Logs tab gained an **Alerts only** filter (item 10 of "Simulator behaviors"), shown only when the current lines include alerts.
 
+13. **Student panel review (rounds 1 to 6).** A simulated student panel reworded most step bodies, goal labels, and feedback; `index.ts` holds the current text. Changes that alter behavior:
+    - `version: 4`, `minutes: 50`. Step 2 is now "Too many lines". The build has 11 steps; this script's pick-method step lives on as step 9's which-detector question.
+    - Replays run on `linkMs: 300`, `procMs: 80`, so each takes about 2.2 s of sim time.
+    - The C2 threat-feed firewall line is level `warn`, not `notice`, so "Warnings and alerts only" keeps it. Switch link lines use `%LINEPROTO-5-UPDOWN`.
+    - IDS result lines name the tolerance the connection was scored at (from `Judgment.min`), and say so when the student has since changed it.
+    - Step 8's `tried-high` and `tried-low` goals need exactly 1.00 and 0.00, the values its questions ask about (0.95 still alerts on the ARP spoof). The good-threshold goal is "Set a threshold that catches all three attacks with at most one false alert".
+    - Step 9 gives a search word per IoC, explains the smurf trick (a faked sender address) and that rule 5 blocked the broadcast pings, and its port-mismatch question asks why SSH on 443 is "suspicious".
+    - The Logs tab closes an open line that the filters now hide (`LogsView.tsx`). The SIEM's AI threshold slider shows above its incident list in step 8.
+
 ## Changes from the plan
 
 The plan's 12 steps, CodeHS lesson, and CED LOs are unchanged. This script fills in the specifics and makes three design decisions the plan left open. None of them change the plan's direction, so `PLAN.md` is not edited.
@@ -35,13 +44,13 @@ The plan's 12 steps, CodeHS lesson, and CED LOs are unchanged. This script fills
 
 ```
 id: 'logs'
-version: 1
+version: 4
 title: 'Log Analysis and Intrusion Detection'
 tagline: 'Read a night of logs, turn on IDS signatures and anomaly detection, and tune them so real attacks stand out from false alarms.'
 unit: 3
 codehs: ['3.18 The Story in the Logs']
 ced: ['3.5.A', '3.5.B', '3.5.C', '3.5.D', '3.5.E']
-minutes: 45
+minutes: 50
 clock: '08:00'
 labelMacs: true
 objectives:
@@ -603,7 +612,7 @@ Logs tool device list (step 1):
 
 **Questions:**
 
-- `why-mismatch` (choice) — "Why is SSH running on port 443 a red flag?"
+- `why-mismatch` (choice) — "Why is SSH running on port 443 suspicious?"
   - A. "Port 443 is meant for HTTPS, so another service there is often hiding from simple port filters." **(correct)**
   - B. "Port 443 is only ever used for email." — feedback: "Port 443 is HTTPS, not email. The flag is that SSH is wearing the HTTPS port."
   - C. "SSH is banned on every network." — feedback: "SSH is a normal admin tool. The problem is SSH pretending to be web traffic on 443."
