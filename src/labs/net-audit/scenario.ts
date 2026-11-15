@@ -36,11 +36,11 @@ export const IP = {
 };
 
 /** The router's factory login, printed in its manual. */
-export const ADMIN = { user: 'admin', pass: 'foodbank' };
+export const ADMIN = { user: 'admin', pass: 'admin' };
 
 export const SSID = 'HarborFoodBank';
 /** The Wi-Fi passphrase: long enough to hold up once the encryption is strong. */
-export const WIFI_PASS = 'HarborFoodBank-2019';
+export const WIFI_PASS = 'copper-kettle-meadow-27';
 
 export const OFFICE = { x: 50, y: 30, w: 560, h: 390 };
 export const LOT = { x: 50, y: 450, w: 560, h: 140 };
@@ -53,7 +53,7 @@ export const DESK_PORTS = ['p1', 'p2', 'p3', 'p4'];
 export const EMPTY_PORTS = ['p7', 'p8'];
 
 export function buildOffice(): Sim {
-  const net = new NetBuilder({ linkMs: 500, pingTimeoutMs: 20000 })
+  const net = new NetBuilder({ linkMs: 300, pingTimeoutMs: 20000 })
     .host('pc1', { label: 'Intake PC', sublabel: IP.pc1, icon: 'desktop', x: 130, y: 100, ip: `${IP.pc1}/24`, gateway: IP.router, services: [] })
     .host('pc2', { label: 'Manager PC', sublabel: IP.pc2, icon: 'desktop', x: 130, y: 370, ip: `${IP.pc2}/24`, gateway: IP.router, services: [] })
     .host('fileserver', {
@@ -232,6 +232,12 @@ export function routerHardened(sim: Sim): boolean {
 export function deskPortsSecured(sim: Sim): boolean {
   const sw = sim.dev('sw');
   return DESK_PORTS.every((p) => !!sw.switchSec?.ports[p]?.security);
+}
+
+/** MAC filtering on every desk port: each accepts only the computer plugged in now. */
+export function deskPortsFiltered(sim: Sim): boolean {
+  const sw = sim.dev('sw');
+  return DESK_PORTS.every((p) => !!sw.switchSec?.ports[p]?.security?.allowed?.length);
 }
 
 /** Switch policy: port security on the desk ports, the empty ports shut, and logins through the authentication server. */

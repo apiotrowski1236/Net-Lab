@@ -1,16 +1,27 @@
 import { entryRating, type FindingId } from '../../sim/audit';
 import type { Sim } from '../../sim/sim';
-import type { SimEvent } from '../../sim/types';
+import type { Frame, SimEvent } from '../../sim/types';
 import { crack, reach } from '../../sim/wifi';
 import { capturedSince, happened, inspected, isEncrypted, isTelnetLogin, openedFrame } from '../helpers';
 import { md } from '../md';
-import type { ActionDef, CheckCtx, LabDef, MapZone } from '../types';
-import { buildOffice, HOME, homeProbe, IP, LOT, OFFICE, routerHardened, routerLogin, switchHardened, vpnHardened, wifiStrong } from './scenario';
+import type { ActionDef, ActionLine, CheckCtx, LabDef, MapZone } from '../types';
+import { buildOffice, deskPortsFiltered, HOME, homeProbe, IP, LOT, OFFICE, routerHardened, routerLogin, switchHardened, vpnHardened, wifiStrong } from './scenario';
 
 // --- Step actions ---
 
-const telnetLogin: ActionDef = { id: 'telnet-login', label: 'Log in over Telnet', run: (sim) => routerLogin(sim, 'telnet') };
-const sshLogin: ActionDef = { id: 'ssh-login', label: 'Log in over SSH', run: (sim) => routerLogin(sim, 'ssh') };
+/** What a login button reports: logging in, then whether the capture caught it. */
+const loginOutcome =
+  (row: string, pred: (f: Frame) => boolean) =>
+  (sim: Sim, since: number): ActionLine[] => {
+    const c = sim.dev('auditor').conns?.find((x) => x.t === since);
+    if (!c || c.status === 'pending') return [{ tone: 'wait', text: 'Logging in…' }];
+    if (c.status !== 'open') return [{ tone: 'bad', text: 'The router did not answer the login.' }];
+    if (capturedSince(sim, 'auditor', since, pred)) return [{ tone: 'good', text: `Logged in. The capture caught it: open the Capture tab and click the ${row} row.` }];
+    return [{ tone: 'bad', text: 'Logged in, but packet capture was off, so nothing was recorded. Turn on Packet capture in the Toolkit, then press this button again.' }];
+  };
+
+const telnetLogin: ActionDef = { id: 'telnet-login', label: 'Log in over Telnet', run: (sim) => routerLogin(sim, 'telnet'), outcome: loginOutcome('TELNET', isTelnetLogin) };
+const sshLogin: ActionDef = { id: 'ssh-login', label: 'Log in over SSH', run: (sim) => routerLogin(sim, 'ssh'), outcome: loginOutcome('SSH', isEncrypted) };
 const probe: ActionDef = { id: 'home-probe', label: 'Home device probes the office', run: homeProbe };
 
 // --- Goal helpers ---
@@ -36,7 +47,7 @@ const onlyLowLeft = scanned((_f, e, sim) => {
 
 export const netAuditLab: LabDef = {
   id: 'net-audit',
-  version: 1,
+  version: 2,
   title: 'Vulnerability Scan and Risk Assessment',
   tagline: 'Scan a small office for weaknesses, rate each risk high, moderate, or low, and write the policies that fix them.',
   unit: 3,
@@ -70,16 +81,16 @@ export const netAuditLab: LabDef = {
   steps: [
     {
       id: 'engagement',
-      title: 'The engagement',
+      title: 'Your audit job',
       body: md`
         Harbor Food Bank hired you to audit its office network. Before you touch anything, read the **scope letter**: the written permission that says what you may test, and when.
 
         - **Who:** you, the outside auditor.
-        - **What:** every device on the office network, \`192.168.50.0/24\`, and the bookkeeper's VPN.
+        - **What:** every device on the office network, \`192.168.50.0/24\` (every address that starts \`192.168.50.\`), and the bookkeeper's VPN.
         - **When:** today, 09:00 to 17:00.
         - **Not allowed:** changing donor records, or testing anything outside the list.
 
-        Your audit laptop, [[auditor]], is already plugged into the office switch. Look around first. Click [[router]], then [[fileserver]], then [[wap]]. Note what each one is and what it runs.
+        Your audit laptop, [[auditor]], is already plugged into the office switch. Look around first. Click [[router]], then [[fileserver]], then [[wap]]. Read the top of each panel: what the device is and what it runs. You can skip the tables for now. Later steps point you to the parts you need.
 
         > Everything in this lab happens inside a simulation. Running a vulnerability scanner against a network you do not own or have written permission to test is illegal.
       `,
@@ -109,13 +120,11 @@ export const netAuditLab: LabDef = {
       id: 'scan',
       title: 'Run the scan',
       body: md`
-        An **automated vulnerability scanner** probes a network for known weaknesses. It checks which devices answer, which services each one runs, and whether their settings are safe. Then it writes a **report**: each weakness, how severe it is, and a suggested fix.
+        An **automated vulnerability scanner** looks for known weaknesses on a network. It sends small test messages, called **probes**, to every device. It checks which devices answer, which services each one runs, and whether their settings are safe. Then it writes a **report**: each weakness (a **finding**), its **severity** (how serious it is), and a suggested fix.
 
         1. Open the **Toolkit** tab and press **Run scan** on the scanner.
-        2. Watch the probes cross the map from [[auditor]] to each device.
+        2. Watch the probes cross the map from [[auditor]] to each device. The labels that pop up, like ARP and TCP, name kinds of network messages. You do not need them for this lab.
         3. Read the report below the scanner. Click a finding to see its evidence and fix.
-
-        One probe goes out to the internet and back, to test what the edge router shows the outside world.
       `,
       focus: ['auditor'],
       open: 'tools',
@@ -135,20 +144,20 @@ export const netAuditLab: LabDef = {
             { id: 'when', text: 'The finding, the exact date it will be exploited, and by whom.', feedback: 'No scanner predicts the future. It reports what is weak now.' },
             { id: 'bill', text: 'A bill, a contract, and a signature.', feedback: 'That is paperwork, not a scan report.' },
           ],
-          explain: 'An automated scanner reports each weakness with a severity and a mitigation. Severity is a starting point. You still judge the real risk yourself.',
+          explain: 'An automated scanner reports each weakness with a severity and a suggested fix. Severity is a starting point. You still judge the real risk yourself.',
         },
         {
           id: 'mapping',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'The scan did more than flag weak settings. What else did it show an attacker could do?',
+          prompt: 'The scan did more than flag weak settings. What else could an attacker learn from a scan like this?',
           options: [
-            { id: 'map', text: 'Map the office: which devices exist and what each one runs.', correct: true },
-            { id: 'decrypt', text: 'Decrypt the donor records on the file server.', feedback: 'The scanner reads open ports and settings. It broke no encryption.' },
-            { id: 'delete', text: 'Delete the findings so no one else sees them.', feedback: 'A scanner reports what it finds. It does not change the target.' },
-            { id: 'install', text: 'Install a firewall by itself.', feedback: 'A scanner recommends fixes. A person still applies them.' },
+            { id: 'map', text: 'A map of the office: which devices exist and what each one runs.', correct: true },
+            { id: 'decrypt', text: 'The donor records, decrypted from the file server.', feedback: 'The scanner reads open ports and settings. It broke no encryption.' },
+            { id: 'passwords', text: 'Every staff member’s email password.', feedback: 'The scanner tested one factory login on the router. It did not collect anyone’s passwords.' },
+            { id: 'nothing', text: 'Nothing. A scan only helps defenders.', feedback: 'Attackers run the same scanners. The list of devices and services helps them as much as you.' },
           ],
-          explain: 'The same probing that finds weak settings also maps the network: every device and service. That map is the first thing an adversary builds.',
+          explain: 'The same probing that finds weak settings also maps the network: every device and service. That map is the first thing an attacker builds.',
         },
       ],
     },
@@ -157,7 +166,7 @@ export const netAuditLab: LabDef = {
       id: 'telnet',
       title: 'See it for yourself',
       body: md`
-        The report says [[router]] still runs **Telnet**, an old way to log in to a device over the network. The scope letter lets you confirm it. The scanner already found the password: the factory default \`admin\` / \`foodbank\`.
+        The report says [[router]] still runs **Telnet**, an old way to log in to a device over the network. The scope letter lets you confirm it. The scanner already found the password: \`admin\` / \`admin\`, the factory default that every router of this model ships with. Default passwords are printed in manuals and posted online, so anyone can look them up.
 
         1. In the **Toolkit**, turn on **Packet capture** for [[auditor]].
         2. Press **Log in over Telnet**. You sign in to the router.
@@ -165,6 +174,8 @@ export const netAuditLab: LabDef = {
         4. Press **Log in over SSH** and open that packet. Compare the two.
 
         **SSH** does the same job as Telnet, but it encrypts the session.
+
+        (The map shows each login as one packet each way, to keep it clear. A real login has more packets, such as the router's prompt first and, for SSH, a key exchange. On a real office switch, an attacker would need a spot on the path, such as the Wi-Fi or a switch port that copies traffic, to capture this.)
       `,
       focus: ['auditor', 'router'],
       open: 'tools',
@@ -180,19 +191,19 @@ export const netAuditLab: LabDef = {
         {
           id: 'telnet-why',
           kind: 'choice',
-          prompt: 'You read the admin password straight out of the Telnet capture. SSH showed only scrambled text. Why does the router policy ban Telnet?',
+          prompt: 'You read the admin password straight out of the Telnet capture. SSH showed only scrambled text. Why should the router turn Telnet off?',
           options: [
             { id: 'plain', text: 'Telnet sends the login in plaintext, so anyone on the path can read the password.', correct: true },
             { id: 'slow', text: 'Telnet is slower than SSH.', feedback: 'Speed is not the issue. Compare what you could read in each capture.' },
             { id: 'port', text: 'Telnet uses the wrong port number.', feedback: 'A port number is not a weakness. What crossed the wire in the clear?' },
             { id: 'hide', text: 'SSH hides the router from scanners.', feedback: 'SSH still shows as an open port. It protects the contents, not the fact that the service exists.' },
           ],
-          explain: 'Telnet carries everything, including passwords, as readable text. SSH encrypts the session. The router policy disables unneeded, insecure services like Telnet.',
+          explain: 'Telnet carries everything, including passwords, as readable text. SSH encrypts the session. A router security policy, which you write in a later step, turns off unneeded, insecure services like Telnet.',
         },
         {
           id: 'default-pw',
           kind: 'text',
-          prompt: 'You logged in with `admin` / `foodbank`, the factory default. In a sentence or two, say why a default password is a finding even after Telnet is turned off.',
+          prompt: 'You logged in with `admin` / `admin`, the factory default. In a sentence or two, say why a default password is a finding even after Telnet is turned off.',
           minWords: 15,
           lines: 2,
         },
@@ -201,40 +212,54 @@ export const netAuditLab: LabDef = {
 
     {
       id: 'likelihood',
-      title: 'How likely?',
+      title: 'How likely, and how bad?',
       body: md`
-        Every finding is a risk. **Risk** has two parts: how **likely** the weakness is to be used, and how much **impact** it would have.
+        Every finding is a risk. **Risk** has two parts: how **likely** it is that someone uses the weakness to cause harm, and how much **impact** (damage) that would do.
 
-        Likelihood depends on skill. A weakness with an easy, well-known exploit gets used more often, because more people can pull it off. A weakness that needs rare skill is less likely, even when the impact would be large.
+        **Likelihood** depends on skill. To **exploit** a weakness means to use it to break in or cause harm. A weakness with a well-known exploit that takes little skill gets used more often, because more people can do it. A weakness that needs rare skill is less likely, even when the impact would be large.
 
-        Sort this office's findings by how hard they are to exploit. The scanner's report is still in the **Toolkit** if you want to look again.
+        **Impact** depends on what an attacker could break. Security teams use the **CIA triad** to name it:
+
+        - **Confidentiality:** only the right people can read the data.
+        - **Integrity:** nobody changes the data without permission.
+        - **Availability:** the system works when people need it.
+
+        The risk register in the next step combines the two parts like this:
+
+        | Likelihood ↓ / Impact → | Low | Moderate | High |
+        | --- | --- | --- | --- |
+        | **Low** | Low | Low | Moderate |
+        | **Moderate** | Low | Moderate | High |
+        | **High** | Moderate | High | High |
+
+        The scanner's report is still in the **Toolkit** if you want to look again.
       `,
       tools: [{ kind: 'scanner', device: 'auditor' }],
       questions: [
         {
-          id: 'easy',
+          id: 'low-skill',
           kind: 'choice',
           multi: true,
-          prompt: 'Which of these needs the least skill to exploit? Choose all that apply.',
+          prompt: 'Which of these attacks on the food bank need very little skill?',
           options: [
-            { id: 'sniff', text: 'Reading the Telnet password with a free sniffer.', correct: true },
+            { id: 'sniff', text: 'Reading the Telnet password with a free packet capture tool.', correct: true },
             { id: 'default', text: 'Logging in with the default admin password.', correct: true },
-            { id: 'beacon', text: 'Picking up the Wi-Fi beacon from the parking lot.', correct: true },
-            { id: 'https', text: 'Breaking strong encryption to read an HTTPS session.', feedback: 'No known shortcut exists for that. It needs rare skill, so its likelihood is low.' },
+            { id: 'wep', text: 'Cracking the WEP Wi-Fi from the parking lot with a free tool.', correct: true },
+            { id: 'newbug', text: 'Finding a brand-new flaw in the router’s SSH software that nobody has found before.', feedback: 'Finding a new flaw takes rare skill and a lot of time, so its likelihood is low.' },
           ],
-          explain: 'Exploit difficulty changes likelihood. Easy, well-documented attacks are more likely, so they push a risk up.',
+          explain: 'Exploit difficulty changes likelihood. Well-known attacks that take little skill are more likely, so they push a risk up. Telnet, the default password, and WEP all have free tools and step-by-step guides online.',
         },
         {
           id: 'combine',
           kind: 'choice',
-          prompt: 'A finding is easy to exploit but, if exploited, barely affects the food bank. How should that shape its rating?',
+          prompt: 'A finding takes little skill to exploit, but using it barely hurts the food bank. How should that shape its rating?',
           options: [
-            { id: 'middle', text: 'High likelihood, low impact, so a middling risk.', correct: true },
-            { id: 'always', text: 'Easy to exploit always means high risk.', feedback: 'Likelihood is only half of it. A harmless weakness is still low impact.' },
+            { id: 'middle', text: 'High likelihood, low impact, so a moderate risk.', correct: true },
+            { id: 'always', text: 'Anything that takes little skill is always a high risk.', feedback: 'Likelihood is only half of it. A harmless weakness is still low impact.' },
             { id: 'zero', text: 'Low impact means the risk is zero.', feedback: 'Low is not zero. You still record it.' },
             { id: 'only', text: 'Once you know the likelihood, impact stops mattering.', feedback: 'Risk needs both. The register combines them.' },
           ],
-          explain: 'Risk combines likelihood and impact. Easy but harmless lands in the middle. The open-ping finding is exactly this case.',
+          explain: 'Risk combines likelihood and impact. In the table, high likelihood and low impact give a moderate risk. The open-ping finding is this case.',
         },
       ],
     },
@@ -243,15 +268,15 @@ export const netAuditLab: LabDef = {
       id: 'register',
       title: 'Rate the risks',
       body: md`
-        Open the **risk register** in the Toolkit. It lists every finding. For each one, set the **likelihood** and the **impact**. The register combines them into a rating: low, moderate, or high.
+        Open the **risk register** in the Toolkit: the auditor's list of every finding and its rating. For each finding, set the **likelihood** and the **impact**. The register combines them into a rating, using the table from the last step.
 
-        Three of these findings match examples from the course framework. Rate them to match:
+        Three findings match examples from the AP Cybersecurity course. Rate them to match:
 
-        - The **weak Wi-Fi encryption** (WEP) on the flat network with the donor server: this is the high example.
-        - The edge firewall **answering pings from the internet**: this is the moderate example.
-        - The **Wi-Fi beacon broadcast**: this is the low example.
+        - **Weak Wi-Fi encryption** (WEP): the high example. The office is a **flat network**: every device is on one network, so anyone who cracks the Wi-Fi can reach the donor server.
+        - The router **answering pings from the internet**: the moderate example. It takes no skill, but it only tells an outsider the office is there.
+        - The **Wi-Fi beacon**: the low example. The beacon is the message the Wi-Fi sends out to announce its name. Anyone can see it, but a name alone is not a way in, so it rarely leads to harm.
 
-        Rate the other four with your own judgment from the last step.
+        The other four have no single right answer. Rate them with your own judgment. You will see the VPN finding up close in a later step.
       `,
       open: 'tools',
       tools: [{ kind: 'risk-register', device: 'auditor' }],
@@ -259,7 +284,7 @@ export const netAuditLab: LabDef = {
         {
           id: 'anchors',
           label: 'Rate the three framework examples high, moderate, and low',
-          hint: 'WEP is trivial to crack and the records are sensitive. A ping reveals the device but little else. A beacon leaks only the network name and its encryption type.',
+          hint: 'WEP: high likelihood, high impact. Pings: high likelihood, low impact. Beacon: low likelihood, low impact. Check each row in the table.',
           check: ({ sim }) => rating(sim, 'wifi-weak') === 'high' && rating(sim, 'edge-icmp') === 'moderate' && rating(sim, 'wifi-beacon') === 'low',
         },
         {
@@ -285,7 +310,7 @@ export const netAuditLab: LabDef = {
             { id: 'a', text: 'Availability.', feedback: 'Availability is about keeping the service up. Reading records does not take it down.' },
             { id: 'none', text: 'None. Reading data is not a security problem.', feedback: 'Donor records are private. Reading them is a confidentiality breach.', last: true },
           ],
-          explain: 'Network vulnerabilities threaten confidentiality, integrity, and availability. Eavesdropping breaks confidentiality, altering records breaks integrity, and a denial of service breaks availability.',
+          explain: 'Network weaknesses threaten confidentiality, integrity, and availability. Listening in on traffic breaks confidentiality, changing records breaks integrity, and knocking a service offline breaks availability.',
         },
       ],
     },
@@ -294,13 +319,13 @@ export const netAuditLab: LabDef = {
       id: 'router-policy',
       title: 'Write the router policy',
       body: md`
-        A **managerial control** is a written policy that sets a minimum standard for how devices are configured. Start with [[router]].
+        A **control** is anything that lowers a risk. A **managerial control** is a written policy that sets the minimum standard for how devices are set up. The settings that carry it out are **technical controls**.
 
-        First, pick the statements that belong in a **router security policy**. Then apply them in the router's **Security settings** and run the scanner again.
+        First, pick the statements that belong in a **router security policy**. Then click [[router]] to jump to its **Security settings**, apply them, and run the scanner again.
 
         - Turn **Telnet** off and keep **SSH** on.
-        - Send **logins** to the **authentication server**, one approved place that checks every login. That removes the local account with the factory password.
-        - Switch on **Drop pings from the internet**. It adds a rule to the top of the router's firewall. You can see it under **Firewall rules** in the same inspector.
+        - Send **logins** to the **authentication server**, one approved computer (not on this map) that checks every login. That removes the local account with the factory password.
+        - Switch on **Drop pings from the internet**. It adds a rule to the top of the router's firewall, under **Firewall rules**. The old rule that answers pings stays below it, but the router follows the first rule that matches.
       `,
       focus: ['router'],
       open: { inspect: 'router' },
@@ -332,20 +357,7 @@ export const netAuditLab: LabDef = {
             { id: 'logs', text: 'Turn off logging to save disk space.', feedback: 'Logs are how you detect attacks. A policy never turns them off.' },
             { id: 'longer', text: 'Keep Telnet, but pick a longer password.', feedback: 'Telnet sends the password in the clear whatever its length. Disable it.' },
           ],
-          explain: 'A router security policy may ban local accounts, disable unneeded services like Telnet, and require a firewall. It sets the minimum every router must meet.',
-        },
-        {
-          id: 'where-logins',
-          kind: 'choice',
-          afterGoals: true,
-          prompt: 'After the re-scan, the local admin finding is gone. Where do router logins go now?',
-          options: [
-            { id: 'aaa', text: 'To the approved authentication server.', correct: true },
-            { id: 'nowhere', text: 'Nowhere. The router cannot be managed anymore.', feedback: 'You can still log in, through the authentication server instead of a local account.' },
-            { id: 'local', text: 'To a local account with a longer password.', feedback: 'The policy removed local accounts entirely.' },
-            { id: 'fw', text: 'To the firewall.', feedback: 'A firewall filters traffic. It does not hold logins.' },
-          ],
-          explain: 'Central authentication means one place to add, remove, and audit accounts, instead of a local password on every device.',
+          explain: 'A router security policy may ban local accounts, disable unneeded services like Telnet, and require a firewall. It sets the minimum every router must meet. Many policies also keep one emergency local account, locked away, for when the authentication server is down.',
         },
       ],
     },
@@ -354,14 +366,14 @@ export const netAuditLab: LabDef = {
       id: 'switch-policy',
       title: 'Write the switch policy',
       body: md`
-        Now [[sw]]. The report found no **port security**, and a live wall jack in the lobby, port 7. Anyone could plug a laptop into it and join the office network.
+        Now [[sw]]. The report found no **port security**. It also found a working **wall jack** (a network socket in the wall) in the lobby, on port 7. Anyone could plug a laptop into it and join the office network.
 
-        Pick the statements that belong in a **switch security policy**, then apply them in the switch's **Security settings** and re-scan.
+        Every network card has a **MAC address**, a hardware ID that the switch sees in each frame. The switch settings use it two ways:
 
-        - Turn on **port security** for the desk ports, so each one accepts only one device.
-        - Turn on **MAC filtering**, so each desk port accepts only the computer plugged in now.
-        - **Shut the ports nobody uses**, including the lobby jack.
-        - Send **logins** to the **authentication server**.
+        - **Port security** limits how many devices a port accepts. Here it is one: a second MAC address shuts the port down.
+        - **MAC filtering** names which device each port accepts: only the computer plugged in now.
+
+        Pick the statements that belong in a **switch security policy**. Then click [[sw]] to jump to its **Security settings**, turn on port security and MAC filtering, **shut the ports nobody uses**, send **logins** to the **authentication server**, and re-scan.
       `,
       focus: ['sw'],
       open: { inspect: 'sw' },
@@ -369,9 +381,9 @@ export const netAuditLab: LabDef = {
       goals: [
         {
           id: 'apply',
-          label: 'Turn on port security, shut the empty ports, and send logins to the authentication server',
+          label: 'Turn on port security and MAC filtering, shut the empty ports, and send logins to the authentication server',
           hint: 'Open [[sw]] and use the Security settings section.',
-          check: ({ sim }) => switchHardened(sim),
+          check: ({ sim }) => switchHardened(sim) && deskPortsFiltered(sim),
         },
         { id: 'rescan', label: 'Re-scan and clear the switch finding', hint: 'Apply the settings first, then press **Run scan again**.', check: without('switch-open') },
       ],
@@ -386,7 +398,7 @@ export const netAuditLab: LabDef = {
             { id: 'port-sec', text: 'Turn on port security so each port accepts only a limited set of MAC addresses.', correct: true },
             { id: 'mac', text: 'Use MAC filtering to allow only known devices.', correct: true },
             { id: 'unplug', text: 'Unplug the switch overnight.', feedback: 'That stops the office, not an attacker during the day.' },
-            { id: 'closet', text: 'Hide the switch in a locked closet instead of setting port security.', feedback: 'A locked closet does not help against the open jack out in the lobby. Do both.' },
+            { id: 'closet', text: 'Hide the switch in a locked closet instead of setting port security.', feedback: 'A locked closet does not help against the working jack out in the lobby. Do both.' },
             { id: 'public', text: 'Give the switch a public internet address so admins can manage it from home.', feedback: 'That exposes management to the whole internet. Hardening points the other way.' },
           ],
           explain: 'A switch security policy may ban local accounts, require port security, and use MAC filtering.',
@@ -397,11 +409,11 @@ export const netAuditLab: LabDef = {
           prompt: 'The policy lists MAC filtering. A MAC address can be copied. Why keep MAC filtering in the policy anyway?',
           options: [
             { id: 'layer', text: 'It raises the effort and blocks casual devices, as one layer among several.', correct: true },
-            { id: 'cannot', text: 'A MAC address cannot actually be copied.', feedback: 'It can. It is sent in the clear and easy to change, which is why filtering is not enough on its own.' },
+            { id: 'cannot', text: 'A MAC address cannot actually be copied.', feedback: 'It can. It is sent as readable text and can be changed in a few clicks, which is why filtering is not enough on its own.' },
             { id: 'encrypt', text: 'MAC filtering encrypts the network.', feedback: 'It decides who may connect. It does not encrypt anything.' },
             { id: 'only', text: 'It is the only control a switch needs.', feedback: 'On its own it is weak. Port security and authentication back it up.' },
           ],
-          explain: 'No single control is enough. MAC filtering stops casual devices and adds a layer; port security and user authentication cover what it misses.',
+          explain: 'No single control is enough. MAC filtering stops casual devices and adds a layer. Port security and the authentication server cover what it misses.',
         },
       ],
     },
@@ -410,12 +422,12 @@ export const netAuditLab: LabDef = {
       id: 'wifi',
       title: 'Close the Wi-Fi',
       body: md`
-        The highest-rated finding is the Wi-Fi. [[wap]] uses **WEP**, an encryption that takes seconds to crack. Its signal reaches the parking lot. The office is one flat network, so once someone is on the Wi-Fi they can reach [[fileserver]] and its donor records.
+        The highest-rated finding is the Wi-Fi. [[wap]] uses **WEP**, an old encryption that a free tool cracks in under a minute. Its signal reaches the parking lot. The office is one flat network, so once someone is on the Wi-Fi they can reach [[fileserver]] and its donor records.
 
-        1. Open [[wap]] and change its security from WEP to **WPA3**, the strongest setting.
+        1. Click [[wap]] and change its security from WEP to **WPA3**, the strongest setting.
         2. Re-scan.
 
-        WPA3 closes the easy way in. The network is still flat, so a break-in could still spread. Splitting it into zones is a separate project: that is **network segmentation**, a later lab.
+        WPA3 closes the quick way in. The network is still flat, so a break-in could still spread. Splitting it into zones is a separate project: that is **network segmentation**, a later lab.
       `,
       focus: ['wap'],
       open: { inspect: 'wap' },
@@ -431,7 +443,7 @@ export const netAuditLab: LabDef = {
           afterGoals: true,
           prompt: 'You switched the Wi-Fi to WPA3. The office is still one flat network with the donor server on it. Why did the high finding clear anyway?',
           options: [
-            { id: 'residual', text: 'Strong encryption closes the easy way in, so the leftover risk is no longer high.', correct: true },
+            { id: 'residual', text: 'Strong encryption closes the quick way in, so the leftover risk is no longer high.', correct: true },
             { id: 'never', text: 'The flat network was never a problem.', feedback: 'A flat network still lets a break-in spread. That is why segmentation is a separate project.' },
             { id: 'zones', text: 'WPA3 split the network into zones.', feedback: 'Encryption does not segment a network. It protects the radio link.' },
             { id: 'beacons', text: 'Beacons carry the encryption, so WPA3 turned the beacons off.', feedback: 'Beacons still broadcast. That is the low finding you will accept.' },
@@ -445,15 +457,15 @@ export const netAuditLab: LabDef = {
       id: 'vpn',
       title: 'Working from home',
       body: md`
-        The bookkeeper works from home on [[bookkeeper]], over a **VPN**: an encrypted tunnel into the office network, drawn as a dashed line on the map. The VPN allows **split tunneling**: office traffic goes through the tunnel, and everything else goes straight to the internet from the home network.
+        The bookkeeper works from home on [[bookkeeper]], over a **VPN**: an encrypted tunnel into the office network, drawn as a dashed line on the map. The VPN allows **split tunneling**: only office traffic goes through the tunnel. The laptop stays on the home network at the same time, and everything else goes straight to the internet.
 
-        The family shares [[homedev]], and it may be infected.
+        That makes the laptop a bridge between two networks. The family shares [[homedev]], and it may be infected. Malware on it can reach the laptop over the home network, then use the laptop's tunnel to reach the office. (In real life the malware would first break into the bookkeeper's laptop. The map skips that and shows the laptop passing the traffic along.)
 
         1. Press **Home device probes the office**. Follow the path with split tunneling on.
-        2. In [[router]]'s **Security settings**, under **VPN**, turn split tunneling off and set sign-in to **Password + MFA** (a second login step beyond the password).
+        2. Click [[router]] and find **VPN** in its **Security settings**. Turn split tunneling off. Set sign-in to **Password + MFA** (a code from a phone as well as the password).
         3. Press **Home device probes the office** again.
 
-        This simulation keeps the VPN simple: with split tunneling on, devices on the bookkeeper's home network can ride the laptop into the office. With it off, only the laptop's own office traffic uses the tunnel.
+        With split tunneling off, all of the laptop's traffic goes through the tunnel, and the laptop stops taking traffic from the home network. The bridge is gone. The router's settings also list who may use the VPN: only the Bookkeeper role. MFA does not change the probe. It protects the VPN if someone steals the password.
       `,
       focus: ['homedev', 'bookkeeper', 'router'],
       tools: [{ kind: 'hardening', device: 'router', vpn: true }],
@@ -461,11 +473,11 @@ export const netAuditLab: LabDef = {
       goals: [
         {
           id: 'see-risk',
-          label: 'Watch a home device reach [[fileserver]] through the tunnel',
+          label: 'Watch the home device reach [[fileserver]] through the tunnel',
           hint: 'Press **Home device probes the office** while split tunneling is still on.',
           check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'ping-reply' && e.device === 'homedev' && e.from === IP.fileserver),
         },
-        { id: 'fix', label: 'Turn split tunneling off and require MFA', hint: 'Open [[router]] and find VPN under Security settings.', check: ({ sim }) => vpnHardened(sim) },
+        { id: 'fix', label: 'Turn split tunneling off and require more than a password', hint: 'Click [[router]] and find VPN under Security settings. Pick **Password + MFA**.', check: ({ sim }) => vpnHardened(sim) },
         {
           id: 'blocked',
           label: 'Press the probe again and watch it fail to reach the office',
@@ -483,15 +495,15 @@ export const netAuditLab: LabDef = {
             { id: 'roles', text: 'List which roles may use the VPN.', correct: true },
             { id: 'auth', text: 'Require strong authentication, such as keys or MFA.', correct: true },
             { id: 'split', text: 'Prohibit split tunneling.', correct: true },
-            { id: 'fast', text: "Allow split tunneling so the bookkeeper's home streaming stays fast.", feedback: 'You just watched split tunneling open a path from a home device into the office. Speed is not worth that.' },
-            { id: 'wifi', text: 'Let anyone with the office Wi-Fi password dial in.', feedback: 'A VPN policy names roles and requires strong authentication, not a shared password.' },
+            { id: 'fast', text: "Allow split tunneling so the bookkeeper's home videos load faster.", feedback: 'You watched split tunneling open a path from a home device into the office. Speed is not worth that.' },
+            { id: 'wifi', text: 'Let anyone with the office Wi-Fi password connect to the VPN.', feedback: 'A VPN policy names roles and requires strong authentication, not a shared password.' },
           ],
           explain: 'A VPN policy may list the roles allowed to use it, require strong authentication like keys or MFA, and prohibit split tunneling.',
         },
         {
           id: 'split-why',
           kind: 'text',
-          prompt: 'Explain in your own words why split tunneling raised the risk, using what the home device did.',
+          prompt: 'Explain in your own words why split tunneling raised the risk. Use what the home device and the bookkeeper’s laptop did.',
           minWords: 20,
           lines: 4,
         },
@@ -502,9 +514,11 @@ export const netAuditLab: LabDef = {
       id: 'rescan',
       title: 'The final re-scan',
       body: md`
-        Run the scanner one last time. The high and moderate findings should be gone. One low finding remains: the Wi-Fi still broadcasts its beacon.
+        Run the scanner one last time. The high and moderate findings should be gone. One low finding remains: the Wi-Fi still sends its beacon.
 
-        You do not have to fix every finding. A **low risk** that costs more to fix than it would ever cause can be **accepted**: written down, and lived with on purpose.
+        You do not have to fix every finding. A **low risk** that costs more to fix than the harm it could cause can be **accepted**: written down, and kept by choice.
+
+        (This scanner checks seven things, to keep the lab short. A real scanner checks thousands. It would also flag the donor web page on port 80, which has no encryption.)
       `,
       focus: ['auditor'],
       open: 'tools',
@@ -521,9 +535,10 @@ export const netAuditLab: LabDef = {
         {
           id: 'accept-low',
           kind: 'choice',
+          afterGoals: true,
           prompt: 'The re-scan still lists the beacon finding. Why accept it instead of fixing it?',
           options: [
-            { id: 'cost', text: 'It is low risk, and hiding the Wi-Fi name costs more hassle than it saves.', correct: true },
+            { id: 'cost', text: 'It is low risk, and hiding the Wi-Fi name causes more trouble than it prevents.', correct: true },
             { id: 'cannot', text: 'A scanner cannot detect beacons, so there is nothing to fix.', feedback: 'The scanner did detect it. That is why it is on the report.' },
             { id: 'ignore', text: 'Low risks are not real, so you ignore them.', feedback: 'Low is not zero. Accepting a risk means recording it and choosing to live with it, not ignoring it.' },
             { id: 'break', text: 'Fixing it would break the router.', feedback: 'A beacon is a Wi-Fi setting, not a router one, and the network would keep working either way.' },
@@ -541,9 +556,9 @@ export const netAuditLab: LabDef = {
 
         - Name the **top risk** you found.
         - Give its **rating** and why it earned that rating (likelihood and impact).
-        - Name the one **control** that fixes it.
+        - Name the **control** (the setting or policy) that fixes it.
 
-        Keep it to a few plain sentences the director can act on.
+        Keep it to a few plain sentences. You can start with: "The biggest risk we found is…" Your risk register is in the **Toolkit** if you want to check your ratings.
       `,
       questions: [
         {
@@ -554,6 +569,7 @@ export const netAuditLab: LabDef = {
           lines: 6,
         },
       ],
+      tools: [{ kind: 'risk-register', device: 'auditor' }],
     },
 
     {
@@ -561,7 +577,7 @@ export const netAuditLab: LabDef = {
       title: 'Review and submit',
       kind: 'submit',
       body: md`
-        Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+        Look over your answers in the summary. You can go back to any step and change an answer, then hand in your work again.
       `,
     },
   ],
