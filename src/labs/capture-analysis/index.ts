@@ -89,8 +89,18 @@ function mapsAllowed(sim: Sim): boolean {
 
 const floodTripped = (sim: Sim, since: number) =>
   happened(sim, since, (e) => e.type === 'port-security' && e.device === 'switch' && e.iface === BREAKROOM_PORT);
-// A second replay finds port 7 already shut: the frames drop at the port and port security has nothing new to say.
+/** Port security's own action on port 7 during this replay: 'shutdown' shuts the port, 'restrict' drops the made-up MACs and leaves it up. */
+const floodAction = (sim: Sim, since: number) => {
+  for (let i = sim.events.length - 1; i >= 0 && sim.events[i].t >= since; i--) {
+    const e = sim.events[i];
+    if (e.type === 'port-security' && e.device === 'switch' && e.iface === BREAKROOM_PORT) return e.action;
+  }
+  return undefined;
+};
+// A second replay finds port 7 already shut by port security: the frames drop at the port and port security
+// has nothing new to say. A port shut by hand doesn't count: that's not port security stopping the flood.
 const floodHitShutPort = (sim: Sim, since: number) =>
+  sim.dev('switch').switchSec?.ports[BREAKROOM_PORT]?.shutdown === 'violation' &&
   happened(sim, since, (e) => e.type === 'drop' && e.device === 'switch' && e.reason === 'port-shutdown' && !!e.frame?.burst);
 const floodBlocked = (sim: Sim, since: number) => floodTripped(sim, since) || floodHitShutPort(sim, since);
 // Only a check-in stopped at its first SYN counts: a stateless firewall also denies the rest of one that
@@ -104,7 +114,12 @@ const replayFloodAction: ActionDef = {
   label: 'Replay the 14:00 flood',
   run: replayFlood,
   outcome(sim, since): ActionLine[] {
-    if (floodTripped(sim, since)) return [{ tone: 'good', text: 'Port security shut port 7 at the first made-up MAC. The flood stopped at the switch.' }];
+    if (floodTripped(sim, since))
+      return [
+        floodAction(sim, since) === 'restrict'
+          ? { tone: 'good', text: 'Port security dropped the made-up MACs on port 7 and left the port up. The flood stopped at the switch.' }
+          : { tone: 'good', text: 'Port security shut port 7 at the first made-up MAC. The flood stopped at the switch.' },
+      ];
     if (floodHitShutPort(sim, since)) return [{ tone: 'good', text: 'Port 7 is still shut from your last replay, so the flood stopped at the switch again.' }];
     if (!sim.idle) return [{ tone: 'wait', text: 'The break-room PC is sending made-up MACs…' }];
     return [{ tone: 'bad', text: 'The made-up MACs went into the switch’s table. Turn on port security on port 7, then replay it.' }];
@@ -279,7 +294,7 @@ export const captureAnalysisLab: LabDef = {
 
         The requests go to 198.51.100.255, the depot's **broadcast address**, so every depot computer gets a copy. Each one sends its echo reply to the address in the request's Source column, so whoever has that address gets all the replies.
 
-        Pings sent to a broadcast address like this are a **smurf attack**, named after an old program that sent them. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
+        Pings sent to a broadcast address with someone else's address in the Source are a **smurf attack**, named after an old program that sent them. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
 
         Now read the Source. Anyone who builds a packet can write any address there. Faking it is called **spoofing**, and the fake address is **forged**.
       `,

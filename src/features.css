@@ -6923,10 +6923,12 @@ button.pl-tile:active {
   width: 1%;
   white-space: nowrap;
 }
+/* The whole heading sorts, not only its words (capture-analysis panel: a click on the cell's edge did nothing). */
 .capfile-sort {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  width: 100%;
   padding: 0;
   border: 0;
   background: transparent;
@@ -6936,10 +6938,6 @@ button.pl-tile:active {
 }
 .capfile-sort:hover {
   color: var(--ink);
-}
-/* The whole heading sorts, not only its words (capture-analysis panel: a click on the cell's edge did nothing). */
-.capfile-sort {
-  width: 100%;
 }
 th.num .capfile-sort {
   justify-content: flex-end;

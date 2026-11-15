@@ -274,6 +274,27 @@ describe('capture-analysis: fixing the live network', () => {
     expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
   });
 
+  it('a port 7 shut by hand does not count as port security stopping the flood', () => {
+    const sim = build();
+    sim.setPortSecurity('switch', BREAKROOM_PORT, { maxMacs: 1, violation: 'restrict' });
+    sim.setPortShutdown('switch', BREAKROOM_PORT, true);
+    const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
+    const since = sim.t;
+    play(sim, replayFlood);
+    expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(false);
+    expect(act.outcome!(sim, since)[0].text).not.toMatch(/still shut/);
+  });
+
+  it('with restrict, the flood line says port security dropped the MACs and left the port up', () => {
+    const sim = build();
+    sim.setPortSecurity('switch', BREAKROOM_PORT, { maxMacs: 1, violation: 'restrict' });
+    const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
+    const since = sim.t;
+    play(sim, replayFlood);
+    expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
+    expect(act.outcome!(sim, since)[0].text).toMatch(/left the port up/);
+  });
+
   it('a deny rule below allow out does nothing; above it, the check-in is blocked', () => {
     const sim = build();
     const rule = { dir: 'out', proto: 'any', src: 'any', dst: IP.c2, dport: 'any', action: 'deny' } as const;
