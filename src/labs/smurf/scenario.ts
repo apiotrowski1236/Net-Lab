@@ -48,6 +48,17 @@ export function startSmurfFlood(sim: Sim): void {
   sim.setLinkFlood(campusLinkId(sim), 'smurf', SMURF_RATE);
 }
 
+/**
+ * Start the smurf flood link by link as the first wave gets there, so the meter climbs when the
+ * replies arrive, not on the click. The request reaches the campus after two hops; the replies
+ * then cross the campus link (hop 3) and Hilltop's uplink (hop 4).
+ */
+export function startSmurfFloodAsItArrives(sim: Sim): void {
+  const hop = sim.opts.linkMs + sim.opts.procMs;
+  sim.schedule(2 * hop, () => sim.setLinkFlood(campusLinkId(sim), 'smurf', SMURF_RATE));
+  sim.schedule(3 * hop, () => sim.setLinkFlood(uplinkId(sim), 'smurf', SMURF_RATE));
+}
+
 // --- edge firewall (created when step 8 starts) ---------------------------
 
 /** Fans reach the ticket site over HTTPS. */
@@ -104,9 +115,9 @@ export function smurfZones(): MapZone[] {
 
 export function buildEchoStorm(): Sim {
   const sim = new NetBuilder({ linkMs: 240, procMs: 70, httpTimeoutMs: 9000, pingTimeoutMs: 6000, autoArp: true })
-    .host('mallory', { label: 'Mallory', sublabel: MALLORY, icon: 'attacker', x: 150, y: 110, ip: `${MALLORY}/24`, gateway: '203.0.113.1', attacker: true })
+    .host('mallory', { label: 'Mallory', sublabel: MALLORY, icon: 'attacker', x: 150, y: 160, ip: `${MALLORY}/24`, gateway: '203.0.113.1', attacker: true })
     .host('fan', { label: 'Fan at home', sublabel: FAN, icon: 'laptop', x: 150, y: 300, ip: `${FAN}/24`, gateway: '203.0.120.1' })
-    .host('botnet', { label: 'Botnet', sublabel: 'hundreds of bots', icon: 'attacker', x: 320, y: 110, ip: `${BOTNET}/24`, gateway: '198.18.0.1' })
+    .host('botnet', { label: 'Botnet', sublabel: 'hundreds of bots', icon: 'attacker', x: 330, y: 85, ip: `${BOTNET}/24`, gateway: '198.18.0.1' })
     .router('isp', {
       label: 'Internet provider',
       sublabel: 'the ISP',

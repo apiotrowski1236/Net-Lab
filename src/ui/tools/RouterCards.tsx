@@ -34,7 +34,7 @@ export function DirectedBroadcastCard({ session, spec, onSelect }: ToolCardProps
       <p class="tool-desc">
         Turn this setting off in {d.label}'s inspector, under <strong>Directed broadcasts</strong>.
       </p>
-      <div class="tool-row">
+      <div class="tool-row" style={{ flexWrap: 'wrap', gap: '8px' }}>
         <span class={`pill ${on ? 'warn' : 'good'}`}>{on ? 'On: forwarding' : 'Off'}</span>
         <button class="btn" onClick={() => onSelect(d.id)}>
           <Icon name="sliders" /> Open {d.label}

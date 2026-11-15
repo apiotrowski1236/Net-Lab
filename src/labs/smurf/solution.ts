@@ -9,7 +9,7 @@ export const smurfSolution: LabSolution = {
   'the-storm': { moves: [{ press: 'storm' }, { press: 'fan-buy' }] },
   'many-attackers': { moves: [{ press: 'botnet' }, { press: 'fan-buy' }] },
   'read-the-spike': {
-    moves: [{ inspect: 'edge' }, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp' }],
+    moves: [{ inspect: 'edge' }, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.proto === 'icmp' && e.fields?.src === WEB }],
   },
   'silence-the-amplifier': {
     moves: [{ tool: { type: 'directed-broadcast', device: 'campus', on: false } }, { press: 'retry' }],

@@ -65,6 +65,11 @@ that alter what students do or see:
   its setup unless the ISP already filters, and holds **The ISP filters upstream**, the `upstream-fixes` goal,
   and the `why-upstream` question. **Botnet joins in** no longer refills the uplink once the ISP filters. The
   lab now has 12 steps.
+- **Round 2:** the storm sets its floods as the first wave arrives (`startSmurfFloodAsItArrives`), so the meter
+  climbs when replies get there. Step 6 clears the botnet flood and its log goal needs a forged line
+  (`src` = the ticket server), not Mallory's step 2 test ping. Step 8's **Botnet joins in** result says whether
+  the edge firewall drops the pings. "How risky?" keeps options in High/Moderate/Low order (`last` on all) and
+  Q2 grades the weak Wi-Fi password alone. Mallory moved to (150, 160) and the botnet to (330, 85).
 
 ## What changed from PLAN.md
 

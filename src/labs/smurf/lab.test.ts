@@ -3,7 +3,7 @@ import { LabSession } from '../../runtime/session';
 import type { LabProgress } from '../../store/progress';
 import { playMove, playStep } from '../solution';
 import { smurfLab as lab } from '.';
-import { BOTNET, buildEchoStorm, CAMPUS_BCAST, FAN, ispFilterUpstream, LAN_HOSTS, PC1, SMURF_RATE, STORM_COUNT, TICKETS, UPLINK_CAP, uplinkId, WEB } from './scenario';
+import { BOTNET, buildEchoStorm, CAMPUS_BCAST, FAN, MALLORY, ispFilterUpstream, LAN_HOSTS, PC1, SMURF_RATE, STORM_COUNT, TICKETS, UPLINK_CAP, uplinkId, WEB } from './scenario';
 import { smurfSolution as sol } from './solution';
 
 class MemoryStorage {
@@ -219,7 +219,7 @@ describe('smurf lab', () => {
     const t0 = s.sim.t;
     playMove(s, { press: 'storm' });
     expect(storm.outcome!(s.sim, t0)).toEqual([
-      { tone: 'bad', text: `${STORM_COUNT} forged pings became ${STORM_COUNT * LAN_HOSTS} replies, all sent to the ticket server. Mallory got none.` },
+      { tone: 'bad', text: `${STORM_COUNT} forged pings a second × ${LAN_HOSTS} replies each = ${STORM_COUNT * LAN_HOSTS} replies a second, all sent to the ticket server. Mallory got none.` },
       { tone: 'bad', text: `Hilltop's uplink: ${SMURF_RATE} packets a second, but it carries only ${UPLINK_CAP}. The rest are dropped.` },
     ]);
     const t1 = s.sim.t;
@@ -227,6 +227,34 @@ describe('smurf lab', () => {
     expect(buy.outcome!(s.sim, t1)).toEqual([
       { tone: 'bad', text: "The purchase failed. Hilltop's uplink is full of flood traffic, so her request was dropped before it reached Hilltop." },
     ]);
+  });
+
+  it('the storm fills the uplink only once its replies get there', () => {
+    const s = playTo('return-to-sender');
+    const storm = lab.steps[index('the-storm')].actions!.find((a) => a.id === 'storm')!;
+    storm.run(s.sim);
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'not on the click').toBe(0);
+    s.sim.runUntilIdle();
+    expect(s.sim.linkPps(uplinkId(s.sim))).toBe(SMURF_RATE);
+  });
+
+  it("step 6 counts only a forged log line, not Mallory's own step 2 test ping", () => {
+    const s = playTo('many-attackers');
+    expect(s.step.id).toBe('read-the-spike');
+    expect(s.sim.linkPps(uplinkId(s.sim)), 'botnet gone quiet; only the smurf flood').toBe(SMURF_RATE);
+    playMove(s, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.src === MALLORY });
+    expect(s.goalDone('read-the-spike', 'logline')).toBe(false);
+    playMove(s, { openLog: 'campus', where: (e) => e.fields?.dst === CAMPUS_BCAST && e.fields?.src === WEB });
+    expect(s.goalDone('read-the-spike', 'logline')).toBe(true);
+  });
+
+  it('step 8: the botnet result says whether the firewall rule took effect', () => {
+    const s = playTo('silence-the-amplifier');
+    const botnet = lab.steps[index('guard-your-edge')].actions!.find((a) => a.id === 'botnet')!;
+    playMove(s, { press: 'botnet' });
+    expect(botnet.outcome!(s.sim, 0).at(-1)?.text).toMatch(/lets the pings in/);
+    playMove(s, sol['guard-your-edge'].moves![0]);
+    expect(botnet.outcome!(s.sim, 0).at(-1)?.text).toMatch(/drops the pings/);
   });
 
   it('rebuilds identical device state after a reload mid-storm', () => {
