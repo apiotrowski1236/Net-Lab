@@ -43,7 +43,7 @@ function freshCapture(sim: Sim): void {
 
 export const onPathLab: LabDef = {
   id: 'on-path',
-  version: 3,
+  version: 4,
   title: 'On-Path Attacks: Sniffing and ARP Poisoning',
   tagline: 'Sniff a password on café Wi-Fi, put yourself between two devices with ARP poisoning, and see what WPA2, HTTPS, and static ARP entries stop.',
   unit: 3,
@@ -105,7 +105,7 @@ export const onPathLab: LabDef = {
       body: md`
         Start with a normal sign-in, with no attacker.
 
-        The **2×** button above the map speeds up the packets. Press **Alice signs in**. Her laptop sends her username and password to \`bank.example\`. Watch the packets cross the map. You can click any packet to read it.
+        Press **2×** above the map to speed up the packets. Then press **Alice signs in**. Her laptop sends her username and password to \`bank.example\`. Watch the packets cross the map. You can click any packet to read it.
 
         Alice's laptop does not know the router's MAC address yet. Before it sends anything, it **broadcasts** an **ARP request**, a question sent to every device on the Wi-Fi: "Who has 192.168.1.1?" Watch for **not for me** over Sam and Mallory. They got the question too. The router answers with an **ARP reply**.
       `,
@@ -181,34 +181,21 @@ export const onPathLab: LabDef = {
           lines: 1,
           expect: /^\s*pumpkinspice\s*$/,
           expectHint: 'Open the HTTP layer of the POST packet. The password comes after pass=. Copy it exactly. Capital letters count.',
-          explain: 'Anyone on this Wi-Fi with a sniffer could read it.',
+          explain:
+            'Two things let Mallory read it. On **open Wi-Fi**, every device can read every frame. And **HTTP** sends the form in **plaintext**: readable text with no scrambling. Sites that use **HTTPS** encrypt the form first, so only the bank can read it. You will try HTTPS in step 9.',
         },
-      ],
-    },
-
-    {
-      id: 'why',
-      title: 'Why that worked',
-      body: md`
-        Two things went wrong for Alice.
-
-        1. On **open Wi-Fi**, every device can read every frame.
-        2. **HTTP** sends the form in **plaintext**: readable text with no scrambling. Sites that use **HTTPS** encrypt the form first, so only the bank can read it. You will try HTTPS in step 10.
-
-        Reading traffic as it passes is called **eavesdropping**. Sniffing is **passive**: Mallory sent nothing at all.
-      `,
-      questions: [
         {
           id: 'unnoticed',
           kind: 'choice',
           prompt: "Alice's bank page looked normal. Why couldn't Alice tell that Mallory read her password?",
           options: [
             { id: 'passive', text: 'Mallory only kept copies, so nothing changed for Alice.', correct: true },
-            { id: 'fast', text: 'Mallory read the password too fast for Alice to notice.', feedback: 'Speed has nothing to do with it. Mallory sent nothing, so nothing on Alice’s side changed.' },
+            { id: 'fast', text: 'Mallory read the password too fast for Alice to notice.', feedback: 'Speed has nothing to do with it. Think about what Mallory sent to Alice.' },
             { id: 'hidden', text: 'The bank hid a security warning from Alice’s screen.', feedback: 'There was no warning to hide. The bank never knew either.' },
-            { id: 'locked', text: 'The password was encrypted, so the page looked normal.', feedback: 'It was plaintext. You read it yourself in step 3.' },
+            { id: 'locked', text: 'The password was encrypted, so the page looked normal.', feedback: 'It was plaintext. You read it yourself.' },
           ],
-          explain: "A sniffer only listens. Alice's packets reach the bank the same way they always do, so there is nothing for her to see.",
+          explain:
+            "Reading traffic as it passes is called **eavesdropping**. Sniffing is **passive**: Mallory sent nothing, so Alice's packets reach the bank the same way they always do.",
         },
       ],
     },
@@ -383,7 +370,7 @@ export const onPathLab: LabDef = {
         To stay hidden, Mallory has to pass each packet along after she reads it. Her capture list starts over in this step.
 
         1. Turn on **IP forwarding** for Mallory in the Toolkit.
-        2. Press **Alice signs in** again. (Her sign-in from step 8 never finished.) Use **1×** for this one, and watch the login go from Alice to Mallory, then on to the router.
+        2. Press **Alice signs in** again. (Her sign-in from step 7 never finished.) Use **1×** for this one, and watch the login go from Alice to Mallory, then on to the router.
 
         This is the **on-path attack**, also called a **man-in-the-middle attack**. Mallory sits between Alice and the router, reads everything, and passes it on so the connection keeps working.
       `,

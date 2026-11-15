@@ -112,7 +112,7 @@ async function seeded(progress, who = {}) {
   const now = Date.now();
   const full = {
     labId: 'on-path',
-    labVersion: 3,
+    labVersion: 4,
     studentId: 'e2e',
     startedAt: now,
     updatedAt: now,
@@ -257,7 +257,7 @@ try {
 
   step('typed tool input: the ARP spoofer checks what the student types');
   {
-    const { ctx, pg } = await seeded({ step: 6, maxStep: 6 });
+    const { ctx, pg } = await seeded({ step: 5, maxStep: 5 });
     const p = page;
     page = pg;
     // An old address: redirects to the lab's course.
@@ -305,7 +305,7 @@ try {
   step('summary page: submit and download');
   {
     const answers = { 'welcome/which-changes': { value: 'ip', attempts: 1, correct: true, updatedAt: Date.now() } };
-    const { ctx, pg } = await seeded({ step: 12, maxStep: 12, answers, overrides: { broken: { at: Date.now(), note: 'Packets never arrived' } } });
+    const { ctx, pg } = await seeded({ step: 11, maxStep: 11, answers, overrides: { broken: { at: Date.now(), note: 'Packets never arrived' } } });
     const p = page;
     page = pg;
     await page.goto(`${url}#/cyber/lab/on-path`);
