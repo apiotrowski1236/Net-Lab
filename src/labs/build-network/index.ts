@@ -62,6 +62,12 @@ const pingedAfterCables = ({ sim, since }: { sim: Sim; since: number }) => {
   return ping > cable;
 };
 
+/**
+ * The device the student last opened in the inspector, and in which step (by its start time).
+ * Step 4 counts the switch as read when its panel is already open as the reply arrives.
+ */
+let lookingAt: { device: string; since: number } | undefined;
+
 /** At least `n` of the three faults on Ben's computer are fixed: cable, address, gateway. */
 const bensFixes = (n: number) => ({ sim }: { sim: Sim }) =>
   [plugged('ben', 'sw')({ sim }), hostOn(sim, 'ben', NET.office), gatewayIsRouter('ben')({ sim })].filter(Boolean).length >= n;
@@ -74,7 +80,7 @@ export const buildNetworkLab: LabDef = {
   unit: 3,
   codehs: ['3.1 How Network Traffic Moves'],
   ced: ['3.1.A', '3.1.B'],
-  minutes: 45,
+  minutes: 55,
   objectives: [
     'Connect computers, a switch, and routers into a working network.',
     'Give devices IP addresses, and explain the network part and the host part.',
@@ -98,7 +104,7 @@ export const buildNetworkLab: LabDef = {
 
         Your job: get Alice's browser to load the page on the web server. You will plug in the cables, give each device an address, and teach the routers the way.
 
-        Click [[alice]], then [[office]]. Compare their ports. A computer's port is often named **eth0**, short for its first Ethernet port. Router and switch ports are numbered.
+        Click [[alice]], then [[office]]. Compare their ports. A computer's port is often named **eth0**, short for its first Ethernet port. Router and switch ports are numbered. Their panels also list a MAC address and an ARP table. Step 4 explains both.
 
         On a home network, the Wi-Fi router usually hands out addresses on its own. Here you'll type them yourself.
       `,
@@ -260,7 +266,10 @@ export const buildNetworkLab: LabDef = {
           label: 'After the reply, open [[sw]] and read its MAC address table',
           hint: 'Wait for the result under the button to say Alice got a reply, then click the switch.',
           check: ({ sim, ev, since }) => {
-            if (ev?.type !== 'ui:inspect' || ev.device !== 'sw') return false;
+            if (ev?.type === 'ui:inspect') lookingAt = { device: ev.device, since };
+            // Clicked after the reply, or still looking at the switch when the reply comes in.
+            const onSwitch = lookingAt?.device === 'sw' && lookingAt.since === since;
+            if (!(ev?.type === 'ui:inspect' ? ev.device === 'sw' : onSwitch && ev?.type === 'ping-reply')) return false;
             if (!pinged(sim, since, 'alice', sim.dev('ben').ifaces[0].ip)) return false;
             const table = sim.dev('sw').macTable;
             return ['alice', 'ben'].every((d) => table[sim.dev(d).ifaces[0].mac]);
@@ -347,7 +356,7 @@ export const buildNetworkLab: LabDef = {
         2. Do the same for [[ben]].
         3. Press **Alice opens the website**. The page won't load yet. The web server, \`203.0.113.80\`, is on a network you'll build in the next step, \`203.0.113.0/24\`. Watch how far the request gets.
 
-        A router that has nowhere to send a packet **drops** it: it throws the packet away. Alice's browser waits a while, then shows **No connection**. (The simulation keeps two things simple: a real browser sets up a connection before it asks for the page, and a real router usually sends back an error when it drops a packet.)
+        A router that has nowhere to send a packet **drops** it: it throws the packet away. Alice's browser waits a while, then shows **No connection**. (The simulation skips two things: a real browser sets up a connection first, and a real router usually sends back an error.)
 
         When the page loads in a later step, her browser will say **Not secure**. This site uses plain HTTP, so nothing it sends is encrypted. More on that at the end.
       `,
@@ -394,7 +403,7 @@ export const buildNetworkLab: LabDef = {
         3. Give [[web]] its address, \`203.0.113.80/24\`. Set its default gateway to the data center router.
         4. In the Ping tool, set **From** to the web server. Ping the data center router.
 
-        You typed Alice's address by hand to see how addressing works. Most laptops get a new address on their own each time they join a network. A server keeps one **static address**, so other computers can always find it.
+        You typed Alice's address by hand to see how addressing works. Most laptops are handed an address automatically when they join a network. A server keeps one **static address**, so other computers can always find it.
       `,
       setup: gateways,
       focus: ['dc', 'web'],
@@ -416,7 +425,7 @@ export const buildNetworkLab: LabDef = {
         {
           id: 'ping',
           label: 'The web server gets a reply from the data center router',
-          hint: 'In the Ping tool, choose Web server, then type the router port address you just set.',
+          hint: "In the Ping tool, choose Web server, then type the address you gave the router's port.",
           check: ({ sim, since }) => pinged(sim, since, 'web', dcServerIp(sim)),
         },
       ],
@@ -431,7 +440,7 @@ export const buildNetworkLab: LabDef = {
             {
               id: 'secure',
               text: 'Static addresses are harder to attack',
-              feedback: 'A fixed address is easier to find, for attackers too. Static addresses are about being findable.',
+              feedback: 'Attackers can find a fixed address too. A static address is about being findable, not about safety.',
             },
           ],
           explain: 'Other computers find the site at 203.0.113.80. Most sites also have a name, and a directory on the internet matches that name to the address. If the address changed, the directory and every computer that uses it would point to the wrong place.',
@@ -449,7 +458,7 @@ export const buildNetworkLab: LabDef = {
         2. Give both ends addresses on one network. Use \`10.0.0.1/24\` for the office router and \`10.0.0.2/24\` for the data center router. In each router's Addresses table, use the port whose **Cable goes to** names the other router.
         3. Ping \`10.0.0.2\` from the office router.
 
-        Any network that nobody else uses works for this cable. Real networks often give a link like this a smaller network than \`/24\`, since only two devices sit on it.
+        Any network that nobody else uses works for this cable. Real networks often give a link like this a network with room for only a few addresses, such as \`/30\`, since only two devices sit on it.
       `,
       setup: dataCenter,
       focus: ['office', 'dc'],
@@ -642,7 +651,7 @@ export const buildNetworkLab: LabDef = {
 
         - Anyone who plugs into an unused switch port joins the office network. Many offices turn off ports nobody uses.
         - Routers follow their routes without checking them. Someone who can change a router's settings can add a route that sends traffic through a computer they control.
-        - This website uses plain HTTP, so every device on the path could read the page and anything Alice typed into it. **HTTPS** is the encrypted version. Devices on the path still carry the traffic, but they can't read it.
+        - This website uses plain HTTP, so every device on the path could read the page and anything Alice typed into it. **HTTPS** is the encrypted version. Devices on the path still carry the traffic, but they can't read what's inside.
       `,
       questions: [
         {
@@ -669,7 +678,7 @@ export const buildNetworkLab: LabDef = {
           id: 'trace',
           kind: 'text',
           prompt:
-            "Trace Alice's request to the web server. Name each device it passes through, in order. For each router, say which route it used, and whether that was a connected route or a static route you added.",
+            "Trace Alice's request to the web server. Write one line for each device it passes through, in order. For each router, open its routing table and write which route it used: a connected route, or a static route you added.",
           minWords: 30,
           lines: 5,
         },

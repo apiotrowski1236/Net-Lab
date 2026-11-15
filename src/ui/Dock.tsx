@@ -166,10 +166,16 @@ function GatewayField({ session, dev, edit }: { session: LabSession; dev: Device
   void session.simRev.value;
   const draft = useDraft(dev.gateway ?? '');
   const [msg, setMsg] = useState<Msg>(null);
+  // A refusal is about the device's address at that moment. Once the address changes, it no longer applies.
+  const addrKey = dev.ifaces.map((i) => `${i.ip}/${i.prefix}`).join(' ');
+  const [refusedAt, setRefusedAt] = useState('');
+  const stale = msg?.tone === 'bad' && refusedAt !== addrKey;
+  const shown: Msg = stale ? { tone: 'info', text: `Not saved yet. ${dev.label}'s address changed. Press Save to try again.` } : msg;
   const save = (raw: string) => {
     const r = checkGateway(session.sim, dev.id, raw);
     if (!r.ok) {
       const was = dev.gateway ? ` ${dev.label} still uses ${dev.gateway}.` : '';
+      setRefusedAt(addrKey);
       return setMsg({
         tone: 'bad',
         text: `Not saved.${was} ${r.msg}`,
@@ -184,13 +190,13 @@ function GatewayField({ session, dev, edit }: { session: LabSession; dev: Device
   return (
     <section>
       <h4>
-        Default gateway <span class="muted">the router {dev.label} sends anything that isn't on its own network</span>
+        Default gateway <span class="muted">the router that {dev.label} sends everything off its own network to</span>
       </h4>
       {edit ? (
         <>
           <div class="sentence">
             <input
-              class={`mono ${msg?.tone === 'bad' ? 'invalid' : ''}`}
+              class={`mono ${shown?.tone === 'bad' ? 'invalid' : ''}`}
               value={draft.value}
               placeholder="router's IP address"
               inputMode="decimal"
@@ -198,7 +204,7 @@ function GatewayField({ session, dev, edit }: { session: LabSession; dev: Device
               spellcheck={false}
               size={16}
               aria-label={`Default gateway for ${dev.label}`}
-              aria-invalid={msg?.tone === 'bad'}
+              aria-invalid={shown?.tone === 'bad'}
               onInput={(e) => {
                 draft.set((e.target as HTMLInputElement).value);
                 setMsg(null);
@@ -209,7 +215,7 @@ function GatewayField({ session, dev, edit }: { session: LabSession; dev: Device
               Save
             </button>
           </div>
-          <ToolMsg msg={msg} />
+          <ToolMsg msg={shown} />
         </>
       ) : (
         <p class="small mono">{dev.gateway ?? <span class="muted">none</span>}</p>
@@ -1253,13 +1259,19 @@ function CableTool({ session, refuse }: { session: LabSession; refuse?: CableRef
   );
 }
 
+/** What the student set in the Ping card, kept while they switch to another tab and back. */
+const pingDrafts = new WeakMap<LabSession, { from: string; to: string }>();
+
 function PingTool({ session }: { session: LabSession }) {
   // Shows live network state: re-render whenever the network changes.
   void session.simRev.value;
   const sim = session.sim;
   const sources = Object.values(sim.devices).filter((d) => d.kind === 'host' || d.kind === 'router');
-  const [from, setFrom] = useState(sources[0]?.id ?? '');
-  const [to, setTo] = useState('');
+  const kept = pingDrafts.get(session);
+  const [from, setFromState] = useState(kept && sim.devices[kept.from] ? kept.from : (sources[0]?.id ?? ''));
+  const [to, setToState] = useState(kept?.to ?? '');
+  const setFrom = (v: string) => (setFromState(v), pingDrafts.set(session, { from: v, to }));
+  const setTo = (v: string) => (setToState(v), pingDrafts.set(session, { from, to: v }));
   const [msg, setMsg] = useState<Msg>(null);
   const send = (raw = to) => {
     const r = checkPing(sim, from, raw);
