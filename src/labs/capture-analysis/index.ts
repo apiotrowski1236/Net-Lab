@@ -134,7 +134,7 @@ export const captureAnalysisLab: LabDef = {
   unit: 3,
   codehs: ['3.18 The Story in the Logs'],
   ced: ['3.5.E', '3.5.D', '3.1.C'],
-  minutes: 60,
+  minutes: 65,
   objectives: [
     'Use Statistics views (Endpoints, Conversations, and the I/O Graph) to find what stands out in a capture file.',
     'Read TCP flags to tell an open port, a closed port, and a port scan apart.',
