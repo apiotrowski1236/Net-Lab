@@ -144,6 +144,8 @@ export const buildNetworkLab: LabDef = {
         2. Do the same for [[ben]].
         3. Press **Alice pings Ben**.
 
+        If dragging is hard on your screen, the **Cables** card in the Toolkit tab plugs in the same cables.
+
         A **ping** is a tiny message that asks "Are you there?" If the other device answers, the path between them works in both directions. The result shows under the button. If the ping stops on the way, a red tag on the map shows where.
       `,
       focus: ['alice', 'ben', 'sw'],
