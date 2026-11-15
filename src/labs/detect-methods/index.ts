@@ -519,7 +519,7 @@ export const detectMethodsLab: LabDef = {
         Press **Load the day with LockDown repacked**. Then:
 
         1. Run **Signature** on it.
-        2. Run **Anomaly** or **Hybrid** on it. In the result, read the line under LockDown: when it was caught, and what the [[cd-console]] was doing.
+        2. Run **Anomaly** or **Hybrid** on it. In the result, read the line under LockDown: when it was caught, and what the **Dispatcher console** was doing.
       `,
       setup: (sim) => baselineFrom(sim, DISPATCH, DISPATCH_BASE),
       actions: [renameFile],
