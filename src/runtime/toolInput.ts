@@ -486,11 +486,17 @@ export function checkWifiPassphrase(sim: Sim, apId: string, raw: string): Checke
     return { ok: true, passphrase: pass, note: 'Saved. On WEP the length of the key does not help: WEP itself is broken.' };
   }
   const weak = passphraseWeakness(pass);
+  // WPA3 stops guessing against a recording, so its notes talk about guesses made by trying to join.
+  const wpa3 = sim.devices[apId]?.wifi?.security === 'wpa3';
   const note =
     weak === 'short'
-      ? `Heads up: ${pass.length} characters is short. An attacker who records a device joining can test guesses against it. ${STRONG_PASSPHRASE_LEN} or more holds up.`
+      ? wpa3
+        ? `Saved, but ${pass.length} characters is short. WPA3 blocks guessing from a recording, but an attacker can still try guesses one join at a time. ${STRONG_PASSPHRASE_LEN} or more holds up.`
+        : `Saved, but ${pass.length} characters is short. An attacker who records a device joining can test guesses against it. ${STRONG_PASSPHRASE_LEN} or more holds up.`
       : weak === 'common'
-        ? 'Heads up: that is a common password with a few characters added. Guessing tools try those first, so it falls fast at any length.'
+        ? wpa3
+          ? 'Saved, but that is a common password with a few characters added. It is one of the first guesses anyone tries.'
+          : 'Saved, but that is a common password with a few characters added. Guessing tools try those first, so it falls fast at any length.'
         : undefined;
   return { ok: true, passphrase: pass, note };
 }

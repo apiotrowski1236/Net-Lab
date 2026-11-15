@@ -187,7 +187,7 @@ export interface CrackResult {
   /** Whether the attacker would recover the passphrase. */
   ok: boolean;
   /** How the attacker got in (or would have tried). */
-  method: 'open' | 'wep' | 'wps' | 'guess' | 'none';
+  method: 'open' | 'wep' | 'wps' | 'guess' | 'known' | 'none';
   /** A human estimate of how long it takes. */
   estimate: string;
 }
@@ -196,10 +196,17 @@ export interface CrackResult {
  * Whether and how an attacker can break into an AP, with a time estimate.
  * This is the heart of the encryption step: it rewards WPA3, or WPA2 with a
  * long passphrase and WPS off.
+ *
+ * `known` is the passphrase the attacker already holds (from an earlier crack).
+ * If it still works, turning WPS off or switching to WPA3 changes nothing: only
+ * a new passphrase locks the attacker out.
  */
-export function crack(ap: WifiAp): CrackResult {
+export function crack(ap: WifiAp, known?: string): CrackResult {
   if (ap.security === 'open') return { ok: true, method: 'open', estimate: 'no password to break' };
   if (ap.security === 'wep') return { ok: true, method: 'wep', estimate: 'under a minute' };
+  if (ap.auth === 'psk' && known && known === ap.passphrase) {
+    return { ok: true, method: 'known', estimate: 'no new attack needed. The passphrase was stolen in an earlier break-in, so save a new one' };
+  }
   const weak = ap.auth === 'psk' ? passphraseWeakness(ap.passphrase) : undefined;
   // WPA and WPA2: a captured handshake can be guessed against offline, so a weak passphrase falls first,
   // even with WPS on. That way turning WPS off never makes the time drop.

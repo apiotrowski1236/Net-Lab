@@ -2059,13 +2059,13 @@ export class Sim {
     const ap = this.dev(apId);
     const att = this.dev(attackerId);
     if (!ap.wifi) return;
-    const res = crack(ap.wifi);
+    const res = crack(ap.wifi, att.wifiClient?.passphrase);
     if (res.ok && ap.wifi.passphrase && att.wifiClient) att.wifiClient.passphrase = ap.wifi.passphrase;
     this.emit({ t: this.t, type: 'wifi', device: attackerId, what: 'crack', ssid: ap.wifi.ssid, bssid: ap.wifi.bssid, ok: res.ok, detail: res.estimate });
     this.log(attackerId, {
       source: 'wifi',
       level: res.ok ? 'warn' : 'info',
-      msg: res.ok ? `recovered the key for ${ap.wifi.ssid} by ${res.method} in ${res.estimate}` : `could not break ${ap.wifi.ssid}: ${res.estimate}`,
+      msg: res.ok ? (res.method === 'known' ? `already holds the key for ${ap.wifi.ssid}` : `recovered the key for ${ap.wifi.ssid} by ${res.method} in ${res.estimate}`) : `could not break ${ap.wifi.ssid}: ${res.estimate}`,
       fields: { ssid: ap.wifi.ssid, bssid: ap.wifi.bssid, action: res.ok ? 'cracked' : 'crack-failed' },
     });
     this.recomputeWifi();

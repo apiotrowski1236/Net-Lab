@@ -169,6 +169,14 @@ async function drive(c, i, step, m) {
       log(`  ${a.shut ? 'shut' : 'turn on'} ${where} on ${labels[a.device]}`);
       return true;
     }
+    case 'wifi-passphrase': {
+      await inspector(a.device);
+      const pass = page.locator('section.wifi-settings .wifi-field', { has: page.locator('label', { hasText: /^Passphrase$/ }) });
+      await pass.locator('input').fill(a.passphrase);
+      await pass.getByRole('button', { name: 'Save', exact: true }).click();
+      log(`  save passphrase on ${labels[a.device]}`);
+      return true;
+    }
     case 'wifi-power':
     case 'wifi-security':
     case 'wifi-auth':

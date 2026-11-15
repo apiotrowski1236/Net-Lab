@@ -40,6 +40,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
 
   const strength = passphraseStrength(ap.passphrase);
   const needsKey = ap.security !== 'open' && ap.auth === 'psk';
+  const weakness = passphraseWeakness(ap.passphrase);
 
   return (
     <section class="wifi-settings">
@@ -85,7 +86,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
               : ap.security === 'wpa'
                 ? 'The original WPA is broken too.'
                 : ap.security === 'wpa2'
-                  ? `WPA2 holds with a long passphrase${needsKey && strength !== 'strong' ? ' (yours is short)' : ''}.`
+                  ? `WPA2 holds with a long passphrase that is hard to guess${needsKey && weakness ? (weakness === 'short' ? ' (yours is short)' : ' (yours is a common password)') : ''}.`
                   : ap.auth === 'eap'
                     ? 'WPA3 is the strongest. Each person signs in with their own login.'
                     : 'WPA3 is the strongest. An attacker cannot test guesses against a recording, but a long passphrase still matters.'}
@@ -115,7 +116,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
               ? 'No passphrase set. Type one and press Save.'
               : ap.security === 'wep'
                 ? `${ap.passphrase.length} characters. On WEP the length does not help.`
-                : `${ap.passphrase.length} characters, ${strength}${passphraseWeakness(ap.passphrase) === 'common' ? ' (a common password with characters added)' : ''}.`}
+                : `${ap.passphrase.length} characters, ${strength}${weakness === 'common' ? ' (a common password with characters added)' : ''}.`}
           </p>
           <ToolMsg msg={msg} />
         </div>

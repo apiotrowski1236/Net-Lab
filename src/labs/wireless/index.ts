@@ -11,6 +11,23 @@ const familySignin: ActionDef = {
   id: 'family-signin',
   label: 'A family signs in',
   run: (sim) => sim.browse('phone1', 'http://checkin.example/login', LOGIN_BODY),
+  outcome: (sim, since) => {
+    if (capturedSince(sim, 'mallory', since, isPlainLogin)) return [{ tone: 'bad', text: "Mallory's capture caught the login. Open the Capture tab to read it." }];
+    if (!sim.dev('mallory').sniffing) return [{ tone: 'bad', text: "Packet capture isn't on, so Mallory missed it. Turn it on and press the button again." }];
+    return [{ tone: 'wait', text: 'The Rivera phone is sending the login...' }];
+  },
+};
+
+/** Mallory runs her Wi-Fi cracker against the shelter network. The result line reads the crack this press made. */
+const tryCrack: ActionDef = {
+  id: 'mallory-crack',
+  label: 'Mallory tries to crack it',
+  run: (sim) => sim.wifiCrack('mallory', 'wap'),
+  outcome: (sim, since) => {
+    const e = [...sim.events].reverse().find((x) => x.t >= since && x.type === 'wifi' && x.what === 'crack' && x.device === 'mallory');
+    if (!e || e.type !== 'wifi') return [{ tone: 'wait', text: 'Mallory is trying to break in...' }];
+    return [e.ok ? { tone: 'bad', text: `Broken: ${e.detail}.` } : { tone: 'good', text: `Held: ${e.detail}.` }];
+  },
 };
 
 const copyMac: ActionDef = {
@@ -37,7 +54,7 @@ function armMallory(sim: Sim): void {
   sim.recomputeWifi();
 }
 
-/** By the "who gets in" step the air is encrypted, and Mallory is a sheltering guest who was handed the key. */
+/** By the "who gets in" step the air is encrypted, and Mallory checked in as a guest, so the desk handed her the key. */
 function setupWhoJoins(sim: Sim): void {
   armMallory(sim);
   const ap = sim.dev('wap').wifi!;
@@ -69,13 +86,13 @@ function scannedHidden(sim: Sim, since: number): boolean {
 
 export const wirelessLab: LabDef = {
   id: 'wireless',
-  version: 3,
+  version: 4,
   title: 'Wireless Security',
   tagline: "Secure an emergency shelter's Wi-Fi against snoopers in the parking lot and a rogue box on a wall jack.",
   unit: 3,
   codehs: ['3.7 Locking Down the Airwaves'],
   ced: ['3.1.B', '3.1.C', '3.2.A', '3.2.B'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
     'Explain why a wireless signal reaches past the walls of a building.',
     'Compare open, WEP, WPA2, and WPA3, and the role of WPS and passphrase strength.',
@@ -86,6 +103,8 @@ export const wirelessLab: LabDef = {
   build: buildShelter,
   captureDevice: 'mallory',
   labelMacs: true,
+  // The inspector's port, address, and MAC tables have nothing to do with this lab, and their "Cable goes to" column reads Wi-Fi as a cable.
+  deviceTables: false,
   clock: '14:00',
   map: {
     zones: (sim): MapZone[] => {
@@ -94,7 +113,8 @@ export const wirelessLab: LabDef = {
         { id: 'lot', shape: { kind: 'rect', ...LOT }, label: 'Parking lot', tone: 'bad' },
       ];
       const wap = sim.dev('wap').wifi;
-      if (wap && !wap.off) zones.push({ id: 'reach', shape: { kind: 'circle', cx: sim.dev('wap').x, cy: sim.dev('wap').y, r: reach(wap) }, label: 'Wi-Fi reach', tone: 'info', dashed: true });
+      // The reach circle runs off the map's edge rather than shrinking the map, and changing the power doesn't re-zoom it.
+      if (wap && !wap.off) zones.push({ id: 'reach', shape: { kind: 'circle', cx: sim.dev('wap').x, cy: sim.dev('wap').y, r: reach(wap) }, label: 'Wi-Fi reach', tone: 'info', dashed: true, fit: false });
       return zones;
     },
   },
@@ -109,9 +129,9 @@ export const wirelessLab: LabDef = {
 
         Right now the network is **open**: no password and no encryption. The radio is turned up high.
 
-        Click [[wap]] and read its Wi-Fi settings. The dashed circle on the map shows how far its signal carries.
+        Click [[wap]] and read its Wi-Fi settings. Most of them come up later in the lab. For now, find the network name and the word **Open**. The dashed circle on the map shows how far its signal carries.
 
-        > Everything here is a simulation. In it, the signal fades only with distance. Real walls weaken a signal a little, but they don't stop it.
+        > Everything here is a simulation. In it, the signal fades only with distance. Real walls weaken a signal, sometimes a lot, but they rarely stop it.
       `,
       focus: ['wap', 'mallory'],
       goals: [{ id: 'look', label: 'Open [[wap]] and read its Wi-Fi settings', check: inspected('wap') }],
@@ -163,16 +183,16 @@ export const wirelessLab: LabDef = {
       ],
       questions: [
         {
-          id: 'clear',
+          id: 'https-q',
           kind: 'choice',
-          prompt: 'Mallory read the password without joining the network or breaking anything. What made that possible?',
+          prompt: 'Suppose the check-in page used **HTTPS**, the encrypted version of HTTP, but the Wi-Fi stayed open. What could Mallory read then?',
           options: [
-            { id: 'clear', text: 'Nothing was encrypted: open Wi-Fi and a plain HTTP page.', correct: true },
-            { id: 'guess', text: 'She guessed the family password from their last name.', feedback: 'She guessed nothing. The password was in the captured frame, word for word.' },
-            { id: 'screen', text: "She could see the phone's screen from her car.", feedback: 'She is outside the gym. She read the password from a captured frame, not from a screen.' },
-            { id: 'asked', text: 'The access point sent her a copy because she asked.', feedback: 'She asked for nothing. Radio reaches every device in range, and her card kept what it heard.' },
+            { id: 'site', text: 'Which website the phone visited, but not the password.', correct: true },
+            { id: 'pass', text: 'The password, because the Wi-Fi is still open.', feedback: 'HTTPS scrambles the page between the phone and the website, so the password is unreadable even on open Wi-Fi.' },
+            { id: 'nothing', text: 'Nothing at all, not even which website it was.', feedback: 'HTTPS hides what the page says. The frames still show which website they are going to.' },
+            { id: 'join', text: 'The password, but only after she joins the network.', feedback: 'Joining does not help her. HTTPS keeps the password scrambled the whole way to the website.' },
           ],
-          explain: 'Open Wi-Fi helps an eavesdropper (someone listening in) twice: the radio reaches past the walls, and with no encryption anyone who hears a frame can read it.',
+          explain: 'On open Wi-Fi, anything a page does not encrypt itself can be read from the air. HTTPS protects what a page says, but not where it goes. Encrypting the Wi-Fi itself, later in this lab, covers everything in the air.',
         },
       ],
     },
@@ -185,7 +205,7 @@ export const wirelessLab: LabDef = {
 
         Open [[wap]] and lower its **Signal strength**. Watch the dashed circle on the map. You want every family device inside it and [[mallory]]'s car outside it.
 
-        If you turn it down too far, the [[phonelot]] at the far end of the gym drops off. If that happens, turn it back up one level.
+        If you turn it down too far, devices far from the access point, like the [[phonelot]], drop off. If that happens, turn it back up one level.
 
         Mallory's laptop has an ordinary Wi-Fi card. An attacker can also buy a **high-gain antenna**, a bigger antenna that picks up fainter signals from farther away.
       `,
@@ -204,12 +224,12 @@ export const wirelessLab: LabDef = {
         {
           id: 'antenna',
           kind: 'choice',
-          prompt: 'You turned the power down and Mallory fell out of range. What could still let her reach the shelter network from the lot?',
+          prompt: 'You turned the signal strength down, and Mallory can no longer join. What could still let her reach the shelter network from the lot?',
           options: [
             { id: 'antenna', text: 'A high-gain antenna on her laptop.', correct: true },
             { id: 'off', text: 'Turning her own Wi-Fi off and on again.', feedback: 'Restarting her Wi-Fi card does not make it hear a fainter signal.' },
             { id: 'never', text: 'Nothing. Lower power makes it impossible.', feedback: 'A better antenna can pull in a faint signal. Lower power helps, but it is not a wall.' },
-            { id: 'walls', text: 'Moving her car closer to a thick wall.', feedback: 'Walls weaken a signal a little. They would not help her hear it.' },
+            { id: 'walls', text: 'Parking behind a thick wall of the gym.', feedback: 'A wall between her and the access point weakens the signal. It would not help her hear it.' },
           ],
           explain: 'Turning down power is a good first step, and it belongs in the plan. Still, a determined attacker with a better antenna can pick up a faint signal, so it makes an attack harder but does not stop it.',
         },
@@ -224,6 +244,8 @@ export const wirelessLab: LabDef = {
 
         1. Open [[wap]] and turn **Broadcast the name** off. Families still join, because their phones remember the network.
         2. In the Toolkit, scan from [[mallory]] again, and read the row for the shelter network.
+
+        The dashed circle shows where a device can join. A scanner also hears weaker signals outside it, so Mallory's scan still picks up the shelter, even though she can't join.
       `,
       focus: ['wap', 'mallory'],
       open: { inspect: 'wap' },
@@ -253,33 +275,32 @@ export const wirelessLab: LabDef = {
       id: 'lock',
       title: 'Lock the air',
       body: md`
-        Now encrypt the traffic. Mallory has fitted a high-gain antenna and is back in range, and she brought a **Wi-Fi cracker**: a tool that tries to break a network's password.
+        Now encrypt the traffic. Mallory added a high-gain antenna and is back in range. She also has a **Wi-Fi cracker**, a tool that tries to break a network's passphrase.
 
-        For each setting, open [[wap]], pick it under **Security**, type a passphrase, and press **Save**. Then press **Try to crack** in the cracker card in the Toolkit.
+        For each setting, open [[wap]], pick it under **Security**, type a passphrase, and press **Save**. Then press **Mallory tries to crack it** here.
 
         1. **WEP**, with any passphrase. WEP is an old, broken lock.
-        2. **WPA2** with a short passphrase, like \`shelter1\`.
+        2. **WPA2** with a short passphrase, like \`shelter1\`. A passphrase you saved for WEP carries over.
         3. **WPA2** with a long passphrase nobody could guess, like four words that have nothing to do with each other. **WPS** is still on. WPS lets a device join with an 8-digit PIN instead of the passphrase.
         4. Turn **WPS** off and crack again.
+        5. The PIN gave Mallory your passphrase, so she still gets in. Save a new long passphrase and crack once more.
 
-        Leave the network with a lock Mallory cannot break: WPA3, or WPA2 with a long passphrase. Either way, WPS must be off.
+        Leave the network with a lock Mallory cannot break: **WPA3** (the newest, which blocks guessing from a recording), or WPA2 with a long passphrase. Either way, WPS must be off.
       `,
       setup: armMallory,
       focus: ['wap', 'mallory'],
-      open: 'tools',
-      tools: [
-        { kind: 'wifi-config', device: 'wap' },
-        { kind: 'wifi-crack', attacker: 'mallory' },
-      ],
+      open: { inspect: 'wap' },
+      tools: [{ kind: 'wifi-config', device: 'wap' }],
+      actions: [tryCrack],
       goals: [
-        { id: 'tried', label: 'Try the cracker against the network at least once', hint: 'Set WEP first, then press **Try to crack** in the cracker card.', check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'wifi' && e.what === 'crack' && e.device === 'mallory') },
+        { id: 'tried', label: 'Try the cracker against the network at least once', hint: 'Set WEP first, then press **Mallory tries to crack it**.', check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'wifi' && e.what === 'crack' && e.device === 'mallory') },
         {
           id: 'holds',
           label: 'Leave a lock Mallory cannot break, with every family still connected',
-          hint: 'WPA3, or WPA2 with a long passphrase, and WPS off either way. Families get the new key automatically.',
+          hint: 'WPA3, or WPA2 with a long passphrase, and WPS off either way. If Mallory broke in before, save a new passphrase. Families get it automatically.',
           check: ({ sim }) => {
             const ap = sim.dev('wap').wifi;
-            return !!ap && !crack(ap).ok && familiesInRange(sim);
+            return !!ap && !crack(ap, sim.dev('mallory').wifiClient?.passphrase).ok && familiesInRange(sim);
           },
         },
       ],
@@ -295,7 +316,7 @@ export const wirelessLab: LabDef = {
             { id: 'wpa2', text: 'It broke the WPA2 encryption itself.', feedback: 'WPA2 with a long passphrase holds. The cracker went around it, through the WPS PIN.' },
             { id: 'open', text: 'It turned the network back to open.', feedback: 'The cracker changes nothing on the access point. It only tries to get the key.' },
           ],
-          explain: 'From weakest to strongest: open, WEP, WPA (the first version, also broken), WPA2, WPA3. WPA2 needs a long passphrase that is hard to guess. WPS undoes any passphrase, so it stays off.',
+          explain: 'From weakest to strongest: open, WEP, WPA (the first version, also broken), WPA2, WPA3. WPA2 needs a long passphrase that is hard to guess. WPS undoes any passphrase, so it stays off, and once the PIN falls the attacker has the passphrase, so it has to change too.',
         },
       ],
     },
@@ -304,13 +325,13 @@ export const wirelessLab: LabDef = {
       id: 'who',
       title: 'Who gets in',
       body: md`
-        Mallory came inside to shelter for the night, and the desk gave her the passphrase like every other guest. Everyone shares one passphrase, so you need another way to limit who can join.
+        This morning Mallory checked in at the shelter desk as a guest, and the desk gave her the new passphrase like everyone else. Now she is back in her car. Everyone shares one passphrase, so you need another way to limit who can join.
 
         Every network card has a **MAC address**, a hardware address like \`0a:21:fa:00:00:11\` that it sends in every frame.
 
         1. Open [[wap]] and turn on the **MAC filter**. Only the families' devices may join, so Mallory's laptop is turned away.
         2. Press **Mallory copies the Rivera phone's MAC**. She read an allowed address out of the air and set her card to it. Watch her get back on.
-        3. Switch **Who may join** to **Per-user login (EAP)**. Each family signs in to an **authentication server** (a computer that checks accounts) with its own account. A copied MAC is not enough now.
+        3. Switch **Who may join** to **Per-user login (EAP)**. Each family signs in to an **authentication server** (a computer that checks accounts) with its own account. The desk makes accounts only for registered families, so Mallory has none.
       `,
       setup: setupWhoJoins,
       focus: ['wap', 'mallory'],
@@ -355,10 +376,12 @@ export const wirelessLab: LabDef = {
       id: 'rogue',
       title: 'A box in the hallway',
       body: md`
-        A volunteer finds a small wireless router plugged into a **hallway wall jack**. The jack is wired to the shelter's wired network, the **LAN** (local area network). The box sends out its own open network, so anyone who joins it lands on the LAN and skips every setting you configured. A box like this, set up by someone who isn't in charge of the network, is a **rogue access point**.
+        A volunteer finds a small wireless router, the [[rogue]], plugged into a **hallway wall jack**. The jack is wired to the shelter's wired network, the **LAN** (local area network).
+
+        The box sends out its own open network. Anyone who joins it lands on the LAN and skips every setting you configured. A box like this, set up by someone who isn't in charge of the network, is a **rogue access point**.
 
         1. Scan the air from the [[desk]]. You will see a network you never set up, marked **not yours**.
-        2. In the Toolkit, use **Cables** to unplug the cable from the [[rogue]]. Leave the Shelter Wi-Fi's cable alone.
+        2. In the Toolkit, use **Cables** to unplug the Unknown box's cable. Leave the Shelter Wi-Fi's cable alone.
       `,
       setup: (sim) => sim.setWifiOff('rogue', false),
       focus: ['rogue', 'desk', 'lansw'],
@@ -385,9 +408,9 @@ export const wirelessLab: LabDef = {
             { id: 'bridge', text: 'It is an open door onto the LAN that skips your settings.', correct: true },
             { id: 'power', text: 'It draws too much power from the wall jack.', feedback: 'The danger is the back door into the network, not the power it uses.' },
             { id: 'slow', text: 'It makes the shelter Wi-Fi slower for families.', feedback: 'Speed is not the threat. The open back door into the LAN is.' },
-            { id: 'name', text: 'It copies the shelter network name to trick phones.', feedback: 'That is an evil twin. This rogue uses its own name but is wired into your LAN.' },
+            { id: 'name', text: 'It copies the shelter network name to trick phones.', feedback: 'That would be an evil twin, a fake network that copies a real name. This rogue uses its own name but is wired into your LAN.' },
           ],
-          explain: 'Every control you built lives on your access point. A rogue box offers its own door into the same wired network and honors none of them. Finding and removing rogues is a core part of wireless defense.',
+          explain: 'Every control you built lives on your access point. A rogue box offers its own door into the same wired network and follows none of them. Finding and removing rogues is a core part of wireless defense.',
         },
       ],
     },
@@ -410,8 +433,8 @@ export const wirelessLab: LabDef = {
             { id: 'wps', text: 'Turn WPS off.', correct: true },
             { id: 'power', text: 'Turn the signal down so it covers the building and little more.', correct: true },
             { id: 'rogue', text: 'Scan for access points nobody set up, and unplug them.', correct: true },
-            { id: 'hide', text: 'Hide the network name, so attackers cannot find it.', feedback: 'A scanner still finds a hidden network. It can be part of a plan, but it does not keep attackers out.' },
-            { id: 'open', text: 'Leave the network open so guests connect without fuss.', feedback: 'Open Wi-Fi lets everyone in range read the traffic. That is what started this lab.' },
+            { id: 'hide', text: 'Hide the network name, so attackers cannot find it.', feedback: 'Hiding the name does not keep attackers out, because a scanner still finds a hidden network.' },
+            { id: 'open', text: 'Leave the network open so guests can join without a password.', feedback: 'Open Wi-Fi lets everyone in range read the traffic. That is what started this lab.' },
             { id: 'poster', text: 'Post one shared password on the wall for everyone.', feedback: 'A shared secret on a wall is no better than a copied MAC.' },
           ],
           explain: 'A good wireless policy requires strong encryption, per-user logins to an approved server, WPS off, a signal kept inside the building, and regular scans for rogue access points. Lowering the power does not stop a high-gain antenna, but it shrinks the area an attacker can work from. Open networks, shared secrets, and a hidden name as the only protection do not belong.',
@@ -423,7 +446,7 @@ export const wirelessLab: LabDef = {
       id: 'reflect',
       title: 'Reflect',
       body: md`
-        You started with an open network that leaked into the parking lot and ended with one that keeps strangers off the air.
+        You started with an open network that anyone in the parking lot could read, and ended with one that strangers cannot join.
 
         Wi-Fi encryption protects the trip between a device and the access point. Past the access point, the check-in page still uses plain HTTP, so the shelter should move it to HTTPS too.
       `,

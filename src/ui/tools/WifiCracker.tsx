@@ -30,7 +30,7 @@ export function WifiCracker({ session, spec }: ToolCardProps<'wifi-crack'>) {
       {rows.map((r) => {
         // Recompute against the current settings each render, so trying again
         // after the defender changes the security shows the new result.
-        const res: CrackResult | null = tried.has(r.bssid) ? crack(sim.dev(r.device).wifi!) : null;
+        const res: CrackResult | null = tried.has(r.bssid) ? crack(sim.dev(r.device).wifi!, att.wifiClient?.passphrase) : null;
         return (
           <div key={r.bssid} class="crack-row">
             <div>

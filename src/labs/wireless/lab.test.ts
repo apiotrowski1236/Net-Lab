@@ -81,6 +81,32 @@ describe('wireless lab', () => {
     expect(crack(sim.dev('wap').wifi!).ok).toBe(false);
   });
 
+  it('a cracked WPS PIN leaks the passphrase, so only a new one locks Mallory out', () => {
+    const s = new LabSession(wirelessLab, freshProgress());
+    const at = wirelessLab.steps.findIndex((st) => st.id === 'lock');
+    for (let i = 0; i < at; i++) {
+      playStep(s, wirelessSolution[s.step.id]);
+      s.goTo(i + 1);
+    }
+    const step = wirelessLab.steps[at];
+    const holds = () => step.goals!.find((g) => g.id === 'holds')!.check({ sim: s.sim, ev: s.sim.events, since: 0 } as never);
+    const press = step.actions!.find((a) => a.id === 'mallory-crack')!;
+    s.sim.setWifiSecurity('wap', 'wpa2', STRONG_PASS);
+    const t0 = s.sim.t;
+    press.run(s.sim);
+    expect(press.outcome!(s.sim, t0)).toEqual([{ tone: 'bad', text: 'Broken: a few hours (the WPS PIN).' }]);
+    expect(joined(s.sim, 'mallory')).toBe('wap');
+    s.sim.setWifiWps('wap', false);
+    expect(crack(s.sim.dev('wap').wifi!, s.sim.dev('mallory').wifiClient?.passphrase)).toMatchObject({ ok: true, method: 'known' });
+    expect(holds()).toBe(false);
+    s.sim.setWifiPassphrase('wap', 'harbor-violet-tin-meadow');
+    expect(joined(s.sim, 'mallory')).toBeUndefined();
+    expect(holds()).toBe(true);
+    const t1 = s.sim.t;
+    press.run(s.sim);
+    expect(press.outcome!(s.sim, t1)[0]).toMatchObject({ tone: 'good', text: 'Held: centuries (long and hard to guess).' });
+  });
+
   it('a copied MAC passes the filter but EAP still stops the attacker', () => {
     const sim = buildShelter();
     sim.setWifiPower('wap', 2);
@@ -126,10 +152,10 @@ describe('wireless lab', () => {
     const sim = buildShelter();
     sim.setWifiSecurity('wap', 'wpa2', STRONG_PASS);
     expect(checkWifiPassphrase(sim, 'wap', 'blue river shelter 2026')).toEqual({ ok: true, passphrase: 'blue river shelter 2026', note: undefined });
-    expect(checkWifiPassphrase(sim, 'wap', 'password1234')).toMatchObject({ ok: true, note: 'Heads up: that is a common password with a few characters added. Guessing tools try those first, so it falls fast at any length.' });
+    expect(checkWifiPassphrase(sim, 'wap', 'password1234')).toMatchObject({ ok: true, note: 'Saved, but that is a common password with a few characters added. Guessing tools try those first, so it falls fast at any length.' });
     expect(checkWifiPassphrase(sim, 'wap', 'shelter1')).toMatchObject({
       ok: true,
-      note: 'Heads up: 8 characters is short. An attacker who records a device joining can test guesses against it. 12 or more holds up.',
+      note: 'Saved, but 8 characters is short. An attacker who records a device joining can test guesses against it. 12 or more holds up.',
     });
     sim.setWifiSecurity('wap', 'wep', WEAK_PASS);
     expect(checkWifiPassphrase(sim, 'wap', STRONG_PASS)).toMatchObject({ ok: true, note: 'Saved. On WEP the length of the key does not help: WEP itself is broken.' });

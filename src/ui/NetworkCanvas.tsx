@@ -33,6 +33,7 @@ function fitBox(devices: Device[], extraLines = 0, zones: MapZone[] = [], below 
   let b = Math.max(...ys) + 80 + extraLines * 16;
   // Zones (a building, a signal's reach) stay on the map too, with a little room for their labels.
   for (const z of zones) {
+    if (z.fit === false) continue;
     const zb = zoneBounds(z);
     l = Math.min(l, zb.l - 10);
     t = Math.min(t, zb.t - 24);
@@ -233,7 +234,7 @@ function markerFor(
         case 'leave':
           return { device: e.client ?? e.device, text: e.client ? 'off Wi-Fi' : 'device dropped off', tone: 'warn' };
         case 'rejected':
-          return { device: e.client ?? e.device, text: 'join denied', tone: 'good' };
+          return { device: e.client ?? e.device, text: 'join denied', tone: 'warn' };
         case 'crack':
           return { device: e.device, text: e.ok ? 'key cracked!' : 'key held', tone: e.ok ? 'bad' : 'good' };
         case 'jam':

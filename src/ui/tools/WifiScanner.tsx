@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { bars, SECURITY_LABEL, type ScanRow } from '../../sim/wifi';
+import { bars, JOIN_THRESHOLD, SECURITY_LABEL, type ScanRow } from '../../sim/wifi';
 import { Icon } from '../icons';
 import type { ToolCardProps } from './registry';
 
@@ -74,13 +74,13 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
               <th>Security</th>
               {watch && <th>Channel</th>}
               <th>Signal</th>
-              <th>{watch ? 'Approved list' : ''}</th>
+              {watch && <th>Approved list</th>}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={watch ? 5 : 4} class="muted">
+                <td colSpan={watch ? 5 : 3} class="muted">
                   Nothing in range from here.
                 </td>
               </tr>
@@ -92,6 +92,10 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
                     {r.ssid || '(hidden)'}
                   </button>
                   <div class="mono tiny muted">{r.bssid}</div>
+                  {/* Flags sit under the name, so the table stays three columns wide in a narrow card. */}
+                  {!watch && dupSsid.has(r.ssid) && <span class="pill bad">duplicate name</span>}
+                  {!watch && r.rogue && !dupSsid.has(r.ssid) && <span class="pill warn">not yours</span>}
+                  {!watch && r.hidden && !r.rogue && !dupSsid.has(r.ssid) && <span class="pill">name hidden</span>}
                   {r.hidden && !watch && <div class="tiny muted">Name hidden from beacons. Phones that know it ask for it by name, so the scanner heard it anyway.</div>}
                 </td>
                 <td class="small">
@@ -101,8 +105,9 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
                 {watch && <td class="small">{r.channel}</td>}
                 <td>
                   <Bars signal={r.signal} />
+                  {!watch && r.signal < JOIN_THRESHOLD && <div class="tiny muted">Too weak to join from here</div>}
                 </td>
-                {watch ? (
+                {watch && (
                   <td class="small">
                     <div class="seg wids-mark" role="group" aria-label={`Is ${r.ssid || 'this network'} on the approved list?`}>
                       {(['approved', 'unknown'] as const).map((m) => (
@@ -116,12 +121,6 @@ export function WifiScanner({ session, spec, onSelect }: ToolCardProps<'wifi-sca
                         </button>
                       ))}
                     </div>
-                  </td>
-                ) : (
-                  <td class="small">
-                    {dupSsid.has(r.ssid) && <span class="pill bad">duplicate name</span>}
-                    {r.rogue && !dupSsid.has(r.ssid) && <span class="pill warn">not yours</span>}
-                    {r.hidden && !r.rogue && !dupSsid.has(r.ssid) && <span class="pill">name hidden</span>}
                   </td>
                 )}
               </tr>
