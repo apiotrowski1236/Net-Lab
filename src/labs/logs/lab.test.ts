@@ -304,6 +304,29 @@ describe('logs lab: result lines', () => {
     expect(deviationWhy(j)).toBe(`outside office hours (03:12), never-used address ${EXFIL}, 90 MB, over 10x usual`);
   });
 
+  it('a signature set turned on after the replay went past says detection was off, not that nothing matched', () => {
+    const sim = buildUtility();
+    const t = sim.t;
+    play(sim, replayArp);
+    sim.idsSetSignatures('nids', true);
+    expect(idsOutcomeLines(sim, t).map((l) => l.text)).toEqual(['NIDS sensor saw the traffic while its detection was off. No alert. Replay it to check it with detection on.']);
+    // With the set on from the start, the same replay alerts.
+    const t2 = sim.t;
+    play(sim, replayArp);
+    expect(idsOutcomeLines(sim, t2)[0].text).toContain('arp-spoof');
+  });
+
+  it('says anomaly detection is off when the baseline is recorded but the switch is not on', () => {
+    const sim = withAnomaly('medium');
+    sim.idsSetAnomaly('nids', false, 'medium');
+    const t = sim.t;
+    play(sim, replayUpload);
+    expect(idsOutcomeLines(sim, t).map((l) => l.text)).toEqual([
+      'NIDS sensor saw the traffic. No signature matched it, so no alert.',
+      'NIDS sensor: anomaly detection is off, so it did not score this.',
+    ]);
+  });
+
   it('names the tolerance the upload was scored at, even if the student changes it afterward', () => {
     const sim = withAnomaly('loose');
     const t = sim.t;

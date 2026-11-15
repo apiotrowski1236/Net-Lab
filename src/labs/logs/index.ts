@@ -208,7 +208,7 @@ export const logsLab: LabDef = {
         - The **gateway** is [[fw]] at \`${IP.gateway}\`, the office's door to the internet.
         - An **ARP** reply tells a computer which MAC address goes with an IP address.
 
-        [[mal]] sends fake ARP replies that say the gateway's IP belongs to the laptop's MAC. This attack is called **ARP spoofing**, or ARP poisoning. One signature is "an ARP reply gives the gateway's IP a different MAC than the one on file". Watch for its alert.
+        [[mal]] sends fake ARP replies that say the gateway's IP belongs to the laptop's MAC, so traffic meant for the internet goes to the laptop first. This attack is called **ARP spoofing**, or ARP poisoning. One signature is "an ARP reply gives the gateway's IP a different MAC than the one on file". Watch for its alert.
       `,
       open: { inspect: 'nids' },
       focus: ['nids', 'sw', 'mal'],
@@ -296,7 +296,7 @@ export const logsLab: LabDef = {
         3. Turn on **anomaly detection** there too.
         4. Press **Replay the 3 a.m. upload** again, then **Replay the 2 a.m. backup**.
 
-        The backup is normal work. Every afternoon [[backup]] sends a small copy of the records to a backup site outside the utility, so that address is already in the baseline. Once a month, at 2 a.m., it sends the full 40 MB. Watch which replays raise an alert.
+        The backup is normal work. Every afternoon [[backup]] sends a small copy of the records to a backup site outside the utility, so that address is already in the baseline. Once a month, at 2 a.m., it sends the full 40 MB. Watch which replays raise an alert. The table in [[nids]]'s Detection section keeps each replay's score.
       `,
       setup: signaturesOn,
       open: { inspect: 'nids' },
@@ -397,9 +397,9 @@ export const logsLab: LabDef = {
       id: 'correlate',
       title: 'Connect the dots',
       body: md`
-        The SIEM's real power is tying lines together. On their own, a blocked packet, a **port scan** (one address trying many ports), and a few failed sign-ins each look minor. The SIEM noticed all three came from one address, \`${SCANNER}\`, within twenty minutes, and opened a single **incident**. Tying lines together like this is called **correlation**.
+        On their own, a blocked packet, a **port scan** (one address trying many ports), and a few failed sign-ins each look minor. The SIEM noticed all three came from one address, \`${SCANNER}\`, within twenty minutes, and opened a single **incident**. Tying lines together like this is called **correlation**.
 
-        Open incident **${INCIDENT}** on [[siem]]: filter the Logs tab to the SIEM server, search for \`${INCIDENT}\`, and click the \`INCIDENT ${INCIDENT}\` line. Read its three parts: the firewall denies, the port-scan alert, and the failed sign-ins on [[files]] you found earlier.
+        Open incident **${INCIDENT}** on [[siem]]: filter the Logs tab to the SIEM server, search for \`${INCIDENT}\`, and click the \`INCIDENT ${INCIDENT}\` line. Read its three parts.
 
         Then **triage** it, which means sorting it by how serious it is:
 
@@ -538,10 +538,10 @@ export const logsLab: LabDef = {
 
         1. A connection to a **known malicious IP**. Search \`threat-feed\`. A **threat feed** is a shared list of bad addresses, and [[fw]] tags any match. This one is \`known-c2\`, a command-and-control server that sends orders to computers an attacker controls. No rule blocks that address, so the connection went through.
         2. An **unauthorized scan**, one outside address trying many ports in a row. Search \`port-scan\`.
-        3. Pings to the **broadcast address**, which reaches every device on the network. Search \`${BROADCAST}\`. Every device answers at once. In a **smurf attack**, the attacker fakes the target's address as the sender, so all those replies flood the target. Here rule 5 on [[fw]] blocked these pings. Ping uses the **ICMP** protocol.
+        3. Pings to the **broadcast address**, which reaches every device on the network. Search \`${BROADCAST}\`. These came from the address that scanned the utility, testing for a **smurf attack**. In that attack the pings carry a victim's address as the sender, so every device that answers floods the victim. Rule 5 on [[fw]] blocked them. Ping uses the **ICMP** protocol, and the log calls each ping an \`echo-request\`.
         4. **SSH** on port **443**, the usual port for HTTPS, secure web traffic. Search \`app=ssh\`.
 
-        The first and fourth clues come from [[pc2]], which points to malware on Raj's PC. Signatures have a rule for the first three. For the fourth, [[fw]] already labels the program \`app=ssh\`, but rule 3, which lets anything out to port 443, only checks the port. Stopping it takes a rule that checks the program too. An attack with no known pattern, like Raj's 3 a.m. upload, needs the anomaly baseline.
+        The first and fourth clues come from [[pc2]], which points to malware on Raj's PC. Signatures have a rule for the first three. For the fourth, [[fw]] labels the program \`app=ssh\`, but rule 3, which lets anything out to port 443, only checks the port.
       `,
       open: 'logs',
       focus: ['fw', 'pc2'],

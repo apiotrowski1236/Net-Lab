@@ -159,6 +159,8 @@ export interface IdsSensor {
   rules: number;
   /** When the sensor last saw a frame. */
   lastSeen?: number;
+  /** When a frame last went past with the signature set on. A result line uses it to tell "nothing matched" from "detection was off". */
+  lastScanned?: number;
   /** The latest anomaly judgments (newest last). */
   judged: Judgment[];
   /** Recent sightings for the windowed signatures: key -> [time, value] pairs. */
@@ -402,7 +404,10 @@ export function observe(sim: Sim, sensorId: string, tap: Device, ifaceId: string
   if (!s || frame.origin === sensorId) return;
   if (tap.kind === 'switch' && !portUp(tap, ifaceId)) return;
   s.lastSeen = sim.t;
-  if (s.signatures) matchSignatures(sim, dev, s, tap, ifaceId, frame);
+  if (s.signatures) {
+    s.lastScanned = sim.t;
+    matchSignatures(sim, dev, s, tap, ifaceId, frame);
+  }
   if (s.anomaly) checkAnomaly(sim, dev, s, frame);
 }
 
