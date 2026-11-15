@@ -156,6 +156,8 @@ const COMMON_WORDS = new Set([
   'password', 'passw0rd', 'welcome', 'letmein', 'qwerty', 'qwertyuiop', 'iloveyou', 'admin', 'administrator', 'abc', 'abcdef', 'abcdefg',
   'monkey', 'dragon', 'football', 'baseball', 'sunshine', 'princess', 'shadow', 'superman', 'trustno', 'master', 'login', 'guest',
   'changeme', 'secret', 'wifi', 'internet', 'shelter', 'default', 'asdf', 'asdfgh', 'zxcvbn', 'hello', 'freedom', 'whatever',
+  // Famous example passphrases are in every guessing list too.
+  'correcthorsebatterystaple',
 ]);
 
 /** Why a passphrase is weak: too short, or a common password with numbers or symbols added. */

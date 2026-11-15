@@ -179,19 +179,39 @@ describe('wireless lab', () => {
     const step = wirelessLab.steps[at];
     const met = (id: string) => step.goals!.find((g) => g.id === id)!.check({ sim: s.sim, ev: s.sim.events, since: 0 } as never);
     expect(met('out')).toBe(false);
+    const copy = step.actions!.find((a) => a.id === 'mallory-copy-mac')!;
+    // Before the filter is on, she has nothing to get past, so the button asks for the filter first.
+    copy.run(s.sim);
+    expect(s.sim.dev('mallory').ifaces[0].mac).not.toBe(MAC.phone1);
+    expect(copy.outcome!(s.sim, 0)[0].text).toMatch(/Turn on the MAC filter first/);
     s.sim.setWifiMacFilter('wap', true, FAMILIES.map((f) => s.sim.dev(f).ifaces[0].mac));
     expect(joined(s.sim, 'mallory')).toBeUndefined();
     expect(met('out')).toBe(false); // the filter alone doesn't finish the step
-    const copy = step.actions!.find((a) => a.id === 'mallory-copy-mac')!;
     copy.run(s.sim);
     expect(met('copied')).toBe(true);
-    expect(copy.outcome!(s.sim, 0)).toEqual([{ tone: 'bad', text: "Mallory is back on. The filter sees the Rivera phone's MAC and lets her in." }]);
+    expect(copy.outcome!(s.sim, 0)).toEqual([{ tone: 'good', text: "Mallory is back on. The filter sees the Rivera phone's MAC and lets her in." }]);
     s.sim.setWifiAuth('wap', 'eap');
     expect(met('out')).toBe(true);
     expect(copy.outcome!(s.sim, 0)[0].tone).toBe('good');
   });
 
-  it('student text keeps the house style', () => {
+  it('family sign-in: capture turned on after the login went by says it missed', () => {
+    const s = new LabSession(wirelessLab, freshProgress());
+    const at = wirelessLab.steps.findIndex((st) => st.id === 'heard');
+    for (let i = 0; i < at; i++) {
+      playStep(s, wirelessSolution[s.step.id]);
+      s.goTo(i + 1);
+    }
+    const signin = wirelessLab.steps[at].actions!.find((a) => a.id === 'family-signin')!;
+    const since = s.sim.t;
+    signin.run(s.sim);
+    expect(signin.outcome!(s.sim, since)[0].text).toMatch(/isn't on/);
+    s.sim.runUntilIdle();
+    s.sim.setSniffing('mallory', true);
+    expect(signin.outcome!(s.sim, since)[0].text).toMatch(/after the login went by/);
+  });
+
+    it('student text keeps the house style', () => {
     const text = JSON.stringify(wirelessLab.steps);
     expect(text).not.toMatch(/—|\bjust\b|\bsimply\b|\beasy\b|\beasier\b|\bobviously\b|\bCED\b/i);
   });

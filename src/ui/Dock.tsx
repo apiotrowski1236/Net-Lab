@@ -1229,7 +1229,10 @@ function CableTool({ session, refuse }: { session: LabSession; refuse?: CableRef
       <div class="tool-title">
         <Icon name="cable" /> Cables
       </div>
-      <p class="tool-desc">Drag from one device to another on the map to plug in a cable, or pick both ends here. No cable, no signal: this is the physical layer.</p>
+      <p class="tool-desc">
+        Drag from one device to another on the map to plug in a cable{canPlug ? ', or pick both ends here' : ''}. No cable, no signal: this is the
+        physical layer.
+      </p>
       {canPlug && (
         <div class="sentence">
           Plug

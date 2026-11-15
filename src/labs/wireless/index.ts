@@ -1,6 +1,6 @@
 import type { Sim } from '../../sim/sim';
 import { crack, reach } from '../../sim/wifi';
-import { capturedSince, happened, inspected, isPlainLogin } from '../helpers';
+import { capturedSince, happened, inspected, isPlainLogin, pageSince } from '../helpers';
 import { md } from '../md';
 import type { ActionDef, LabDef, MapZone } from '../types';
 import { buildShelter, FAMILIES, GYM, LOT, MAC, STRONG_PASS, LOGIN_BODY } from './scenario';
@@ -12,8 +12,11 @@ const familySignin: ActionDef = {
   label: 'A family signs in',
   run: (sim) => sim.browse('phone1', 'http://checkin.example/login', LOGIN_BODY),
   outcome: (sim, since) => {
-    if (capturedSince(sim, 'mallory', since, isPlainLogin)) return [{ tone: 'bad', text: "Mallory's capture caught the login. Open the Capture tab to read it." }];
+    if (capturedSince(sim, 'mallory', since, isPlainLogin)) return [{ tone: 'good', text: "Mallory's capture caught the login. Open the Capture tab to read it." }];
     if (!sim.dev('mallory').sniffing) return [{ tone: 'bad', text: "Packet capture isn't on, so Mallory missed it. Turn it on and press the button again." }];
+    // Capture came on after the login went by: the page is done, and nothing was caught.
+    if (pageSince(sim, 'phone1', since, (b) => b.doneAt !== undefined))
+      return [{ tone: 'bad', text: 'Capture came on after the login went by, so Mallory missed it. Press the button again.' }];
     return [{ tone: 'wait', text: 'The Rivera phone is sending the login...' }];
   },
 };
@@ -33,14 +36,18 @@ const tryCrack: ActionDef = {
 const copyMac: ActionDef = {
   id: 'mallory-copy-mac',
   label: "Mallory copies the Rivera phone's MAC",
-  run: (sim) => sim.setMac('mallory', MAC.phone1),
+  // She copies a MAC only once the filter stands in her way, so students see the filter block her first.
+  run: (sim) => {
+    if (sim.dev('wap').wifi?.macFilter?.on) sim.setMac('mallory', MAC.phone1);
+  },
   outcome: (sim) => {
     const ap = sim.dev('wap').wifi!;
     const on = sim.dev('mallory').wifiClient?.joinedAp === 'wap';
+    if (sim.dev('mallory').ifaces[0].mac !== MAC.phone1)
+      return [{ tone: 'wait', text: 'Nothing stops Mallory yet, so she has no reason to copy a MAC. Turn on the MAC filter first, then press the button again.' }];
     if (ap.auth === 'eap') return [{ tone: 'good', text: "Mallory uses the Rivera phone's MAC, but she has no login of her own, so she stays off." }];
-    if (!ap.macFilter?.on) return [{ tone: 'wait', text: "Mallory now uses the Rivera phone's MAC. Turn on the MAC filter to see why that matters." }];
     return on
-      ? [{ tone: 'bad', text: "Mallory is back on. The filter sees the Rivera phone's MAC and lets her in." }]
+      ? [{ tone: 'good', text: "Mallory is back on. The filter sees the Rivera phone's MAC and lets her in." }]
       : [{ tone: 'wait', text: 'Mallory is trying to join again with the copied MAC.' }];
   },
 };
@@ -86,7 +93,7 @@ function scannedHidden(sim: Sim, since: number): boolean {
 
 export const wirelessLab: LabDef = {
   id: 'wireless',
-  version: 4,
+  version: 5,
   title: 'Wireless Security',
   tagline: "Secure an emergency shelter's Wi-Fi against snoopers in the parking lot and a rogue box on a wall jack.",
   unit: 3,
@@ -163,6 +170,8 @@ export const wirelessLab: LabDef = {
         4. Open the **Capture** tab and find the login.
 
         Every Wi-Fi frame reaches every device in range. On an open network nothing is encrypted, so Mallory can read the family's frames even though they weren't sent to her.
+
+        Some pages use **HTTPS**, the encrypted version of HTTP. HTTPS scrambles what a page says, but each frame still shows which website it is going to.
       `,
       focus: ['mallory', 'wap', 'phone1'],
       open: 'tools',
@@ -185,7 +194,7 @@ export const wirelessLab: LabDef = {
         {
           id: 'https-q',
           kind: 'choice',
-          prompt: 'Suppose the check-in page used **HTTPS**, the encrypted version of HTTP, but the Wi-Fi stayed open. What could Mallory read then?',
+          prompt: 'Suppose the check-in page used HTTPS, but the Wi-Fi stayed open. What could Mallory read then?',
           options: [
             { id: 'site', text: 'Which website the phone visited, but not the password.', correct: true },
             { id: 'pass', text: 'The password, because the Wi-Fi is still open.', feedback: 'HTTPS scrambles the page between the phone and the website, so the password is unreadable even on open Wi-Fi.' },
@@ -228,10 +237,10 @@ export const wirelessLab: LabDef = {
           options: [
             { id: 'antenna', text: 'A high-gain antenna on her laptop.', correct: true },
             { id: 'off', text: 'Turning her own Wi-Fi off and on again.', feedback: 'Restarting her Wi-Fi card does not make it hear a fainter signal.' },
-            { id: 'never', text: 'Nothing. Lower power makes it impossible.', feedback: 'A better antenna can pull in a faint signal. Lower power helps, but it is not a wall.' },
+            { id: 'never', text: 'Nothing. A weaker signal makes it impossible.', feedback: 'A better antenna can pull in a faint signal. A weaker signal helps, but it is not a wall.' },
             { id: 'walls', text: 'Parking behind a thick wall of the gym.', feedback: 'A wall between her and the access point weakens the signal. It would not help her hear it.' },
           ],
-          explain: 'Turning down power is a good first step, and it belongs in the plan. Still, a determined attacker with a better antenna can pick up a faint signal, so it makes an attack harder but does not stop it.',
+          explain: 'Turning down the signal strength is a good first step, and it belongs in the plan. Still, a determined attacker with a better antenna can pick up a faint signal, so it makes an attack harder but does not stop it.',
         },
       ],
     },
@@ -266,7 +275,7 @@ export const wirelessLab: LabDef = {
             { id: 'blocks', text: 'It stops the families from joining the network.', feedback: 'Families still join a network they remember.' },
             { id: 'illegal', text: 'Hiding a network name breaks the law.', feedback: 'Hiding a name is allowed. The point is that it barely helps.' },
           ],
-          explain: 'A hidden name stops only a casual look. Phones that know the network ask for it by name, and a scanner picks that up. Hiding the name is quieter, but it is not encryption, so it is worth very little alone.',
+          explain: 'A hidden name stops only a casual look. Phones that know the network ask for it by name, and a scanner picks that up. Hiding the name is not encryption, so it is worth very little alone.',
         },
       ],
     },
@@ -277,15 +286,15 @@ export const wirelessLab: LabDef = {
       body: md`
         Now encrypt the traffic. Mallory added a high-gain antenna and is back in range. She also has a **Wi-Fi cracker**, a tool that tries to break a network's passphrase.
 
-        For each setting, open [[wap]], pick it under **Security**, type a passphrase, and press **Save**. Then press **Mallory tries to crack it** here.
+        For each setting, open [[wap]], pick it under **Security**, type a passphrase, and press **Save**. Families drop off until you save, then get the new passphrase on their own. Then press **Mallory tries to crack it** here.
 
-        1. **WEP**, with any passphrase. WEP is an old, broken lock.
-        2. **WPA2** with a short passphrase, like \`shelter1\`. A passphrase you saved for WEP carries over.
+        1. **WEP**, with a short passphrase like \`shelter1\`. WEP is an old, broken lock.
+        2. **WPA2** with a different short passphrase, like \`shelter2\`. Mallory learned the WEP one when she broke in, so it has to be new.
         3. **WPA2** with a long passphrase nobody could guess, like four words that have nothing to do with each other. **WPS** is still on. WPS lets a device join with an 8-digit PIN instead of the passphrase.
         4. Turn **WPS** off and crack again.
         5. The PIN gave Mallory your passphrase, so she still gets in. Save a new long passphrase and crack once more.
 
-        Leave the network with a lock Mallory cannot break: **WPA3** (the newest, which blocks guessing from a recording), or WPA2 with a long passphrase. Either way, WPS must be off.
+        Leave the network with a lock Mallory cannot break: **WPA3** (the newest: an attacker cannot test guesses against a recording of a device joining), or WPA2 with a long passphrase. Either way, WPS must be off.
       `,
       setup: armMallory,
       focus: ['wap', 'mallory'],
@@ -316,7 +325,7 @@ export const wirelessLab: LabDef = {
             { id: 'wpa2', text: 'It broke the WPA2 encryption itself.', feedback: 'WPA2 with a long passphrase holds. The cracker went around it, through the WPS PIN.' },
             { id: 'open', text: 'It turned the network back to open.', feedback: 'The cracker changes nothing on the access point. It only tries to get the key.' },
           ],
-          explain: 'From weakest to strongest: open, WEP, WPA (the first version, also broken), WPA2, WPA3. WPA2 needs a long passphrase that is hard to guess. WPS undoes any passphrase, so it stays off, and once the PIN falls the attacker has the passphrase, so it has to change too.',
+          explain: 'From weakest to strongest: open, WEP, WPA (the first version, also weak), WPA2, WPA3. WPA2 needs a long passphrase that is hard to guess. WPS undoes any passphrase, so it stays off, and once the PIN falls the attacker has the passphrase, so it has to change too.',
         },
       ],
     },
@@ -325,13 +334,13 @@ export const wirelessLab: LabDef = {
       id: 'who',
       title: 'Who gets in',
       body: md`
-        This morning Mallory checked in at the shelter desk as a guest, and the desk gave her the new passphrase like everyone else. Now she is back in her car. Everyone shares one passphrase, so you need another way to limit who can join.
+        Mallory checks in at the shelter desk as a visitor, and the desk hands her the new passphrase like everyone else. Then she goes back to her car. Everyone shares one passphrase, so you need another way to limit who can join.
 
         Every network card has a **MAC address**, a hardware address like \`0a:21:fa:00:00:11\` that it sends in every frame.
 
         1. Open [[wap]] and turn on the **MAC filter**. Only the families' devices may join, so Mallory's laptop is turned away.
         2. Press **Mallory copies the Rivera phone's MAC**. She read an allowed address out of the air and set her card to it. Watch her get back on.
-        3. Switch **Who may join** to **Per-user login (EAP)**. Each family signs in to an **authentication server** (a computer that checks accounts) with its own account. The desk makes accounts only for registered families, so Mallory has none.
+        3. Switch **Who may join** to **Per-user login (EAP)**. Each family signs in to an **authentication server** (a computer that checks accounts) with its own account. The desk makes accounts only for families staying at the shelter, so Mallory, a visitor, has none.
       `,
       setup: setupWhoJoins,
       focus: ['wap', 'mallory'],
@@ -437,7 +446,7 @@ export const wirelessLab: LabDef = {
             { id: 'open', text: 'Leave the network open so guests can join without a password.', feedback: 'Open Wi-Fi lets everyone in range read the traffic. That is what started this lab.' },
             { id: 'poster', text: 'Post one shared password on the wall for everyone.', feedback: 'A shared secret on a wall is no better than a copied MAC.' },
           ],
-          explain: 'A good wireless policy requires strong encryption, per-user logins to an approved server, WPS off, a signal kept inside the building, and regular scans for rogue access points. Lowering the power does not stop a high-gain antenna, but it shrinks the area an attacker can work from. Open networks, shared secrets, and a hidden name as the only protection do not belong.',
+          explain: 'A good wireless policy requires strong encryption, per-user logins to an approved server, WPS off, a signal kept inside the building, and regular scans for rogue access points. A weaker signal does not stop a high-gain antenna, but it shrinks the area an attacker can work from. Open networks, shared secrets, and a hidden name as the only protection do not belong.',
         },
       ],
     },

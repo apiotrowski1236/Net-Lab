@@ -72,7 +72,7 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
               key={m}
               class={`btn tiny ${ap.security === m ? 'on' : ''}`}
               disabled={!edit}
-              onClick={() => session.dispatch({ type: 'wifi-security', device: dev.id, security: m })}
+              onClick={() => (setMsg(null), session.dispatch({ type: 'wifi-security', device: dev.id, security: m }))}
             >
               {SECURITY_LABEL[m].replace(' (no encryption)', '')}
             </button>
@@ -133,9 +133,11 @@ function WifiSettingsSection({ session, sim, dev, replaying, has }: InspectorSec
           </button>
         </div>
         <p class="small muted">
-          {ap.auth === 'eap'
-            ? 'Each family signs in to an authentication server with its own login. A copied MAC address is not enough.'
-            : 'Everyone shares one passphrase. Anyone who has it (or copies an allowed MAC) can join.'}
+          {ap.security === 'open'
+            ? 'Open: anyone in range can join. A passphrase or login matters once you pick a security setting.'
+            : ap.auth === 'eap'
+              ? 'Each family signs in to an authentication server with its own login. A copied MAC address is not enough.'
+              : 'Everyone shares one passphrase. Anyone who has it (or copies an allowed MAC) can join.'}
         </p>
       </div>
 

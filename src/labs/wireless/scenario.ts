@@ -42,6 +42,8 @@ export const WEAK_PASS = 'shelter1';
 export const STRONG_PASS = 'cot-lantern-river-blanket';
 /** The passphrase saved after WPS is turned off, since the cracked PIN gave Mallory the first one. */
 export const NEW_PASS = 'harbor-violet-tin-meadow';
+/** A second short passphrase for WPA2: Mallory learned the WEP one when she broke it. */
+export const SHORT_PASS = 'shelter2';
 
 /** The shelter's own wireless devices that must stay in range. */
 export const FAMILIES = ['desk', 'phone1', 'laptop1', 'phonelot'] as const;

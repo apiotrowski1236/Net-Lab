@@ -1,5 +1,5 @@
 import type { LabSolution } from '../solution';
-import { MAC, NEW_PASS, STRONG_PASS, WEAK_PASS } from './scenario';
+import { MAC, NEW_PASS, SHORT_PASS, STRONG_PASS, WEAK_PASS } from './scenario';
 
 /** Answer key for "Wireless Security". Choice answers come from the lab itself. */
 export const wirelessSolution: LabSolution = {
@@ -25,7 +25,10 @@ export const wirelessSolution: LabSolution = {
     moves: [
       { tool: { type: 'wifi-security', device: 'wap', security: 'wep', passphrase: WEAK_PASS } },
       { press: 'mallory-crack' },
-      { tool: { type: 'wifi-security', device: 'wap', security: 'wpa2', passphrase: STRONG_PASS } },
+      // WEP gave the first passphrase away, so the short WPA2 test needs a new one.
+      { tool: { type: 'wifi-security', device: 'wap', security: 'wpa2', passphrase: SHORT_PASS } },
+      { press: 'mallory-crack' },
+      { tool: { type: 'wifi-passphrase', device: 'wap', passphrase: STRONG_PASS } },
       { press: 'mallory-crack' },
       { tool: { type: 'wifi-wps', device: 'wap', on: false } },
       { press: 'mallory-crack' },
