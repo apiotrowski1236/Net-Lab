@@ -90,7 +90,7 @@ export const dnsSpoofLab: LabDef = {
   unit: 3,
   codehs: ['3.3 Misdirected and Overwhelmed'],
   ced: ['3.1.A', '3.1.B', '3.1.C', '3.5.E'],
-  minutes: 50,
+  minutes: 51,
   clock: '08:30',
   objectives: [
     'Explain how a resolver turns a name into an address, and why it caches the answer with a TTL.',
