@@ -7,7 +7,8 @@ export const BANK_IP = '203.0.113.10';
 export const MORE_SPECIFIC = '203.0.113.0/25';
 export const LOGIN_BODY = 'user=alice&pass=correcthorse';
 
-export const FAKE_BANK: WebSite = { name: 'bank.example', title: 'Bank of Example', https: true, fake: true };
+/** Shady Net's copy of the bank. It can't know Alice's balance, so after sign-in it stalls like a real phishing page. */
+export const FAKE_BANK: WebSite = { name: 'bank.example', title: 'Bank of Example', https: true, fake: true, dashboard: "Sorry, we can't show your balance right now." };
 
 export const AS = { home: 100, west: 200, east: 300, bankhost: 400, shady: 666 };
 

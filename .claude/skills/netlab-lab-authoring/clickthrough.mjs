@@ -600,6 +600,23 @@ async function doMove(i, step, m) {
       if ((await sw.getAttribute('aria-checked')) === String(a.on)) await fail(i, `${name} is already ${a.on ? 'on' : 'off'}`);
       await sw.click();
       log(`  turn ${name} ${a.on ? 'on' : 'off'}`);
+    } else if (a.type === 'announce' || a.type === 'withdraw') {
+      // route-hijack: the Route announcer card. Type the prefix and press Announce, or Withdraw its row.
+      await tab('Toolkit');
+      const card = page.locator('.tool-card', { hasText: `Route announcer (${labels[a.device]})` });
+      if (a.type === 'announce') {
+        await card.getByLabel('Prefix to announce', { exact: true }).fill(a.prefix);
+        await card.getByRole('button', { name: 'Announce', exact: true }).click();
+        if (await card.locator('.tool-msg.bad').count()) await fail(i, `the announcer refused ${a.prefix}: ${await card.locator('.tool-msg.bad').innerText()}`);
+      } else await card.locator('li', { hasText: a.prefix }).getByRole('button', { name: 'Withdraw' }).click();
+      log(`  ${a.type} ${a.prefix} from ${labels[a.device]}`);
+    } else if (a.type === 'validate') {
+      // route-hijack: one switch per network on the Route origin validation card.
+      await tab('Toolkit');
+      const row = page.locator('.tool-card', { hasText: 'Route origin validation' }).locator('.tool-row', { hasText: labels[a.device] });
+      const sw = row.getByRole('switch');
+      if ((await sw.getAttribute('aria-checked')) !== String(a.on)) await sw.click();
+      log(`  validation on ${labels[a.device]}: ${a.on ? 'on' : 'off'}`);
     } else throw new Error(`clickthrough has no UI driver for tool action "${a.type}". Add one in doMove.`);
   } else if ('filter' in m) {
     await tab('Capture');

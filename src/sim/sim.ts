@@ -1275,13 +1275,26 @@ export class Sim {
     if (!dev.bgp) return;
     dev.bgp.validate = on;
     this.emit({ t: this.t, type: 'config', device: devId, what: 'validate', on });
-    if (!on) return;
+    if (!on) {
+      // Like a route refresh: the routes validation threw away are accepted again.
+      const rejected = dev.bgp.rejected ?? {};
+      dev.bgp.rejected = {};
+      for (const [nbId, routes] of Object.entries(rejected)) {
+        const adj = (dev.bgp.adjIn[nbId] ??= {});
+        for (const [prefix, path] of Object.entries(routes)) {
+          adj[prefix] = path;
+          this.bgpRecompute(dev, prefix);
+        }
+      }
+      return;
+    }
     for (const nb of dev.bgp.neighbors) {
       const adj = dev.bgp.adjIn[nb.device];
       if (!adj) continue;
       for (const [prefix, path] of Object.entries(adj)) {
         if (this.rov(prefix, path[path.length - 1]) === 'invalid') {
           delete adj[prefix];
+          ((dev.bgp.rejected ??= {})[nb.device] ??= {})[prefix] = path;
           this.emit({
             t: this.t,
             type: 'route-rejected',
@@ -1303,6 +1316,7 @@ export class Sim {
     if (!nb) return;
     const u = frame.bgp!;
     const adj = (b.adjIn[nb.device] ??= {});
+    if (b.rejected?.[nb.device]) delete b.rejected[nb.device][u.prefix];
     if (u.kind === 'withdraw' || u.path.includes(b.asn)) {
       if (adj[u.prefix]) {
         delete adj[u.prefix];
@@ -1321,6 +1335,7 @@ export class Sim {
           from: nb.device,
           reason: `AS${origin} is not allowed to announce ${u.prefix}`,
         });
+        ((b.rejected ??= {})[nb.device] ??= {})[u.prefix] = u.path;
         if (adj[u.prefix]) {
           delete adj[u.prefix];
           this.bgpRecompute(dev, u.prefix);

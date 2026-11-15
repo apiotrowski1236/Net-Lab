@@ -6,6 +6,9 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 const cache = new Map<string, string>();
 
+/** A label marked leaves alone: GFM would turn a URL or an email in it into a link, which inside a button takes the page away. */
+const plain = (s: string) => esc(s).replace(/[:.@]/g, (c) => `&#${c.charCodeAt(0)};`);
+
 const PLAY = '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" class="icon"><path d="M7 5 L19 12 L7 19 Z" fill="currentColor" stroke="none"/></svg>';
 
 /** The step's lesson buttons, for `[[button:actionId]]` in its body. `live` draws real buttons; otherwise the label in bold (the guide). */
@@ -34,8 +37,8 @@ export function renderMarkdown(src: string, labels: Record<string, string>, acti
       const label = actions?.labels[id];
       if (!label) return esc(id);
       return actions.live
-        ? `<button type="button" class="btn action inline-action" data-action="${esc(id)}">${PLAY} ${esc(label)}</button>`
-        : `<strong>${esc(label)}</strong>`;
+        ? `<button type="button" class="btn action inline-action" data-action="${esc(id)}">${PLAY} ${plain(label)}</button>`
+        : `<strong>${plain(label)}</strong>`;
     })
     .replace(/\[\[([A-Za-z0-9_-]+)\]\]/g, (_, id: string) =>
       labels[id] ? `<span class="chip" data-device="${esc(id)}" tabindex="0" role="button">${esc(labels[id])}</span>` : esc(id),

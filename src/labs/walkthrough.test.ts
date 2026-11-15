@@ -222,10 +222,29 @@ describe('route-hijack lab details', () => {
     playMove(s, { press: 'open-https' });
     expect(s.goalDone('rov', 'reject')).toBe(true);
     expect(s.goalDone('rov', 'real')).toBe(false);
-    // West then fixes it for everyone.
+    // With HomeNet and West both validating, Alice gets through, but that doesn't show which one did it.
     playMove(s, { tool: { type: 'validate', device: 'west', on: true } });
     playMove(s, { press: 'open-https' });
+    expect(s.goalDone('rov', 'real')).toBe(false);
+    // West alone fixes it for everyone.
+    playMove(s, { tool: { type: 'validate', device: 'home', on: false } });
+    playMove(s, { press: 'open-https' });
     expect(s.goalDone('rov', 'real')).toBe(true);
+  });
+
+  it('turning West off after both validated does not count, and the fake route comes back', () => {
+    const s = playThrough(lab, lab.steps.findIndex((x) => x.id === 'impersonate'));
+    s.goTo(s.progress.step + 1);
+    playMove(s, { tool: { type: 'validate', device: 'home', on: true } });
+    playMove(s, { tool: { type: 'validate', device: 'west', on: true } });
+    playMove(s, { press: 'open-https' });
+    expect(s.goalDone('rov', 'real')).toBe(false);
+    // Only HomeNet is left. The page Alice loaded before the change doesn't count.
+    playMove(s, { tool: { type: 'validate', device: 'west', on: false } });
+    expect(s.goalDone('rov', 'real')).toBe(false);
+    // West hears Shady Net's routes again, and HomeNet rejects them, so Alice has no route.
+    playMove(s, { press: 'open-https' });
+    expect(s.goalDone('rov', 'real')).toBe(false);
   });
 
   it('the AS path answer accepts common formats', () => {
@@ -487,8 +506,23 @@ describe('typed tool inputs', () => {
     const r = checkPrefix(sim, 'shady', '203.0.113.10/24');
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.suggest).toBe('203.0.113.0/24');
+    // A bare address gets an example that the next check accepts.
+    const bare = checkPrefix(sim, 'shady', '203.0.113.10');
+    expect(bare).toEqual({
+      ok: false,
+      msg: 'Add a prefix length after a slash. For example, 203.0.113.0/24 covers every address that starts with 203.0.113.',
+      suggest: '203.0.113.0/24',
+    });
     for (const junk of ['', '203.0.113.0', '203.0.113.0/33', 'bank', '0.0.0.0/0']) expect(checkPrefix(sim, 'shady', junk).ok, junk).toBe(false);
     expect(checkPrefix(sim, 'shady', '203.0.113.0/24')).toEqual({ ok: true, prefix: '203.0.113.0/24' });
+    // Once Shady Net announces the /24, a bare address doesn't suggest it again.
+    sim.announce('shady', '203.0.113.0/24');
+    const again = checkPrefix(sim, 'shady', '203.0.113.10');
+    expect(again.ok).toBe(false);
+    if (!again.ok) {
+      expect(again.suggest).toBeUndefined();
+      expect(again.msg).toContain('already announces 203.0.113.0/24');
+    }
   });
 
   it('any more-specific prefix that contains the bank finishes the "specific" step', () => {

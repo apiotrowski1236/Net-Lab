@@ -6,7 +6,7 @@ export const routeHijackSolution: LabSolution = {
   map: { moves: [{ inspect: 'home' }] },
   path: { moves: [{ press: 'open' }] },
   learn: { moves: [{ press: 'replay' }, { inspect: 'west' }], text: { 'west-path': '300 400' } },
-  hijack: { moves: [{ tool: { type: 'announce', device: 'shady', prefix: BANK_PREFIX } }, { inspect: 'home' }] },
+  hijack: { moves: [{ tool: { type: 'announce', device: 'shady', prefix: BANK_PREFIX } }, { inspect: 'west' }, { inspect: 'home' }] },
   blackhole: { moves: [{ press: 'open' }, { inspect: 'east' }] },
   specific: {
     moves: [{ tool: { type: 'announce', device: 'shady', prefix: MORE_SPECIFIC } }, { inspect: 'east' }],

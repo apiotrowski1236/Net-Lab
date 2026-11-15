@@ -138,6 +138,8 @@ export interface BgpState {
   sentTo: Record<string, Record<string, string>>;
   /** RPKI-style route origin validation: reject announcements whose origin AS isn't authorized. */
   validate: boolean;
+  /** Announcements rejected by validation, kept so turning validation off accepts them again. */
+  rejected?: Record<string, Record<string, number[]>>;
 }
 
 export interface Captured {

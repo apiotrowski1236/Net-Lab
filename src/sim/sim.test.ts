@@ -202,6 +202,28 @@ describe('internet routing (route hijack lab)', () => {
     expect(sim.dev('alice').browser?.fake).toBe(false);
   });
 
+  it('turning validation off accepts the rejected routes again', () => {
+    const sim = buildInternet();
+    sim.announce('shady', BANK_PREFIX);
+    sim.announce('shady', MORE_SPECIFIC);
+    sim.runUntilIdle();
+    sim.setValidation('west', true);
+    sim.runUntilIdle();
+    expect(pathAt(sim, 'home')).toEqual([200, 300, 400]);
+    sim.setValidation('west', false);
+    sim.runUntilIdle();
+    expect(pathAt(sim, 'home')).toEqual([200, 666]);
+    expect(pathAt(sim, 'east')).toEqual([200, 666]);
+    // A withdrawal while validating clears the remembered route too.
+    sim.setValidation('west', true);
+    sim.runUntilIdle();
+    sim.withdraw('shady', MORE_SPECIFIC);
+    sim.runUntilIdle();
+    sim.setValidation('west', false);
+    sim.runUntilIdle();
+    expect(pathAt(sim, 'east')).toEqual([400]);
+  });
+
   it('withdrawing the hijack restores the real path', () => {
     const sim = buildInternet();
     sim.announce('shady', BANK_PREFIX);
