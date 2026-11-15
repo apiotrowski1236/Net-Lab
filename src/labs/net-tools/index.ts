@@ -127,7 +127,7 @@ const watchButton: ActionDef = {
     const c = (sim.dev('pc2').conns ?? []).filter((x) => x.t >= since && x.to === IP.remote).pop();
     if (!c || c.status === 'pending') return [{ tone: 'wait', text: 'Public PC 2 is sending something…' }];
     if (c.status !== 'open') return [{ tone: 'bad', text: 'Public PC 2 tried to reach 203.0.113.66, but nothing came back.' }];
-    return [{ tone: 'good', text: 'Nobody is sitting at Public PC 2, but it sent packets out to the internet and got answers back.' }];
+    return [{ tone: 'good', text: 'Nobody is using Public PC 2, but it sent packets out to the internet and got answers back.' }];
   },
 };
 
@@ -259,7 +259,7 @@ export const netToolsLab: LabDef = {
 
         1. The **Terminal**, in the **Toolkit** tab, is already open there. Click [[pc1]] any time to jump back to it.
         2. Type \`ping 10.0.0.1\` and press Enter. That's the library router.
-        3. Then ping [[catalog]] at 10.0.0.20. Before the pings go, **ARP** asks the network "who has 10.0.0.20?" On the map, both computers get a tag that says **learned a MAC**: each now knows the other's hardware address, called a **MAC address**.
+        3. Then ping [[catalog]] at 10.0.0.20, and watch the map. Before the pings go, **ARP** asks the network "who has 10.0.0.20?" On the map, both computers get a tag that says **learned a MAC**: each now knows the other's hardware address, called a **MAC address**.
 
         Each reply line shows:
 
@@ -409,8 +409,8 @@ export const netToolsLab: LabDef = {
       body: md`
         Ticket 2: the e-book site, ebooks.example, won't load.
 
-        1. In the Terminal at [[pc1]], type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. A real technician has no map to show where the ping stopped. They use traceroute to find the spot.
-        2. Type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map.
+        1. In the Terminal at [[pc1]], type \`ping ebooks.example\`. **Request timed out** means no answer came back in time. (The **sent as** tag on [[router]] shows the library's internet address, which the router puts on every packet going out.)
+        2. To find where the packets stop, type \`traceroute ebooks.example\` (on Windows, \`tracert\`) and watch the map.
 
         traceroute sends packets with a small TTL. The router where the TTL hits 0 drops the packet and sends back a **time exceeded** message from its own address:
 
@@ -423,8 +423,7 @@ export const netToolsLab: LabDef = {
         Each line is one **hop**: a stop on the way.
 
         - Every line is a router, except the last line of a finished trace. That line is the site itself. (The internet provider, with the globe icon, is a router too.)
-        - \`*\` means nothing answered. Some routers ignore traceroute, so one \`*\` isn't proof.
-        - When the trace never gets past the \`*\` and pings fail too, the path is broken there.
+        - \`*\` means nothing answered. One \`*\` isn't proof, since some routers ignore traceroute. If the trace never gets past the \`*\` and pings fail too, the path is broken there.
 
         3. Answer **In the first trace, where is the problem?** below.
         4. Press [[button:call-isp]].
@@ -510,7 +509,7 @@ export const netToolsLab: LabDef = {
         Port 443 is the usual door for secure websites. A connection to a computer you don't know, on a port you don't recognize, is a warning sign.
 
         1. Press [[button:watch-pc2]] and watch the map.
-        2. The Terminal is sitting at Public PC 2. Type \`netstat -b\`.
+        2. The Terminal is now on Public PC 2. Type \`netstat -b\`.
         3. Find the line that doesn't belong. The map shows where each Foreign Address is.
         4. Press [[button:unplug-pc2]] to cut it off until IT can check it.
 
@@ -558,7 +557,7 @@ export const netToolsLab: LabDef = {
       id: 'permission',
       title: 'Permission first',
       body: md`
-        The library director wants to know what else on the network is open to attack. IT staff find out with a **port scan**: nmap knocks on common ports of every computer in a network and reports which ones open. Attackers run the same scans to pick targets, so a scan needs the owner's written permission first.
+        The library director wants to know what else on the network is open to attack. IT staff find out with a **port scan**: nmap knocks on common ports of every computer in a network and reports which ones are open. Attackers run the same scans to pick targets, so a scan needs the owner's written permission first.
 
         The director signs this letter:
 
@@ -711,7 +710,7 @@ export const netToolsLab: LabDef = {
         It's 4:40 p.m., inside the letter's time.
 
         1. First, press [[button:close-risky]].
-        2. Then scan again from [[laptop]] to check: \`nmap 10.0.0.0/24\`. nmap still knocks on ports 21 and 23, so you'll see those packets on the map, but they should be gone from the report.
+        2. Then scan the whole network again from [[laptop]] to check: \`nmap 10.0.0.0/24\`. nmap still knocks on ports 21 and 23, so you'll see those packets on the map, but they should be gone from the report.
 
         Checking a fix with the same tool that found the problem is how IT staff know the fix worked.
       `,

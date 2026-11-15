@@ -231,7 +231,7 @@ export function runMeaning(sim: Sim, devId: string, run: TermRun): string | unde
       const u = run.probes.find((p) => p.status === 'unreachable');
       if (u?.why === 'local') return `${me} couldn't send anything. Check its cable and its address.`;
       if (u?.why === 'host' && u.from && sim.deviceByIp(u.from)?.id === devId) {
-        return `${named}No device has the address ${ip}. ${me} asked its local network "who has ${ip}?" and nobody answered. The "Reply from" lines come from ${me} itself, reporting that it gave up.`;
+        return `${named}No device has the address ${ip}. ${me} asked its local network "who has ${ip}?" and nobody answered. The "Reply from" lines come from ${me} itself, reporting that it stopped trying.`;
       }
       if (u?.why === 'host') return `${named}${who(sim, u.from) ?? u.from} reached ${ip}'s network, but no device there has that address.`;
       if (u?.why === 'net') return `${named}${who(sim, u.from) ?? u.from} has no route to ${ip}'s network.`;
