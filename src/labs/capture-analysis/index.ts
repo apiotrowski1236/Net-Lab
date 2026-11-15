@@ -129,7 +129,7 @@ export const captureAnalysisLab: LabDef = {
   unit: 3,
   codehs: ['3.18 The Story in the Logs'],
   ced: ['3.5.E', '3.5.D', '3.1.C'],
-  minutes: 50,
+  minutes: 60,
   objectives: [
     'Use Statistics views (Endpoints, Conversations, and the I/O Graph) to find what stands out in a capture file.',
     'Read TCP flags to tell an open port, a closed port, and a port scan apart.',
@@ -158,10 +158,10 @@ export const captureAnalysisLab: LabDef = {
         [[switch]] has a **mirror port**: it sends a copy of every frame out one port, where [[analyst]] is plugged in. Each hour the laptop saved a one-minute **capture file**, a recording of packets you open later, like a .pcap file in Wireshark.
 
         1. Click [[switch]]. **Mirror port** is below its port tables.
-        2. Open the **Capture** tab. It shows **07:00 depot.pcap**, a normal morning. The **No.** column numbers every packet, and **Time** counts seconds from the start of the file. A packet keeps its number when a filter hides other rows, so analysts **cite** packets by number: they list the numbers in a report as proof.
+        2. Open the **Capture** tab. It shows **07:00 depot.pcap**, a normal morning. The **No.** column numbers every packet, and **Time** counts seconds from the start of the file.
         3. Press **Endpoints: IPv4**. It lists every IP address, with how many packets it sent and received, busiest first. **Bytes** counts how much data, so it can rank addresses in a different order.
 
-        A normal hour is the depot's **baseline**: once you know it, anything new stands out. 203.0.113.10 is not on the map. It's the bus-tracking map service on the internet, which dispatch checks all day.
+        A normal hour is the depot's **baseline**: once you know it, anything new stands out. (203.0.113.10 is the bus-tracking map service on the internet, which dispatch checks all day.)
       `,
       focus: ['switch', 'analyst'],
       tools: [files('morning')],
@@ -204,6 +204,8 @@ export const captureAnalysisLab: LabDef = {
         \`tcp.flags.reset == 1\`
 
         It shows only packets with the RST flag on. Read the Source column: who is saying no? Then clear the filter and look at what comes right before a reset.
+
+        A packet keeps its number when a filter hides other rows, so analysts **cite** packets by number: they list the numbers in a report as proof.
       `,
       open: 'capture',
       focus: ['fares', 'kiosk1', 'kiosk2', 'kiosk3'],
@@ -270,7 +272,7 @@ export const captureAnalysisLab: LabDef = {
 
         The matching packets turn darker on the graph, so you can see the filter covers the spike. An **echo request** is a ping, and an **echo reply** answers it. To list only the requests, filter \`icmp.type == 8\`.
 
-        The requests go to 198.51.100.255, the depot's **broadcast address**, so every depot computer gets a copy and replies. Pings sent to a broadcast address like this are a **smurf attack**. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
+        The requests go to 198.51.100.255, the depot's **broadcast address**, so every depot computer gets a copy. Each one sends its echo reply to the address in the request's Source column. Pings sent to a broadcast address like this are a **smurf attack**. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
 
         Now read the Source. Anyone who builds a packet can write any address there. Faking it is called **spoofing**, and the fake address is **forged**.
       `,
@@ -319,7 +321,7 @@ export const captureAnalysisLab: LabDef = {
             },
           ],
           explain:
-            'In a smurf attack, the victim’s address is forged as the source. Every computer replies to the victim, so one packet becomes nine. The depot was the amplifier, and its slow lunch was a side effect. Modern routers turn directed broadcast off by default, and most computers ignore broadcast pings, but this old router and its computers don’t.',
+            'In a smurf attack, the victim’s address is forged as the source. Every computer replies to the victim, so one packet becomes nine. The depot was the **amplifier**, the network that multiplied the attack, and its slow lunch was a side effect. Modern routers turn directed broadcast off by default, and most computers ignore broadcast pings, but this old router and its computers don’t.',
         },
       ],
     },
@@ -363,7 +365,7 @@ export const captureAnalysisLab: LabDef = {
             { id: 'tn', text: 'A true negative', feedback: 'A true negative is no alert for harmless traffic. Here the detector did alert.' },
           ],
           explain:
-            'One known pair, one port, the backup program, and a steady stream of full-size packets: it’s most likely the nightly backup, started early. A spike alone doesn’t prove an attack, so this alert is a **false positive**. Too many of them, and analysts start ignoring alerts. (rsync on port 873 doesn’t encrypt what it copies. That’s a weakness worth fixing, but it isn’t an attack.)',
+            'One known pair, the backup program’s port, and a steady stream of full-size packets: this is a backup, not an attack. Backups here run at night, so it’s worth asking who ran this one at lunch. A spike alone doesn’t prove an attack, so this alert is a **false positive**. Too many of them, and analysts start ignoring alerts. (rsync on port 873 doesn’t encrypt what it copies. That’s a weakness worth fixing, but it isn’t an attack.)',
         },
       ],
     },
@@ -378,7 +380,7 @@ export const captureAnalysisLab: LabDef = {
 
         A **MAC address** is the hardware name of a network card, like 08:00:27:4c:9d:e2. An IP address is where a device sits on the network. An **ARP reply** connects the two: it tells a computer "this IP address is at this MAC address." The Info column shows each claim, and the Source column shows the MAC that sent it. Open a reply to read its whole **Claim** in the ARP layer.
 
-        The router is 198.51.100.1. Click [[gw]] to see its real MAC address. Do all the replies agree with it? Write down a MAC that doesn't match. To find whose it is, read the router's **ARP table**: its list of which IP is at which MAC, with each device's name. Many MACs here start with the same numbers, so compare the last part.
+        The router is 198.51.100.1. Click [[gw]] to see its real MAC address. Do all the replies agree with it? Write down a MAC that doesn't match. To find whose it is, read the router's **ARP table**, at the bottom of its Inspect panel: its list of which IP is at which MAC, with each device's name. Many MACs here start with the same numbers, so compare the last part.
 
         A computer believes any ARP reply, unless its entry for the router was typed in by hand. That is a **static ARP entry**, and no reply can change it.
       `,
@@ -531,15 +533,17 @@ export const captureAnalysisLab: LabDef = {
       id: 'c2',
       title: 'Wrong port, wrong program',
       body: md`
-        **02:00 depot.pcap** is open. It's from early this morning. Nobody works at the depot at 2 a.m., so almost everything here is a machine on a schedule. Open **Conversations** to see who talked.
-
-        One pair is the nightly backup. The other is [[cams]] talking to an outside address on port 4444. Compare that address with the threat list in the ticket:
+        **02:00 depot.pcap** is open. It's from early this morning, when nobody works at the depot. Open **Conversations**. One pair is the nightly backup. The other is [[cams]] talking to an outside address on port 4444. Compare that address with the threat list in the ticket:
 
         > 192.0.2.44, 198.18.5.9, 203.0.113.250
 
-        Web traffic normally uses port 80 (HTTP) or 443 (HTTPS). Port 4444 is the default for a well-known attack tool. A known bad address and a program on the wrong port are both **indicators of compromise** (IoCs). Here "compromised" means broken into: an IoC is evidence in traffic or logs that an attack happened.
+        The recorder makes a **check-in** every ten seconds: a new connection that asks the server for orders. Filter to the check-ins:
 
-        Click one of the recorder's packets and press **Follow TCP Stream**. It puts one connection in order: what the recorder sent in one color, and what came back in another. The recorder makes a **check-in** every ten seconds: a new connection that asks the server for orders. Each check-in has its own stream. Follow them until you find two different commands. To list every check-in, filter to \`tcp.port == 4444 && http\`.
+        \`tcp.port == 4444 && http\`
+
+        Click one and press **Follow TCP Stream**. It puts one connection in order: what the recorder sent in one color, and what came back in another. Each check-in has its own stream. Follow them until you find two different commands. A reply with a different Length is a good one to try.
+
+        Web traffic normally uses port 80 (HTTP) or 443 (HTTPS). Port 4444 is the default for a well-known attack tool. A known bad address and a program on the wrong port are both **indicators of compromise** (IoCs). Here "compromised" means broken into: an IoC is evidence in traffic or logs that an attack happened.
       `,
       open: 'capture',
       focus: ['cams'],
@@ -570,7 +574,7 @@ export const captureAnalysisLab: LabDef = {
                     ? 'is the server confirming the upload, not a command. A command reply has cmd= in it.'
                     : true,
           explain:
-            'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. One reply said to upload a garage camera video, and the next connection sent it. A firewall rule on the router that denies traffic out to 192.0.2.44 would cut it off.',
+            'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. One reply said to upload a garage camera video, and the next connection sent it. A firewall rule on the router that denies traffic out to 192.0.2.44 would cut it off, but the recorder still needs to be wiped and set up again.',
         }),
       ],
     },
@@ -663,7 +667,7 @@ export const captureAnalysisLab: LabDef = {
           id: 'writeup',
           kind: 'text',
           prompt:
-            'Pick one attack you found today. Name it, cite the packet numbers that prove it, and say what in those packets shows the attack. Then explain why a capture is stronger evidence than a staff member saying “the network was slow.”',
+            'Pick one attack you found today.\n\n- Name it.\n- Cite the packet numbers that prove it.\n- Say what in those packets shows the attack.\n- Explain why a capture is stronger evidence than a staff member saying “the network was slow.”',
           minWords: 40,
           lines: 7,
         },
@@ -687,13 +691,13 @@ export const captureAnalysisLab: LabDef = {
         Two of the attacks can be stopped right here, on the live depot network. **Port security** limits how many MACs one switch port may use.
 
         1. **The MAC flood.** Click [[switch]]. In **Ports and port security**, press **Edit** on **port 7**, the [[breakroom]]'s port. Turn port security on with its switch (not the **Shut port down** button), keep **Most MACs** at 1, keep **If another MAC shows up** on **Shut the port down**, and press **Save port 7**.
-        2. **The C2 traffic.** Click [[gw]] and press **Add a rule**: **deny**, direction **out**, any protocol, destination 192.0.2.44, port **any**. Press **Add rule**.
-        3. The router checks its rules from the top. Use the arrows to move your rule above **allow out**.
+        2. **The C2 traffic.** Click [[gw]] and press **Add a rule**: **deny**, direction **out**, protocol **any**, destination 192.0.2.44, port **any**. Press **Add rule**.
+        3. The router checks its rules from the top. Use the arrows to move your rule above **allow out**, the out rule named **Depot to the internet**.
         4. Press **Start** in the Capture tab to capture live on [[analyst]]. Then press each button below and watch what happens. Each button replays a short sample of that attack.
 
         If port security stops the flood, the capture stays empty: the frames never get past port 7. The check-in is different. The capture still shows the recorder's first SYN, because the switch copies it to the mirror port before the router drops it.
 
-        (The **allow in** rule, from anywhere, is how the 15:00 scan reached the fare server. Closing it is a job for another lab.)
+        (The in rule, **Lets everything in**, is how the 15:00 scan reached the fare server. Closing it is a job for another lab.)
       `,
       open: { inspect: 'switch' },
       focus: ['switch', 'breakroom', 'gw', 'cams'],
@@ -752,7 +756,7 @@ export const captureAnalysisLab: LabDef = {
       body: md`
         At 16:00 someone signed in to [[gw]] with **Telnet**, an old remote sign-in program that sends everything as plain text, passwords included.
 
-        Open **16:00 depot.pcap**, filter to \`telnet\`, open a packet, and follow its TCP stream. (Real Telnet sends each key press in its own packet. This file puts each line in one, to keep it short.)
+        **16:00 depot.pcap** is open. Filter to \`telnet\`, open a packet, and follow its TCP stream. (Real Telnet sends each key press in its own packet. This file puts each line in one, to keep it short.)
       `,
       open: 'capture',
       focus: ['gw', 'dispatch2'],

@@ -6937,6 +6937,13 @@ button.pl-tile:active {
 .capfile-sort:hover {
   color: var(--ink);
 }
+/* The whole heading sorts, not only its words (capture-analysis panel: a click on the cell's edge did nothing). */
+.capfile-sort {
+  width: 100%;
+}
+th.num .capfile-sort {
+  justify-content: flex-end;
+}
 .capfile-arrow {
   display: inline-flex;
 }
