@@ -22,6 +22,8 @@ export const IP = {
 
 const GRADES_PAGE = 'Sign in with your district account to see your grades.';
 const GRADES_DASHBOARD = 'Your grades are posted for this term.';
+/** Mallory's page keeps up the act after it saves the password, so nobody suspects. */
+const FAKE_DASHBOARD = 'Grades are being updated right now. Check back later.';
 
 export const GRADEBOOK: WebSite = {
   name: SITE,
@@ -38,17 +40,17 @@ export const LOOKALIKE: WebSite = {
   https: false,
   fake: true,
   page: GRADES_PAGE,
-  dashboard: GRADES_DASHBOARD,
+  dashboard: FAKE_DASHBOARD,
 };
 
 export const ALICE_LOGIN = 'user=alice&pass=tigers2014';
 export const TEACHER_LOGIN = 'user=mr.ruiz&pass=gradebook!7';
 
-/** How long the resolver keeps an answer (5 minutes of simulated time). */
-export const TTL_MS = 300_000;
+/** How long the resolver keeps an answer (10 minutes of simulated time). */
+export const TTL_MS = 600_000;
 
 export function buildDistrict(): Sim {
-  const net = new NetBuilder({ linkMs: 520, procMs: 120, httpTimeoutMs: 30_000, autoArp: true })
+  const net = new NetBuilder({ linkMs: 320, procMs: 80, httpTimeoutMs: 30_000, autoArp: true })
     .host('alice', { label: 'Alice', sublabel: 'student', icon: 'laptop', x: 90, y: 110, ip: `${IP.alice}/24`, gateway: IP.gw, dns: IP.resolver })
     .host('ben', { label: 'Ben', sublabel: 'student', icon: 'laptop', x: 90, y: 300, ip: `${IP.ben}/24`, gateway: IP.gw, dns: IP.resolver })
     .host('teacher', { label: 'Mr. Ruiz', sublabel: 'teacher', icon: 'desktop', x: 90, y: 490, ip: `${IP.teacher}/24`, gateway: IP.gw, dns: IP.resolver })
@@ -56,18 +58,18 @@ export function buildDistrict(): Sim {
       label: 'District resolver',
       sublabel: IP.resolver,
       icon: 'server',
-      x: 260,
+      x: 470,
       y: 110,
       ip: `${IP.resolver}/24`,
       gateway: IP.gw,
       resolver: { upstream: IP.ns, ttl: TTL_MS },
     })
-    .switch('lan', { label: 'School switch', icon: 'switch', x: 260, y: 320 })
+    .switch('lan', { label: 'School switch', icon: 'switch', x: 470, y: 320 })
     .router('gw', {
       label: 'School router',
       sublabel: IP.gw,
       icon: 'router',
-      x: 440,
+      x: 650,
       y: 320,
       ifaces: [
         { id: 'lan', ip: `${IP.gw}/24` },
@@ -78,7 +80,7 @@ export function buildDistrict(): Sim {
     .router('inet', {
       label: 'The internet',
       icon: 'cloud',
-      x: 630,
+      x: 830,
       y: 320,
       ifaces: [
         { id: 'school', ip: '100.64.0.1/30' },
@@ -90,20 +92,20 @@ export function buildDistrict(): Sim {
     })
     .host('ns', {
       label: 'Name server',
-      sublabel: `authority for ${SITE}`,
+      sublabel: IP.ns,
       icon: 'server',
-      x: 820,
+      x: 1010,
       y: 110,
       ip: `${IP.ns}/24`,
       gateway: '192.0.2.1',
       dnsZone: { [SITE]: IP.grades },
     })
-    .host('grades', { label: 'Gradebook', sublabel: IP.grades, icon: 'server', x: 820, y: 320, ip: `${IP.grades}/24`, gateway: '203.0.113.1', web: GRADEBOOK })
+    .host('grades', { label: 'Gradebook', sublabel: IP.grades, icon: 'server', x: 1010, y: 320, ip: `${IP.grades}/24`, gateway: '203.0.113.1', web: GRADEBOOK })
     .host('evil', {
-      label: 'Mallory',
+      label: "Mallory's server",
       sublabel: IP.evil,
       icon: 'attacker',
-      x: 820,
+      x: 1010,
       y: 500,
       ip: `${IP.evil}/24`,
       gateway: '198.51.100.1',
@@ -161,6 +163,23 @@ export function primeCache(sim: Sim): void {
 }
 
 /**
+ * Let time pass until the resolver's answer for the gradebook runs out, as if
+ * Mallory waited for it. A fresh answer keeps the resolver from asking the name
+ * server, so no forged answer can get in until then. The stale entry stays in
+ * the table (marked expired), so the poisoning still logs what it replaced.
+ */
+export function expireRecord(sim: Sim): void {
+  const e = freshEntry(sim.dev('resolver').resolver!, SITE, sim.t);
+  if (e) sim.advanceTo(e.at + e.ttl + 1000);
+}
+
+/** Step 5's setup: the real answer is cached, and its TTL has run out. */
+export function primeAndExpire(sim: Sim): void {
+  primeCache(sim);
+  expireRecord(sim);
+}
+
+/**
  * Poison the resolver so grades.example resolves to Mallory's server. Leaves an
  * already-poisoned cache untouched, so re-entering a later step does not churn
  * the resolver log with extra flush-and-repoison lines.
@@ -168,7 +187,7 @@ export function primeCache(sim: Sim): void {
 export function ensurePoisoned(sim: Sim): void {
   const r = sim.dev('resolver').resolver!;
   if (freshEntry(r, SITE, sim.t)?.ip === IP.evil) return;
-  primeCache(sim); // establish the real answer first, so the poison shows as a change
+  primeAndExpire(sim); // the real answer first, so the poison shows as a change
   sim.forgeDnsAnswer('evil', 'resolver', SITE, IP.evil);
   sim.runUntilIdle();
 }

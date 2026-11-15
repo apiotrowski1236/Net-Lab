@@ -33,7 +33,7 @@ export function ResolverDefense({ session, spec }: ToolCardProps<'resolver-defen
         <Icon name="reset" /> Flush the cache
       </button>
       <div class="small muted">
-        {names.length ? `Cached now: ${names.join(', ')}` : 'Cache is empty.'}
+        {names.length ? `Cached now: ${names.map((n) => `${n} = ${r!.cache[n].ip}`).join(', ')}` : 'Cache is empty.'}
       </div>
     </div>
   );
