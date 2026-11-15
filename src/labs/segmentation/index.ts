@@ -45,6 +45,11 @@ const install = (label: string): ActionDef => ({ id: 'install', label, run: (sim
 const deny = (e: LogEntry) => e.fields?.action === 'deny';
 const fromCrew = (e: LogEntry) => prefixContains(NET.crew, String(e.fields?.src ?? ''));
 const blockedProbe = (e: LogEntry) => deny(e) && e.fields?.dport === 445 && fromCrew(e);
+/**
+ * A blocked probe from Crew laptop 2 or the media server. Step 6's tests only ran from Crew laptop 1,
+ * so a test pressed just before Continue, whose deny lands in step 7, can't stand in for the malware.
+ */
+const spreadProbe = (sim: Sim) => (e: LogEntry) => blockedProbe(e) && (e.fields?.src === sim.ipOf('crew2') || e.fields?.src === sim.ipOf('media'));
 
 /** The event is a connection from `device` to `to` on `port` that ended, and it matches. */
 const connEnded = (ev: unknown, sim: Sim, device: string, to: string, port: number, pred: (c: Conn) => boolean): boolean => {
@@ -620,7 +625,7 @@ export const segmentationLab: LabDef = {
           hint: 'Press **Crew laptop 1 installs the game**.',
           check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'malware-infected' && e.device === 'crew2'),
         },
-        { id: 'blocked', label: '[[fw]] blocks the malware’s probes', check: ({ sim, since }) => loggedSince(sim, 'fw', since, blockedProbe) },
+        { id: 'blocked', label: '[[fw]] blocks the malware’s probes', check: ({ sim, since }) => loggedSince(sim, 'fw', since, spreadProbe(sim)) },
         {
           id: 'clean',
           label: 'Weapons and Operations stay clean',
@@ -631,7 +636,7 @@ export const segmentationLab: LabDef = {
           id: 'log',
           label: 'Open one of the malware’s blocked probes in [[fw]]’s log',
           hint: 'In the **Logs** tab, click a DENY line to port 445 from Crew laptop 2 (10.0.30.32) or the media server (10.0.30.33).',
-          check: ({ ev, since }) => ev?.type === 'ui:open-log' && ev.entry.device === 'fw' && ev.entry.t >= since && blockedProbe(ev.entry),
+          check: ({ sim, ev, since }) => ev?.type === 'ui:open-log' && ev.entry.device === 'fw' && ev.entry.t >= since && spreadProbe(sim)(ev.entry),
         },
       ],
       questions: [

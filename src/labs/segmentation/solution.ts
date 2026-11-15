@@ -1,7 +1,6 @@
-import { prefixContains } from '../../sim/addr';
 import type { PolicyValue } from '../../sim/zonePolicy';
 import type { LabSolution, Move } from '../solution';
-import { INSIDE, NET, SW_PORTS, VLAN, ZONE_OF, ZONES, type ZoneId } from './scenario';
+import { INSIDE, SW_PORTS, VLAN, ZONE_OF, ZONES, type ZoneId } from './scenario';
 
 const RECOMMEND =
   'Weapons should be High. Keep it in its own VLAN and subnet and let in only target data from Operations, because a hacked weapons console could change or block targeting. ' +
@@ -58,7 +57,7 @@ export const segmentationSolution: LabSolution = {
   contain: {
     moves: [
       { press: 'install' },
-      { openLog: 'fw', where: (e) => e.fields?.action === 'deny' && e.fields?.dport === 445 && prefixContains(NET.crew, String(e.fields?.src ?? '')) },
+      { openLog: 'fw', where: (e) => e.fields?.action === 'deny' && e.fields?.dport === 445 && ['10.0.30.32', '10.0.30.33'].includes(String(e.fields?.src)) },
     ],
   },
   jack: {

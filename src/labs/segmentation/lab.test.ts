@@ -243,6 +243,33 @@ describe('segmentation lab', () => {
     }
   });
 
+  it('step 7: a step 6 test pressed just before Continue does not count as the malware’s probe', () => {
+    const s = fresh();
+    for (let i = 0; i < index('policy'); i++) {
+      playStep(s, sol[s.step.id]);
+      s.goTo(i + 1);
+    }
+    playStep(s, sol[s.step.id]);
+    expect(s.step.id).toBe('policy');
+    // Press the file-share test and continue before its deny lands.
+    s.runStepAction('crew-share');
+    s.goTo(index('policy') + 1);
+    expect(s.step.id).toBe('contain');
+    s.sim.runUntilIdle();
+    const late = s.sim.dev('fw').logs.find((e) => e.t >= s.since && e.fields?.action === 'deny' && e.fields?.dport === 445);
+    expect(late, 'the test’s deny lands in step 7').toBeTruthy();
+    s.ui({ type: 'ui:open-log', device: 'fw', entry: late! });
+    s.missing();
+    expect(s.goalDone('contain', 'blocked')).toBe(false);
+    expect(s.goalDone('contain', 'log')).toBe(false);
+    s.runStepAction('install');
+    s.sim.runUntilIdle();
+    playStep(s, sol.contain);
+    s.missing();
+    expect(s.goalDone('contain', 'blocked')).toBe(true);
+    expect(s.goalDone('contain', 'log')).toBe(true);
+  });
+
   it('step 7’s log goal takes only a probe from this step, not a step 6 test line', () => {
     const s = playTo('policy');
     expect(s.step.id).toBe('contain');
