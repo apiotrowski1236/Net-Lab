@@ -340,7 +340,7 @@ export const macFloodLab: LabDef = {
           placeholder: 'First and last name',
           expect: /jordan/i,
           expectHint: 'Open the attendance frame and read the path in the HTTP request.',
-          explain: 'Jordan Lee. The absence list and the reason were in the request as **plain text**, readable by anyone. **HTTPS** encrypts web traffic. With HTTPS, Mallory would still capture the frame, but she would see only scrambled data.',
+          explain: 'Jordan Lee. The absence list and the reason were in the request as **plain text**, readable by anyone. **HTTPS** encrypts web traffic. With HTTPS, Mallory would still capture the frame and see which computers were talking, but the request and the absence list would be scrambled.',
         },
       ],
     },
@@ -527,7 +527,7 @@ export const macFloodLab: LabDef = {
       title: 'Close the doors',
       setup: ensurePrinterBack,
       body: md`
-        Mallory unplugged her laptop and put the [[printer]] back on its cable. MAC filtering let all her frames through. The switch's log noticed something else.
+        Mallory unplugged her laptop and put the [[printer]] back on its cable. Once her laptop used the printer's MAC, MAC filtering let her frames through. The switch's log noticed something else.
 
         Open the **Logs** tab and type port 5 in the **Search** box. Click a **warning** that says port 5 changed state to **down**. There are two, and both are Mallory unplugging a cable. A printer that goes offline and comes back is a reason to check on it.
 
