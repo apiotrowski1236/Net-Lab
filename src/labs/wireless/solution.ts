@@ -58,7 +58,7 @@ export const wirelessSolution: LabSolution = {
   reflect: {
     text: {
       summary:
-        'The shelter Wi-Fi uses WPA2 encryption with a new long passphrase and WPS turned off, so no one in range can read the traffic or guess the key, which stops the parking-lot eavesdropping and cracking. Each family signs in with a per-user login (EAP), so a copied MAC address or the shared password is not enough to join, which stops Mallory getting back on. The signal power is turned down to keep the coverage inside the gym, and the beacon is hidden as a small extra. We also cut the rogue access point off the hallway jack.',
+        'The shelter Wi-Fi uses WPA2 encryption with a new long passphrase and WPS turned off, so no one in range can guess the key, and only someone who already has the passphrase could read the traffic, which stops the parking-lot eavesdropping and cracking. Each family signs in with a per-user login (EAP), so a copied MAC address or the shared password is not enough to join, which stops Mallory getting back on. The signal power is turned down to keep the coverage inside the gym, and the beacon is hidden as a small extra. We also cut the rogue access point off the hallway jack.',
     },
   },
 

@@ -81,16 +81,21 @@ const familiesInRange = (sim: Sim) => FAMILIES.every((f) => sim.dev(f).wifiClien
 const scannedFrom = (device: string) => (sim: Sim, since: number) =>
   happened(sim, since, (e) => e.type === 'wifi' && e.what === 'scan' && e.device === device);
 
-/** A scan from Mallory after the name was hidden (and it is still hidden). */
+/**
+ * A scan from Mallory after the name was hidden (and it is still hidden). A name hidden before the
+ * step began, say while exploring step 3, counts from the step's start.
+ */
 function scannedHidden(sim: Sim, since: number): boolean {
   if (sim.dev('wap').wifi?.beacon !== false) return false;
-  let hidAt = -1;
-  for (const e of sim.events) {
-    if (e.t < since) continue;
-    if (e.type === 'config' && e.what === 'wifi-beacon' && e.device === 'wap' && !e.on) hidAt = e.t;
-    else if (hidAt >= 0 && e.t >= hidAt && e.type === 'wifi' && e.what === 'scan' && e.device === 'mallory') return true;
+  let hidAt = since;
+  for (let i = sim.events.length - 1; i >= 0; i--) {
+    const e = sim.events[i];
+    if (e.type === 'config' && e.what === 'wifi-beacon' && e.device === 'wap') {
+      hidAt = Math.max(since, e.t);
+      break;
+    }
   }
-  return false;
+  return happened(sim, hidAt, (e) => e.type === 'wifi' && e.what === 'scan' && e.device === 'mallory');
 }
 
 export const wirelessLab: LabDef = {
@@ -311,7 +316,9 @@ export const wirelessLab: LabDef = {
           hint: 'WPA3, or WPA2 with a long passphrase, and WPS off either way. If Mallory broke in before, save a new passphrase. Families get it automatically.',
           check: ({ sim }) => {
             const ap = sim.dev('wap').wifi;
-            return !!ap && !crack(ap, sim.dev('mallory').wifiClient?.passphrase).ok && familiesInRange(sim);
+            // The first WPA counts as weak here, as the lesson teaches, even where the cracker can't break it.
+            const modern = ap?.security === 'wpa2' || ap?.security === 'wpa3';
+            return !!ap && modern && !crack(ap, sim.dev('mallory').wifiClient?.passphrase).ok && familiesInRange(sim);
           },
         },
       ],

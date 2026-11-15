@@ -195,6 +195,43 @@ describe('wireless lab', () => {
     expect(copy.outcome!(s.sim, 0)[0].tone).toBe('good');
   });
 
+  it('step 4: a name hidden in step 3 still lets the scan goal finish', () => {
+    const s = new LabSession(wirelessLab, freshProgress());
+    const at = wirelessLab.steps.findIndex((st) => st.id === 'hide');
+    for (let i = 0; i < at - 1; i++) {
+      playStep(s, wirelessSolution[s.step.id]);
+      s.goTo(i + 1);
+    }
+    playStep(s, wirelessSolution[s.step.id]);
+    s.dispatch({ type: 'wifi-beacon', device: 'wap', on: false });
+    s.sim.advance(5000);
+    s.goTo(at);
+    s.sim.advance(5000);
+    s.dispatch({ type: 'wifi-scan', device: 'mallory' });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('hide', 'hidden')).toBe(true);
+    expect(s.goalDone('hide', 'rescan')).toBe(true);
+  });
+
+  it('step 5: the first WPA with a long passphrase and WPS off does not count as a lock Mallory cannot break', () => {
+    const s = new LabSession(wirelessLab, freshProgress());
+    const at = wirelessLab.steps.findIndex((st) => st.id === 'lock');
+    for (let i = 0; i < at; i++) {
+      playStep(s, wirelessSolution[s.step.id]);
+      s.goTo(i + 1);
+    }
+    s.dispatch({ type: 'wifi-security', device: 'wap', security: 'wpa', passphrase: STRONG_PASS });
+    s.dispatch({ type: 'wifi-wps', device: 'wap', on: false });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('lock', 'holds')).toBe(false);
+    s.dispatch({ type: 'wifi-security', device: 'wap', security: 'wpa2', passphrase: STRONG_PASS });
+    s.sim.runUntilIdle();
+    s.missing();
+    expect(s.goalDone('lock', 'holds')).toBe(true);
+  });
+
   it('family sign-in: capture turned on after the login went by says it missed', () => {
     const s = new LabSession(wirelessLab, freshProgress());
     const at = wirelessLab.steps.findIndex((st) => st.id === 'heard');
