@@ -288,7 +288,7 @@ describe('firewall-types steps', () => {
     expect(lines(s, 'exploit')).toEqual(['good: Firewall A blocked the request: intrusion prevention found SQL injection inside. The attacker’s browser waits, then gives up.']);
     const alert = s.sim.dev('fwA').logs.at(-1)!;
     expect(alert.level).toBe('alert');
-    expect(alert.msg).toContain('ips signature sql-injection (rule 3 allowed the port)');
+    expect(alert.msg).toContain('ips signature sql-injection (rule 3 would allow it)');
     expect(alert.fields?.signature).toBe('sql-injection');
     // An ordinary booking still works.
     expect(browse(s.sim, 'clinic', `https://${HOSPITAL_SITE}/appointments?id=7`).status).toBe('loaded');
@@ -439,6 +439,101 @@ describe('firewall-types steps', () => {
     play(s, { press: 'desk' });
     expect(done(s, 'desk')).toBe(false);
     expect(lines(s, 'desk')[0]).toMatch(/^bad: Branch router blocked the reply/);
+  });
+
+  it('"Choose A and B": rules that block the attacker\'s address don\'t pass a stateful Firewall A', () => {
+    const s = openAt('choose');
+    const top = (rule: Parameters<Sim['fwAddRule']>[1]) => {
+      play(s, { tool: { type: 'fw-add-rule', device: 'fwA', rule } });
+      play(s, { tool: { type: 'fw-move-rule', device: 'fwA', id: s.sim.dev('fwA').firewall!.rules.at(-1)!.id, to: 0 } });
+    };
+    top({ dir: 'in', proto: 'any', src: ATTACKER, dst: 'any', dport: 'any', action: 'deny' });
+    top({ dir: 'out', proto: 'any', src: 'any', dst: ATTACKER, dport: 'any', action: 'deny' });
+    play(s, { press: 'tests' });
+    expect(lines(s, 'tests')).toEqual([
+      'good: Cost: Firewall A stateful ($10,000) + Firewall B stateful ($10,000) = $20,000. Budget: $40,000.',
+      'bad: Fail (Firewall A): Firewall A blocked the remote-control program by its header (address or port), not by naming the program. The program can switch to a new address or port, so Firewall A has to block the program itself.',
+      'bad: Fail (Firewall A): Firewall A blocked the booking lookup by its header (address or port), not by the attack inside it. The attacker can switch to a new address, so Firewall A has to spot the attack itself.',
+      'good: Pass (Firewall A): The branch front desk opens the web app.',
+      'good: Pass (Firewall B): The nurse station opens the clinic portal.',
+      'good: Pass (Firewall B): A hacked web server can’t reach the patient records, even from port 443.',
+      'good: Pass (Firewall B): A fake reply that claims to come from the clinic portal can’t reach the nurse station.',
+    ]);
+    expect(done(s, 'a')).toBe(false);
+    expect(done(s, 'budget')).toBe(false);
+    // The same rules on a next-generation Firewall A pass: it would stop the program and the attack from any address.
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } }, { press: 'tests' });
+    expect(lines(s, 'tests').filter((l) => l.startsWith('bad'))).toEqual([]);
+    expect(done(s, 'a')).toBe(true);
+    expect(done(s, 'budget')).toBe(true);
+  });
+
+  it('"Choose A and B": a port block or a next-generation A without intrusion prevention doesn\'t pass either', () => {
+    // A port 8443 rule stops this run's program, and an address rule this run's attack.
+    const s = openAt('choose');
+    for (const rule of [
+      { dir: 'out', proto: 'tcp', src: 'any', dst: 'any', dport: ODD_PORT, action: 'deny' },
+      { dir: 'in', proto: 'any', src: ATTACKER, dst: 'any', dport: 'any', action: 'deny' },
+    ] as const) {
+      play(s, { tool: { type: 'fw-add-rule', device: 'fwA', rule } });
+      play(s, { tool: { type: 'fw-move-rule', device: 'fwA', id: s.sim.dev('fwA').firewall!.rules.at(-1)!.id, to: 0 } });
+    }
+    play(s, { press: 'tests' });
+    expect(lines(s, 'tests').filter((l) => l.startsWith('bad: Fail (Firewall A)'))).toHaveLength(2);
+    expect(done(s, 'a')).toBe(false);
+    // Next-generation now, but with intrusion prevention turned off back in "Look inside": the address rule still does the attack test's work.
+    s.goTo(index('inspect'));
+    play(s, { tool: { type: 'fw-ips', device: 'fwA', on: false } });
+    s.goTo(index('choose'));
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } }, { press: 'tests' });
+    expect(lines(s, 'tests').filter((l) => l.startsWith('bad'))).toEqual([
+      'bad: Fail (Firewall A): Firewall A blocked the booking lookup by its header (address or port), not by the attack inside it. The attacker can switch to a new address, so Firewall A has to spot the attack itself.',
+    ]);
+    expect(done(s, 'a')).toBe(false);
+  });
+
+  it('"Choose A and B": a run is judged by the firewall as it was when the run started', () => {
+    const s = openAt('choose');
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } }, { press: 'tests' });
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateful' } });
+    // The old run's lines still say what happened in it.
+    expect(lines(s, 'tests').filter((l) => l.startsWith('bad'))).toEqual([]);
+  });
+
+  it('"Choose A and B" after the optional step: the branch router\'s block is named, and Firewall A isn\'t blamed', () => {
+    const s = openAt('branch');
+    s.goTo(index('choose'));
+    play(s, { press: 'tests' });
+    const out = lines(s, 'tests');
+    expect(out).toContain(
+      'bad: Fail (Branch router): The branch front desk couldn’t open the web app. The branch router blocked the reply, so this test can’t check Firewall A. To fix the branch router, finish the optional step at the end of the lab.',
+    );
+    expect(out.filter((l) => l.startsWith('bad: Fail (Firewall A)'))).toEqual([]);
+    expect(out.filter((l) => l.includes('earlier run'))).toEqual([]);
+    // A worse Firewall A still says so.
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateful' } }, { press: 'tests' });
+    expect(lines(s, 'tests')).toContain('bad: An earlier run passed all of Firewall A’s tests. Before you continue, set Firewall A back to a type that passed them.');
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'ngfw' } });
+    // Finish the optional step, and the test passes again.
+    s.goTo(index('branch'));
+    playStep(s, sol.branch);
+    expect(s.missing()).toEqual([]);
+    s.goTo(index('choose'));
+    play(s, { press: 'tests' });
+    expect(lines(s, 'tests').filter((l) => l.startsWith('bad'))).toEqual([]);
+    // And back again: the optional step stays finished, with the student's own rule.
+    s.goTo(index('branch'));
+    expect(s.missing()).toEqual([]);
+    expect(s.sim.dev('branch').firewall!.rules.map((r) => r.note)).not.toContain(BRANCH_LAB_NOTE);
+  });
+
+  it('"The router at the branch": a forged reply blocked before the rule exists doesn\'t count as tried', () => {
+    const s = openAt('branch');
+    play(s, { press: 'desk-forged' });
+    expect(lines(s, 'desk-forged')).toEqual(['good: Branch router blocked the fake reply from the web server’s address, 10.0.1.10: no rule matched it.']);
+    expect(done(s, 'forged')).toBe(false);
+    play(s, { tool: { type: 'fw-add-rule', device: 'branch', rule: BRANCH_REPLIES } }, { press: 'desk-forged' });
+    expect(done(s, 'forged')).toBe(true);
   });
 
   it('"Choose A and B": a test run from before the last change doesn\'t count', () => {

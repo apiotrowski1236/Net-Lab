@@ -169,6 +169,15 @@ function stopsRemoteAnywhere(fw: FirewallState): boolean {
   const v = evaluate(fw, remoteProbe(5938, ELSEWHERE), 'out');
   return v.action === 'deny' && v.by === 'rule' && fw.rules.find((r) => r.id === v.ruleId)?.app === 'remote-control';
 }
+/** The attacker's booking lookup with the attack inside, sent from `src`. */
+function attackProbe(src: string): IpPacket {
+  return { src, dst: WEB, ttl: 64, proto: 'tcp', srcPort: 50000, dstPort: 443, encrypted: true, app: { kind: 'http-req', method: 'GET', host: HOSPITAL_SITE, path: EXPLOIT_PATH, reqId: 1 } };
+}
+/** Would `fw` stop the booking attack from an address nobody's rule names, by what's inside it? (Intrusion prevention, not an address or port rule.) */
+function stopsAttackAnywhere(fw: FirewallState): boolean {
+  const v = evaluate(fw, attackProbe(ELSEWHERE), 'in');
+  return v.action === 'deny' && v.by === 'ips';
+}
 const remoteDenied = (port: number) => (e: FwEvent) => e.pkt.src === NURSE && e.pkt.dst === ATTACKER && e.pkt.dstPort === port;
 
 /** The web server's reply to the front desk, for checks of the branch router's rules. */
@@ -278,6 +287,7 @@ const hospitalTests: ActionDef = {
   id: 'tests',
   label: 'Run the hospital’s tests',
   run: (sim) => {
+    noteAnywhere(sim);
     sim.connectService('nurse', ATTACKER, ODD_PORT, { app: 'remote-control' });
     sim.browse('attacker', `https://${HOSPITAL_SITE}${EXPLOIT_PATH}`);
     sim.browse('nurse', `https://${PORTAL_SITE}/`);
@@ -290,6 +300,24 @@ const hospitalTests: ActionDef = {
   },
   outcome: (sim, since) => testLines(sim, since),
 };
+
+/**
+ * Would Firewall A stop the remote-control program and the booking attack
+ * from anywhere, as it stood when each run of the tests started? Blocking only
+ * this run's address or port doesn't pass: the attacker can move. (Read at the
+ * run's start, so a later change can't rewrite an old run's results.)
+ */
+const anywhere = new WeakMap<Sim, Map<number, { remote: boolean; attack: boolean }>>();
+function noteAnywhere(sim: Sim): void {
+  const fw = sim.dev('fwA').firewall!;
+  const runs = anywhere.get(sim) ?? new Map();
+  runs.set(sim.t, { remote: stopsRemoteAnywhere(fw), attack: stopsAttackAnywhere(fw) });
+  anywhere.set(sim, runs);
+}
+function anywhereAt(sim: Sim, t: number): { remote: boolean; attack: boolean } {
+  const fw = sim.dev('fwA').firewall!;
+  return anywhere.get(sim)?.get(t) ?? { remote: stopsRemoteAnywhere(fw), attack: stopsAttackAnywhere(fw) };
+}
 
 /** Step 9: a hacked web server's fake reply to the nurse station, claiming to come from the clinic portal. */
 const clinicFake: Omit<IpPacket, 'ttl'> = {
@@ -309,8 +337,8 @@ interface TestResult {
   text: string;
   /** What happened instead, when it fails. */
   fail: string;
-  /** The firewall that made it fail, when that's the other one (shown on the line instead of `fw`). */
-  blame?: 'fwA' | 'fwB';
+  /** The device that made it fail, when that's not `fw` (shown on the line instead of `fw`). */
+  blame?: Blame;
 }
 
 /** Results of the tests started at `since` (undefined pass: still running). */
@@ -341,24 +369,39 @@ function testResults(sim: Sim, since: number): TestResult[] {
   // The portal's packets, blocked at Firewall A (a stateless A drops the reply before Firewall B sees it).
   const nurseClinic = (e: FwEvent) => between(NURSE, CLINIC)(e) && !isClinicFake(e);
   const portalAtA = decided('fwA', denied(nurseClinic)) === 'deny';
+  // A block that only works on this run's address or port isn't a pass.
+  const far = anywhereAt(sim, since);
+  const remoteStopped = remoteAtA ? remoteAtA === 'deny' : not(done(conn('nurse', ODD_PORT)));
+  const attackStopped = blocked(page('attacker'), (e) => e.pkt.src === ATTACKER && e.pkt.dst === WEB);
+  // The optional branch step takes out the branch router's rule for these tests: that's no fault of Firewall A's.
+  const deskAtBranch = deny((e) => e.device === 'branch' && between(DESK, WEB)(e));
   return [
     {
       fw: 'fwA',
-      pass: remoteAtA ? remoteAtA === 'deny' : not(done(conn('nurse', ODD_PORT))),
+      pass: remoteStopped && !far.remote ? false : remoteStopped,
       text: `The remote-control program on port ${ODD_PORT} is blocked`,
-      fail: `Firewall A let the remote-control program out on port ${ODD_PORT}. It should be blocked there`,
+      fail: remoteStopped
+        ? 'Firewall A blocked the remote-control program by its header (address or port), not by naming the program. The program can switch to a new address or port, so Firewall A has to block the program itself'
+        : `Firewall A let the remote-control program out on port ${ODD_PORT}. It should be blocked there`,
     },
     {
       fw: 'fwA',
-      pass: blocked(page('attacker'), (e) => e.pkt.src === ATTACKER && e.pkt.dst === WEB),
+      pass: attackStopped && !far.attack ? false : attackStopped,
       text: 'The attack hidden in a booking lookup is blocked',
-      fail: 'The attack hidden in a booking lookup reached the web server. It should be blocked',
+      fail: attackStopped
+        ? 'Firewall A blocked the booking lookup by its header (address or port), not by the attack inside it. The attacker can switch to a new address, so Firewall A has to spot the attack itself'
+        : 'The attack hidden in a booking lookup reached the web server. It should be blocked',
     },
     {
       fw: 'fwA',
       pass: reaches(page('desk'), between(DESK, WEB)),
       text: 'The branch front desk opens the web app',
-      fail: 'The branch front desk couldn’t open the web app',
+      ...(deskAtBranch
+        ? {
+            blame: 'branch' as const,
+            fail: 'The branch front desk couldn’t open the web app. The branch router blocked the reply, so this test can’t check Firewall A. To fix the branch router, finish the optional step at the end of the lab',
+          }
+        : { fail: 'The branch front desk couldn’t open the web app' }),
     },
     {
       fw: 'fwB',
@@ -406,17 +449,20 @@ function testLines(sim: Sim, since: number): ActionLine[] {
   // The goals stay checked once a run passes, so say when a later try is worse.
   const earlier = (key: PassKey) => (goodRuns.get(sim)?.[key] ?? []).some((t) => t < since);
   const worse = (['fwA', 'fwB'] as const).filter((fw) => earlier(fw) && results.some((t) => t.pass === false && (t.blame ?? t.fw) === fw));
+  // A fail the branch router caused isn't the firewalls' types.
+  const typesFail = results.some((t) => t.pass === false && t.blame !== 'branch');
   for (const fw of worse) {
     lines.push({ tone: 'bad', text: `An earlier run passed all of ${FW_NAME[fw]}’s tests. Before you continue, set ${FW_NAME[fw]} back to a type that passed them.` });
   }
   const finished = results.every((t) => t.pass !== undefined);
-  if (!worse.length && earlier('all') && finished && (results.some((t) => t.pass === false) || total > BUDGET)) {
+  if (!worse.length && earlier('all') && finished && (typesFail || total > BUDGET)) {
     lines.push({ tone: 'bad', text: 'An earlier run passed every test within the budget. Before you continue, set the firewalls back to types that did.' });
   }
   return lines;
 }
 
-const FW_NAME = { fwA: 'Firewall A', fwB: 'Firewall B' } as const;
+const FW_NAME = { fwA: 'Firewall A', fwB: 'Firewall B', branch: 'Branch router' } as const;
+type Blame = keyof typeof FW_NAME;
 
 /**
  * Start times of runs that passed all of one firewall's tests, or every test
@@ -1046,12 +1092,10 @@ export const firewallTypesLab: LabDef = {
         },
         {
           id: 'forged',
-          label: 'Try a fake reply that claims to come from the web server',
-          hint: 'Press **Attacker fakes the web server’s address**.',
-          // Once the result is in: the fake arrived, or the router blocked it.
-          check: ({ sim, since }) =>
-            stray(sim, since, 'desk', WEB) ||
-            happened(sim, since, (e) => e.type === 'firewall' && e.device === 'branch' && e.verdict.action === 'deny' && e.pkt.src === WEB && e.pkt.app.kind === 'svc' && e.pkt.app.conn === 0),
+          label: 'Once your rule works, try a fake reply that claims to come from the web server',
+          hint: 'After the front desk opens the web app, press **Attacker fakes the web server’s address**.',
+          // The fake got through. (The router blocks it only before the student's rule lets the real replies in.)
+          check: ({ sim, since }) => stray(sim, since, 'desk', WEB),
         },
       ],
       questions: [

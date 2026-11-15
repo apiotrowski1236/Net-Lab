@@ -76,7 +76,7 @@ describe('intrusion prevention', () => {
     expect(evaluate(fw, get('/appointments?id=7'), 'in').action).toBe('allow');
     const line = logLine(attack, 'in', v);
     expect(line.level).toBe('alert');
-    expect(line.msg).toBe('DENY in TCP 203.0.113.66:50001 -> 10.0.1.10:443 ips signature sql-injection (rule 1 allowed the port)');
+    expect(line.msg).toBe('DENY in TCP 203.0.113.66:50001 -> 10.0.1.10:443 ips signature sql-injection (rule 1 would allow it)');
     expect(line.fields?.signature).toBe('sql-injection');
     fw.mode = 'stateful';
     expect(evaluate(fw, attack, 'in').action).toBe('allow');
