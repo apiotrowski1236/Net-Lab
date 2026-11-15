@@ -309,6 +309,8 @@ interface TestResult {
   text: string;
   /** What happened instead, when it fails. */
   fail: string;
+  /** The firewall that made it fail, when that's the other one (shown on the line instead of `fw`). */
+  blame?: 'fwA' | 'fwB';
 }
 
 /** Results of the tests started at `since` (undefined pass: still running). */
@@ -331,12 +333,20 @@ function testResults(sim: Sim, since: number): TestResult[] {
   const reaches = (v: boolean | undefined, pred: (e: FwEvent) => boolean) => (v === undefined && deny(pred) ? false : v);
   const isClinicFake = (e: FwEvent) => e.pkt.src === CLINIC && e.pkt.dst === NURSE && e.pkt.app.kind === 'svc' && e.pkt.app.conn === 0;
   const fakeArrived = sim.events.some((e) => e.type === 'stray-reply' && e.device === 'nurse' && e.pkt.src === CLINIC && e.t >= since && e.t <= until);
+  const decided = (fw: string, pred: (e: FwEvent) => boolean) =>
+    sim.events.find((e): e is FwEvent => e.type === 'firewall' && e.device === fw && e.t >= since && e.t <= until && pred(e))?.verdict.action;
+  // Firewall A's own decision on the program's request. (A stateless Firewall B
+  // drops the attacker's reply too, but that's no pass for Firewall A.)
+  const remoteAtA = decided('fwA', (e) => e.pkt.src === NURSE && e.pkt.dst === ATTACKER && e.pkt.dstPort === ODD_PORT);
+  // The portal's packets, blocked at Firewall A (a stateless A drops the reply before Firewall B sees it).
+  const nurseClinic = (e: FwEvent) => between(NURSE, CLINIC)(e) && !isClinicFake(e);
+  const portalAtA = decided('fwA', denied(nurseClinic)) === 'deny';
   return [
     {
       fw: 'fwA',
-      pass: blocked(done(conn('nurse', ODD_PORT)), (e) => e.pkt.src === NURSE && e.pkt.dst === ATTACKER && e.pkt.dstPort === ODD_PORT),
+      pass: remoteAtA ? remoteAtA === 'deny' : not(done(conn('nurse', ODD_PORT))),
       text: `The remote-control program on port ${ODD_PORT} is blocked`,
-      fail: `The remote-control program got out on port ${ODD_PORT}. It should be blocked`,
+      fail: `Firewall A let the remote-control program out on port ${ODD_PORT}. It should be blocked there`,
     },
     {
       fw: 'fwA',
@@ -353,9 +363,11 @@ function testResults(sim: Sim, since: number): TestResult[] {
     {
       fw: 'fwB',
       // Not the fake reply that claims the clinic's address: its deny is the next test's pass.
-      pass: reaches(page('nurse'), (e) => between(NURSE, CLINIC)(e) && !isClinicFake(e)),
+      pass: reaches(page('nurse'), nurseClinic),
       text: 'The nurse station opens the clinic portal',
-      fail: 'The nurse station couldn’t open the clinic portal',
+      ...(portalAtA
+        ? { blame: 'fwA' as const, fail: 'The nurse station couldn’t open the clinic portal. Firewall A blocked the reply, so this test can’t check Firewall B yet' }
+        : { fail: 'The nurse station couldn’t open the clinic portal. Firewall B blocked the reply' }),
     },
     {
       fw: 'fwB',
@@ -387,42 +399,56 @@ function testLines(sim: Sim, since: number): ActionLine[] {
   }
   const results = testResults(sim, since);
   for (const t of results) {
-    const fw = t.fw === 'fwA' ? 'Firewall A' : 'Firewall B';
+    const fw = FW_NAME[t.pass === false ? (t.blame ?? t.fw) : t.fw];
     lines.push({ tone: t.pass === undefined ? 'wait' : t.pass ? 'good' : 'bad', text: t.pass === false ? `Fail (${fw}): ${t.fail}.` : `${t.pass ? 'Pass' : 'Testing'} (${fw}): ${t.text}.` });
   }
-  if (results.every((t) => t.pass === true) && total <= BUDGET) notePass(sim, since);
+  notePasses(sim, since, results);
   // The goals stay checked once a run passes, so say when a later try is worse.
-  if (results.some((t) => t.pass === false) && (goodRuns.get(sim) ?? []).some((t) => t < since)) {
-    lines.push({ tone: 'bad', text: 'An earlier run passed every test. Before you continue, set the firewalls back to types that pass within the budget.' });
+  const earlier = (key: PassKey) => (goodRuns.get(sim)?.[key] ?? []).some((t) => t < since);
+  const worse = (['fwA', 'fwB'] as const).filter((fw) => earlier(fw) && results.some((t) => t.pass === false && (t.blame ?? t.fw) === fw));
+  for (const fw of worse) {
+    lines.push({ tone: 'bad', text: `An earlier run passed all of ${FW_NAME[fw]}’s tests. Before you continue, set ${FW_NAME[fw]} back to a type that passed them.` });
+  }
+  const finished = results.every((t) => t.pass !== undefined);
+  if (!worse.length && earlier('all') && finished && (results.some((t) => t.pass === false) || total > BUDGET)) {
+    lines.push({ tone: 'bad', text: 'An earlier run passed every test within the budget. Before you continue, set the firewalls back to types that did.' });
   }
   return lines;
 }
 
+const FW_NAME = { fwA: 'Firewall A', fwB: 'Firewall B' } as const;
+
 /**
- * Every test for the firewalls in `fws` passed in one run that started after
- * both firewalls last changed. (A type change counts as a change, so the
- * current types are the ones that ran, and `cost` is that run's cost.)
+ * Start times of runs that passed all of one firewall's tests, or every test
+ * within the budget ('all'). A run's results can't be read again once a later
+ * run reuses the browsers, so they're noted when seen: by the goal checks
+ * (which run on every event, in replays too) and by the result lines. A run
+ * noted here started after both firewalls last changed, so its types and cost
+ * are the ones in effect when it was seen.
  */
-/**
- * Runs that passed every test within the budget, by start time. A run's results
- * can't be read again once a later run reuses the browsers, so they're noted
- * when seen: by the goal checks (which run on every event, in replays too) and
- * by the result lines.
- */
-const goodRuns = new WeakMap<Sim, number[]>();
-function notePass(sim: Sim, t: number): void {
-  const runs = goodRuns.get(sim) ?? [];
-  if (!runs.includes(t)) goodRuns.set(sim, [...runs, t]);
+type PassKey = 'fwA' | 'fwB' | 'all';
+const goodRuns = new WeakMap<Sim, Partial<Record<PassKey, number[]>>>();
+function notePasses(sim: Sim, t: number, results: TestResult[]): void {
+  if (t < Math.max(sim.dev('fwA').firewall!.changedAt ?? 0, sim.dev('fwB').firewall!.changedAt ?? 0)) return;
+  const runs = goodRuns.get(sim) ?? {};
+  const note = (key: PassKey, ok: boolean) => {
+    if (ok && !(runs[key] ?? []).includes(t)) runs[key] = [...(runs[key] ?? []), t];
+  };
+  note('fwA', results.filter((x) => x.fw === 'fwA').every((x) => x.pass === true));
+  note('fwB', results.filter((x) => x.fw === 'fwB').every((x) => x.pass === true));
+  note('all', results.every((x) => x.pass === true) && cost(sim) <= BUDGET);
+  goodRuns.set(sim, runs);
 }
 
 /** When each run of the hospital's tests started (every run makes one web server connection to the file server). */
 const runStarts = (sim: Sim) => [...new Set((sim.dev('web').conns ?? []).filter((c) => c.port === 445 && c.to === FILES).map((c) => c.t))];
 
+/** Every test for the firewalls in `fws` passed in one run that started after both firewalls last changed. */
 function passed(sim: Sim, since: number, fws: ('fwA' | 'fwB')[]): boolean {
   const from = Math.max(afterChange(sim, since, 'fwA'), afterChange(sim, since, 'fwB'));
   for (const t of runStarts(sim).filter((t) => t >= from)) {
     const all = testResults(sim, t);
-    if (all.every((x) => x.pass === true) && cost(sim) <= BUDGET) notePass(sim, t);
+    notePasses(sim, t, all);
     if (all.filter((x) => fws.includes(x.fw)).every((x) => x.pass === true)) return true;
   }
   return false;
@@ -436,7 +462,7 @@ export const firewallTypesLab: LabDef = {
   unit: 3,
   codehs: ['3.9 Guarding the Gate'],
   ced: ['3.4.A', '3.4.B', '3.4.D', '3.5.A'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
     'Explain that a firewall is software, on a box of its own or built into a router.',
     'Show what a stateless firewall checks, and how fake replies get past it.',
@@ -493,7 +519,7 @@ export const firewallTypesLab: LabDef = {
         1. Click [[fwA]]. Under **Firewall rules**, switch **Type** to **Stateless**.
         2. Press **Nurse station opens the clinic portal**. The request goes out. Read what happens to the reply.
         3. The hospital's requirement: *staff must be able to open web sites.* A reply from a web site comes **from** port 443. Add a rule that lets those replies in. Put 443 in the port box on the **from** line, not the **to** line.
-        4. A new rule goes to the bottom, below the DENY rule. Use the arrows to move it up. Then test again.
+        4. A new rule goes to the bottom, below the DENY rule. Use the arrows to move it above the DENY rule. Then test again.
       `,
       focus: ['fwA', 'nurse', 'clinic'],
       open: { inspect: 'fwA' },
@@ -544,7 +570,7 @@ export const firewallTypesLab: LabDef = {
 
         Now you act as the [[attacker]]. Press **Attacker sends a fake reply**: a packet from port 443 that answers nothing anyone asked. Then press **Attacker tries SSH from port 443**. SSH isn't a reply at all, but it comes from port 443.
 
-        (Real stateless firewalls can also check a TCP **flag**: a marker in the header that says a packet answers something. That check stops a new connection like this SSH. It doesn't stop a fake reply, because the attacker can set the flag too.)
+        (Some stateless firewalls also check a TCP **flag**: a marker in the header that says whether a packet starts a new connection. A new connection has to say it's new, so a flag check would stop this SSH. Firewall A doesn't check flags, so the SSH gets in here. A flag check still wouldn't stop the fake reply: the attacker can mark it as a reply.)
       `,
       setup: replyHole,
       focus: ['attacker', 'fwA', 'web'],
@@ -649,7 +675,7 @@ export const firewallTypesLab: LabDef = {
           id: 'impact',
           kind: 'choice',
           afterGoals: true,
-          prompt: 'You deleted the port 443 rule. What changed?',
+          prompt: 'You deleted the "from port 443" rule. What changed?',
           options: [
             { id: 'ssh', text: 'SSH from port 443 is denied, and real replies still get in.', correct: true },
             { id: 'replies', text: 'Replies from web sites are denied now, so staff can’t browse.', feedback: 'The portal still loaded. The connection table lets real replies in without a rule.' },
@@ -781,11 +807,9 @@ export const firewallTypesLab: LabDef = {
         1. Press **Attacker looks up a booking**.
         2. Open the **Logs** tab and click the web server's line for the attacker's request. Look at what comes after \`id=7\`.
 
-        The extra \`' OR '1'='1\` is a command for the web app's database. \`'1'='1'\` is always true, so the database shows every booking, not only number 7. Hiding database commands in a request is called **SQL injection**.
+        The extra \`' OR '1'='1\` changes the question the web app asks its database to "booking 7, or 1 equals 1". 1 always equals 1, so the database shows every booking. Hiding database commands in a request is called **SQL injection**.
 
-        An NGFW can stop it with **intrusion prevention** (**IPS** in the log). It compares what each allowed request carries with **signatures**: patterns of known attacks. A match is blocked as it arrives.
-
-        3. Turn on **Intrusion prevention** on [[fwA]]. Send the attack again.
+        3. Turn on **Intrusion prevention** on [[fwA]] (**IPS** in the log). It compares what each allowed request carries with **signatures**: patterns of known attacks. A match is blocked as it arrives. Send the attack again.
         4. Click Firewall A's alert line in the **Logs** tab.
 
         (HTTPS is encrypted. A real NGFW can read inside only because the hospital gives it the key.)
@@ -949,13 +973,13 @@ export const firewallTypesLab: LabDef = {
       goals: [
         {
           id: 'a',
-          label: 'Find a type for [[fwA]] that passes all of Firewall A’s tests (test after your last change)',
+          label: 'Find a type for [[fwA]] that passes all of Firewall A’s tests in one run',
           hint: 'Firewall A has to stop the remote-control program and the hidden attack. Which type can look inside?',
           check: ({ sim, since }) => passed(sim, since, ['fwA']),
         },
         {
           id: 'b',
-          label: 'Find a type for [[fwB]] that passes all of Firewall B’s tests (test after your last change)',
+          label: 'Find a type for [[fwB]] that passes all of Firewall B’s tests in one run',
           hint: 'Firewall B has to let the clinic portal’s real replies in and keep fake ones out, even fakes that copy the clinic’s address. Which type can tell them apart?',
           check: ({ sim, since }) => passed(sim, since, ['fwB']),
         },
@@ -984,7 +1008,7 @@ export const firewallTypesLab: LabDef = {
       title: 'Review and submit',
       kind: 'submit',
       body: md`
-        Look over your summary on the right. You can go back to any step and change an answer, then hand in your work again.
+        Look over your summary. You can go back to any step and change an answer, then hand in your work again.
       `,
     },
     {
@@ -992,15 +1016,13 @@ export const firewallTypesLab: LabDef = {
       title: 'Optional extra challenge: The router at the branch',
       extra: true,
       body: md`
-        This step is optional and earns no points.
-
-        The branch office is small: one router and [[desk]]. It has no firewall box. The firewall is software built into [[branch]]. Many routers have a stateful firewall built in, but this older one can only be **stateless**. (The rule the lab added for the hospital's tests is gone, so you write your own.)
+        The branch office is small: one router and [[desk]]. It has no firewall box. The firewall is software built into [[branch]]. Many routers have a stateful firewall built in, but this older one can only be **stateless**. (In step 9 the lab gave the branch router a rule, so the hospital's tests could reach the front desk. That rule is gone now, so you write your own.)
 
         Since the branch opened, the front desk can't open the hospital's web app. Press **Front desk opens the web app** and find where the reply stops.
 
         The requirement: *the front desk uses the hospital web app at ${WEB}. Nothing else from the internet gets in.* Write the rule on [[branch]]. Then test the attacker's fake reply too.
 
-        (A real branch would reach the hospital through a **VPN**, a protected tunnel across the internet, and a newer router would drop internet packets that claim a private 10.0 address. The map leaves both out.)
+        (A real branch would reach the hospital through a **VPN**, a protected tunnel across the internet. The map leaves it out.)
       `,
       setup: branchFresh,
       focus: ['branch', 'desk'],
@@ -1026,7 +1048,10 @@ export const firewallTypesLab: LabDef = {
           id: 'forged',
           label: 'Try a fake reply that claims to come from the web server',
           hint: 'Press **Attacker fakes the web server’s address**.',
-          check: ({ sim, since }) => happened(sim, since, (e) => e.type === 'firewall' && e.device === 'branch' && e.pkt.src === WEB && e.pkt.app.kind === 'svc' && e.pkt.app.conn === 0),
+          // Once the result is in: the fake arrived, or the router blocked it.
+          check: ({ sim, since }) =>
+            stray(sim, since, 'desk', WEB) ||
+            happened(sim, since, (e) => e.type === 'firewall' && e.device === 'branch' && e.verdict.action === 'deny' && e.pkt.src === WEB && e.pkt.app.kind === 'svc' && e.pkt.app.conn === 0),
         },
       ],
       questions: [

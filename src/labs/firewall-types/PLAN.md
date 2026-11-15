@@ -4,7 +4,7 @@ Status: built. Code in `src/labs/firewall-types/` (`index.ts`, `scenario.ts`, `s
 
 ## As built
 
-- **Version 1, 11 steps, about 45 minutes.** CodeHS 3.9 Guarding the Gate. `ced: ['3.4.A', '3.4.B', '3.4.D', '3.5.A']`.
+- **Version 2, 11 steps (10 required), about 50 minutes.** CodeHS 3.9 Guarding the Gate. `ced: ['3.4.A', '3.4.B', '3.4.D', '3.5.A']`.
 - **Network** (`buildHospital2`): the hospital a week after Firewall Rules and Placement, with Firewalls A and B already in their cables and stateful, and the rulebooks the last lab ends with (A: out any, HTTPS in to the web server, clinic SSH, deny inbound TCP; B: staff out). It imports the firewall lab's addresses and rules but builds its own network, because the firewall lab's builder starts with the firewalls unplaced and has no patient-free variant. The patient at home is gone. New: a branch office (`branch` router, 192.0.2.2 / 10.0.3.0/24, with a stateless firewall built in and one rule, out any) and its **front desk** (10.0.3.10). The attacker runs the remote-control server on 443 and 47001. The web server has two pages: `/appointments?id=7` and the SQL injection version of it.
 - **Map zones:** Internet, Branch office, Screened subnet (DMZ), Internal network.
 
@@ -30,6 +30,7 @@ Status: built. Code in `src/labs/firewall-types/` (`index.ts`, `scenario.ts`, `s
 - **Step 8's rule must name the web server.** A rule that trusts any source passes the desk test but fails the fake-reply goal. The forged reply then shows the stateless limit that remains.
 - **Step 10 setups** keep the student's own rules: the program rule and the branch rule are added only if the network wouldn't already pass those tests.
 - The firewall lab's trim landed in the same branch (version 2).
+- **Step 9's tests judge only their own firewall** (second student panel). Firewall A's remote-control test passes only when Firewall A denies the program's request (a stateless Firewall B drops the attacker's reply too). When Firewall A drops the clinic portal's reply, the nurse test's line names Firewall A, and Firewall B's goal waits for a run where the portal loads. Passing runs are noted per firewall, so a later run that fails one firewall's tests says to set that firewall back.
 
 - **Student panel, round 1** (Maya, Ethan): step 3's setup now adds the usual wide reply rule when the student's step 2 rule is narrower, so the fake packets always have a hole to use. Link delays and timeouts are shorter (link 200 ms, proc 60 ms, HTTP 7 s, connect 5 s), and the exploit outcome and the hospital's tests settle as soon as a firewall denies, instead of waiting for a timeout. Step 4's and step 6's "still works" goals count only after the rule change they test. The branch clinic is now the branch office, so it isn't confused with Lakeside Clinic. Shared fixes the panel hit: the rule form's destination placeholders read "any" (a blank field means any, and "10.0.1.10"/"443" looked like filled-in values), and a firewall's Ports table no longer has an unlabeled MAC/IP column (`Dock.tsx`).
 

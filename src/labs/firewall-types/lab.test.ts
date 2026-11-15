@@ -326,7 +326,7 @@ describe('firewall-types steps', () => {
     const start = tryPair('stateful', 'stateful');
     expect(start.out).toEqual([
       'good: Cost: Firewall A stateful ($10,000) + Firewall B stateful ($10,000) = $20,000. Budget: $40,000.',
-      `bad: Fail (Firewall A): The remote-control program got out on port ${ODD_PORT}. It should be blocked.`,
+      `bad: Fail (Firewall A): Firewall A let the remote-control program out on port ${ODD_PORT}. It should be blocked there.`,
       'bad: Fail (Firewall A): The attack hidden in a booking lookup reached the web server. It should be blocked.',
       'good: Pass (Firewall A): The branch front desk opens the web app.',
       'good: Pass (Firewall B): The nurse station opens the clinic portal.',
@@ -340,7 +340,7 @@ describe('firewall-types steps', () => {
     expect(both.s.goalDone('choose', 'b')).toBe(true);
     expect(both.s.goalDone('choose', 'budget')).toBe(false);
     const cheapB = tryPair('ngfw', 'stateless');
-    expect(cheapB.out).toContain('bad: Fail (Firewall B): The nurse station couldn’t open the clinic portal.');
+    expect(cheapB.out).toContain('bad: Fail (Firewall B): The nurse station couldn’t open the clinic portal. Firewall B blocked the reply.');
     expect(cheapB.s.goalDone('choose', 'b')).toBe(false);
     expect(tryPair('ngfw', 'stateful').ok).toBe(true);
     // A stateless B with a step 2 style reply rule lets the nurse's replies in, and a hacked web server too.
@@ -398,9 +398,39 @@ describe('firewall-types steps', () => {
     expect(s.goalDone('choose', 'budget')).toBe(true);
     expect(lines(s, 'tests').filter((l) => l.includes('earlier run'))).toEqual([]);
     play(s, { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateless' } }, { press: 'tests' });
-    expect(lines(s, 'tests')).toContain('bad: An earlier run passed every test. Before you continue, set the firewalls back to types that pass within the budget.');
+    expect(lines(s, 'tests').filter((l) => l.includes('earlier run'))).toEqual([
+      'bad: An earlier run passed all of Firewall B’s tests. Before you continue, set Firewall B back to a type that passed them.',
+    ]);
     play(s, { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateful' } }, { press: 'tests' });
     expect(lines(s, 'tests').filter((l) => l.includes('earlier run'))).toEqual([]);
+    // Every test passes but over the budget.
+    play(s, { tool: { type: 'fw-mode', device: 'fwB', mode: 'ngfw' } }, { press: 'tests' });
+    expect(lines(s, 'tests').filter((l) => l.includes('earlier run'))).toEqual([
+      'bad: An earlier run passed every test within the budget. Before you continue, set the firewalls back to types that did.',
+    ]);
+
+    // B passed its own tests in a run that failed A's: a worse B later still says so.
+    const t = openAt('choose');
+    play(t, { press: 'tests' });
+    expect(t.goalDone('choose', 'b')).toBe(true);
+    play(t, { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateless' } }, { press: 'tests' });
+    expect(lines(t, 'tests')).toContain('bad: An earlier run passed all of Firewall B’s tests. Before you continue, set Firewall B back to a type that passed them.');
+  });
+
+  it('"Choose A and B": each test counts only what its own firewall did', () => {
+    // A stateless Firewall A drops the portal's reply: the line blames A, and B's goal waits.
+    const s = openAt('choose');
+    play(s, { tool: { type: 'fw-mode', device: 'fwA', mode: 'stateless' } }, { press: 'tests' });
+    const out = lines(s, 'tests');
+    expect(out).toContain('bad: Fail (Firewall A): The nurse station couldn’t open the clinic portal. Firewall A blocked the reply, so this test can’t check Firewall B yet.');
+    expect(out).toContain(`bad: Fail (Firewall A): Firewall A let the remote-control program out on port ${ODD_PORT}. It should be blocked there.`);
+    expect(out.filter((l) => l.includes('(Firewall B)') && l.startsWith('bad'))).toEqual([]);
+    expect(s.goalDone('choose', 'b')).toBe(false);
+    // A stateless Firewall B drops the program's reply, but Firewall A let the program out: no pass for a stateful A.
+    const t = openAt('choose');
+    play(t, { tool: { type: 'fw-mode', device: 'fwB', mode: 'stateless' } }, { press: 'tests' });
+    expect(lines(t, 'tests')).toContain(`bad: Fail (Firewall A): Firewall A let the remote-control program out on port ${ODD_PORT}. It should be blocked there.`);
+    expect(t.goalDone('choose', 'a')).toBe(false);
   });
 
   it('"The router at the branch" (optional): the rule the lab added for the tests is gone, so the front desk starts cut off', () => {
@@ -434,7 +464,7 @@ describe('firewall-types steps', () => {
     s.sim.advance(4000);
     const out = def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`);
     expect(out.filter((l) => l.startsWith('wait'))).toEqual([]);
-    expect(out).toContain('bad: Fail (Firewall B): The nurse station couldn’t open the clinic portal.');
+    expect(out).toContain('bad: Fail (Firewall B): The nurse station couldn’t open the clinic portal. Firewall B blocked the reply.');
     expect(out).toContain(`good: Pass (Firewall A): The remote-control program on port ${ODD_PORT} is blocked.`);
     s.sim.runUntilIdle();
     expect(def.outcome!(s.sim, t0).map((l) => `${l.tone}: ${l.text}`)).toEqual(out);
