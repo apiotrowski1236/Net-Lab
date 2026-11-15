@@ -355,9 +355,9 @@ export const firewallLab: LabDef = {
       goals: [
         {
           id: 'clinic',
-          label: '[[clinic]]’s admin logs in to the web server with SSH',
+          label: '[[clinic]]’s admin logs in to the web server with SSH (test after your last change)',
           hint: 'The first rule that matches decides. Keep the coworker’s deny rule, and move the clinic’s SSH rule above it.',
-          check: ({ sim, since }) => hasRule(sim, DENY_IN_TCP) && connected(sim, 'clinic', since, (c) => c.to === WEB && c.port === 22),
+          check: ({ sim, since }) => hasRule(sim, DENY_IN_TCP) && connected(sim, 'clinic', afterChange(sim, since, 'fwA'), (c) => c.to === WEB && c.port === 22),
         },
         {
           id: 'attacker',

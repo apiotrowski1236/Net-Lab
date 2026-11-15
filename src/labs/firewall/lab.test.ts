@@ -232,6 +232,26 @@ describe('firewall lab goals', () => {
     expect(goal.check({ sim, since })).toBe(false);
   });
 
+  it('does not count a clinic login from before the deny rule was put back in the wrong order (step 5)', () => {
+    const goal = step('order').goals!.find((g) => g.id === 'clinic')!;
+    const sim = buildHospital();
+    step('order').setup!(sim);
+    const since = sim.t;
+    const rules = () => sim.dev('fwA').firewall!.rules;
+    const at = rules().findIndex((r) => r.action === 'deny');
+    sim.fwDeleteRule('fwA', rules()[at].id);
+    expect(connect(sim, 'clinic', WEB, 22).status).toBe('open');
+    // Put the deny back where it was, above the clinic's rule.
+    sim.fwAddRule('fwA', DENY_IN_TCP, at);
+    sim.runUntilIdle();
+    expect(goal.check({ sim, since })).toBe(false);
+    // Fix the order the intended way and test again.
+    const clinic = rules().find((r) => r.src === CLINIC_SSH.src)!;
+    sim.fwMoveRule('fwA', clinic.id, rules().findIndex((r) => r.action === 'deny'));
+    expect(connect(sim, 'clinic', WEB, 22).status).toBe('open');
+    expect(goal.check({ sim, since })).toBe(true);
+  });
+
   it('needs scans of both networks for the rescan in step 7', () => {
     const rescan = step('log').goals!.find((g) => g.id === 'rescan')!;
     const sim = buildHospital();
