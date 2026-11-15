@@ -1,4 +1,5 @@
 import { intToIp, ipToInt, isIp, isPrefix, maskBits, networkOf, normalizePrefix, prefixContains, prefixLen, sameSubnet, type Ip, type Mac } from '../sim/addr';
+import { freshEntry, ttlLeft } from '../sim/dns';
 import type { Sim } from '../sim/sim';
 import type { Device, Iface } from '../sim/types';
 import { passphraseStrength, STRONG_PASSPHRASE_LEN } from '../sim/wifi';
@@ -394,7 +395,8 @@ export function checkRoute(sim: Sim, deviceId: string, rawPrefix: string, rawVia
 
 /** DNS forger: the name to poison and the address to plant in the resolver's cache. */
 export function checkForge(sim: Sim, attackerId: string, resolverId: string, rawName: string, rawIp: string): Checked<{ name: string; ip: Ip }> {
-  const name = rawName.trim().toLowerCase();
+  // A final dot ("grades.example.") is the fully written form of the same name.
+  const name = rawName.trim().toLowerCase().replace(/\.$/, '');
   const att = sim.dev(attackerId);
   const r = sim.dev(resolverId).resolver;
   const nsDev = r ? sim.deviceByIp(r.upstream) : undefined;
@@ -411,6 +413,13 @@ export function checkForge(sim: Sim, attackerId: string, resolverId: string, raw
   const owner = sim.deviceByIp(ip);
   if (owner && owner.id !== attackerId && !owner.attacker) {
     return { ok: false, field: 'ip', msg: `${ip} is ${owner.label}'s address, not your server's. Open ${att.label} on the map to find your lookalike server's address.` };
+  }
+  // While the resolver holds a fresh answer it asks nobody, so no forged answer can match.
+  const fresh = r ? freshEntry(r, name, sim.t) : undefined;
+  if (fresh?.ip === ip) return { ok: false, field: 'ip', msg: `The resolver already sends ${name} to ${ip}.` };
+  if (fresh) {
+    const left = Math.ceil(ttlLeft(fresh, sim.t) / 1000);
+    return { ok: false, msg: `The resolver has a fresh answer for ${name} for another ${left}s, so it is not asking the name server. A forged answer has no question to match until that answer expires or is flushed.` };
   }
   return { ok: true, name, ip };
 }

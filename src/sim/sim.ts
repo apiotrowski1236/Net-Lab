@@ -1532,17 +1532,21 @@ export class Sim {
   /**
    * Cache poisoning. `attacker` floods `resolver` with forged answers that
    * claim to come from the name server, each saying `name` is at `ip`. First it
-   * makes sure a question for `name` is in flight, then it sends one forged
-   * answer for every query ID and port it guesses. If the resolver is not
-   * hardened, one guess matches and the forgery is cached before the real
-   * answer, which has farther to travel, gets back.
+   * gets the resolver to ask about `name`, then it sends one forged answer for
+   * every query ID and port it guesses. If the resolver is not hardened, one
+   * guess matches and the forgery is cached before the real answer, which has
+   * farther to travel, gets back. While the resolver holds a fresh answer for
+   * `name` it asks nothing, so every forged answer is ignored: the attacker
+   * has to wait for the TTL to run out.
    */
   forgeDnsAnswer(attackerId: string, resolverId: string, name: string, ip: Ip): void {
     const att = this.dev(attackerId);
     const resolver = this.dev(resolverId);
     const r = resolver.resolver;
     if (!r) throw new Error(`${resolverId} is not a resolver`);
-    if (!Object.values(r.pending).some((p) => p.name === name)) this.resolverAsk(resolver, name, []);
+    const asking = Object.values(r.pending).some((p) => p.name === name);
+    const fresh = !!freshEntry(r, name, this.t);
+    if (!asking && !fresh) this.resolverAsk(resolver, name, []);
     const resolverIp = this.ipOf(resolverId);
     for (const g of forgedGuesses()) {
       this.originate(
@@ -1559,7 +1563,7 @@ export class Sim {
         true,
       );
     }
-    this.emit({ t: this.t, type: 'config', device: attackerId, what: 'dns-forge', detail: `forged ${name} = ${ip}` });
+    this.emit({ t: this.t, type: 'config', device: attackerId, what: 'dns-forge', detail: `forged ${name} = ${ip}`, raced: asking || !fresh });
   }
 
   /** Turn the resolver's defense on or off: unpredictable query IDs and source ports. */

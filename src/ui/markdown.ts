@@ -1,6 +1,9 @@
 import { marked } from 'marked';
 
 marked.setOptions({ gfm: true, breaks: false });
+// No bare-URL autolinks: lesson text names simulated sites (http://grades.example),
+// and a real link would take the student out of the lab to a browser error page.
+marked.use({ tokenizer: { url: () => undefined } });
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 

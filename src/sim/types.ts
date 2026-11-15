@@ -463,7 +463,8 @@ export type SimEvent = (
   | { t: number; type: 'ping-sent'; device: string; to: Ip; seq: number; from?: Ip; forged?: boolean; count?: number }
   /** A ping from `device` got no reply: dropped at `at` (with the reason), or timed out. */
   | { t: number; type: 'ping-fail'; device: string; to: Ip; seq: number; reason: DropReason | 'timeout'; at?: string; ip?: Ip }
-  | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string }
+  /** `raced` (dns-forge only): the burst raced an open lookup, so a guess could match. */
+  | { t: number; type: 'config'; device: string; what: string; on?: boolean; detail?: string; raced?: boolean }
   /**
    * A Wi-Fi event: a device joined or left an access point, a join was
    * rejected, or the attacker scanned, cracked, or jammed. See src/sim/wifi.ts.

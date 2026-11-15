@@ -13,10 +13,10 @@ export const dnsSpoofSolution: LabSolution = {
   harvest: { moves: [{ press: 'alice-login' }, { press: 'teacher-login' }] },
   https: { moves: [{ press: 'alice-https' }] },
   detect: {
-    moves: [{ openLog: 'resolver', where: (e) => e.source === 'dns' && e.msg.includes(SITE) && e.msg.includes('(was ') }],
+    moves: [{ openLog: 'resolver', where: (e) => e.source === 'dns' && e.msg.includes(`${SITE} -> ${IP.evil} (was `) }],
     text: {
       'drop-meaning':
-        'The students still typed grades.example and their browsers still loaded a working page, but the poisoned resolver sent them to Mallory\'s server instead, so the real gradebook simply stopped receiving their requests.',
+        'The students still typed grades.example and their browsers still loaded a working page, but the poisoned resolver sent them to Mallory\'s server instead, so the real gradebook stopped receiving their requests.',
     },
   },
   fix: {
@@ -34,7 +34,7 @@ export const dnsSpoofSolution: LabSolution = {
   reflect: {
     text: {
       compare:
-        'ARP poisoning changes a MAC-address table so a device on the same local network sends its traffic to the attacker. It only reaches machines on that one LAN. DNS cache poisoning changes a name-to-address record in a shared resolver, so every computer that uses that resolver gets the wrong address until the record expires. Both plant a false record to redirect traffic, but DNS poisoning reaches everyone behind the resolver, not just one network segment.',
+        'ARP poisoning changes a device’s ARP table so a device on the same local network sends its traffic to the attacker. It only reaches machines on that one LAN. DNS cache poisoning changes a name-to-address record in a shared resolver, so every computer that uses that resolver gets the wrong address until the record expires. Both plant a false record to redirect traffic, but DNS poisoning reaches everyone behind the resolver, not only one network segment.',
     },
   },
 };

@@ -17,7 +17,7 @@ export function DnsCache({ sim, dev }: InspectorSectionProps) {
         DNS cache <span class="muted">answers it is holding, and how long each is good for</span>
       </h4>
       {names.length === 0 ? (
-        <p class="muted small">Empty. The resolver fills this in as people look up names. Each answer stays until its TTL runs out.</p>
+        <p class="muted small">Empty. The resolver fills this in as people look up names. Each answer stays until its TTL (time to live) runs out.</p>
       ) : (
         <table class="table">
           <thead>

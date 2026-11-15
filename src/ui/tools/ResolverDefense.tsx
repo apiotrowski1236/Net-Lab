@@ -21,7 +21,6 @@ export function ResolverDefense({ session, spec }: ToolCardProps<'resolver-defen
       <div class="tool-row">
         <span>
           Unpredictable query IDs and source ports
-          {r?.hardened && <span class="pill good tiny">on</span>}
         </span>
         <Toggle
           on={!!r?.hardened}
@@ -33,7 +32,7 @@ export function ResolverDefense({ session, spec }: ToolCardProps<'resolver-defen
         <Icon name="reset" /> Flush the cache
       </button>
       <div class="small muted">
-        {names.length ? `Cached now: ${names.join(', ')}` : 'Cache is empty.'}
+        {names.length ? `Cached now: ${names.map((n) => `${n} = ${r!.cache[n].ip}`).join(', ')}` : 'Cache is empty.'}
       </div>
     </div>
   );

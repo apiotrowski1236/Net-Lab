@@ -502,6 +502,24 @@ async function doMove(i, step, m) {
       await card.getByRole('group', { name: 'How many bursts' }).getByRole('button', { name: String(a.bursts), exact: true }).click();
       await card.getByRole('button', { name: 'Flood' }).click();
       log(`  MAC flood from ${labels[a.device]}: ${a.bursts} bursts`);
+    } else if (a.type === 'dns-forge') {
+      await tab('Toolkit');
+      const card = page.locator('.tool-card', { hasText: `DNS forger (${labels[a.device]})` });
+      await card.getByLabel('Name to poison').fill(a.name);
+      await card.getByLabel('Address to plant').fill(a.ip);
+      await card.getByRole('button', { name: /Send forged answers/ }).click();
+      const bad = card.locator('.tool-msg.bad');
+      if (await bad.count()) await fail(i, `the DNS forger said: ${(await bad.first().innerText()).replace(/\s+/g, ' ')}`);
+      log(`  DNS forger: ${a.name} -> ${a.ip}`);
+    } else if (a.type === 'resolver-harden' || a.type === 'dns-flush') {
+      await tab('Toolkit');
+      const card = page.locator('.tool-card', { hasText: `Resolver defenses (${labels[a.device]})` });
+      if (a.type === 'dns-flush') await card.getByRole('button', { name: /Flush the cache/ }).click();
+      else {
+        const tog = card.getByRole('switch');
+        if ((await tog.getAttribute('aria-checked')) !== String(a.on)) await tog.click();
+      }
+      log(`  ${labels[a.device]}: ${a.type === 'dns-flush' ? 'flush the cache' : `unpredictable query IDs ${a.on ? 'on' : 'off'}`}`);
     } else if (a.type === 'set-mac') {
       await tab('Toolkit');
       const card = page.locator('.tool-card', { hasText: `MAC changer (${labels[a.device]})` });
