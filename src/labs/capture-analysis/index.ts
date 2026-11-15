@@ -129,7 +129,7 @@ const replayFloodAction: ActionDef = {
       return [
         floodAction(sim, since) === 'restrict'
           ? { tone: 'good', text: 'Port security dropped the made-up MACs over its limit on port 7 and left the port up. The flood stopped at the switch.' }
-          : { tone: 'good', text: 'Port security shut port 7 at the first made-up MAC. The flood stopped at the switch.' },
+          : { tone: 'good', text: 'Port security shut port 7 as soon as the made-up MACs went over its limit. The flood stopped at the switch.' },
       ];
     if (floodHitShutPort(sim, since)) return [{ tone: 'good', text: 'Port 7 is still shut from your last replay, so the flood stopped at the switch again.' }];
     if (floodDroppedAtShutPort(sim, since))
