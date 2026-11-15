@@ -78,9 +78,11 @@ that alter what students do or see:
   the bots are still sending. Step 10's beacon prompt no longer gives the answer away.
 - **Round 4:** the early-purchase result no longer says which direction was dropped (links carry each
   direction separately). **Botnet joins in** is now **Botnet attacks** (same id). Step 4 moves the CIA triad
-  after the buttons. Step 6 splits the log instructions into numbered steps, says the **Source** column is not
+  after the numbered steps. Step 6 splits the log instructions into numbered steps, says the **Source** column is not
   the packet's src, and its setup logs a fresh forged line for the restarted storm. "How risky?" feedback says
   "Reread the risk lines above" instead of naming the answer. Steps 3, 7 and 8 say the result takes a few seconds.
+- **Round 5:** no high findings, and 8/8 on the learning check for all six. The median time was 49 minutes
+  (29 to 53), the third round above 45, so `minutes` is now 50.
 
 ## What changed from PLAN.md
 
@@ -191,7 +193,7 @@ tagline: 'Use a network's ping replies to knock a ticket site offline, then turn
 unit: 3
 codehs: ['3.3 Misdirected and Overwhelmed']
 ced: ['3.1.A', '3.1.B', '3.1.C', '3.5.E']
-minutes: 45
+minutes: 50
 objectives:
   - 'Explain what ICMP echo (ping) does and what a broadcast address is.'
   - 'Describe how a smurf attack forges a source address and amplifies pings into a flood.'
@@ -748,4 +750,4 @@ wave 2, after both land.
    finds the map misleading, consider drawing a faint "× 30" stack behind the PCs rather than adding devices.
 6. **COVERAGE/README (orchestrator, after merge).** No change needed to COVERAGE's mapping; this lab delivers
    3.1.A.4, 3.1.B.1, 3.1.C.1, 3.1.C.5, 3.5.E.6, 3.5.E.7 as mapped. README's lab table can move `smurf` from
-   "coming soon" to done with CodeHS `3.3` and 11 steps / ~45 min.
+   "coming soon" to done with CodeHS `3.3` and 12 steps / ~50 min.

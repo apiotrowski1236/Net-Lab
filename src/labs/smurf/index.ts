@@ -104,7 +104,7 @@ export const smurfLab: LabDef = {
   unit: 3,
   codehs: ['3.3 Misdirected and Overwhelmed'],
   ced: ['3.1.A', '3.1.B', '3.1.C', '3.5.E'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
     'Explain what ICMP echo (ping) does and what a broadcast address is.',
     'Describe how a smurf attack forges a source address and amplifies pings into a flood.',

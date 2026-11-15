@@ -6,7 +6,8 @@
 // inspector, the Wi-Fi cracker, triangulation, packet capture on/off (sniffer),
 // IP forwarding, the ARP spoofer, ARP locks (on-path), Cables > Unplug,
 // shutting a switch port, the wireless alarms card, and the
-// Logs tab (open a line, cite a line).
+// Logs tab (open a line, cite a line), and the smurf Echo tool and
+// Directed broadcasts switch.
 
 const SECURITY = { open: 'Open', wep: 'WEP', wpa: 'WPA', wpa2: 'WPA2', wpa3: 'WPA3' };
 const POWER = { 1: 'Lowest', 2: 'Low', 3: 'High', 4: 'Highest' };
@@ -200,6 +201,24 @@ async function drive(c, i, step, m) {
       await tab('Toolkit');
       await page.locator('.wids-card').getByRole('button', { name: /Replay the last/ }).click();
       log('  replay the record');
+      return true;
+    }
+    case 'echo': {
+      // smurf: the Echo tool card, with an optional forged source.
+      await tab('Toolkit');
+      const k = card('Echo tool');
+      await k.getByLabel('Target IP address', { exact: true }).fill(a.target);
+      await k.getByLabel('Source IP address to forge', { exact: true }).fill(a.source ?? '');
+      await k.getByRole('button', { name: 'Send', exact: true }).click();
+      if (await k.locator('.tool-msg.bad').count()) await fail(i, `the Echo tool refused ${a.target}: ${await k.locator('.tool-msg.bad').innerText()}`);
+      log(`  echo ${a.target}${a.source ? ` from forged ${a.source}` : ''}`);
+      return true;
+    }
+    case 'directed-broadcast': {
+      // smurf: the Directed broadcasts switch in the router's inspector.
+      await inspector(a.device);
+      await toggle(page.getByRole('switch', { name: /directed broadcasts/ }), a.on);
+      log(`  directed broadcasts on ${labels[a.device]} ${a.on ? 'on' : 'off'}`);
       return true;
     }
     default:
