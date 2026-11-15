@@ -44,7 +44,9 @@ const copyMac: ActionDef = {
     const ap = sim.dev('wap').wifi!;
     const on = sim.dev('mallory').wifiClient?.joinedAp === 'wap';
     if (sim.dev('mallory').ifaces[0].mac !== MAC.phone1)
-      return [{ tone: 'wait', text: 'Nothing stops Mallory yet, so she has no reason to copy a MAC. Turn on the MAC filter first, then press the button again.' }];
+      return ap.macFilter?.on
+        ? [{ tone: 'wait', text: "The filter turned Mallory away. Press the button again, and she copies the Rivera phone's MAC." }]
+        : [{ tone: 'wait', text: 'Nothing stops Mallory yet, so she has no reason to copy a MAC. Turn on the MAC filter first, then press the button again.' }];
     if (ap.auth === 'eap') return [{ tone: 'good', text: "Mallory uses the Rivera phone's MAC, but she has no login of her own, so she stays off." }];
     return on
       ? [{ tone: 'good', text: "Mallory is back on. The filter sees the Rivera phone's MAC and lets her in." }]
@@ -201,7 +203,7 @@ export const wirelessLab: LabDef = {
             { id: 'nothing', text: 'Nothing at all, not even which website it was.', feedback: 'HTTPS hides what the page says. The frames still show which website they are going to.' },
             { id: 'join', text: 'The password, but only after she joins the network.', feedback: 'Joining does not help her. HTTPS keeps the password scrambled the whole way to the website.' },
           ],
-          explain: 'On open Wi-Fi, anything a page does not encrypt itself can be read from the air. HTTPS protects what a page says, but not where it goes. Encrypting the Wi-Fi itself, later in this lab, covers everything in the air.',
+          explain: 'On open Wi-Fi, anything a page does not encrypt itself can be read from the air. HTTPS protects what a page says, but not where it goes. Encrypting the Wi-Fi itself, later in this lab, covers everything in the air between the phone and the access point.',
         },
       ],
     },
@@ -214,7 +216,7 @@ export const wirelessLab: LabDef = {
 
         Open [[wap]] and lower its **Signal strength**. Watch the dashed circle on the map. You want every family device inside it and [[mallory]]'s car outside it.
 
-        If you turn it down too far, devices far from the access point, like the [[phonelot]], drop off. If that happens, turn it back up one level.
+        If you turn it down too far, some family devices, like the [[phonelot]], drop off. If that happens, turn it back up one level.
 
         Mallory's laptop has an ordinary Wi-Fi card. An attacker can also buy a **high-gain antenna**, a bigger antenna that picks up fainter signals from farther away.
       `,
@@ -286,7 +288,7 @@ export const wirelessLab: LabDef = {
       body: md`
         Now encrypt the traffic. Mallory added a high-gain antenna and is back in range. She also has a **Wi-Fi cracker**, a tool that tries to break a network's passphrase.
 
-        For each setting, open [[wap]], pick it under **Security**, type a passphrase, and press **Save**. Families drop off until you save, then get the new passphrase on their own. Then press **Mallory tries to crack it** here.
+        For each setting, open [[wap]], pick it under **Security**, type a passphrase, and press **Save**. Families can't join until a passphrase is saved, and each new one you save reaches them on their own. Then press **Mallory tries to crack it** here.
 
         1. **WEP**, with a short passphrase like \`shelter1\`. WEP is an old, broken lock.
         2. **WPA2** with a different short passphrase, like \`shelter2\`. Mallory learned the WEP one when she broke in, so it has to be new.
@@ -294,7 +296,7 @@ export const wirelessLab: LabDef = {
         4. Turn **WPS** off and crack again.
         5. The PIN gave Mallory your passphrase, so she still gets in. Save a new long passphrase and crack once more.
 
-        Leave the network with a lock Mallory cannot break: **WPA3** (the newest: an attacker cannot test guesses against a recording of a device joining), or WPA2 with a long passphrase. Either way, WPS must be off.
+        Leave the network with a lock Mallory cannot break, using a passphrase that isn't a common password: **WPA3** (the newest: an attacker cannot test guesses against a recording of a device joining), or WPA2 with a long passphrase. Either way, WPS must be off.
       `,
       setup: armMallory,
       focus: ['wap', 'mallory'],
@@ -325,7 +327,7 @@ export const wirelessLab: LabDef = {
             { id: 'wpa2', text: 'It broke the WPA2 encryption itself.', feedback: 'WPA2 with a long passphrase holds. The cracker went around it, through the WPS PIN.' },
             { id: 'open', text: 'It turned the network back to open.', feedback: 'The cracker changes nothing on the access point. It only tries to get the key.' },
           ],
-          explain: 'From weakest to strongest: open, WEP, WPA (the first version, also weak), WPA2, WPA3. WPA2 needs a long passphrase that is hard to guess. WPS undoes any passphrase, so it stays off, and once the PIN falls the attacker has the passphrase, so it has to change too.',
+          explain: 'From weakest to strongest: open, WEP, WPA (the first version, also weak), WPA2, WPA3. WPA2 needs a long passphrase that is hard to guess. WPS undoes any passphrase, so it stays off, and once the PIN is guessed the attacker has the passphrase, so it has to change too.',
         },
       ],
     },
@@ -385,7 +387,7 @@ export const wirelessLab: LabDef = {
       id: 'rogue',
       title: 'A box in the hallway',
       body: md`
-        A volunteer finds a small wireless router, the [[rogue]], plugged into a **hallway wall jack**. The jack is wired to the shelter's wired network, the **LAN** (local area network).
+        A volunteer finds a small wireless router, the [[rogue]], plugged into a **hallway wall jack**. The jack's cable runs to port 2 in the [[lansw]], part of the shelter's wired network, the **LAN** (local area network).
 
         The box sends out its own open network. Anyone who joins it lands on the LAN and skips every setting you configured. A box like this, set up by someone who isn't in charge of the network, is a **rogue access point**.
 
@@ -397,7 +399,7 @@ export const wirelessLab: LabDef = {
       open: 'tools',
       tools: [
         { kind: 'wifi-scan', devices: ['desk', 'mallory'] },
-        { kind: 'cable' },
+        { kind: 'cable', refuse: [{ between: ['mallory', '*'], text: 'Mallory is out in the parking lot. There is no jack out there to plug into.' }] },
       ],
       goals: [
         { id: 'spotted', label: 'Scan from the [[desk]] and find the network you did not set up', hint: 'Use the Wi-Fi scanner from the desk. The rogue is flagged "not yours".', check: ({ sim, since }) => scannedFrom('desk')(sim, since) },

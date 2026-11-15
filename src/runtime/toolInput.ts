@@ -2,7 +2,7 @@ import { intToIp, ipToInt, isIp, isPrefix, maskBits, networkOf, normalizePrefix,
 import { freshEntry, ttlLeft } from '../sim/dns';
 import type { Sim } from '../sim/sim';
 import type { Device, Iface } from '../sim/types';
-import { passphraseWeakness, STRONG_PASSPHRASE_LEN } from '../sim/wifi';
+import { isCommonPassphrase, passphraseWeakness, STRONG_PASSPHRASE_LEN } from '../sim/wifi';
 import { sameVlan, vlanOf } from '../sim/vlan';
 import type { CableRefusal } from '../labs/types';
 
@@ -485,9 +485,10 @@ export function checkWifiPassphrase(sim: Sim, apId: string, raw: string): Checke
   if (sim.devices[apId]?.wifi?.security === 'wep') {
     return { ok: true, passphrase: pass, note: 'Saved. On WEP the length of the key does not help: WEP itself is broken.' };
   }
-  const weak = passphraseWeakness(pass);
   // WPA3 stops guessing against a recording, so its notes talk about guesses made by trying to join.
   const wpa3 = sim.devices[apId]?.wifi?.security === 'wpa3';
+  // On WPA3 a common password falls to a few joins at any length, so that note wins over "short".
+  const weak = wpa3 && isCommonPassphrase(pass) ? 'common' : passphraseWeakness(pass);
   const note =
     weak === 'short'
       ? wpa3

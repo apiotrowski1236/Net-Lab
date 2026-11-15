@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LabSession } from '../../runtime/session';
 import type { LabProgress } from '../../store/progress';
 import { crack, passphraseStrength } from '../../sim/wifi';
-import { checkWifiPassphrase, checkWifiPassword } from '../../runtime/toolInput';
+import { cableRefusal, checkWifiPassphrase, checkWifiPassword } from '../../runtime/toolInput';
 import { playStep } from '../solution';
 import { wirelessLab } from './index';
 import { wirelessSolution } from './solution';
@@ -211,7 +211,26 @@ describe('wireless lab', () => {
     expect(signin.outcome!(s.sim, since)[0].text).toMatch(/after the login went by/);
   });
 
-    it('student text keeps the house style', () => {
+    it('WPA3 with a common password falls to a few tries, and the lock goal stays open', () => {
+    const sim = buildShelter();
+    const ap = sim.dev('wap').wifi!;
+    sim.setWifiSecurity('wap', 'wpa3', 'password');
+    sim.setWifiWps('wap', false);
+    expect(crack(ap)).toMatchObject({ ok: true, method: 'guess' });
+    expect(checkWifiPassphrase(sim, 'wap', 'password')).toMatchObject({ ok: true, note: expect.stringMatching(/common password/) });
+    sim.setWifiSecurity('wap', 'wpa3', STRONG_PASS);
+    expect(crack(ap).ok).toBe(false);
+  });
+
+  it('the cable tool refuses to plug Mallory in: she is in the parking lot', () => {
+    const sim = buildShelter();
+    const rogue = wirelessLab.steps.find((st) => st.id === 'rogue')!;
+    const tool = rogue.tools!.find((t) => t.kind === 'cable') as { refuse?: Parameters<typeof cableRefusal>[3] };
+    expect(cableRefusal(sim, 'mallory', 'lansw', tool.refuse)).toMatch(/parking lot/);
+    expect(cableRefusal(sim, 'rogue', 'lansw', tool.refuse)).toBeUndefined();
+  });
+
+  it('student text keeps the house style', () => {
     const text = JSON.stringify(wirelessLab.steps);
     expect(text).not.toMatch(/—|\bjust\b|\bsimply\b|\beasy\b|\beasier\b|\bobviously\b|\bCED\b/i);
   });

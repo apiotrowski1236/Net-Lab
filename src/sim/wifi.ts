@@ -164,9 +164,13 @@ const COMMON_WORDS = new Set([
 export function passphraseWeakness(p: string | undefined): 'short' | 'common' | undefined {
   if (!p) return undefined;
   if (p.length < STRONG_PASSPHRASE_LEN) return 'short';
+  return isCommonPassphrase(p) ? 'common' : undefined;
+}
+
+/** A common password, maybe with numbers or symbols added: the first guesses any attacker tries, at any length. */
+export function isCommonPassphrase(p: string): boolean {
   const core = p.toLowerCase().replace(/[^a-z]/g, '');
-  if (!core || COMMON_WORDS.has(core) || /^(.)\1*$/.test(core) || /^(.)\1*$/.test(p)) return 'common';
-  return undefined;
+  return !core || COMMON_WORDS.has(core) || /^(.)\1*$/.test(core) || /^(.)\1*$/.test(p);
 }
 
 export function passphraseStrength(p: string | undefined): 'none' | 'weak' | 'strong' {
@@ -215,6 +219,10 @@ export function crack(ap: WifiAp, known?: string): CrackResult {
   if (weak && ap.security !== 'wpa3') {
     const how = weak === 'common' ? 'guessing common passwords with numbers added' : 'guessing short passwords';
     return { ok: true, method: 'guess', estimate: `a few minutes (${how})` };
+  }
+  // WPA3 stops guessing against a recording, but an attacker can still try a few guesses by joining, and a common password is one of them.
+  if (ap.security === 'wpa3' && ap.auth === 'psk' && ap.passphrase && isCommonPassphrase(ap.passphrase)) {
+    return { ok: true, method: 'guess', estimate: 'a few tries (a common password, guessed by trying to join)' };
   }
   if (ap.wps) return { ok: true, method: 'wps', estimate: 'a few hours (the WPS PIN)' };
   if (ap.auth === 'eap') return { ok: false, method: 'none', estimate: 'no shared passphrase to steal' };
