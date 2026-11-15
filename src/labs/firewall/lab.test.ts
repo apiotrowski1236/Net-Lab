@@ -166,6 +166,41 @@ describe('firewall lab feedback', () => {
     );
   });
 
+  it('step 7: two single-address scans do not count as scanning both networks', () => {
+    const goal = step('log').goals!.find((g) => g.id === 'rescan')!;
+    const sim = placed();
+    const since = sim.t;
+    sim.scan('attacker', WEB);
+    sim.runUntilIdle();
+    sim.scan('attacker', FILES);
+    sim.runUntilIdle();
+    expect(goal.check({ sim, since } as never)).toBe(false);
+    sim.scan('attacker', SERVER_NET);
+    sim.runUntilIdle();
+    sim.scan('attacker', STAFF_NET);
+    sim.runUntilIdle();
+    expect(goal.check({ sim, since } as never)).toBe(true);
+  });
+
+  it('says nothing extra once the rules change after the packet was blocked', () => {
+    const sim = placed();
+    const t = sim.t;
+    // Blocked with no rule for it, then the student adds the TCP rule that would let it out.
+    expect(connect(sim, 'nurse', WEB, 443).reason).toBe('firewall');
+    const at = sim.events.find((e) => e.type === 'firewall' && e.device === 'fwB' && e.t >= t)!.t;
+    sim.fwAddRule('fwB', { ...STAFF_OUT, proto: 'tcp' });
+    expect(fwDenyText(sim, 'fwB', at)).toBe('Firewall B blocked it: no rule matched (the implicit deny).');
+  });
+
+  it('says nothing extra when a wrong-way rule is added after the block', () => {
+    const sim = placed();
+    const t = sim.t;
+    expect(connect(sim, 'nurse', WEB, 443).reason).toBe('firewall');
+    const at = sim.events.find((e) => e.type === 'firewall' && e.device === 'fwB' && e.t >= t)!.t;
+    sim.fwAddRule('fwB', { ...STAFF_OUT, dir: 'in', proto: 'tcp' });
+    expect(fwDenyText(sim, 'fwB', at)).toBe('Firewall B blocked it: no rule matched (the implicit deny).');
+  });
+
   it('says nothing extra for an implicit deny that no rule would turn around', () => {
     const sim = placed();
     const t = sim.t;

@@ -63,9 +63,9 @@ const denied = (pred: (e: FwEvent) => boolean) => (e: FwEvent) => e.verdict.acti
 const connected = (sim: Sim, device: string, since: number, pred: (c: Conn) => boolean) =>
   (sim.dev(device).conns ?? []).some((c) => c.t >= since && c.status === 'open' && pred(c));
 
-/** The attacker finished a scan since `since` that covered the /24 network `ip` is on. */
+/** The attacker finished a scan since `since` that covered the /24 network `ip` is on (a whole network, not one address). */
 const scannedNet = (sim: Sim, since: number, ip: string) =>
-  happened(sim, since, (e) => e.type === 'scan-done' && e.device === 'attacker' && e.scan.hosts.some((h) => sameSubnet(h.ip, ip, 24)));
+  happened(sim, since, (e) => e.type === 'scan-done' && e.device === 'attacker' && e.scan.size >= 254 && e.scan.hosts.some((h) => sameSubnet(h.ip, ip, 24)));
 
 /** Firewall A still has this rule (the student fixed the order instead of deleting it). */
 const hasRule = (sim: Sim, rule: FwRuleInput) => sim.dev('fwA').firewall!.rules.some((r) => sameRule(r, rule));

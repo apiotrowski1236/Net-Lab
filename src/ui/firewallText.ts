@@ -59,14 +59,19 @@ export function zoneWhyText(sim: Sim, fwId: string, v: FwVerdict): string | unde
  */
 export function nearMissText(sim: Sim, e: FwEvent): string {
   if (e.verdict.by !== 'implicit' || isReply(e.pkt)) return '';
-  const rules = sim.devices[e.device]?.firewall?.rules ?? [];
+  const fw = sim.devices[e.device]?.firewall;
+  // The line reads today's rules, but the packet was judged by the rules of its moment. Once the rules
+  // change (even at the same sim time, while paused), say nothing, rather than describe rules it never met.
+  if (!fw || (fw.changedAt ?? -Infinity) >= e.t) return '';
+  const rules = fw.rules ?? [];
+  if (rules.some((r) => ruleMatches(r, e.pkt, e.dir))) return '';
   const other = e.dir === 'in' ? 'out' : 'in';
   // A rule for any address to any address (like "out, anything") would match
   // every packet turned around, so it says nothing about this one.
   const named = (r: FwRule) => r.src !== 'any' || r.dst !== 'any';
   const i = rules.findIndex((r) => r.dir === other && named(r) && ruleMatches({ ...r, dir: e.dir }, e.pkt, e.dir));
   if (i >= 0) return ` Rule ${i + 1} would match it, but rule ${i + 1} is for packets going ${other}, and this one is going ${e.dir}.`;
-  const j = rules.findIndex((r) => r.dir === e.dir && named(r) && r.proto !== 'any' && ruleMatches({ ...r, proto: e.pkt.proto }, e.pkt, e.dir));
+  const j = rules.findIndex((r) => r.dir === e.dir && named(r) && r.proto !== 'any' && r.proto !== e.pkt.proto && ruleMatches({ ...r, proto: e.pkt.proto }, e.pkt, e.dir));
   if (j < 0) return '';
   const what = e.pkt.app.kind === 'ping' ? 'a ping (ICMP)' : e.pkt.proto.toUpperCase();
   return ` Rule ${j + 1} would match it, but rule ${j + 1} is only for ${rules[j].proto.toUpperCase()}, and this packet is ${what}.`;

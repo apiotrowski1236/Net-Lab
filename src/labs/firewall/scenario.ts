@@ -17,7 +17,7 @@ export const FILES = '10.0.2.50';
 export const SERVER_NET = '10.0.1.0/24';
 export const STAFF_NET = '10.0.2.0/24';
 export const CLINIC_NET = '198.51.100.0/24';
-/** The internet provider's router, on the hospital side of Firewall A. */
+/** The internet provider's router, outside Firewall A, on the cable that leads to the internet. */
 export const ISP_ROUTER = '10.0.1.1';
 
 export const HOSPITAL_SITE = 'achospital.example';
