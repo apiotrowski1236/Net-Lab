@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   clientOf,
   clock,
@@ -49,7 +49,7 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
   return (
     <div class="bench-detail">
       <p class="small">
-        <strong>Run {run.no}</strong>: {METHOD_NAME[run.method]} on {day.label} ({runSettings(b, run)})
+        <strong>Run {run.no}</strong>: {METHOD_NAME[run.method]} on {day.label}, {runSettings(b, run)}
       </p>
       <ul class="bench-attacks">
         {inDay.map((a) => {
@@ -60,6 +60,9 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
           // Hybrid: the other method may have flagged it too, which is why one attack can raise two alerts.
           const also = hit && run.method === 'hybrid' ? first(hit.by === 'signature' ? 'anomaly' : 'signature') : undefined;
           const missWhy = !hit && r.missedWhy?.[a.id];
+          // Hybrid caught by one half: say why the other half stayed quiet.
+          const other = hit?.by === 'signature' ? 'anomaly' : 'signature';
+          const quiet = hit && run.method === 'hybrid' && !also ? r.notBy?.[a.id]?.[other] : undefined;
           return (
             <li key={a.id} class={hit ? 'caught' : 'missed'}>
               <Icon name={hit ? 'check' : 'x'} />
@@ -71,7 +74,7 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
                   </span>
                 )}
               </span>
-              <span class="small">{hit ? `caught by ${hit.by} in ${duration(hit.detectMs)}` : 'missed'}</span>
+              <span class="small">{hit ? `caught by ${hit.by}, ${duration(hit.detectMs)} after it started` : 'missed'}</span>
               {why && (
                 <span class="small muted bench-why">
                   <span class="mono">{clock(why.at)}</span> {why.why}
@@ -80,6 +83,11 @@ function RunDetail({ b, run }: { b: BenchState; run: BenchRun }) {
               {also && (
                 <span class="small muted bench-why">
                   <span class="mono">{clock(also.at)}</span> {also.by} also flagged it: {also.why}
+                </span>
+              )}
+              {quiet && (
+                <span class="small muted bench-why">
+                  {other} missed it: {quiet}
                 </span>
               )}
               {missWhy && <span class="small muted bench-why">{missWhy}</span>}
@@ -111,6 +119,11 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
   void session.simRev.value;
   const [pick, setPick] = useState(spec.clients[0]);
   const [shown, setShown] = useState<number | null>(null);
+  // A row click changes the result card above the table: bring it into view.
+  const detailRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (shown !== null) detailRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [shown]);
   const b = session.sim.devices[spec.device]?.bench;
   if (!b) return null;
   const cid = spec.clients.includes(pick) ? pick : spec.clients[0];
@@ -124,7 +137,8 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
   const busy = b.runs.some((r) => r.client === cid && !r.result);
   const needsBaseline = uses(set.method, 'anomaly') && !set.baseline;
   const runs = b.runs.filter((r) => r.client === cid);
-  const detail = runs.find((r) => r.no === shown) ?? runs[runs.length - 1];
+  // With the analyst queue, the card always shows the newest run, the one the queue is reading.
+  const detail = (!spec.queue && runs.find((r) => r.no === shown)) || runs[runs.length - 1];
   const dayLabel = c.days[set.day].label;
   return (
     <div class="tool-card defend bench-card">
@@ -204,7 +218,9 @@ export function BenchCard({ session, spec }: ToolCardProps<'bench'>) {
         </div>
         <div class="bench-results">
           {spec.queue && <AnalystQueue key={lastRun(b, (r) => r.client === cid)?.no ?? 0} session={session} devId={spec.device} client={cid} />}
-          {detail ? <RunDetail b={b} run={detail} /> : !spec.queue && <p class="small muted">No runs on {c.name} yet. Results show here.</p>}
+          <div ref={detailRef}>
+            {detail ? <RunDetail b={b} run={detail} /> : !spec.queue && <p class="small muted">No runs on {c.name} yet. Results show here.</p>}
+          </div>
           {runs.length > 1 && !spec.queue && (
             <table class="table bench-table">
               <thead>

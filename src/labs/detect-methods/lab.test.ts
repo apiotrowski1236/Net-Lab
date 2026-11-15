@@ -184,15 +184,19 @@ describe('detect-methods: steps', () => {
     const sep = run(STREAM, 'signature', { db: SEP });
     expect(sep.missedWhy).toEqual({ [VIDJACK]: 'the September 2026 database has no signature for it', [LEAK]: 'no signature exists for it yet' });
     // Step 7 at ±200%: the copied shows' hour was +150%, inside the range.
-    expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE, tolerance: 200 }).missedWhy![LEAK]).toBe('its hour looked normal: +150%, inside ±200%');
+    expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE, tolerance: 200 }).missedWhy![LEAK]).toBe('its hour was +150%, inside the ±200% tolerance');
     // Step 6: StuffBot's hour stayed inside ±25%.
-    expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE }).missedWhy![STUFFBOT]).toMatch(/^its hour looked normal: [+−]\d+%, inside ±25%$/);
+    expect(run(STREAM, 'anomaly', { baseline: STREAM_BASE }).missedWhy![STUFFBOT]).toMatch(/^its hour was [+−]\d+%, inside the ±25% tolerance$/);
     // Step 5: the infected baseline. It names the match, not the reason, so the question still asks for it.
     expect(run(PLANT, 'anomaly', { baseline: PLANT_INFECTED }).missedWhy![BEACON]).toBe('its traffic matched the Nov 9 baseline');
     // Step 9: the repacked file has a hash no signature knows.
     expect(run(DISPATCH, 'signature', { day: RENAMED }).missedWhy![LOCKDOWN]).toBe('no signature matches its file');
     // Hybrid gives both methods' reasons.
     expect(run(PLANT, 'hybrid', { baseline: PLANT_INFECTED }).missedWhy![BEACON]).toBe('no signature exists for it yet; its traffic matched the Nov 9 baseline');
+    // Step 9 on hybrid: anomaly catches the repack, and the card still says why the signature half missed.
+    const hyb = run(DISPATCH, 'hybrid', { baseline: DISPATCH_BASE, day: RENAMED });
+    expect(hyb.missed).not.toContain(LOCKDOWN);
+    expect(hyb.notBy![LOCKDOWN]).toEqual({ signature: 'no signature matches its file' });
   });
 });
 

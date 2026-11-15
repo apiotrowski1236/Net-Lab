@@ -96,10 +96,10 @@ export const detectMethodsLab: LabDef = {
   unit: 3,
   codehs: ['3.16 Choosing Between Detection Methods', '3.17 Evaluating Detection Methods'],
   ced: ['3.5.C', '3.5.D'],
-  minutes: 45,
+  minutes: 50,
   objectives: [
     'Run signature, anomaly, and hybrid detection on recorded traffic and compare what each one catches and misses.',
-    'Explain why a signature database needs updates and why a baseline must come from an uncompromised day.',
+    'Explain why a signature database needs updates and why a baseline must come from a clean day, before any attack.',
     'Judge a detection method by speed, cost, false positives, and false negatives, including alert fatigue.',
     'Recommend a detection method for a network from its traffic volume, its consistency, and how critical it is.',
   ],
@@ -206,7 +206,7 @@ export const detectMethodsLab: LabDef = {
 
         A signature database only knows the attacks someone has already found and described, so it needs regular **updates**.
 
-        1. Press **Install the October 2026 update**.
+        1. In the [[bench]], press **Install the October 2026 update**.
         2. Run signature detection again. A table of your runs appears under the result. Compare its two rows.
       `,
       open: 'tools',
@@ -283,7 +283,7 @@ export const detectMethodsLab: LabDef = {
           options: [
             { id: 'new', text: 'On Sep 14 the controller never talked to the internet, so this traffic was new.', correct: true },
             { id: 'big', text: 'It sent far more data than the controller usually sends.', feedback: 'Read the line under the caught attack in the run: “new kind of traffic.” It stood out because it was new, not because it was big.' },
-            { id: 'port', text: 'Port 4444 is on a list of ports that attackers use.', feedback: 'A list of known bad details is a signature. Anomaly detection has no list, only the baseline.' },
+            { id: 'port', text: 'Anomaly detection found port 4444 on a list of ports attackers use.', feedback: 'A list of known bad details is a signature. Anomaly detection has no list, only the baseline.' },
             { id: 'name', text: 'The outside server’s address matched a known attacker.', feedback: 'Matching a known address is how a signature works. Anomaly detection compared the day with the baseline.' },
           ],
           explain:
@@ -345,7 +345,7 @@ export const detectMethodsLab: LabDef = {
       body: md`
         Anomaly detection worked well at the plant. Now try it on StreamCo.
 
-        1. Choose **Anomaly**.
+        1. In the [[bench]], choose **Anomaly**.
         2. Record a baseline from **Nov 5**, a clean day.
         3. Keep the tolerance at ±25% and run it.
 
@@ -396,7 +396,7 @@ export const detectMethodsLab: LabDef = {
       id: 'fatigue',
       title: 'Alert fatigue',
       body: md`
-        Every alert goes to an analyst, who checks it before anyone acts. Checking one takes about 5 minutes. Most of StreamCo's alerts were **false positives**, another name for false alarms: normal swings in traffic that crossed the tolerance line. A **false negative** is the opposite: a real attack that raised no alert.
+        Every alert goes to an analyst, who checks it before anyone acts. Most of StreamCo's alerts were **false positives**, another name for false alarms: normal swings in traffic that crossed the tolerance line. A **false negative** is the opposite: a real attack that raised no alert.
 
         |  | Alert | No alert |
         |---|---|---|

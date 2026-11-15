@@ -200,6 +200,8 @@ export interface BenchResult {
   missed: string[];
   /** Missed attack id -> why each method let it through, in words. */
   missedWhy?: Record<string, string>;
+  /** Attack id -> why a method that ran raised no alert on it (hybrid: one half can miss while the other catches). */
+  notBy?: Record<string, Partial<Record<'signature' | 'anomaly', string>>>;
   falseAlarms: number;
   cost: number;
 }
@@ -367,21 +369,22 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
     else missed.push(atk.id);
   }
 
-  // Why each miss got through, one reason per method that ran.
-  const missedWhy: Record<string, string> = {};
-  for (const id of missed) {
-    const atk = client.attacks.find((a) => a.id === id)!;
-    const recs = day.records.filter((r) => r.attack === id);
-    const parts: string[] = [];
-    if (useSig) {
+  // Why each method let an attack through: for every attack a method that ran raised no alert on.
+  const notBy: Record<string, Partial<Record<'signature' | 'anomaly', string>>> = {};
+  for (const atk of client.attacks) {
+    const recs = day.records.filter((r) => r.attack === atk.id);
+    if (!recs.length) continue;
+    const flagged = (by: 'signature' | 'anomaly') => alerts.some((a) => a.attack === atk.id && a.by === by);
+    const why: Partial<Record<'signature' | 'anomaly', string>> = {};
+    if (useSig && !flagged('signature')) {
       const files = recs.flatMap((r) => (r.file ? [r.file] : []));
       const later = config.signatures.some((s) => s.file && files.includes(s.file));
       const db = config.versions.find((v) => v.id === input.db)?.label ?? input.db;
-      parts.push(atk.novel ? 'no signature exists for it yet' : later ? `the ${db} database has no signature for it` : 'no signature matches its file');
+      why.signature = atk.novel ? 'no signature exists for it yet' : later ? `the ${db} database has no signature for it` : 'no signature matches its file';
     }
-    if (useAnom && input.baseline) {
+    if (useAnom && input.baseline && !flagged('anomaly')) {
       const base = input.baseline;
-      if (client.days[base.day]?.records.some((r) => r.attack === id)) parts.push(`its traffic matched the ${client.days[base.day].label} baseline`);
+      if (client.days[base.day]?.records.some((r) => r.attack === atk.id)) why.anomaly = `its traffic matched the ${client.days[base.day].label} baseline`;
       else {
         let worst: number | undefined;
         for (const r of recs) {
@@ -391,14 +394,17 @@ export function runBench(config: BenchConfig, client: BenchClient, input: RunInp
           const dev = (rs.reduce((s, x) => s + x.mb, 0) - usual) / usual;
           if (worst === undefined || Math.abs(dev) > Math.abs(worst)) worst = dev;
         }
-        parts.push(worst === undefined ? 'its traffic looked normal' : `its hour looked normal: ${signedPct(worst)}, inside ±${input.tolerance}%`);
+        why.anomaly =
+          worst === undefined ? 'its traffic stayed inside the tolerance' : `its hour was ${signedPct(worst)}, inside the ±${input.tolerance}% tolerance`;
       }
     }
-    if (parts.length) missedWhy[id] = parts.join('; ');
+    if (why.signature || why.anomaly) notBy[atk.id] = why;
   }
+  const missedWhy: Record<string, string> = {};
+  for (const id of missed) if (notBy[id]) missedWhy[id] = [notBy[id].signature, notBy[id].anomaly].filter(Boolean).join('; ');
 
   workQueue(alerts);
-  return { alerts, caught, missed, missedWhy, falseAlarms: alerts.filter((a) => !a.attack).length, cost: client.cost[input.method] };
+  return { alerts, caught, missed, missedWhy, notBy, falseAlarms: alerts.filter((a) => !a.attack).length, cost: client.cost[input.method] };
 }
 
 /**
