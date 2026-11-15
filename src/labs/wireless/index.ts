@@ -29,7 +29,11 @@ const tryCrack: ActionDef = {
   outcome: (sim, since) => {
     const e = [...sim.events].reverse().find((x) => x.t >= since && x.type === 'wifi' && x.what === 'crack' && x.device === 'mallory');
     if (!e || e.type !== 'wifi') return [{ tone: 'wait', text: 'Mallory is trying to break in...' }];
-    return [e.ok ? { tone: 'bad', text: `Broken: ${e.detail}.` } : { tone: 'good', text: `Held: ${e.detail}.` }];
+    if (e.ok) return [{ tone: 'bad', text: `Broken: ${e.detail}.` }];
+    // Mallory's guessing tool can't beat a long WPA passphrase, but the original WPA has other known flaws.
+    if (sim.dev('wap').wifi?.security === 'wpa')
+      return [{ tone: 'wait', text: `Mallory's guesses failed (${e.detail}), but the original WPA has other known flaws. Pick WPA2 or WPA3.` }];
+    return [{ tone: 'good', text: `Held: ${e.detail}.` }];
   },
 };
 
@@ -83,19 +87,18 @@ const scannedFrom = (device: string) => (sim: Sim, since: number) =>
 
 /**
  * A scan from Mallory after the name was hidden (and it is still hidden). A name hidden before the
- * step began, say while exploring step 3, counts from the step's start.
+ * step began, say while exploring step 3, counts from the step's start. "After" goes by place in the
+ * event list, not time, so a scan made at the same moment but before the hide (while paused) doesn't count.
  */
 function scannedHidden(sim: Sim, since: number): boolean {
   if (sim.dev('wap').wifi?.beacon !== false) return false;
-  let hidAt = since;
   for (let i = sim.events.length - 1; i >= 0; i--) {
     const e = sim.events[i];
-    if (e.type === 'config' && e.what === 'wifi-beacon' && e.device === 'wap') {
-      hidAt = Math.max(since, e.t);
-      break;
-    }
+    if (e.t < since) return false;
+    if (e.type === 'config' && e.what === 'wifi-beacon' && e.device === 'wap') return false;
+    if (e.type === 'wifi' && e.what === 'scan' && e.device === 'mallory') return true;
   }
-  return happened(sim, hidAt, (e) => e.type === 'wifi' && e.what === 'scan' && e.device === 'mallory');
+  return false;
 }
 
 export const wirelessLab: LabDef = {

@@ -214,6 +214,43 @@ describe('wireless lab', () => {
     expect(s.goalDone('hide', 'rescan')).toBe(true);
   });
 
+  it('step 4: a scan at the same moment but before the hide does not count', () => {
+    const s = new LabSession(wirelessLab, freshProgress());
+    const at = wirelessLab.steps.findIndex((st) => st.id === 'hide');
+    for (let i = 0; i < at; i++) {
+      playStep(s, wirelessSolution[s.step.id]);
+      s.goTo(i + 1);
+    }
+    s.sim.advance(1000);
+    // Paused: scan with the name showing, then hide it, all at one sim time.
+    s.dispatch({ type: 'wifi-scan', device: 'mallory' });
+    s.dispatch({ type: 'wifi-beacon', device: 'wap', on: false });
+    s.missing();
+    expect(s.goalDone('hide', 'rescan')).toBe(false);
+    s.dispatch({ type: 'wifi-scan', device: 'mallory' });
+    s.missing();
+    expect(s.goalDone('hide', 'rescan')).toBe(true);
+  });
+
+  it('step 5: the cracker result on the first WPA does not say it held', () => {
+    const s = new LabSession(wirelessLab, freshProgress());
+    const at = wirelessLab.steps.findIndex((st) => st.id === 'lock');
+    for (let i = 0; i < at; i++) {
+      playStep(s, wirelessSolution[s.step.id]);
+      s.goTo(i + 1);
+    }
+    s.dispatch({ type: 'wifi-security', device: 'wap', security: 'wpa', passphrase: STRONG_PASS });
+    s.dispatch({ type: 'wifi-wps', device: 'wap', on: false });
+    s.sim.runUntilIdle();
+    const crack = wirelessLab.steps[at].actions!.find((a) => a.id === 'mallory-crack')!;
+    const t = s.sim.t;
+    crack.run(s.sim);
+    s.sim.runUntilIdle();
+    const line = crack.outcome!(s.sim, t)[0];
+    expect(line.tone).not.toBe('good');
+    expect(line.text).toMatch(/WPA2 or WPA3/);
+  });
+
   it('step 5: the first WPA with a long passphrase and WPS off does not count as a lock Mallory cannot break', () => {
     const s = new LabSession(wirelessLab, freshProgress());
     const at = wirelessLab.steps.findIndex((st) => st.id === 'lock');
