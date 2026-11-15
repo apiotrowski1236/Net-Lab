@@ -364,7 +364,7 @@ export const deviceAnalysisLab: LabDef = {
             },
             {
               id: 'rule',
-              text: 'Yes, as soon as someone adds a ufw rule that allows port 25',
+              text: 'No, not until someone adds a ufw rule that allows port 25',
               feedback: 'A rule could let the packet in, but nothing would answer it. The mail program listens only on 127.0.0.1, not on the address the internet uses.',
             },
             {
@@ -603,7 +603,7 @@ export const deviceAnalysisLab: LabDef = {
         **fail2ban** is a small IPS for Linux servers. It reads auth.log as the lines are written. When one address fails to sign in 5 times within 10 minutes, fail2ban adds a ufw rule at the top that blocks that address. It can watch other logs too, like a web or mail server's.
 
         1. In the **Sign-in defenses** card, turn on **fail2ban**.
-        2. Press [[button:bot]]. [[bot]] starts guessing passwords.
+        2. Press [[button:bot]].
         3. Read **fail2ban.log**, then **ufw.log**. Then open the **Inspect** tab and find the new rule at the top of web01's firewall rules.
 
         When fail2ban starts, it reads back through the last 10 minutes of auth.log. Your step 5 replays can show up there as Found lines for 203.0.113.77. If there are 5 or more, fail2ban bans 203.0.113.77 too.
@@ -894,9 +894,9 @@ export const deviceAnalysisLab: LabDef = {
 
         Open **access.log**. Most lines are customers using web browsers. Then find the lines from 203.0.113.140, the address from ufw.log. Its user agent is curl, a command-line tool, not a browser.
 
-        First, it asked for files that websites sometimes show to everyone by mistake: /.env (passwords and settings), /.git/config (a settings file that shows the site's code history can be downloaded), and admin pages. Every answer was 404. Looking for weak spots like this is **reconnaissance**.
+        First, it asked for files that websites sometimes show to everyone by mistake: /.env (passwords and settings), /.git/config (if anyone can download it, they can often download the site's whole code history too), and admin pages. Every answer was 404. Looking for weak spots like this is **reconnaissance**.
 
-        Then it asked for paths with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them lead out of the web folder to the top of the disk, where /etc/passwd lists the server's accounts and /etc/shadow holds their password hashes: passwords scrambled one way, so they can't be turned back. Using \`..\` to read files outside the web folder is **directory traversal**.
+        Then it asked for paths with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them lead out of the web folder to the top of the disk, where /etc/passwd lists the server's accounts and /etc/shadow holds their password hashes: passwords scrambled one way, so they can't be turned back. Only the administrator can read it. An attacker who copies it can still guess passwords against the hashes on their own computer, where no fail2ban stops them. Using \`..\` to read files outside the web folder is **directory traversal**.
 
         This challenge earns no points. Hand in your work again when you're done so your teacher sees it.
       `,
