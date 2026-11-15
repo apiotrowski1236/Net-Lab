@@ -260,6 +260,20 @@ describe('capture-analysis: fixing the live network', () => {
     expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
   });
 
+  it('says the flood stopped again when port 7 is still shut from the last replay', () => {
+    const sim = build();
+    sim.setPortSecurity('switch', BREAKROOM_PORT, { maxMacs: 1, violation: 'shutdown' });
+    play(sim, replayFlood);
+    const act = lab.steps.find((s) => s.id === 'fix')!.actions!.find((a) => a.id === 'replay-flood')!;
+    const since = sim.t;
+    replayFlood(sim);
+    sim.runUntilIdle();
+    const [line] = act.outcome!(sim, since);
+    expect(line.tone).toBe('good');
+    expect(line.text).toMatch(/still shut/);
+    expect(check('fix', 'flood-blocked', undefined, sim, since)).toBe(true);
+  });
+
   it('a deny rule below allow out does nothing; above it, the check-in is blocked', () => {
     const sim = build();
     const rule = { dir: 'out', proto: 'any', src: 'any', dst: IP.c2, dport: 'any', action: 'deny' } as const;

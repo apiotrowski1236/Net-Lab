@@ -87,8 +87,12 @@ function mapsAllowed(sim: Sim): boolean {
   return !!fw && evaluate(fw, MAPS_PROBE, 'out').action === 'allow';
 }
 
-const floodBlocked = (sim: Sim, since: number) =>
+const floodTripped = (sim: Sim, since: number) =>
   happened(sim, since, (e) => e.type === 'port-security' && e.device === 'switch' && e.iface === BREAKROOM_PORT);
+// A second replay finds port 7 already shut: the frames drop at the port and port security has nothing new to say.
+const floodHitShutPort = (sim: Sim, since: number) =>
+  happened(sim, since, (e) => e.type === 'drop' && e.device === 'switch' && e.reason === 'port-shutdown' && !!e.frame?.burst);
+const floodBlocked = (sim: Sim, since: number) => floodTripped(sim, since) || floodHitShutPort(sim, since);
 // Only a check-in stopped at its first SYN counts: a stateless firewall also denies the rest of one that
 // already got through when the rule moves up partway, and that check-in reached 192.0.2.44.
 const checkinBlocked = (sim: Sim, since: number) =>
@@ -100,7 +104,8 @@ const replayFloodAction: ActionDef = {
   label: 'Replay the 14:00 flood',
   run: replayFlood,
   outcome(sim, since): ActionLine[] {
-    if (floodBlocked(sim, since)) return [{ tone: 'good', text: 'Port security shut port 7 at the first made-up MAC. The flood stopped at the switch.' }];
+    if (floodTripped(sim, since)) return [{ tone: 'good', text: 'Port security shut port 7 at the first made-up MAC. The flood stopped at the switch.' }];
+    if (floodHitShutPort(sim, since)) return [{ tone: 'good', text: 'Port 7 is still shut from your last replay, so the flood stopped at the switch again.' }];
     if (!sim.idle) return [{ tone: 'wait', text: 'The break-room PC is sending made-up MACs…' }];
     return [{ tone: 'bad', text: 'The made-up MACs went into the switch’s table. Turn on port security on port 7, then replay it.' }];
   },
@@ -272,9 +277,9 @@ export const captureAnalysisLab: LabDef = {
 
         The matching packets turn darker on the graph, so you can see the filter covers the spike. An **echo request** is a ping, and an **echo reply** answers it. To list only the requests, filter \`icmp.type == 8\`.
 
-        The requests go to 198.51.100.255, the depot's **broadcast address**, so every depot computer gets a copy. Each one sends its echo reply to the address in the request's Source column.
+        The requests go to 198.51.100.255, the depot's **broadcast address**, so every depot computer gets a copy. Each one sends its echo reply to the address in the request's Source column, so whoever has that address gets all the replies.
 
-        Pings sent to a broadcast address like this are a **smurf attack**. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
+        Pings sent to a broadcast address like this are a **smurf attack**, named after an old program that sent them. It works because the depot's old router has **directed broadcast** on: a setting that lets pings from the internet reach the broadcast address. Turning it off stops this.
 
         Now read the Source. Anyone who builds a packet can write any address there. Faking it is called **spoofing**, and the fake address is **forged**.
       `,
@@ -334,9 +339,9 @@ export const captureAnalysisLab: LabDef = {
       body: md`
         Now the second spike, at about 38 to 47 seconds. Open **Conversations**: it lists each pair of addresses that talked, busiest first.
 
-        The top pair is two depot computers, 198.51.100.20 and 198.51.100.50. Press **Filter** on that row to show only their packets, and read a few. They use port 873, **rsync**: a program that copies files from one computer to another.
+        The top pair is the fare server and the backup server, 198.51.100.20 and 198.51.100.50. Press **Filter** on that row to show only their packets, and read a few. They use port 873, **rsync**: the program the depot uses for backups. It copies files from one computer to another.
 
-        A detector watches traffic and raises an alert when something looks wrong. **Positive** means it raised an alert, and **negative** means it didn't. **True** means the detector was right, and **false** means it was wrong:
+        A detector watches traffic and raises an alert when something looks wrong. **Positive** means it raised an alert, and **negative** means it didn't. **True** means the detector was right about whether there was an attack, and **false** means it was wrong:
 
         - **True positive**: an alert, and a real attack.
         - **False positive**: an alert, but the traffic was harmless.
@@ -367,7 +372,7 @@ export const captureAnalysisLab: LabDef = {
             { id: 'tn', text: 'A true negative', feedback: 'A true negative is no alert for harmless traffic. Here the detector did alert.' },
           ],
           explain:
-            'Two depot servers, the backup program’s port, and a steady stream of full-size packets: this is a backup, not an attack. The depot schedules its backups for the night, so it’s worth asking who ran this one at lunch. A spike alone doesn’t prove an attack, so this alert is a **false positive**. Too many of them, and analysts start ignoring alerts. (rsync on port 873 doesn’t encrypt what it copies. That’s a weakness worth fixing, but it isn’t an attack.)',
+            'The fare server, the backup server, rsync’s port, and a steady stream of full-size packets: this is a backup, not an attack. The depot schedules its backups for the night, so someone probably started this one by hand. That’s worth a question to whoever runs the servers, but it’s still not an attack. A spike alone doesn’t prove an attack, so this alert is a **false positive**. Too many of them, and analysts start ignoring alerts. (rsync on port 873 doesn’t encrypt what it copies. That’s a weakness worth fixing, but it isn’t an attack.)',
         },
       ],
     },
@@ -472,7 +477,7 @@ export const captureAnalysisLab: LabDef = {
             { id: 'shut', text: 'It made the switch shut off the port the frames came in on.', feedback: 'Only port security shuts a port, and it was off at 14:00.' },
           ],
           explain:
-            'This is **MAC flooding**. With its table full, the switch sends frames for MACs it hasn’t learned out every port, like a hub. Anyone can then capture traffic meant for other ports. The capture can’t show which port the frames came in on, since the made-up MACs belong to no one. The switch’s MAC table did: at 14:00 it filled up with made-up MACs, all on port 7, the Break-room PC’s port. (Those entries have since timed out.) **Port security** on port 7, which limits how many MACs one port may use, would have stopped it.',
+            'This is **MAC flooding**. With its table full, the switch sends frames for MACs it hasn’t learned out every port, like a hub. Anyone can then capture traffic meant for other ports. The capture can’t show which port the frames came in on, since the made-up MACs belong to no one. The switch’s MAC table did: at 14:00 it filled up with made-up MACs, all on port 7, the Break-room PC’s port. (A switch deletes a MAC it hasn’t heard from in a while, so those entries are gone now.) **Port security** on port 7, which limits how many MACs one port may use, would have stopped it.',
         },
       ],
     },
@@ -491,7 +496,7 @@ export const captureAnalysisLab: LabDef = {
 
         (Real scanners like nmap try ports in a random order. This one goes in order, so the pattern is clear.) The scanner isn't on the threat list. A threat list only names attackers someone has already seen.
 
-        To find the open ports, show only packets with both flags on. \`&&\` means "and": a packet has to match both sides. Normal kiosk connections have SYN, ACK packets too, so also match the scanner's address. Copy this filter, then type the scanner's address at the end:
+        To find the open ports, show only packets with both flags on. \`&&\` means "and": a packet has to match every part. Normal kiosk connections have SYN, ACK packets too, so also match the scanner's address. Copy this filter, then type the scanner's address at the end:
 
         \`\`\`
         tcp.flags.syn == 1 && tcp.flags.ack == 1
@@ -578,7 +583,7 @@ export const captureAnalysisLab: LabDef = {
                     ? 'is the server confirming the upload, not a command. A command reply has cmd= in it.'
                     : true,
           explain:
-            'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. One reply said to upload a garage camera video, and the next connection sent it. A firewall rule on the router that denies traffic out to 192.0.2.44 would cut it off, but the recorder still needs to be erased and set up again.',
+            'The recorder checks in every ten seconds and asks for orders: this is **command and control** (C2) traffic. Most replies said `sleep 10`: wait ten seconds, then check in again. One said to upload a garage camera video, and the next connection sent it. A firewall rule on the router that denies traffic out to 192.0.2.44 would cut it off, but the recorder still needs to be erased and set up again.',
         }),
       ],
     },
