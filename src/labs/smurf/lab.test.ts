@@ -3,7 +3,7 @@ import { LabSession } from '../../runtime/session';
 import type { LabProgress } from '../../store/progress';
 import { playMove, playStep } from '../solution';
 import { smurfLab as lab } from '.';
-import { BOTNET, buildEchoStorm, CAMPUS_BCAST, FAN, MALLORY, ispFilterUpstream, LAN_HOSTS, PC1, SMURF_RATE, STORM_COUNT, TICKETS, UPLINK_CAP, uplinkId, WEB } from './scenario';
+import { BOTNET, BOTNET_RATE, buildEchoStorm, CAMPUS_BCAST, FAN, MALLORY, ispFilterUpstream, LAN_HOSTS, PC1, SMURF_RATE, STORM_COUNT, TICKETS, UPLINK_CAP, uplinkId, WEB } from './scenario';
 import { smurfSolution as sol } from './solution';
 
 class MemoryStorage {
@@ -236,6 +236,33 @@ describe('smurf lab', () => {
     expect(s.sim.linkPps(uplinkId(s.sim)), 'not on the click').toBe(0);
     s.sim.runUntilIdle();
     expect(s.sim.linkPps(uplinkId(s.sim))).toBe(SMURF_RATE);
+  });
+
+  it('step 4: a purchase pressed the moment the storm starts still counts as failed', () => {
+    // Her request slips through before the uplink fills, and the page coming back is dropped instead.
+    const s = playTo('return-to-sender');
+    const buy = lab.steps[index('the-storm')].actions!.find((a) => a.id === 'fan-buy')!;
+    const t0 = s.sim.t;
+    s.runStepAction('storm');
+    s.runStepAction('fan-buy');
+    s.sim.runUntilIdle();
+    expect(s.missing()).toEqual(['1 question']);
+    expect(buy.outcome!(s.sim, t0)).toEqual([
+      { tone: 'bad', text: "The purchase failed. Hilltop's uplink is full of flood traffic, so the page was dropped on its way back to her." },
+    ]);
+  });
+
+  it('step 5: the botnet fills the uplink when its pings get there, not on the click', () => {
+    const s = playTo('the-storm');
+    expect(s.step.id).toBe('many-attackers');
+    const botnet = lab.steps[index('many-attackers')].actions!.find((a) => a.id === 'botnet')!;
+    const t0 = s.sim.t;
+    botnet.run(s.sim);
+    expect(s.sim.linkPps(uplinkId(s.sim))).toBe(0);
+    expect(botnet.outcome!(s.sim, t0)[0].tone).toBe('wait');
+    s.sim.runUntilIdle();
+    expect(s.sim.linkPps(uplinkId(s.sim))).toBe(BOTNET_RATE);
+    expect(botnet.outcome!(s.sim, t0).at(-1)?.text).toMatch(/carries only/);
   });
 
   it("step 6 counts only a forged log line, not Mallory's own step 2 test ping", () => {

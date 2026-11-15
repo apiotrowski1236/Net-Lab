@@ -70,6 +70,12 @@ that alter what students do or see:
   (`src` = the ticket server), not Mallory's step 2 test ping. Step 8's **Botnet joins in** result says whether
   the edge firewall drops the pings. "How risky?" keeps options in High/Moderate/Low order (`last` on all) and
   Q2 grades the weak Wi-Fi password alone. Mallory moved to (150, 160) and the botnet to (330, 85).
+- **Round 3:** a purchase counts as failed when the fan's request *or* the page coming back is dropped on the
+  full uplink (a purchase pressed the instant the storm starts lets the request through and loses the page).
+  **Botnet joins in** sets its uplink flood one hop after the click, so the meter climbs when the bots' pings
+  arrive. Step 4 names the campus network as the amplifier and tells students to wait for the math line.
+  Step 6 says the newest log line is the bottom one and to read **src** in the details. Step 9's ISP result says
+  the bots are still sending. Step 10's beacon prompt no longer gives the answer away.
 
 ## What changed from PLAN.md
 
