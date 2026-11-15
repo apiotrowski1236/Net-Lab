@@ -193,7 +193,7 @@ describe('watch-the-air lab', () => {
     for (const level of [20, 40, 60, 80]) {
       const r = at(level);
       expect(r.missed).toEqual([]);
-      expect(r.falseAlarms).toEqual(["a volunteer's new laptop"]);
+      expect(r.falseAlarms).toEqual(["a volunteer's new laptop (day 5)"]);
       expect(r.caught).toHaveLength(4);
       expect(r.alerts.length).toBe(9);
     }
@@ -328,6 +328,14 @@ describe('watch-the-air lab', () => {
     const lines = watchTheAirLab.steps.find((st) => st.id === 'lookalike')!.actions![0].outcome!(s.sim, 0);
     expect(lines[0].text).toBe('Volunteer desk, Rivera phone, and Chen laptop asked the copy to prove it is radius.shelter. They got no proof, so they sent no login and stayed on the real network.');
     expect(lines).toHaveLength(2);
+  });
+
+  it('the unplug message changes once the three readings have found the radio', () => {
+    const s = enter('find');
+    const text = () => action('unplug').outcome!(s.sim, s.since)[0].text;
+    expect(text()).toContain('Find the radio first');
+    for (const m of watchTheAirSolution.find.moves!.slice(0, 3)) playMove(s, m);
+    expect(text()).toBe('The readings found the radio. Press Unplug the radio.');
   });
 
   it('counts only the MAC_NEW line as the switch evidence, not the LINK line', () => {

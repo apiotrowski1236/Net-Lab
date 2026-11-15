@@ -91,7 +91,9 @@ const unplug: ActionDef = {
   outcome: (sim) =>
     sim.dev('twin').wifi!.off
       ? [{ tone: 'good', text: `The copy is off the air. ${label(sim, 'visitor')} ${onReal(sim, 'visitor') ? 'is back on the real network.' : 'is not connected.'}` }]
-      : [{ tone: 'wait', text: 'Find the radio first: measure it from all three spots in Signal triangulation.' }],
+      : locatedTwin(sim)
+        ? [{ tone: 'wait', text: 'The readings found the radio. Press Unplug the radio.' }]
+        : [{ tone: 'wait', text: 'Find the radio first: measure it from all three spots in Signal triangulation.' }],
 };
 
 const saveProfile: ActionDef = {
@@ -253,10 +255,10 @@ export const watchTheAirLab: LabDef = {
         1. In the Wi-Fi scanner, press **Scan from Volunteer desk**.
         2. Compare each network's BSSID with the list on [[wap]]. Mark it **On the list** or **Not on it**. The scanner won't decide for you.
 
-        A network that isn't on the list could be a **rogue access point**: a box someone plugged into the shelter's wired network. Anyone can join an open box without a password. (The map shows the box on its wall jack because this is a simulation. On a real network you only have the scan and the switch log.)
+        A network that isn't on the list could be a **rogue access point**: a box someone plugged into the shelter's wired network. Anyone can join an open box without a password. (The map shows the box on its wall jack, Hallway jack, because this is a simulation. On a real network you only have the scan and the switch log.)
 
-        3. Open the **Logs** tab and choose [[lansw]]. Click the line that names the box and its port, then press **Cite this line as evidence**.
-           - A **LINK** line says a port came up. It doesn't say what was plugged in.
+        3. Open the **Logs** tab and choose [[lansw]]. Click the **MAC_NEW** line for the box's port, then press **Cite this line as evidence**.
+           - A **LINK** line only says a port came up. It doesn't say what was plugged in, so it doesn't count.
            - A **MAC_NEW** line names a new device and its port. On the wire, a device's address is called its **MAC**. In this lab the box's MAC matches its BSSID.
         4. Click [[lansw]], press **Edit** on that port, then press **Shut port down**. It takes effect at once, so you don't need to press Save.
       `,
@@ -268,7 +270,7 @@ export const watchTheAirLab: LabDef = {
         {
           id: 'marked',
           label: 'Mark each network the [[desk]] hears',
-          hint: 'Two of the three are on the approved list. Compare each BSSID with the list on [[wap]].',
+          hint: 'Two of the three are on the approved list. Compare each BSSID with the list on [[wap]]. The last few characters are enough to tell them apart.',
           check: ({ sim }) => {
             const m = marks(sim);
             return m[BSSID.wap] === 'approved' && m[BSSID.wap2] === 'approved' && m[BSSID.rogue] === 'unknown';
@@ -309,14 +311,18 @@ export const watchTheAirLab: LabDef = {
       id: 'lookalike',
       title: "A name that's almost right",
       body: md`
-        A volunteer unplugged the box and locked it in the office. A few minutes later, a new network appears: **${LOOKALIKE}**. The real one is **${SSID}**, with a dash. This one has an underscore and is open: no encryption and no sign-in. A network made to look like yours is an **evil twin**. The map calls it Lookalike radio.
+        A volunteer unplugged the box and locked it in the office. A few minutes later, a new network appears: **${LOOKALIKE}**. The real one is **${SSID}**, with a dash. This one has an underscore and is open. A network made to look like yours is an **evil twin**. The map calls it Lookalike radio.
 
         1. Scan from the [[desk]] again and mark the new network.
-        2. Press **The radio copies the name and the security**. Now the copy has the exact name and WPA3. Its radio is stronger, so in parts of the gym it is louder than the real network. Read the lines under the button and watch the map. Scan again to see the copy.
+        2. Press **The radio copies the name and the security**. The copy now has the exact name and WPA3, and its stronger radio is louder in parts of the gym. Read the lines under the button. Scan again to see the copy.
 
-        A device moves to the louder of two radios with the same name and security. That is how it stays connected as you walk around a big building. Before it sends a login, it can check the shelter's sign-in server, named **${SERVER}**. The real server shows a **certificate**, a digital ID card. Anyone can copy the card, but only the real server has the secret key that proves the card is its own.
+        How a device decides:
 
-        Every device set up at the desk has a **saved profile** that names that server, so it checks the certificate first. Mr. Okafor arrived this afternoon. A volunteer typed his login in by hand and skipped the profile, so his phone never checks. (A real device joins the copy for a moment to ask for proof, then comes back. The simulation skips that short visit.)
+        - It moves to the louder of two radios with the same name and security.
+        - With a **saved profile**, it first asks the sign-in server, **${SERVER}**, for its **certificate**, a digital ID card. Anyone can copy the card. Only the real server has the secret key that proves the card is its own.
+        - The desk saves a profile on every device it sets up. Mr. Okafor's login was typed in by hand with no profile, so his phone never checks.
+
+        (A real device joins the copy for a moment to ask for proof, then comes back. The simulation skips that.)
       `,
       setup: setupLookalike,
       focus: ['twin', 'visitor', 'phone1', 'desk'],
@@ -451,13 +457,13 @@ export const watchTheAirLab: LabDef = {
       body: md`
         Later that evening, every device in the gym loses the Wi-Fi at once, and none can get back on. Is the access point broken? Collect evidence before you decide.
 
-        **Noise** is radio energy on a channel that isn't a Wi-Fi message, like static on a car radio. A quiet channel reads about 5 on a scale of 0 to 100. A **jammer** is a radio that fills a channel with noise, so other radios can't be heard.
+        **Noise** is radio energy on a channel that isn't a Wi-Fi message, like the hiss on a car radio between stations. A quiet channel reads about 5 on a scale of 0 to 100. A **jammer** is a radio that fills a channel with noise, so other radios can't be heard.
 
         1. Click [[lansw]] and check the state of port 1, where the access point is plugged in.
         2. Scan from the [[desk]] and read the noise on each channel.
         3. Open the **Logs** tab and click the newest noise line from Shelter Wi-Fi.
 
-        (The scan can still list Shelter-WiFi, because a scanner only needs to hear the access point once in a while. Staying connected needs most messages to get through.)
+        (The scan can still list Shelter-WiFi, because a scanner only needs to hear the access point sometimes. Staying connected needs most messages to get through.)
       `,
       setup: (sim) => {
         setupAfterTwin(sim);
@@ -550,7 +556,7 @@ export const watchTheAirLab: LabDef = {
 
         The [[wap]] can run four alarm rules. Three watch the air. The fourth reads the [[lansw]] switch's log, because a rogue box shows up on the wire too. The access point also saved a record of the last 14 days, so you can test your choices before you trust them. It may also hold an attack nobody noticed at the time.
 
-        An alarm that goes off when nothing is wrong is a **false alarm**, also called a false positive. An attack that raises no alarm is a **miss**.
+        An alarm that rings when nothing is wrong is a **false alarm**, also called a false positive. An attack that raises no alarm is a **miss**.
 
         1. In **Wireless alarms**, turn on all four rules.
         2. Press **Replay the last 14 days** and read the results.
