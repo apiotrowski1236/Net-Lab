@@ -253,7 +253,7 @@ export const ROWS = {
   scan22: rowsWhere('ufw', (f) => f.src === IP.scanner && f.dport === 22)[0],
   scan25: rowsWhere('ufw', (f) => f.src === IP.scanner && f.dport === 25)[0],
   /** Scan rows on ports where a program listens for the internet (MySQL, SMB, VNC, SSH): Part A's choices. */
-  served: rowsWhere('ufw', (f) => f.src === IP.scanner && [3306, 445, 5900, 22].includes(Number(f.dport))),
+  served: rowsWhere('ufw', (f) => f.src === IP.scanner && [3306, 445, 5900].includes(Number(f.dport))),
   probes: rowsWhere('access', (f) => f.src === IP.scanner && f.status === 404),
   traversal: rowsWhere('access', (f) => String(f.path).includes('..')),
   /** How many rows each file had before the lab began. */

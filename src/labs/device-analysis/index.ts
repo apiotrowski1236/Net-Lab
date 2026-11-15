@@ -215,7 +215,7 @@ const rescan: ActionDef = {
     return [
       {
         tone: 'good',
-        text: `The scan pinged web01 to check it was up. (ufw has built-in rules, checked before the numbered list, that let ping through.) Then it tried ${RESCAN_PORTS.length} ports. ufw blocked ${blocked} packets and wrote a line for each in ufw.log. Ports ${open.join(', ')} answered, and ufw wrote nothing about them.`,
+        text: `The scan pinged web01 (sent a small “are you there?” message) to check it was up. (ufw has built-in rules, checked before the numbered list, that let ping through.) Then it tried ${RESCAN_PORTS.length} ports. ufw blocked ${blocked} packets and wrote a line for each in ufw.log. Ports ${open.join(', ')} answered, and ufw wrote nothing about them.`,
       },
     ];
   },
@@ -314,11 +314,11 @@ export const deviceAnalysisLab: LabDef = {
         2. Remote administration (SSH, remote desktop, screen sharing) is allowed only from the office network, 192.0.2.0/24.
         3. Files from outside the office move only over encrypted connections: **SFTP** (file transfer over SSH), never FTP. Bayline Farms uploads its nightly order file this way.
 
-        The /24 in 192.0.2.0/24 means the first three numbers stay the same. So the office network is every address that starts with 192.0.2, like Jo's laptop, 192.0.2.15.
+        The /24 in 192.0.2.0/24 means the first three numbers stay the same. So the office network is every address that starts with 192.0.2, like Jo's laptop, 192.0.2.15. A /16 keeps the first two numbers the same, and a /8 only the first.
 
         Click **web01** on the map. Scroll to **Firewall rules (ufw)**. This is a **host-based firewall**: it runs on the computer it protects and checks every packet that arrives. ufw checks the rules from the top, and the first rule that matches a packet decides. Rule 10 denies everything, so anything the rules above it don't allow is blocked.
 
-        Next, see which programs are **listening**: waiting for connections on a port. In the Toolkit's **Terminal**, type \`ss -tuln\` and press Enter. (\`-t\` means TCP, \`-u\` UDP, \`-l\` listening, \`-n\` numbers instead of names.) Press **Bigger** if the output doesn't fit.
+        Next, see which programs are **listening**: waiting for connections on a port. Press **Bigger** on the Toolkit's **Terminal**, so the whole list fits. Then type \`ss -tuln\` and press Enter. (\`-t\` means TCP, \`-u\` UDP, \`-l\` listening, \`-n\` numbers instead of names.)
 
         Some programs listen only on 127.0.0.1, the server's address for talking to itself. Nothing outside the server can reach those.
       `,
@@ -423,7 +423,7 @@ export const deviceAnalysisLab: LabDef = {
       body: md`
         Linux servers keep **log files** in /var/log. Each line records one event, starting with the date and time. **/var/log/auth.log** records sign-ins: who, from which address, and whether it worked.
 
-        Open the **Log files** card in the Toolkit and pick **auth.log**. The number at the left of each line is its **row**. On the exam, you cite rows as evidence. (Here each failed sign-in writes one line. A real server writes two or three.)
+        Open the **Log files** card in the Toolkit and pick **auth.log**. The number at the left of each line is its **row**. On the exam, you cite rows as evidence: you write their row numbers to show where you found something. (Here each failed sign-in writes one line. A real server writes two or three.)
 
         Three kinds of lines matter:
 
@@ -479,7 +479,7 @@ export const deviceAnalysisLab: LabDef = {
 
     {
       id: 'ufw-log',
-      title: 'Blocked at the door',
+      title: 'What ufw blocked',
       body: md`
         **/var/log/ufw.log** has a line for every packet the firewall blocked. Here's how to read one:
 
@@ -504,7 +504,7 @@ export const deviceAnalysisLab: LabDef = {
         {
           id: 'rule-25',
           kind: 'choice',
-          prompt: `Row ${ROWS.scan25} of ufw.log shows a knock on port 25 (DPT=25). Which rule blocked it?`,
+          prompt: `Row ${ROWS.scan25} of ufw.log shows a try on port 25 (DPT=25). Which rule blocked it?`,
           options: [
             { id: 'r10', text: 'Rule 10: DENY everything from Anywhere', correct: true },
             { id: 'r1', text: 'Rule 1: DENY 22/tcp from 203.0.113.140', feedback: `Rule 1 matches 203.0.113.140 only on port 22. The DPT=22 line, row ${ROWS.scan22}, is rule 1's.` },
@@ -515,7 +515,7 @@ export const deviceAnalysisLab: LabDef = {
             },
             { id: 'r9', text: 'Rule 9: ALLOW 445/tcp from 192.0.2.0/24', feedback: 'Rule 9 allows. It’s for port 445 from the office.' },
           ],
-          explain: 'No rule from 1 to 9 matches port 25 from 203.0.113.140. Rule 10 matches everything, so it blocks the packet, and ufw logs it.',
+          explain: 'No rule from 1 to 9 matches port 25 from 203.0.113.140. Rule 10 matches everything, so it blocks the packet. On this server every DENY rule logs, so ufw writes the line.',
         },
         cite(
           'scan-rows',
@@ -534,7 +534,7 @@ export const deviceAnalysisLab: LabDef = {
       body: md`
         The spray came from 203.0.113.77. Block it with a firewall rule.
 
-        ufw changes the rules from the Terminal. Changing them takes administrator rights, so on a real server the command starts with \`sudo\`. (Here you can leave it off.)
+        ufw changes the rules from the Terminal. Changing them takes administrator rights, so on a real server the command starts with \`sudo\`. (Here it works with or without \`sudo\`.)
 
         1. Press **Bigger** on the Terminal, so the whole rule list fits. Type \`sudo ufw deny from 203.0.113.77\`. Then type \`ufw status numbered\` to see where the new rule went.
         2. Replay the spray: [[button:spray]]
@@ -592,9 +592,14 @@ export const deviceAnalysisLab: LabDef = {
         2. Press [[button:bot]]. [[bot]] starts guessing passwords.
         3. Read **fail2ban.log**, then **ufw.log**. Then open the **Inspect** tab and find the new rule at the top of web01's firewall rules.
 
-        When fail2ban starts, it reads back through the last 10 minutes of auth.log. So your replays from step 5 can show up as Found lines for 203.0.113.77. That's fewer than 5, so no ban. In fail2ban.log, \`maxRetry: 5\` is the limit, \`findtime: 600\` is 600 seconds (10 minutes), and \`banTime: 600\` is how long a ban lasts. fail2ban calls each service it watches a **jail**. Here the jail is sshd.
+        When fail2ban starts, it reads back through the last 10 minutes of auth.log. Your step 5 replays can show up there as Found lines for 203.0.113.77. If there are 5 or more, fail2ban bans 203.0.113.77 too.
 
-        (If your step 5 rule blocked all of 203.0.113.0/24, it now covers only 203.0.113.77, so [[bot]] can reach SSH.)
+        | In fail2ban.log | Meaning |
+        |---|---|
+        | \`maxRetry: 5\` | failures allowed before a ban |
+        | \`findtime: 600\` | counted over 600 seconds (10 minutes) |
+        | \`banTime: 600\` | how long a ban lasts |
+        | **jail** | a service fail2ban watches (here, sshd) |
       `,
       setup: (sim) => {
         ensureSprayBlocked(sim);
@@ -608,7 +613,7 @@ export const deviceAnalysisLab: LabDef = {
         {
           id: 'banned',
           label: 'fail2ban bans the bot',
-          hint: 'With fail2ban on, press the button and wait for all 8 guesses.',
+          hint: 'With fail2ban on, press the button and wait for all 8 guesses. (If your step 5 rule blocked all of 203.0.113.0/24, this step changed it to block only 203.0.113.77, so the bot can reach SSH.)',
           check: ({ sim, since }) => liveBans(sim, since).has(botIp(sim)),
         },
         {
@@ -653,7 +658,7 @@ export const deviceAnalysisLab: LabDef = {
         2. Press [[button:botnet]] one more time. Scroll to the bottom of auth.log and read the new lines.
         3. Check that Jo can still get in: [[button:jo]]
 
-        Turning off password sign-in makes sshd reload its settings: that's the "Received SIGHUP" line. After that, each try ends with [preauth]: sshd closed the connection before anyone signed in, without checking a password.
+        Turning off password sign-in makes sshd reload its settings: that's the "Received SIGHUP" line. After that, each try ends with [preauth]: sshd closed the connection before anyone signed in, without checking a password. (root shows "authenticating user" because it's a real account, and the others show "invalid user".)
 
         Two other countermeasures for SSH: **multi-factor authentication** (MFA) asks for a second proof, like a code from a phone. A **VPN** (virtual private network) is an encrypted connection into the office network from outside, so the firewall can keep SSH open to office addresses only.
       `,
@@ -678,7 +683,8 @@ export const deviceAnalysisLab: LabDef = {
           hint: 'After turning off password sign-in, press the Jo button.',
           check: ({ sim, since }) => {
             const off = passwordsOffAt(sim);
-            return off !== undefined && loggedSince(sim, WEB, Math.max(since, off), (e) => e.fields?.file === 'auth' && e.fields.user === 'jo' && e.fields.result === 'accepted');
+            // The goal waits for Jo's laptop to get the answer, so it checks off with the result under the button.
+            return off !== undefined && (sim.dev('jo').conns ?? []).some((c) => c.tag === 'jo' && c.t >= Math.max(since, off) && c.status === 'open');
           },
         },
       ],
@@ -716,7 +722,7 @@ export const deviceAnalysisLab: LabDef = {
         2. Remote administration (SSH, remote desktop, screen sharing) is allowed only from the office network, 192.0.2.0/24.
         3. Files from outside the office move only over encrypted connections: SFTP (file transfer over SSH), never FTP. Bayline Farms uploads its nightly order file this way.
 
-        Compare the policy with [[web01]]'s rules. Type \`ufw status numbered\` to list them in the Terminal.
+        Compare the policy with [[web01]]'s rules. Press **Bigger** on the Terminal, then type \`ufw status numbered\` to list them.
 
         Then fix two of them:
 
@@ -732,7 +738,7 @@ export const deviceAnalysisLab: LabDef = {
 
         Answer the prediction question before you test. Then test: [[button:jo]] [[button:vendor]]
 
-        If a test fails, add one more rule above the final DENY. Use the same command as the office rule, with the network that lost access in place of 192.0.2.0/24. The map shows each network's address.
+        If a test fails, add one more rule above the final DENY: use the same command as the office rule, with the final DENY's number for N and the network that lost access in place of 192.0.2.0/24. The map shows each network's address.
       `,
       tools: [term(['ufw', 'ss', 'grep', 'tail'])],
       actions: [jo, vendor],
@@ -767,7 +773,7 @@ export const deviceAnalysisLab: LabDef = {
             { id: 'https', text: 'ALLOW 443/tcp from Anywhere (HTTPS)', feedback: 'The website is the one thing the policy opens to the internet.' },
             { id: 'vnc', text: 'ALLOW 5900/tcp from 192.0.2.15 (screen sharing)', feedback: '192.0.2.15 is Jo’s laptop, inside the office network. That fits the policy.' },
           ],
-          explain: 'Rules 6 and 9 (MySQL and file sharing) allow only the office, which fits. This step fixes SSH and FTP. Remote desktop stays open: closing it is the optional extra challenge after you submit.',
+          explain: 'The MySQL and file sharing rules (6 and 9 in the weekend’s table) allow only the office, which fits. This step fixes SSH and FTP. Remote desktop stays open: closing it is the optional extra challenge after you submit.',
         },
         {
           id: 'predict',
@@ -814,7 +820,7 @@ export const deviceAnalysisLab: LabDef = {
           kind: 'text',
           label: 'A',
           prompt:
-            `Pick one of rows ${ROWS.served.slice(0, -1).join(', ')}, or ${ROWS.served.at(-1)} of ufw.log: weekend tries on ports where a program is listening. Cite the row and name the rule in the table that blocked it. Explain how that rule matched. Then suppose the co-op needed that service open: describe a rule change that would allow it, and the impact of that change.`,
+            `Pick one of rows ${ROWS.served.slice(0, -1).join(', ')}, or ${ROWS.served.at(-1)} of ufw.log: weekend tries on services that only the office may use. (1) Cite the row. (2) Name the rule in the table that blocked it. (3) Explain how that rule matched. (4) Suppose the co-op needed that service open to the internet: describe a rule change that would allow it, and the impact of that change.`,
           minWords: 25,
           lines: 5,
         },
@@ -878,9 +884,9 @@ export const deviceAnalysisLab: LabDef = {
 
         Open **access.log**. Most lines are customers using web browsers. Then find the lines from 203.0.113.140, the address from ufw.log. Its user agent is curl, a command-line tool, not a browser.
 
-        First, it asked for files that websites sometimes leave out by mistake: /.env (passwords and settings), /.git/config (the site's code history), and admin pages. Every answer was 404. Looking for weak spots like this is **reconnaissance**.
+        First, it asked for files that websites sometimes show to everyone by mistake: /.env (passwords and settings), /.git/config (the site's code history), and admin pages. Every answer was 404. Looking for weak spots like this is **reconnaissance**.
 
-        Then it asked for paths with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them lead out of the web folder to the top of the disk, where /etc/passwd lists the server's accounts. Using \`..\` to read files outside the web folder is **directory traversal**.
+        Then it asked for paths with \`..\` in them. \`..\` means "the folder above," and \`%2f\` is how a web address writes \`/\`. Enough of them lead out of the web folder to the top of the disk, where /etc/passwd lists the server's accounts and /etc/shadow holds their password hashes. Using \`..\` to read files outside the web folder is **directory traversal**.
 
         This challenge earns no points. Hand in your work again when you're done so your teacher sees it.
       `,

@@ -91,8 +91,8 @@ describe('device-analysis: the weekend in the logs', () => {
 
 describe('device-analysis: citing rows', () => {
   it('offers Part A only scan rows where a program listens for the internet', () => {
-    expect(ROWS.served).toEqual([4, 7, 10, 11]);
-    expect(deviceAnalysisLab.steps.find((s) => s.id === 'write-up')!.questions![0].prompt).toMatch(/^Pick one of rows 4, 7, 10, or 11 of ufw\.log:/);
+    expect(ROWS.served).toEqual([4, 7, 10]);
+    expect(deviceAnalysisLab.steps.find((s) => s.id === 'write-up')!.questions![0].prompt).toMatch(/^Pick one of rows 4, 7, or 10 of ufw\.log:/);
   });
 
   it('reads ranges and lists however they are written', () => {
@@ -236,6 +236,28 @@ describe('device-analysis: a step 6 rule for the whole network', () => {
     step(id).actions!.find((a) => a.id === action)!.run(sim);
     sim.runUntilIdle();
   };
+
+  it('step 7: Jo’s goal checks off only once the laptop has its answer, and only after passwords are off', () => {
+    const sim = buildCoop();
+    const s = enter(sim, 'keys');
+    press(sim, 'keys', 'jo');
+    expect(goals(sim, 'keys', s).jo).toBe(false);
+    sim.linuxSet(WEB, 'passwords', false);
+    sim.runUntilIdle();
+    step('keys').actions!.find((a) => a.id === 'jo')!.run(sim);
+    let sawAcceptedFirst = false;
+    for (let i = 0; i < 300 && !goals(sim, 'keys', s).jo; i++) {
+      sim.advance(10);
+      const c = lastConn(sim, 'jo', s, 'jo')!;
+      if (c.status === 'pending' && rowsSince(sim, 'auth', s).some((e) => e.fields?.user === 'jo' && e.fields.result === 'accepted')) {
+        sawAcceptedFirst = true;
+        expect(goals(sim, 'keys', s).jo).toBe(false);
+      }
+    }
+    expect(sawAcceptedFirst).toBe(true);
+    expect(goals(sim, 'keys', s).jo).toBe(true);
+    expect(outcome(sim, 'keys', 'jo', s)).toMatch(/Jo signed in with a key/);
+  });
 
   it('denying 203.0.113.0/24 in step 6 still lets fail2ban ban the bot, and the botnet reach sshd', () => {
     const sim = buildCoop();
