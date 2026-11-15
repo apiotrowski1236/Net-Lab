@@ -3,6 +3,16 @@
 The full lesson as students see it. An implementer turns this into `index.ts`,
 `scenario.ts`, `solution.ts`, and the sim and UI features listed at the end.
 
+## Student panel review (six rounds)
+
+A simulated student panel ran the lab six times. Its fixes changed the step text, so `index.ts` is now the source of truth for wording, and the text below can be out of date. The changes that affect the design:
+
+- Step 5 has one goal for each course example (`wep`, `pings`, `beacon`), and each checks the exact likelihood and impact, not only the rating.
+- Step 8's goal accepts WPA2 or WPA3, and its label says so.
+- `scenario.ts` pre-seeds the ARP entries the home probe needs, so step 9's probe runs in about half the time.
+- The Toolkit's hardening card shows desk ports with MAC filtering, and shows VPN split tunneling as on or off.
+- `minutes` is 60, the panel's median plus a small margin.
+
 ## Changes made while building
 
 The lesson text, goals, and questions are as scripted below, except where the

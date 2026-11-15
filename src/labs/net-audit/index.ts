@@ -61,7 +61,7 @@ export const netAuditLab: LabDef = {
   unit: 3,
   codehs: [],
   ced: ['3.1.B', '3.1.C', '3.2.A'],
-  minutes: 55,
+  minutes: 60,
   objectives: [
     'Run an automated vulnerability scanner and read its report of findings, severity, and fixes.',
     'Rate each risk by likelihood and impact, using exploit difficulty and the CIA triad.',
